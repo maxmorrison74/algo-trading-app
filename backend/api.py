@@ -12,6 +12,8 @@ from datetime import datetime
 import math
 import json
 import requests
+# Carica le variabili d'ambiente prima di leggere gli env
+load_dotenv()
 
 # Variabili Telegram
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
@@ -43,8 +45,6 @@ def load_db():
 def save_db(state_dict):
     with open(DB_FILE, "w") as f:
         json.dump(state_dict, f)
-
-load_dotenv()
 
 app = FastAPI(title="AlgoTrading Backend")
 
