@@ -341,8 +341,8 @@ def get_status():
             if sym not in pos_dict:
                 pos_dict[sym] = "LIQUID"
 
-        # Calcoliamo il portfolio_value virtuale per lo status (market_value dello short è negativo ma ai fini del portfolio value lo calcoliamo)
-        pos_market_value = sum((float(p.market_value) if p.side == 'long' else -float(p.market_value)) for p in positions if p.symbol in bot_state.target_symbols)
+        # Calcoliamo il portfolio_value virtuale per lo status (market_value dello short è già negativo)
+        pos_market_value = sum(float(p.market_value) for p in positions if p.symbol in bot_state.target_symbols)
         virtual_portfolio_value = bot_state.virtual_cash + pos_market_value
 
         clock = alpaca.get_clock()

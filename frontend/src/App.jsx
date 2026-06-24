@@ -104,7 +104,7 @@ function App() {
               <div style={{ flex: '1 1 20%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Capitale Investito</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#38bdf8' }}>
-                  ${((status.portfolio_value || 0) - (status.cash || 0)).toFixed(2)}
+                  ${(Object.values(status.positions || {}).reduce((sum, p) => sum + (p !== "LIQUID" ? Math.abs(p.market_value || 0) : 0), 0)).toFixed(2)}
                 </div>
               </div>
               <div style={{ flex: '1 1 20%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
