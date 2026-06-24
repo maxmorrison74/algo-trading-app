@@ -76,7 +76,7 @@ function App() {
       <header className="header">
         <div className="brand">
           <Cpu size={32} className="brand-icon" />
-          <h1 className="title">Scanner Multi-Asset IA</h1>
+          <h1 className="title">Morrison Asset Scanner</h1>
         </div>
         <div className="status-badge" style={{ display: 'flex', gap: '1rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', background: 'rgba(0,0,0,0.2)', padding: '0.2rem 0.8rem', borderRadius: '20px' }}>
