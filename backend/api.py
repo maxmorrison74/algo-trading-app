@@ -15,18 +15,19 @@ import requests
 # Carica le variabili d'ambiente prima di leggere gli env
 load_dotenv()
 
-# Variabili Telegram
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
-
 def send_telegram_message(message: str):
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    if not bot_token or not chat_id:
+        print("Telegram non configurato in .env")
         return
-    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": message}
+    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+    payload = {"chat_id": chat_id, "text": message}
     try:
         # Timeout corto per non bloccare troppo il bot
-        requests.post(url, json=payload, timeout=2)
+        res = requests.post(url, json=payload, timeout=2)
+        if res.status_code != 200:
+            print(f"Errore da Telegram: {res.text}")
     except Exception as e:
         print(f"Errore invio Telegram: {e}")
 
@@ -140,159 +141,161 @@ class BotState:
 bot_state = BotState()
 
 async def trading_loop():
-    print("Trading Loop Multi-Asset avviato...")
+    print("Inizio ciclo di trading in background...")
+    bot_state.add_log("🟢 Scanner Avviato. Il bot è ora operativo.")
     while bot_state.is_running:
         try:
-            print(f"[{datetime.now().strftime('%H:%M:%S')}] Scansione mercato...")
-            # Screener Dinamico: se non abbiamo target, cerchiamo quelli < 30$
-            if not bot_state.target_symbols:
-                bot_state.add_log("Avvio Screener Dinamico sul mercato...")
-                valid_symbols = []
-                for sym in POOL_TICKERS:
-                    try:
-                        trade = alpaca.get_latest_trade(sym)
-                        if trade.price < 30.0:
-                            valid_symbols.append((sym, trade.price))
-                    except:
-                        pass
-                # Garantiamo che MRNA sia sempre presente come richiesto
-                scanned = ["MRNA"]
-                for s in valid_symbols:
-                    if s[0] != "MRNA" and len(scanned) < 5:
-                        scanned.append(s[0])
+            if alpaca:
+                print(f"[{datetime.now().strftime('%H:%M:%S')}] Scansione mercato...")
+                # Screener Dinamico: se non abbiamo target, cerchiamo quelli < 30$
+                if not bot_state.target_symbols:
+                    bot_state.add_log("Avvio Screener Dinamico sul mercato...")
+                    valid_symbols = []
+                    for sym in POOL_TICKERS:
+                        try:
+                            trade = alpaca.get_latest_trade(sym)
+                            if trade.price < 30.0:
+                                valid_symbols.append((sym, trade.price))
+                        except:
+                            pass
+                    # Garantiamo che MRNA sia sempre presente come richiesto
+                    scanned = ["MRNA"]
+                    for s in valid_symbols:
+                        if s[0] != "MRNA" and len(scanned) < 5:
+                            scanned.append(s[0])
                 
-                if scanned:
-                    bot_state.target_symbols = scanned
-                    bot_state.latest_predictions = {sym: "In attesa" for sym in scanned}
-                    bot_state.add_log(f"Screener: Selezionati {', '.join(scanned)} (<30$)")
-                else:
-                    bot_state.add_log("Screener: Nessun ticker valido trovato. Riprovo...")
-                    await asyncio.sleep(30)
-                    continue
+                    if scanned:
+                        bot_state.target_symbols = scanned
+                        bot_state.latest_predictions = {sym: "In attesa" for sym in scanned}
+                        bot_state.add_log(f"Screener: Selezionati {', '.join(scanned)} (<30$)")
+                    else:
+                        bot_state.add_log("Screener: Nessun ticker valido trovato. Riprovo...")
+                        await asyncio.sleep(30)
+                        continue
 
-            # Recuperiamo dati conto
-            positions = alpaca.list_positions()
+                # Recuperiamo dati conto
+                positions = alpaca.list_positions()
             
-            # Simuliamo l'inferenza del modello per ogni ticker
-            for symbol in bot_state.target_symbols:
-                prediction_prob = 50.0
-                if super_model:
-                    try:
-                        # Scarichiamo gli ultimi 6 mesi usando il ticker tradotto per yfinance
-                        yf_sym = get_yf_symbol(symbol)
-                        # Usiamo 1h invece di 1d per analisi intraday
-                        df = fetch_historical_data(yf_sym, period="1y", interval="1h")
-                        X, _, _ = super_model.prepare_features(df)
+                # Simuliamo l'inferenza del modello per ogni ticker
+                for symbol in bot_state.target_symbols:
+                    prediction_prob = 50.0
+                    if super_model:
+                        try:
+                            # Scarichiamo gli ultimi 6 mesi usando il ticker tradotto per yfinance
+                            yf_sym = get_yf_symbol(symbol)
+                            # Usiamo 1h invece di 1d per analisi intraday
+                            df = fetch_historical_data(yf_sym, period="1y", interval="1h")
+                            X, _, _ = super_model.prepare_features(df)
                         
-                        y_pred_prob = super_model.predict(X)
-                        prediction_prob = float(y_pred_prob) * 100
-                        if math.isnan(prediction_prob):
-                            print(f"Attenzione: inferenza ha restituito NaN per {symbol}")
+                            y_pred_prob = super_model.predict(X)
+                            prediction_prob = float(y_pred_prob) * 100
+                            if math.isnan(prediction_prob):
+                                print(f"Attenzione: inferenza ha restituito NaN per {symbol}")
+                                prediction_prob = 50.0
+                            bot_state.latest_predictions[symbol] = f"{prediction_prob:.1f}% UP"
+                        except Exception as e:
+                            print(f"Errore inferenza per {symbol}: {e}")
                             prediction_prob = 50.0
-                        bot_state.latest_predictions[symbol] = f"{prediction_prob:.1f}% UP"
-                    except Exception as e:
-                        print(f"Errore inferenza per {symbol}: {e}")
-                        prediction_prob = 50.0
-                else:
-                    prediction_prob = random.uniform(20.0, 80.0)
-                    bot_state.latest_predictions[symbol] = f"{prediction_prob:.1f}% (TEST)"
+                    else:
+                        prediction_prob = random.uniform(20.0, 80.0)
+                        bot_state.latest_predictions[symbol] = f"{prediction_prob:.1f}% (TEST)"
                 
-                # Cerchiamo la posizione attuale su questo simbolo
-                position = next((p for p in positions if p.symbol == symbol), None)
+                    # Cerchiamo la posizione attuale su questo simbolo
+                    position = next((p for p in positions if p.symbol == symbol), None)
                 
-                # --- RISK MANAGEMENT: Stop Loss & Take Profit ---
-                if position:
-                    unrealized_plpc = float(position.unrealized_plpc)
-                    is_crypto = '/' in symbol
-                    tif = 'gtc' if is_crypto else 'day'
+                    # --- RISK MANAGEMENT: Stop Loss & Take Profit ---
+                    if position:
+                        unrealized_plpc = float(position.unrealized_plpc)
+                        is_crypto = '/' in symbol
+                        tif = 'gtc' if is_crypto else 'day'
                     
-                    if unrealized_plpc <= -0.02:  # Stop Loss al -2%
-                        alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell' if position.side == 'long' else 'buy', type='market', time_in_force=tif)
-                        bot_state.add_log(f"STOP LOSS SCATTATO: {symbol} chiuso al {unrealized_plpc*100:.2f}%")
-                        latest_trade = alpaca.get_latest_trade(symbol)
-                        cash_change = float(position.qty) * latest_trade.price
-                        if position.side == 'long': bot_state.virtual_cash += cash_change
-                        else: bot_state.virtual_cash -= cash_change
-                        bot_state.save_state()
-                        continue  # Salta inferenza
-                        
-                    elif unrealized_plpc >= 0.05:  # Take Profit al +5%
-                        alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell' if position.side == 'long' else 'buy', type='market', time_in_force=tif)
-                        bot_state.add_log(f"TAKE PROFIT SCATTATO: {symbol} chiuso al {unrealized_plpc*100:.2f}%")
-                        latest_trade = alpaca.get_latest_trade(symbol)
-                        cash_change = float(position.qty) * latest_trade.price
-                        if position.side == 'long': bot_state.virtual_cash += cash_change
-                        else: bot_state.virtual_cash -= cash_change
-                        bot_state.save_state()
-                        continue  # Salta inferenza
-                
-                # Regola LONG / BUY
-                is_crypto = '/' in symbol
-                if prediction_prob >= bot_state.aggressiveness:
-                    pos_side = position.side if position else None
-                    if pos_side == 'short':
-                        # Chiudiamo lo short
-                        try:
-                            alpaca.submit_order(symbol=symbol, qty=position.qty, side='buy', type='market', time_in_force='day')
-                            bot_state.add_log(f"COVER SHORT {position.qty} {symbol} (Prob salita a {prediction_prob:.1f}%)")
+                        if unrealized_plpc <= -0.02:  # Stop Loss al -2%
+                            alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell' if position.side == 'long' else 'buy', type='market', time_in_force=tif)
+                            bot_state.add_log(f"STOP LOSS SCATTATO: {symbol} chiuso al {unrealized_plpc*100:.2f}%")
                             latest_trade = alpaca.get_latest_trade(symbol)
-                            bot_state.virtual_cash -= (float(position.qty) * latest_trade.price)
+                            cash_change = float(position.qty) * latest_trade.price
+                            if position.side == 'long': bot_state.virtual_cash += cash_change
+                            else: bot_state.virtual_cash -= cash_change
                             bot_state.save_state()
-                        except Exception as e:
-                            print(f"Errore cover short {symbol}: {e}")
-                            
-                    elif not position or is_crypto:
-                        # Calcolo dinamico
-                        confidence_scale = (prediction_prob - bot_state.aggressiveness) / (100.0 - bot_state.aggressiveness) if (100.0 - bot_state.aggressiveness) > 0 else 1.0
-                        allocation_pct = 0.25 + (0.25 * confidence_scale)
-                        max_trade_amount = bot_state.virtual_cash * allocation_pct
+                            continue  # Salta inferenza
                         
-                        try:
+                        elif unrealized_plpc >= 0.05:  # Take Profit al +5%
+                            alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell' if position.side == 'long' else 'buy', type='market', time_in_force=tif)
+                            bot_state.add_log(f"TAKE PROFIT SCATTATO: {symbol} chiuso al {unrealized_plpc*100:.2f}%")
                             latest_trade = alpaca.get_latest_trade(symbol)
-                            current_price = latest_trade.price
-                            
-                            tif = 'gtc' if is_crypto else 'day'
-                            
-                            if current_price > 0:
-                                if is_crypto:
-                                    # Le crypto costano tanto, usiamo sempre frazioni
-                                    trade_amount = round(max_trade_amount, 2)
-                                    if trade_amount >= 1.0 and trade_amount <= bot_state.virtual_cash:
-                                        alpaca.submit_order(symbol=symbol, notional=trade_amount, side='buy', type='market', time_in_force=tif)
-                                        bot_state.add_log(f"BUY CRYPTO {trade_amount}$ {symbol} | Prob: {prediction_prob:.1f}%")
-                                        bot_state.virtual_cash -= trade_amount
-                                        bot_state.save_state()
-                                else:
-                                    # Azioni sotto i 30$, usiamo quantità intere
-                                    qty_to_buy = math.floor(max_trade_amount / current_price)
-                                    if qty_to_buy > 0 and (qty_to_buy * current_price) <= bot_state.virtual_cash:
-                                        alpaca.submit_order(symbol=symbol, qty=qty_to_buy, side='buy', type='market', time_in_force=tif)
-                                        bot_state.add_log(f"BUY LONG {qty_to_buy} {symbol} | Prob: {prediction_prob:.1f}%")
-                                        bot_state.virtual_cash -= (qty_to_buy * current_price)
-                                        bot_state.save_state()
-                        except Exception as e:
-                            print(f"Errore calcolo ordine long {symbol}: {e}")
+                            cash_change = float(position.qty) * latest_trade.price
+                            if position.side == 'long': bot_state.virtual_cash += cash_change
+                            else: bot_state.virtual_cash -= cash_change
+                            bot_state.save_state()
+                            continue  # Salta inferenza
                 
-                # Regola SHORT / SELL
-                elif prediction_prob <= (100.0 - bot_state.aggressiveness):
-                    pos_side = position.side if position else None
+                    # Regola LONG / BUY
                     is_crypto = '/' in symbol
-                    tif = 'gtc' if is_crypto else 'day'
-                    
-                    if pos_side == 'long':
-                        # Dobbiamo liquidare il long
-                        try:
-                            alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell', type='market', time_in_force=tif)
-                            bot_state.add_log(f"SELL LONG {position.qty} {symbol} (Prob scesa a {prediction_prob:.1f}%)")
-                            latest_trade = alpaca.get_latest_trade(symbol)
-                            bot_state.virtual_cash += (float(position.qty) * latest_trade.price)
-                            bot_state.save_state()
-                        except Exception as e:
-                            print(f"Errore sell long {symbol}: {e}")
+                    if prediction_prob >= bot_state.aggressiveness:
+                        pos_side = position.side if position else None
+                        if pos_side == 'short':
+                            # Chiudiamo lo short
+                            try:
+                                alpaca.submit_order(symbol=symbol, qty=position.qty, side='buy', type='market', time_in_force='day')
+                                bot_state.add_log(f"COVER SHORT {position.qty} {symbol} (Prob salita a {prediction_prob:.1f}%)")
+                                latest_trade = alpaca.get_latest_trade(symbol)
+                                bot_state.virtual_cash -= (float(position.qty) * latest_trade.price)
+                                bot_state.save_state()
+                            except Exception as e:
+                                print(f"Errore cover short {symbol}: {e}")
                             
-                    elif not position and not is_crypto:
-                        # Apriamo uno SHORT (SOLO SE NON E' CRYPTO)
-                        confidence_scale = ((100.0 - bot_state.aggressiveness) - prediction_prob) / (100.0 - bot_state.aggressiveness) if (100.0 - bot_state.aggressiveness) > 0 else 1.0
+                        elif not position or is_crypto:
+                            # Calcolo dinamico
+                            confidence_scale = (prediction_prob - bot_state.aggressiveness) / (100.0 - bot_state.aggressiveness) if (100.0 - bot_state.aggressiveness) > 0 else 1.0
+                            allocation_pct = 0.25 + (0.25 * confidence_scale)
+                            max_trade_amount = bot_state.virtual_cash * allocation_pct
+                        
+                            try:
+                                latest_trade = alpaca.get_latest_trade(symbol)
+                                current_price = latest_trade.price
+                            
+                                tif = 'gtc' if is_crypto else 'day'
+                            
+                                if current_price > 0:
+                                    if is_crypto:
+                                        # Le crypto costano tanto, usiamo sempre frazioni
+                                        trade_amount = round(max_trade_amount, 2)
+                                        if trade_amount >= 1.0 and trade_amount <= bot_state.virtual_cash:
+                                            alpaca.submit_order(symbol=symbol, notional=trade_amount, side='buy', type='market', time_in_force=tif)
+                                            bot_state.add_log(f"BUY CRYPTO {trade_amount}$ {symbol} | Prob: {prediction_prob:.1f}%")
+                                            bot_state.virtual_cash -= trade_amount
+                                            bot_state.save_state()
+                                    else:
+                                        # Azioni sotto i 30$, usiamo quantità intere
+                                        qty_to_buy = math.floor(max_trade_amount / current_price)
+                                        if qty_to_buy > 0 and (qty_to_buy * current_price) <= bot_state.virtual_cash:
+                                            alpaca.submit_order(symbol=symbol, qty=qty_to_buy, side='buy', type='market', time_in_force=tif)
+                                            bot_state.add_log(f"BUY LONG {qty_to_buy} {symbol} | Prob: {prediction_prob:.1f}%")
+                                            bot_state.virtual_cash -= (qty_to_buy * current_price)
+                                            bot_state.save_state()
+                            except Exception as e:
+                                print(f"Errore calcolo ordine long {symbol}: {e}")
+                
+                    # Regola SHORT / SELL
+                    elif prediction_prob <= (100.0 - bot_state.aggressiveness):
+                        pos_side = position.side if position else None
+                        is_crypto = '/' in symbol
+                        tif = 'gtc' if is_crypto else 'day'
+                    
+                        if pos_side == 'long':
+                            # Dobbiamo liquidare il long
+                            try:
+                                alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell', type='market', time_in_force=tif)
+                                bot_state.add_log(f"SELL LONG {position.qty} {symbol} (Prob scesa a {prediction_prob:.1f}%)")
+                                latest_trade = alpaca.get_latest_trade(symbol)
+                                bot_state.virtual_cash += (float(position.qty) * latest_trade.price)
+                                bot_state.save_state()
+                            except Exception as e:
+                                print(f"Errore sell long {symbol}: {e}")
+                            
+                        elif not position and not is_crypto:
+                            # Apriamo uno SHORT (SOLO SE NON E' CRYPTO)
+                            confidence_scale = ((100.0 - bot_state.aggressiveness) - prediction_prob) / (100.0 - bot_state.aggressiveness) if (100.0 - bot_state.aggressiveness) > 0 else 1.0
                         allocation_pct = 0.25 + (0.25 * confidence_scale)
                         max_trade_amount = bot_state.virtual_cash * allocation_pct
                         
