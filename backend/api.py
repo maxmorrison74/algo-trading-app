@@ -12,8 +12,9 @@ from datetime import datetime
 import math
 import json
 import requests
-# Carica le variabili d'ambiente prima di leggere gli env
-load_dotenv()
+# Carica le variabili d'ambiente in modo esplicito (risolve il problema dei percorsi)
+env_path = os.path.join(os.path.dirname(__file__), ".env")
+load_dotenv(dotenv_path=env_path)
 
 def send_telegram_message(message: str):
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
