@@ -1,0 +1,11 @@
+fastapi
+uvicorn
+alpaca-trade-api
+python-dotenv
+pydantic
+yfinance
+pandas
+scikit-learn
+tensorflow
+numpy
+requests
