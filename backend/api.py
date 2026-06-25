@@ -8,10 +8,12 @@ import os
 from dotenv import load_dotenv
 import random
 import asyncio
-from datetime import datetime
 import math
 import json
 import requests
+import threading
+import time
+from datetime import datetime
 # Carica le variabili d'ambiente in modo esplicito (risolve il problema dei percorsi)
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path)
@@ -141,7 +143,7 @@ class BotState:
 
 bot_state = BotState()
 
-async def trading_loop():
+def trading_loop():
     print("Inizio ciclo di trading in background...")
     bot_state.add_log("🟢 Scanner Avviato. Il bot è ora operativo.")
     while bot_state.is_running:
@@ -171,7 +173,7 @@ async def trading_loop():
                         bot_state.add_log(f"Screener: Selezionati {', '.join(scanned)} (<30$)")
                     else:
                         bot_state.add_log("Screener: Nessun ticker valido trovato. Riprovo...")
-                        await asyncio.sleep(30)
+                        time.sleep(30)
                         continue
 
                 # Recuperiamo dati conto
@@ -297,28 +299,29 @@ async def trading_loop():
                         elif not position and not is_crypto:
                             # Apriamo uno SHORT (SOLO SE NON E' CRYPTO)
                             confidence_scale = ((100.0 - bot_state.aggressiveness) - prediction_prob) / (100.0 - bot_state.aggressiveness) if (100.0 - bot_state.aggressiveness) > 0 else 1.0
-                        allocation_pct = 0.25 + (0.25 * confidence_scale)
-                        max_trade_amount = bot_state.virtual_cash * allocation_pct
+                            allocation_pct = 0.25 + (0.25 * confidence_scale)
+                            max_trade_amount = bot_state.virtual_cash * allocation_pct
                         
-                        try:
-                            latest_trade = alpaca.get_latest_trade(symbol)
-                            current_price = latest_trade.price
+                            try:
+                                latest_trade = alpaca.get_latest_trade(symbol)
+                                current_price = latest_trade.price
                             
-                            if current_price > 0:
-                                qty_to_short = math.floor(max_trade_amount / current_price)
+                                if current_price > 0:
+                                    qty_to_short = math.floor(max_trade_amount / current_price)
                                 
-                                if qty_to_short > 0:
-                                    alpaca.submit_order(symbol=symbol, qty=qty_to_short, side='sell', type='market', time_in_force='day')
-                                    bot_state.add_log(f"SELL SHORT {qty_to_short} {symbol} | Prob: {prediction_prob:.1f}%")
-                                    bot_state.virtual_cash += (qty_to_short * current_price)
-                                    bot_state.save_state()
-                        except Exception as e:
-                            print(f"Errore calcolo ordine short {symbol}: {e}")
+                                    if qty_to_short > 0:
+                                        alpaca.submit_order(symbol=symbol, qty=qty_to_short, side='sell', type='market', time_in_force='day')
+                                        bot_state.add_log(f"SELL SHORT {qty_to_short} {symbol} | Prob: {prediction_prob:.1f}%")
+                                        bot_state.virtual_cash += (qty_to_short * current_price)
+                                        bot_state.save_state()
+                            except Exception as e:
+                                print(f"Errore calcolo ordine short {symbol}: {e}")
 
         except Exception as e:
-            print(f"Errore nel trading loop: {e}")
+            print(f"Errore critico nel loop: {e}")
             
-        await asyncio.sleep(30)
+        # Riposo di 60 secondi
+        time.sleep(60)
     
     print("Trading Loop terminato.")
 
@@ -363,12 +366,12 @@ def get_status():
         return {"error": str(e)}
 
 @app.post("/api/start")
-async def start_bot():
+def start_bot():
     if not alpaca: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     if not bot_state.is_running:
         bot_state.is_running = True
         bot_state.add_log("Avvio scanner Multi-Asset...")
-        bot_state.loop_task = asyncio.create_task(trading_loop())
+        threading.Thread(target=trading_loop, daemon=True).start()
     return {"message": "Bot avviato", "state": get_status()}
 
 @app.post("/api/config")
