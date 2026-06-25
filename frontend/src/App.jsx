@@ -16,6 +16,7 @@ function App() {
   
   const [chartData, setChartData] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState("NVDA");
+  const [timeframe, setTimeframe] = useState("1M");
   
   // Per tracciare l'apertura
   const [prevMarketOpen, setPrevMarketOpen] = useState(false);
@@ -46,11 +47,11 @@ function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch chart data when selected symbol changes
+  // Fetch chart data when selected symbol or timeframe changes
   useEffect(() => {
     const fetchChart = async () => {
       try {
-        const res = await fetch(`/api/chart-data/${selectedSymbol}`);
+        const res = await fetch(`/api/chart-data/${selectedSymbol}?timeframe=${timeframe}`);
         const data = await res.json();
         setChartData(data);
       } catch (err) {
@@ -58,7 +59,7 @@ function App() {
       }
     };
     fetchChart();
-  }, [selectedSymbol]);
+  }, [selectedSymbol, timeframe]);
 
   const handleToggleBot = async () => {
     const endpoint = status.is_running ? '/api/stop' : '/api/start';
@@ -121,23 +122,36 @@ function App() {
               </div>
             </div>
             
-            <div className="chart-controls" style={{ marginTop: '2rem', display: 'flex', gap: '0.5rem' }}>
-              {status.symbols?.map(sym => (
-                <button 
-                  key={sym} 
-                  className={`tab-btn ${selectedSymbol === sym ? 'active-tab' : ''}`}
-                  onClick={() => setSelectedSymbol(sym)}
-                >
-                  {sym}
-                </button>
-              ))}
+            <div className="chart-controls" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {status.symbols?.map(sym => (
+                  <button 
+                    key={sym} 
+                    className={`tab-btn ${selectedSymbol === sym ? 'active-tab' : ''}`}
+                    onClick={() => setSelectedSymbol(sym)}
+                  >
+                    {sym}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                {['1D', '1W', '1M', '1Y', 'ALL'].map(tf => (
+                  <button 
+                    key={tf} 
+                    className={`tab-btn ${timeframe === tf ? 'active-tab' : ''}`}
+                    onClick={() => setTimeframe(tf)}
+                  >
+                    {tf}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="chart-container">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                  <XAxis dataKey="day" stroke="#94a3b8" fontSize={12} />
+                  <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} />
                   <YAxis stroke="#94a3b8" fontSize={12} domain={['auto', 'auto']} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }}

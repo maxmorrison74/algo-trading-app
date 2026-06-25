@@ -409,21 +409,47 @@ def stop_bot():
     return {"message": "Bot fermato", "state": get_status()}
 
 @app.get("/api/chart-data/{symbol:path}")
-def get_chart_data(symbol: str):
+def get_chart_data(symbol: str, timeframe: str = "1M"):
     if not alpaca: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     try:
         sym = get_yf_symbol(symbol)
-        df = fetch_historical_data(sym, interval="1h", period="15d")
+        
+        if timeframe == "1D":
+            period = "1d"
+            interval = "5m"
+            time_format = "%H:%M"
+        elif timeframe == "1W":
+            period = "5d"
+            interval = "15m"
+            time_format = "%d/%m %H:%M"
+        elif timeframe == "1M":
+            period = "1mo"
+            interval = "1h"
+            time_format = "%d/%m"
+        elif timeframe == "1Y":
+            period = "1y"
+            interval = "1d"
+            time_format = "%b '%y"
+        elif timeframe == "ALL":
+            period = "max"
+            interval = "1wk"
+            time_format = "%Y"
+        else:
+            period = "1mo"
+            interval = "1h"
+            time_format = "%d/%m"
+
+        df = fetch_historical_data(sym, interval=interval, period=period)
         if df.empty:
             return []
         
-        # Prendiamo solo le ultime 50 candele per il grafico
-        recent_df = df.tail(50).copy()
+        # Limitiamo a 100 punti per leggibilità
+        recent_df = df.tail(100).copy()
         
         chart_data = []
         for i, row in recent_df.iterrows():
             chart_data.append({
-                "time": i.strftime("%d/%m %H:%M"),
+                "time": i.strftime(time_format),
                 "price": round(row['Close'], 2)
             })
             
