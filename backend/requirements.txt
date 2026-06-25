@@ -9,3 +9,4 @@ scikit-learn
 tensorflow
 numpy
 requests
+vaderSentiment==3.3.2

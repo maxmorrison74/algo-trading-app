@@ -72,6 +72,18 @@ function App() {
     }
   };
 
+  const handleReset = async () => {
+    if (window.confirm("Sei sicuro di voler resettare la simulazione a $100.0 e cancellare la cronologia? Il bot verrà fermato.")) {
+      try {
+        const res = await fetch('/api/reset', { method: 'POST' });
+        const data = await res.json();
+        if (!data.error) setStatus(data.state);
+      } catch (err) {
+        alert("Errore di connessione al backend!");
+      }
+    }
+  };
+
   return (
     <div className="app-container">
       <header className="header">
@@ -245,6 +257,14 @@ function App() {
             >
               <Power size={20} />
               {status.is_running ? 'FERMA SCANNER & LIQUIDA TUTTO' : 'AVVIA SCANNER AUTOMATICO'}
+            </button>
+            
+            <button 
+              className="btn btn-stop"
+              style={{ marginTop: '1rem', background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.5)' }}
+              onClick={handleReset}
+            >
+              RESET SIMULAZIONE E STORICO ($100)
             </button>
             
             <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(0,0,0,0.2)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>

@@ -14,6 +14,14 @@ import requests
 import threading
 import time
 from datetime import datetime
+import yfinance as yf
+try:
+    from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+    sentiment_analyzer = SentimentIntensityAnalyzer()
+except ImportError:
+    sentiment_analyzer = None
+    print("⚠️ vaderSentiment non installato. Sentiment Analysis disattivata.")
+
 # Carica le variabili d'ambiente in modo esplicito (risolve il problema dei percorsi)
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path)
@@ -212,6 +220,30 @@ def trading_loop():
                             if math.isnan(prediction_prob):
                                 print(f"Attenzione: inferenza ha restituito NaN per {symbol}")
                                 prediction_prob = 50.0
+                                
+                            # --- SENTIMENT ANALYSIS ---
+                            sentiment_bonus = 0.0
+                            if sentiment_analyzer:
+                                try:
+                                    ticker = yf.Ticker(yf_sym)
+                                    news = ticker.news
+                                    if news and len(news) > 0:
+                                        scores = []
+                                        for n in news[:5]:  # Ultime 5 notizie
+                                            score = sentiment_analyzer.polarity_scores(n['title'])['compound']
+                                            scores.append(score)
+                                        
+                                        if scores:
+                                            avg_sentiment = sum(scores) / len(scores)
+                                            # max ±15% di bonus/malus
+                                            sentiment_bonus = avg_sentiment * 15.0
+                                            prediction_prob += sentiment_bonus
+                                            # Clamp
+                                            prediction_prob = max(1.0, min(99.0, prediction_prob))
+                                            bot_state.add_log(f"📰 Sentiment {symbol}: {avg_sentiment:+.2f} -> Prob {prediction_prob:.1f}%")
+                                except Exception as e:
+                                    print(f"Errore lettura news {symbol}: {e}")
+
                             bot_state.latest_predictions[symbol] = f"{prediction_prob:.1f}% UP"
                         except Exception as e:
                             print(f"Errore inferenza per {symbol}: {e}")
@@ -445,6 +477,34 @@ def stop_bot():
         raise HTTPException(status_code=400, detail=f"Errore Kill Switch: {str(e)}")
         
     return {"message": "Bot fermato", "state": get_status()}
+
+@app.post("/api/reset")
+def reset_simulation():
+    if not alpaca: raise HTTPException(status_code=500, detail="Alpaca non configurata")
+    
+    bot_state.is_running = False
+    
+    try:
+        positions = alpaca.list_positions()
+        liquidati = []
+        for p in positions:
+            if p.symbol in bot_state.target_symbols:
+                is_crypto = '/' in p.symbol
+                tif = 'gtc' if is_crypto else 'day'
+                alpaca.submit_order(symbol=p.symbol, qty=p.qty, side='sell', type='market', time_in_force=tif)
+                liquidati.append(p.symbol)
+        
+        bot_state.virtual_cash = 100.0
+        bot_state.trade_history = []
+        bot_state.high_watermarks = {}
+        bot_state.logs = []
+        bot_state.add_log("Simulazione Resettata a $100.0")
+        bot_state.save_state()
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Errore Reset: {str(e)}")
+        
+    return {"message": "Simulazione resettata", "state": get_status()}
 
 @app.get("/api/chart-data/{symbol:path}")
 def get_chart_data(symbol: str, timeframe: str = "1M"):
