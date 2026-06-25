@@ -470,6 +470,8 @@ def reset_simulation():
         bot_state.trade_history = []
         bot_state.high_watermarks = {}
         bot_state.logs = []
+        bot_state.target_symbols = []
+        bot_state.latest_predictions = {}
         bot_state.add_log("Simulazione Resettata a $100.0")
         bot_state.save_state()
         
