@@ -96,28 +96,34 @@ function App() {
           <div className="card">
             <h2 className="card-title">Riepilogo Capitale</h2>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 20%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ flex: '1 1 16%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Valore Totale</div>
                 <div className="portfolio-value value-green" style={{ fontSize: '1.8rem' }}>
                   ${(status.portfolio_value || 0).toFixed(2)}
                 </div>
               </div>
-              <div style={{ flex: '1 1 20%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ flex: '1 1 16%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Capitale Investito</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#38bdf8' }}>
                   ${(Object.values(status.positions || {}).reduce((sum, p) => sum + (p !== "LIQUID" ? Math.abs(p.market_value || 0) : 0), 0)).toFixed(2)}
                 </div>
               </div>
-              <div style={{ flex: '1 1 20%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ flex: '1 1 16%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Liquidità Libera</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#10b981' }}>
                   ${(status.cash || 0).toFixed(2)}
                 </div>
               </div>
-              <div style={{ flex: '1 1 20%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <div style={{ flex: '1 1 16%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
                 <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.5rem' }}>P/L Tempo Reale</div>
                 <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: (status.profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
                   {(status.profit || 0) >= 0 ? '+' : ''}${(status.profit || 0).toFixed(2)}
+                </div>
+              </div>
+              <div style={{ flex: '1 1 16%', background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.5rem' }}>Win Rate</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 'bold', color: '#f59e0b' }}>
+                  {(status.win_rate || 0).toFixed(1)}%
                 </div>
               </div>
             </div>
@@ -167,6 +173,43 @@ function App() {
                   />
                 </LineChart>
               </ResponsiveContainer>
+            </div>
+          </div>
+          
+          <div className="trade-history-container" style={{ marginTop: '2rem', background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <h3 style={{ color: '#94a3b8', marginBottom: '1rem', fontSize: '0.9rem', fontWeight: 'bold' }}>CRONOLOGIA OPERAZIONI</h3>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', textAlign: 'left', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#94a3b8' }}>
+                    <th style={{ padding: '0.5rem' }}>Data</th>
+                    <th style={{ padding: '0.5rem' }}>Asset</th>
+                    <th style={{ padding: '0.5rem' }}>Side</th>
+                    <th style={{ padding: '0.5rem' }}>Profitto ($)</th>
+                    <th style={{ padding: '0.5rem' }}>Profitto (%)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(status.trade_history || []).slice().reverse().map((trade, idx) => (
+                    <tr key={idx} style={{ borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                      <td style={{ padding: '0.5rem', color: '#cbd5e1' }}>{trade.date}</td>
+                      <td style={{ padding: '0.5rem', fontWeight: 'bold' }}>{trade.symbol}</td>
+                      <td style={{ padding: '0.5rem', color: trade.side === 'long' ? '#38bdf8' : '#f472b6' }}>{trade.side.toUpperCase()}</td>
+                      <td style={{ padding: '0.5rem', color: trade.profit_usd >= 0 ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                        {trade.profit_usd >= 0 ? '+' : ''}{trade.profit_usd}
+                      </td>
+                      <td style={{ padding: '0.5rem', color: trade.profit_pct >= 0 ? '#10b981' : '#ef4444' }}>
+                        {trade.profit_pct >= 0 ? '+' : ''}{trade.profit_pct}%
+                      </td>
+                    </tr>
+                  ))}
+                  {(!status.trade_history || status.trade_history.length === 0) && (
+                    <tr>
+                      <td colSpan="5" style={{ padding: '1rem', textAlign: 'center', color: '#64748b' }}>Nessuna operazione conclusa al momento</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
           

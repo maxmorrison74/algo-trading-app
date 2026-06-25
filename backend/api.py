@@ -106,6 +106,8 @@ class BotState:
         self.latest_predictions = {}
         self.last_trade = None
         self.logs = db_data.get("logs", [])
+        self.trade_history = db_data.get("trade_history", [])
+        self.high_watermarks = db_data.get("high_watermarks", {})
         self.loop_task = None
         self.aggressiveness = db_data.get("aggressiveness", 55.0)
 
@@ -124,8 +126,23 @@ class BotState:
         save_db({
             "virtual_cash": self.virtual_cash,
             "logs": self.logs,
-            "aggressiveness": self.aggressiveness
+            "aggressiveness": self.aggressiveness,
+            "trade_history": self.trade_history,
+            "high_watermarks": self.high_watermarks
         })
+
+    def close_trade(self, symbol: str, side: str, profit_usd: float, profit_pct: float):
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
+        self.trade_history.append({
+            "symbol": symbol,
+            "side": side,
+            "profit_usd": round(profit_usd, 2),
+            "profit_pct": round(profit_pct * 100, 2),
+            "date": timestamp
+        })
+        if symbol in self.high_watermarks:
+            del self.high_watermarks[symbol]
+        self.save_state()
 
     def _load_history_from_alpaca(self):
         if alpaca:
@@ -206,31 +223,43 @@ def trading_loop():
                     # Cerchiamo la posizione attuale su questo simbolo
                     position = next((p for p in positions if p.symbol == symbol), None)
                 
-                    # --- RISK MANAGEMENT: Stop Loss & Take Profit ---
+                    # --- RISK MANAGEMENT: Trailing Stop Loss ---
                     if position:
                         unrealized_plpc = float(position.unrealized_plpc)
                         is_crypto = '/' in symbol
                         tif = 'gtc' if is_crypto else 'day'
-                    
-                        if unrealized_plpc <= -0.02:  # Stop Loss al -2%
-                            alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell' if position.side == 'long' else 'buy', type='market', time_in_force=tif)
-                            bot_state.add_log(f"STOP LOSS SCATTATO: {symbol} chiuso al {unrealized_plpc*100:.2f}%")
-                            latest_trade = alpaca.get_latest_trade(symbol)
-                            cash_change = float(position.qty) * latest_trade.price
-                            if position.side == 'long': bot_state.virtual_cash += cash_change
-                            else: bot_state.virtual_cash -= cash_change
-                            bot_state.save_state()
-                            continue  # Salta inferenza
                         
-                        elif unrealized_plpc >= 0.05:  # Take Profit al +5%
-                            alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell' if position.side == 'long' else 'buy', type='market', time_in_force=tif)
-                            bot_state.add_log(f"TAKE PROFIT SCATTATO: {symbol} chiuso al {unrealized_plpc*100:.2f}%")
+                        try:
                             latest_trade = alpaca.get_latest_trade(symbol)
-                            cash_change = float(position.qty) * latest_trade.price
-                            if position.side == 'long': bot_state.virtual_cash += cash_change
-                            else: bot_state.virtual_cash -= cash_change
-                            bot_state.save_state()
-                            continue  # Salta inferenza
+                            current_price = latest_trade.price
+                            
+                            # Aggiorna High Watermark
+                            if symbol not in bot_state.high_watermarks:
+                                bot_state.high_watermarks[symbol] = current_price
+                                
+                            should_sell = False
+                            if position.side == 'long':
+                                bot_state.high_watermarks[symbol] = max(bot_state.high_watermarks[symbol], current_price)
+                                drop_pct = (bot_state.high_watermarks[symbol] - current_price) / bot_state.high_watermarks[symbol]
+                                if drop_pct >= 0.025: should_sell = True
+                            else:
+                                bot_state.high_watermarks[symbol] = min(bot_state.high_watermarks[symbol], current_price)
+                                rise_pct = (current_price - bot_state.high_watermarks[symbol]) / bot_state.high_watermarks[symbol]
+                                if rise_pct >= 0.025: should_sell = True
+                                
+                            if should_sell:
+                                alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell' if position.side == 'long' else 'buy', type='market', time_in_force=tif)
+                                profit_usd = float(position.unrealized_pl)
+                                bot_state.add_log(f"TRAILING STOP SCATTATO: {symbol} chiuso al {unrealized_plpc*100:.2f}% (${profit_usd:.2f})")
+                                cash_change = float(position.qty) * current_price
+                                if position.side == 'long': bot_state.virtual_cash += cash_change
+                                else: bot_state.virtual_cash -= cash_change
+                                
+                                bot_state.close_trade(symbol, position.side, profit_usd, unrealized_plpc)
+                                continue  # Salta inferenza
+                                
+                        except Exception as e:
+                            print(f"Errore gestione rischio {symbol}: {e}")
                 
                     # Regola LONG / BUY
                     is_crypto = '/' in symbol
@@ -243,7 +272,8 @@ def trading_loop():
                                 bot_state.add_log(f"COVER SHORT {position.qty} {symbol} (Prob salita a {prediction_prob:.1f}%)")
                                 latest_trade = alpaca.get_latest_trade(symbol)
                                 bot_state.virtual_cash -= (float(position.qty) * latest_trade.price)
-                                bot_state.save_state()
+                                profit_usd = float(position.unrealized_pl)
+                                bot_state.close_trade(symbol, 'short', profit_usd, float(position.unrealized_plpc))
                             except Exception as e:
                                 print(f"Errore cover short {symbol}: {e}")
                             
@@ -292,7 +322,8 @@ def trading_loop():
                                 bot_state.add_log(f"SELL LONG {position.qty} {symbol} (Prob scesa a {prediction_prob:.1f}%)")
                                 latest_trade = alpaca.get_latest_trade(symbol)
                                 bot_state.virtual_cash += (float(position.qty) * latest_trade.price)
-                                bot_state.save_state()
+                                profit_usd = float(position.unrealized_pl)
+                                bot_state.close_trade(symbol, 'long', profit_usd, float(position.unrealized_plpc))
                             except Exception as e:
                                 print(f"Errore sell long {symbol}: {e}")
                             
@@ -348,6 +379,11 @@ def get_status():
         pos_market_value = sum(float(p.market_value) for p in positions if p.symbol in bot_state.target_symbols)
         virtual_portfolio_value = bot_state.virtual_cash + pos_market_value
 
+        win_rate = 0.0
+        if bot_state.trade_history:
+            wins = sum(1 for t in bot_state.trade_history if t.get("profit_usd", 0) > 0)
+            win_rate = round((wins / len(bot_state.trade_history)) * 100, 1)
+
         clock = alpaca.get_clock()
         return {
             "is_running": bot_state.is_running,
@@ -360,7 +396,9 @@ def get_status():
             "symbols": bot_state.target_symbols,
             "logs": bot_state.logs,
             "market_open": clock.is_open,
-            "aggressiveness": bot_state.aggressiveness
+            "aggressiveness": bot_state.aggressiveness,
+            "trade_history": bot_state.trade_history,
+            "win_rate": win_rate
         }
     except Exception as e:
         return {"error": str(e)}
