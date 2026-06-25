@@ -436,10 +436,13 @@ def stop_bot():
         liquidati = []
         for p in positions:
             if p.symbol in bot_state.target_symbols:
-                is_crypto = '/' in p.symbol
-                tif = 'gtc' if is_crypto else 'day'
-                alpaca.submit_order(symbol=p.symbol, qty=p.qty, side='sell', type='market', time_in_force=tif)
-                liquidati.append(p.symbol)
+                try:
+                    is_crypto = '/' in p.symbol
+                    tif = 'gtc' if is_crypto else 'day'
+                    alpaca.submit_order(symbol=p.symbol, qty=p.qty, side='sell', type='market', time_in_force=tif)
+                    liquidati.append(p.symbol)
+                except Exception as e:
+                    print(f"Errore chiusura {p.symbol}: {e}")
         
         if liquidati:
             bot_state.add_log(f"KILL SWITCH: Liquidati {', '.join(liquidati)}")
@@ -461,10 +464,13 @@ def reset_simulation():
         liquidati = []
         for p in positions:
             if p.symbol in bot_state.target_symbols:
-                is_crypto = '/' in p.symbol
-                tif = 'gtc' if is_crypto else 'day'
-                alpaca.submit_order(symbol=p.symbol, qty=p.qty, side='sell', type='market', time_in_force=tif)
-                liquidati.append(p.symbol)
+                try:
+                    is_crypto = '/' in p.symbol
+                    tif = 'gtc' if is_crypto else 'day'
+                    alpaca.submit_order(symbol=p.symbol, qty=p.qty, side='sell', type='market', time_in_force=tif)
+                    liquidati.append(p.symbol)
+                except Exception as e:
+                    print(f"Errore chiusura {p.symbol}: {e}")
         
         bot_state.virtual_cash = 100.0
         bot_state.trade_history = []
