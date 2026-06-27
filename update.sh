@@ -1,10 +1,12 @@
 #!/bin/bash
 
+# Entra automaticamente nella cartella dove si trova questo script
+cd "$(dirname "$0")"
+
 echo "🔄 Stopping Uvicorn..."
 sudo pkill -f uvicorn || true
 
 echo "📥 Pulling latest code..."
-cd ~/algo-trading-app
 git pull
 
 echo "🚀 Restarting API Server in background..."
