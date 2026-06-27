@@ -224,8 +224,12 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: '#f8fafc' }}>DeFi Arbitrage (BTC/USDT)</h2>
-          <div style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.9rem' }}>Scansione istantanea su Exchange Centralizzati</div>
+          <h2 style={{ margin: 0, fontSize: '1.8rem', color: '#f8fafc' }}>DeFi Arbitrage (BTC/USDT) <span style={{ fontSize: '0.8rem', background: '#f59e0b', color: '#000', padding: '0.2rem 0.5rem', borderRadius: '4px', verticalAlign: 'middle', marginLeft: '1rem' }}>MODALITÀ SIMULAZIONE ATTIVA</span></h2>
+          <div style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.9rem' }}>Esecuzione automatica live (Paper Trading)</div>
+          <div style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '6px', display: 'inline-block' }}>
+            <span style={{ color: '#94a3b8', marginRight: '1rem' }}>Portafoglio Virtuale:</span>
+            <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#10b981' }}>${Number(status.portfolio_value || 0).toFixed(2)}</span>
+          </div>
         </div>
         <button 
           className={`btn ${status.modules?.crypto_arb ? 'btn-stop' : 'btn-start'}`}
