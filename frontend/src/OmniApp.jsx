@@ -407,7 +407,7 @@ function OmniApp() {
       <div className="main-content">
         {activeTab === 'trading' && renderTradingView()}
         {activeTab === 'crypto_arb' && renderArbitrageView()}
-        {activeTab === 'sports_arb' && renderComingSoon('Sports Arbitrage (SureBets)', 'sports_arb', 'Si collega alle API mondiali delle scommesse sportive per trovare e piazzare quote in cui il guadagno è garantito a prescindere dal risultato.')}
+        {activeTab === 'sports_arb' && renderSportsArbitrageView()}
         {activeTab === 'ai_content' && renderComingSoon('AI Faceless Content Creator', 'ai_content', 'Un motore autonomo che legge le news, genera script, registra la voce e carica video virali su TikTok e YouTube Shorts.')}
         {activeTab === 'saas' && (
            <div className="module-content" style={{ padding: '2rem' }}>
