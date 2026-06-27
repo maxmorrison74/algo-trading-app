@@ -172,14 +172,25 @@ function OmniApp() {
             <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Nessuna posizione aperta. Il bot sta scansionando...</p>
           ) : (
             Object.entries(status.positions).map(([sym, p]) => (
-              <div key={sym} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', marginBottom: '0.5rem' }}>
-                <span style={{ fontWeight: 'bold' }}>{sym} {p.side === 'short' ? '(SHORT)' : ''}</span>
-                {p === "LIQUID" ? (
-                  <span style={{ color: '#94a3b8' }}>IN ATTESA</span>
-                ) : (
-                  <span style={{ color: p.unrealized_pl >= 0 ? '#10b981' : '#ef4444' }}>
-                    {p.unrealized_pl >= 0 ? '+' : ''}{Number(p.unrealized_pl || 0).toFixed(2)}$ ({Number(p.unrealized_plpc || 0).toFixed(2)}%)
-                  </span>
+              <div key={sym} style={{ display: 'flex', flexDirection: 'column', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', marginBottom: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                  <span style={{ fontWeight: 'bold' }}>{sym} {p.side === 'short' ? '(SHORT)' : ''}</span>
+                  {p === "LIQUID" ? (
+                    <span style={{ color: '#94a3b8' }}>IN ATTESA</span>
+                  ) : (
+                    <span style={{ color: p.unrealized_pl >= 0 ? '#10b981' : '#ef4444' }}>
+                      {p.unrealized_pl >= 0 ? '+' : ''}{Number(p.unrealized_pl || 0).toFixed(2)}$ ({Number(p.unrealized_plpc || 0).toFixed(2)}%)
+                    </span>
+                  )}
+                </div>
+                {/* AI Sentiment Integration */}
+                {status.table_data && status.table_data.find(r => r.symbol === sym) && (
+                  <div style={{ fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                    <span style={{ color: '#64748b', marginRight: '0.5rem' }}>🧠 AI Sentiment:</span>
+                    {status.table_data.find(r => r.symbol === sym).sentiment === 'BULLISH' && <span style={{ color: '#10b981', fontWeight: 'bold' }}>🟢 BULLISH (+15% Boost)</span>}
+                    {status.table_data.find(r => r.symbol === sym).sentiment === 'BEARISH' && <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🔴 BEARISH (VETO Attivo)</span>}
+                    {status.table_data.find(r => r.symbol === sym).sentiment === 'NEUTRAL' && <span style={{ color: '#94a3b8' }}>⚪ NEUTRAL</span>}
+                  </div>
                 )}
               </div>
             ))

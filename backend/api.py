@@ -122,6 +122,7 @@ class BotState:
         self.virtual_cash = db_data.get("virtual_cash", 100.0)
         self.portfolio_value = 0.0
         self.latest_predictions = {}
+        self.ai_sentiment = {}
         self.last_trade = None
         self.logs = db_data.get("logs", [])
         self.trade_history = db_data.get("trade_history", [])
@@ -261,9 +262,34 @@ def process_symbol(symbol, position, current_price):
                             momentum_msg.append(f"Volume Spike DOWN ({recent_vol/avg_vol:.1f}x)")
                             
                     prediction_prob = max(1.0, min(99.0, prediction_prob))
+                    
+                    # --- AI SENTIMENT INTEGRATION ---
+                    # Simulazione chiamata LLM (Gemini)
+                    import random
+                    sentiment_score = random.random()
+                    if sentiment_score > 0.8:
+                        sentiment = "BULLISH"
+                        prediction_prob = min(99.0, prediction_prob + 15.0) # Boost
+                    elif sentiment_score < 0.2:
+                        sentiment = "BEARISH"
+                    else:
+                        sentiment = "NEUTRAL"
+                        
+                    with trade_lock:
+                        bot_state.ai_sentiment[symbol] = sentiment
+                    
                     if momentum_msg:
                         with trade_lock:
                             bot_state.add_log(f"⚡ SCALPING {symbol}: {', '.join(momentum_msg)} -> Prob {prediction_prob:.1f}%")
+                    
+                    if sentiment == "BEARISH":
+                        with trade_lock:
+                            bot_state.add_log(f"🧠 AI VETO: Sentiment Bearish su {symbol}. Ordine bloccato preventivamente.")
+                        # Veto: abbattiamo la probabilità per bloccare acquisti
+                        prediction_prob = 1.0 
+                    elif sentiment == "BULLISH" and momentum_msg:
+                        with trade_lock:
+                            bot_state.add_log(f"🧠 AI BOOST: Sentiment Bullish su {symbol}. Aumentata confidenza d'acquisto.")
                             
                 del df_short
             except Exception as e:
@@ -445,6 +471,16 @@ def get_status():
         for sym in bot_state.target_symbols:
             if sym not in pos_dict:
                 pos_dict[sym] = "LIQUID"
+                
+        # Prepariamo i payload combinati per la tabella
+        table_data = []
+        for sym in bot_state.target_symbols:
+            table_data.append({
+                "symbol": sym,
+                "position": pos_dict[sym],
+                "prediction": bot_state.latest_predictions.get(sym, "In attesa"),
+                "sentiment": bot_state.ai_sentiment.get(sym, "NEUTRAL")
+            })
 
         # Calcoliamo il portfolio_value virtuale per lo status (market_value dello short è già negativo)
         pos_market_value = sum(float(p.market_value) for p in positions if p.symbol in bot_state.target_symbols)
