@@ -28,6 +28,7 @@ function OmniApp() {
   const [status, setStatus] = useState({});
   const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:''});
   const [testResults, setTestResults] = useState({});
+  const [savedKeys, setSavedKeys] = useState({});
   const [timeframe, setTimeframe] = useState('1D');
   const [chartData, setChartData] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState(null);
@@ -157,6 +158,22 @@ function OmniApp() {
     }
   };
 
+  
+  useEffect(() => {
+    if (activeTab === 'settings') {
+      const fetchKeys = async () => {
+        try {
+          const res = await fetch('/api/keys');
+          const data = await res.json();
+          setSavedKeys(data);
+        } catch(err) {
+          console.error("Error fetching keys");
+        }
+      };
+      fetchKeys();
+    }
+  }, [activeTab]);
+
   const renderSettingsView = () => (
     <div className="module-content">
       <div className="header" style={{ marginBottom: '2rem' }}>
@@ -166,7 +183,7 @@ function OmniApp() {
 
       <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Alpaca (Stock Market)</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Alpaca (Stock Market) {savedKeys['ALPACA_KEY'] && <span title='API Key presente nel Vault'>🟠</span>}</h3>
           <button onClick={() => testConnection('alpaca')} style={{ background: 'transparent', border: '1px solid #06b6d4', color: '#06b6d4', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
@@ -178,7 +195,7 @@ function OmniApp() {
 
       <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Binance (Crypto Arb)</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Binance (Crypto Arb) {savedKeys['BINANCE_KEY'] && <span title='API Key presente nel Vault'>🟠</span>}</h3>
           <button onClick={() => testConnection('binance')} style={{ background: 'transparent', border: '1px solid #06b6d4', color: '#06b6d4', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
@@ -190,7 +207,7 @@ function OmniApp() {
 
       <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Kraken (Crypto Arb)</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Kraken (Crypto Arb) {savedKeys['KRAKEN_KEY'] && <span title='API Key presente nel Vault'>🟠</span>}</h3>
           <button onClick={() => testConnection('kraken')} style={{ background: 'transparent', border: '1px solid #06b6d4', color: '#06b6d4', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
@@ -206,11 +223,11 @@ function OmniApp() {
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>ElevenLabs API (Generazione Voce TikTok)</label>
+            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>ElevenLabs API {savedKeys['ELEVENLABS_KEY'] && <span title='API Key presente nel Vault'>🟠</span>}</label>
             <input type="password" placeholder="ElevenLabs API Key" value={apiKeys.elevenlabs_key} onChange={e => setApiKeys({...apiKeys, elevenlabs_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>The-Odds-API (Sports SureBets)</label>
+            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>The-Odds-API {savedKeys['THEODDS_KEY'] && <span title='API Key presente nel Vault'>🟠</span>}</label>
             <input type="password" placeholder="The-Odds-API Key" value={apiKeys.theodds_key} onChange={e => setApiKeys({...apiKeys, theodds_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
           </div>
         </div>
