@@ -147,9 +147,13 @@ function OmniApp() {
             Object.entries(status.positions).map(([sym, p]) => (
               <div key={sym} style={{ display: 'flex', justifyContent: 'space-between', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', marginBottom: '0.5rem' }}>
                 <span style={{ fontWeight: 'bold' }}>{sym} {p.side === 'short' ? '(SHORT)' : ''}</span>
-                <span style={{ color: p.unrealized_pl >= 0 ? '#10b981' : '#ef4444' }}>
-                  {p.unrealized_pl >= 0 ? '+' : ''}{p.unrealized_pl.toFixed(2)}$ ({p.unrealized_plpc.toFixed(2)}%)
-                </span>
+                {p === "LIQUID" ? (
+                  <span style={{ color: '#94a3b8' }}>IN ATTESA</span>
+                ) : (
+                  <span style={{ color: p.unrealized_pl >= 0 ? '#10b981' : '#ef4444' }}>
+                    {p.unrealized_pl >= 0 ? '+' : ''}{p.unrealized_pl.toFixed(2)}$ ({p.unrealized_plpc.toFixed(2)}%)
+                  </span>
+                )}
               </div>
             ))
           )}
