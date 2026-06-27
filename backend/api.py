@@ -17,12 +17,16 @@ import gc
 import time
 from datetime import datetime
 import yfinance as yf
+import sys
+sys.path.append('/usr/local/lib/python3.13/dist-packages')
+
 try:
     from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
     sentiment_analyzer = SentimentIntensityAnalyzer()
-except ImportError:
+except Exception as e:
     sentiment_analyzer = None
-    print("⚠️ vaderSentiment non installato. Sentiment Analysis disattivata.")
+    print(f"⚠️ Errore caricamento vaderSentiment: {e}")
+    print(f"Path attuale: {sys.path}")
 
 # Carica le variabili d'ambiente in modo esplicito (risolve il problema dei percorsi)
 env_path = os.path.join(os.path.dirname(__file__), ".env")
