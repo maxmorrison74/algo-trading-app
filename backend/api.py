@@ -13,6 +13,7 @@ import json
 import requests
 import threading
 from crypto_arbitrage import CryptoArbitrage
+from sports_arbitrage import SportsArbitrage
 import concurrent.futures
 import gc
 import time
@@ -177,6 +178,7 @@ class BotState:
 
 bot_state = BotState()
 arb_engine = CryptoArbitrage(bot_state)
+sports_engine = SportsArbitrage(bot_state)
 trade_lock = threading.Lock()
 
 
@@ -468,7 +470,9 @@ def get_status():
             "win_rate": win_rate,
             "modules": bot_state.modules,
             "arb_logs": getattr(bot_state, "arb_logs", []),
-            "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0})
+            "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
+            "sports_logs": getattr(bot_state, "sports_logs", []),
+            "active_surebets": getattr(bot_state, "active_surebets", [])
         }
     except Exception as e:
         return {"error": str(e)}
@@ -486,6 +490,10 @@ async def toggle_module(payload: dict):
         
         # Start/Stop logic if needed
         
+        
+        if mod_id == "sports_arb":
+            if active and not sports_engine.running:
+                threading.Thread(target=sports_engine.loop, daemon=True).start()
         if mod_id == "crypto_arb":
             if active and not arb_engine.running:
                 threading.Thread(target=arb_engine.loop, daemon=True).start()
@@ -498,7 +506,9 @@ async def toggle_module(payload: dict):
                 
         return {"message": "Modulo aggiornato", "modules": bot_state.modules,
             "arb_logs": getattr(bot_state, "arb_logs", []),
-            "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0})}
+            "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
+            "sports_logs": getattr(bot_state, "sports_logs", []),
+            "active_surebets": getattr(bot_state, "active_surebets", [])}
     return {"error": "Modulo non trovato"}
 
 @app.post("/api/start")
