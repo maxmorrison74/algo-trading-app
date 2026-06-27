@@ -274,7 +274,7 @@ function App() {
               </div>
               <input 
                 type="range" 
-                min="50" max="80" step="1"
+                min="10" max="90" step="1"
                 value={status.aggressiveness || 55}
                 onChange={async (e) => {
                   const val = e.target.value;
