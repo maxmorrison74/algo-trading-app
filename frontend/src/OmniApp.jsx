@@ -31,7 +31,19 @@ function OmniApp() {
   const [timeframe, setTimeframe] = useState('1D');
   const [chartData, setChartData] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  const checkAuthMemory = () => {
+    const authTime = localStorage.getItem('omni_auth_time');
+    if (authTime) {
+      const elapsed = Date.now() - parseInt(authTime, 10);
+      if (elapsed < 24 * 60 * 60 * 1000) {
+        return true;
+      }
+    }
+    return false;
+  };
+  const [isAuthenticated, setIsAuthenticated] = useState(checkAuthMemory());
+
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
@@ -86,6 +98,7 @@ function OmniApp() {
       const data = await res.json();
       if (res.ok && data.status === 'success') {
         setIsAuthenticated(true);
+        localStorage.setItem('omni_auth_time', Date.now().toString());
         setLoginError('');
       } else {
         setLoginError('Accesso Negato: Password Errata');
