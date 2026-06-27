@@ -153,6 +153,10 @@ function OmniApp() {
         body: JSON.stringify(apiKeys)
       });
       alert('Chiavi salvate con successo nel Vault Sicuro!');
+      // Refetch keys immediately so dots appear
+      const refetchRes = await fetch('/api/keys');
+      const data = await refetchRes.json();
+      setSavedKeys(data);
     } catch(err) {
       alert('Errore durante il salvataggio');
     }
