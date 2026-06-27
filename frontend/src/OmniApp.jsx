@@ -3,6 +3,26 @@ import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer 
 } from 'recharts';
 
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+  render() {
+    if (this.state.hasError) {
+      return <div style={{color: 'red', padding: '2rem'}}>
+        <h2>React Crash!</h2>
+        <pre>{this.state.error.toString()}</pre>
+      </div>;
+    }
+    return this.props.children;
+  }
+}
+
 function OmniApp() {
   const [status, setStatus] = useState({});
   const [timeframe, setTimeframe] = useState('1D');
@@ -34,10 +54,17 @@ function OmniApp() {
     if (!selectedSymbol) return;
     const fetchChart = async () => {
       try {
-        const res = await fetch(`/api/chart/${selectedSymbol}?period=${timeframe}`);
+        const safeSym = encodeURIComponent(selectedSymbol);
+        const res = await fetch(`/api/chart-data/${safeSym}?timeframe=${timeframe}`);
         const data = await res.json();
-        if (!data.error) setChartData(data);
-      } catch (err) {}
+        if (Array.isArray(data)) {
+          setChartData(data);
+        } else {
+          setChartData([]);
+        }
+      } catch (err) {
+        setChartData([]);
+      }
     };
     fetchChart();
   }, [selectedSymbol, timeframe]);
@@ -89,7 +116,7 @@ function OmniApp() {
       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '2rem' }}>
         <div className="stat-card">
           <div className="stat-title">Portafoglio Virtuale</div>
-          <div className="stat-value">${(status.portfolio_value || 0).toFixed(2)}</div>
+          <div className="stat-value">${Number(status.portfolio_value || 0).toFixed(2)}</div>
         </div>
         <div className="stat-card">
           <div className="stat-title">Capitale Investito</div>
@@ -99,17 +126,17 @@ function OmniApp() {
         </div>
         <div className="stat-card">
           <div className="stat-title">Liquidità Libera</div>
-          <div className="stat-value" style={{ color: '#10b981' }}>${(status.cash || 0).toFixed(2)}</div>
+          <div className="stat-value" style={{ color: '#10b981' }}>${Number(status.cash || 0).toFixed(2)}</div>
         </div>
         <div className="stat-card">
           <div className="stat-title">P/L Tempo Reale</div>
-          <div className="stat-value" style={{ color: (status.profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
-            {(status.profit || 0) >= 0 ? '+' : ''}${(status.profit || 0).toFixed(2)}
+          <div className="stat-value" style={{ color: Number(status.profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+            {Number(status.profit || 0) >= 0 ? '+' : ''}{Number(status.profit || 0).toFixed(2)}
           </div>
         </div>
         <div className="stat-card">
           <div className="stat-title">Win Rate</div>
-          <div className="stat-value" style={{ color: '#f59e0b' }}>{(status.win_rate || 0).toFixed(1)}%</div>
+          <div className="stat-value" style={{ color: '#f59e0b' }}>{Number(status.win_rate || 0).toFixed(1)}%</div>
         </div>
       </div>
 
@@ -151,7 +178,7 @@ function OmniApp() {
                   <span style={{ color: '#94a3b8' }}>IN ATTESA</span>
                 ) : (
                   <span style={{ color: p.unrealized_pl >= 0 ? '#10b981' : '#ef4444' }}>
-                    {p.unrealized_pl >= 0 ? '+' : ''}{p.unrealized_pl.toFixed(2)}$ ({p.unrealized_plpc.toFixed(2)}%)
+                    {p.unrealized_pl >= 0 ? '+' : ''}{Number(p.unrealized_pl || 0).toFixed(2)}$ ({Number(p.unrealized_plpc || 0).toFixed(2)}%)
                   </span>
                 )}
               </div>
@@ -214,6 +241,7 @@ function OmniApp() {
   );
 
   return (
+  <ErrorBoundary>
     <div className="omni-app">
       <div className="sidebar">
         <div className="sidebar-header">
@@ -264,6 +292,7 @@ function OmniApp() {
         )}
       </div>
     </div>
+  </ErrorBoundary>
   );
 }
 
