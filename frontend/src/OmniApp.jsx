@@ -137,7 +137,7 @@ function OmniApp() {
     try {
       const res = await fetch('/api/test-connection', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({service})
+        body: JSON.stringify({service, ...apiKeys})
       });
       const data = await res.json();
       setTestResults(prev => ({...prev, [service]: data.message}));
@@ -167,7 +167,7 @@ function OmniApp() {
     if (activeTab === 'settings') {
       const fetchKeys = async () => {
         try {
-          const res = await fetch('/api/keys');
+          const res = await fetch('/api/keys?t=' + Date.now());
           const data = await res.json();
           setSavedKeys(data);
         } catch(err) {

@@ -761,19 +761,36 @@ def save_keys(req: KeysRequest):
 
 class TestConnectionRequest(BaseModel):
     service: str
+    alpaca_key: str = ""
+    alpaca_secret: str = ""
+    binance_key: str = ""
+    binance_secret: str = ""
+    kraken_key: str = ""
+    kraken_secret: str = ""
+    elevenlabs_key: str = ""
+    theodds_key: str = ""
+
 
 @app.post("/api/test-connection")
 def test_connection(req: TestConnectionRequest):
-    if not os.path.exists(API_KEYS_FILE):
-         return {"status": "error", "message": "Nessuna chiave configurata."}
-         
-    # Read current keys
     keys = {}
-    with open(API_KEYS_FILE, "r") as f:
-        for line in f:
-            if "=" in line:
-                k, v = line.strip().split("=", 1)
-                keys[k] = v
+    if os.path.exists(API_KEYS_FILE):
+        with open(API_KEYS_FILE, "r") as f:
+            for line in f:
+                if "=" in line:
+                    k, v = line.strip().split("=", 1)
+                    keys[k] = v
+                    
+    # Overlay with keys from request if present
+    if req.alpaca_key: keys['ALPACA_KEY'] = req.alpaca_key
+    if req.alpaca_secret: keys['ALPACA_SECRET'] = req.alpaca_secret
+    if req.binance_key: keys['BINANCE_KEY'] = req.binance_key
+    if req.binance_secret: keys['BINANCE_SECRET'] = req.binance_secret
+    if req.kraken_key: keys['KRAKEN_KEY'] = req.kraken_key
+    if req.kraken_secret: keys['KRAKEN_SECRET'] = req.kraken_secret
+    if req.elevenlabs_key: keys['ELEVENLABS_KEY'] = req.elevenlabs_key
+    if req.theodds_key: keys['THEODDS_KEY'] = req.theodds_key
+    
 
     service = req.service.lower()
     
