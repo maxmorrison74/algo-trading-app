@@ -12,6 +12,7 @@ import math
 import json
 import requests
 import threading
+from crypto_arbitrage import CryptoArbitrage
 import concurrent.futures
 import gc
 import time
@@ -175,6 +176,7 @@ class BotState:
                 print(f"Errore caricamento storico Alpaca: {e}")
 
 bot_state = BotState()
+arb_engine = CryptoArbitrage(bot_state)
 trade_lock = threading.Lock()
 
 
@@ -464,7 +466,9 @@ def get_status():
             "aggressiveness": bot_state.aggressiveness,
             "trade_history": bot_state.trade_history,
             "win_rate": win_rate,
-            "modules": bot_state.modules
+            "modules": bot_state.modules,
+            "arb_logs": getattr(bot_state, "arb_logs", []),
+            "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0})
         }
     except Exception as e:
         return {"error": str(e)}
@@ -481,6 +485,10 @@ async def toggle_module(payload: dict):
         bot_state.add_log(f"⚙️ Modulo {mod_id.upper()} {state_str}")
         
         # Start/Stop logic if needed
+        
+        if mod_id == "crypto_arb":
+            if active and not arb_engine.running:
+                threading.Thread(target=arb_engine.loop, daemon=True).start()
         if mod_id == "trading":
             if active and not bot_state.is_running:
                 bot_state.is_running = True
@@ -488,7 +496,9 @@ async def toggle_module(payload: dict):
             elif not active:
                 bot_state.is_running = False
                 
-        return {"message": "Modulo aggiornato", "modules": bot_state.modules}
+        return {"message": "Modulo aggiornato", "modules": bot_state.modules,
+            "arb_logs": getattr(bot_state, "arb_logs", []),
+            "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0})}
     return {"error": "Modulo non trovato"}
 
 @app.post("/api/start")
