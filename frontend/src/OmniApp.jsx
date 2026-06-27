@@ -723,6 +723,9 @@ function OmniApp() {
           <div className={`menu-item ${activeTab === 'saas' ? 'active' : ''}`} onClick={() => setActiveTab('saas')}>
             <span className="menu-icon">💳</span> SaaS & Billing
           </div>
+          <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
+            <span className="menu-icon">🔐</span> Security & API
+          </div>
         </div>
         
         <div className="sidebar-footer">
