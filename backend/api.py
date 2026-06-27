@@ -59,7 +59,7 @@ def load_db():
     if os.path.exists(DB_FILE):
         with open(DB_FILE, "r") as f:
             return json.load(f)
-    return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0}
+    return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "crypto_arb": False, "sports_arb": False, "ai_content": False}}
 
 def save_db(state_dict):
     with open(DB_FILE, "w") as f:
@@ -125,6 +125,7 @@ class BotState:
         self.high_watermarks = db_data.get("high_watermarks", {})
         self.loop_task = None
         self.aggressiveness = db_data.get("aggressiveness", 55.0)
+        self.modules = db_data.get("modules", {"trading": False, "crypto_arb": False, "sports_arb": False, "ai_content": False})
 
     def add_log(self, message: str):
         print(message)
@@ -462,10 +463,33 @@ def get_status():
             "market_open": clock.is_open,
             "aggressiveness": bot_state.aggressiveness,
             "trade_history": bot_state.trade_history,
-            "win_rate": win_rate
+            "win_rate": win_rate,
+            "modules": bot_state.modules
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.post("/api/modules")
+async def toggle_module(payload: dict):
+    mod_id = payload.get("module")
+    active = payload.get("active")
+    if mod_id in bot_state.modules:
+        bot_state.modules[mod_id] = active
+        bot_state.save_state()
+        state_str = "ATTIVATO" if active else "DISATTIVATO"
+        bot_state.add_log(f"⚙️ Modulo {mod_id.upper()} {state_str}")
+        
+        # Start/Stop logic if needed
+        if mod_id == "trading":
+            if active and not bot_state.is_running:
+                bot_state.is_running = True
+                threading.Thread(target=trading_loop, daemon=True).start()
+            elif not active:
+                bot_state.is_running = False
+                
+        return {"message": "Modulo aggiornato", "modules": bot_state.modules}
+    return {"error": "Modulo non trovato"}
 
 @app.post("/api/start")
 def start_bot():
