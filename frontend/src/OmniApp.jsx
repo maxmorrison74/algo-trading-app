@@ -556,8 +556,11 @@ function OmniApp() {
         </div>
         
         <div className="sidebar-menu">
+          <div className={`menu-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
+            <span className="menu-icon">🌍</span> Empire Overview
+          </div>
           <div className={`menu-item ${activeTab === 'trading' ? 'active' : ''}`} onClick={() => setActiveTab('trading')}>
-            <span className="menu-icon">📈</span> Algo-Trading
+            <span className="menu-icon">📈</span> Stock Market
             {status.modules?.trading && <div className="active-dot"></div>}
           </div>
           <div className={`menu-item ${activeTab === 'crypto_arb' ? 'active' : ''}`} onClick={() => setActiveTab('crypto_arb')}>
