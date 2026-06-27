@@ -14,6 +14,7 @@ import requests
 import threading
 from crypto_arbitrage import CryptoArbitrage
 from sports_arbitrage import SportsArbitrage
+from ai_content import AIContentCreator
 import concurrent.futures
 import gc
 import time
@@ -179,6 +180,7 @@ class BotState:
 bot_state = BotState()
 arb_engine = CryptoArbitrage(bot_state)
 sports_engine = SportsArbitrage(bot_state)
+ai_engine = AIContentCreator(bot_state)
 trade_lock = threading.Lock()
 
 
@@ -472,7 +474,9 @@ def get_status():
             "arb_logs": getattr(bot_state, "arb_logs", []),
             "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
             "sports_logs": getattr(bot_state, "sports_logs", []),
-            "active_surebets": getattr(bot_state, "active_surebets", [])
+            "active_surebets": getattr(bot_state, "active_surebets", []),
+            "ai_logs": getattr(bot_state, "ai_logs", []),
+            "ai_videos": getattr(bot_state, "ai_videos", [])
         }
     except Exception as e:
         return {"error": str(e)}
@@ -491,6 +495,10 @@ async def toggle_module(payload: dict):
         # Start/Stop logic if needed
         
         
+        
+        if mod_id == "ai_content":
+            if active and not ai_engine.running:
+                threading.Thread(target=ai_engine.loop, daemon=True).start()
         if mod_id == "sports_arb":
             if active and not sports_engine.running:
                 threading.Thread(target=sports_engine.loop, daemon=True).start()
@@ -508,7 +516,9 @@ async def toggle_module(payload: dict):
             "arb_logs": getattr(bot_state, "arb_logs", []),
             "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
             "sports_logs": getattr(bot_state, "sports_logs", []),
-            "active_surebets": getattr(bot_state, "active_surebets", [])}
+            "active_surebets": getattr(bot_state, "active_surebets", []),
+            "ai_logs": getattr(bot_state, "ai_logs", []),
+            "ai_videos": getattr(bot_state, "ai_videos", [])}
     return {"error": "Modulo non trovato"}
 
 @app.post("/api/start")
