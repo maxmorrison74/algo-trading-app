@@ -11,6 +11,7 @@ git pull
 
 echo "🚀 Restarting API Server in background..."
 cd backend
+sudo ./venv/bin/python -m pip install -r requirements.txt
 sudo ./venv/bin/python -m uvicorn api:app --host 0.0.0.0 --port 80 > /dev/null 2>&1 &
 
 echo "✅ Update complete! Server is running."

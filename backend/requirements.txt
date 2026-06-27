@@ -10,3 +10,4 @@ tensorflow
 numpy
 requests
 vaderSentiment==3.3.2
+ccxt
