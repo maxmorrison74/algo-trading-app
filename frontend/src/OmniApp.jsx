@@ -26,7 +26,7 @@ class ErrorBoundary extends React.Component {
 
 function OmniApp() {
   const [status, setStatus] = useState({});
-  const [activeTab, setActiveTab] = useState('dashboard');
+
   const [numValueBets, setNumValueBets] = useState(9);
   const [placedBets, setPlacedBets] = useState({});
   const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', gemini_key:''});
@@ -869,6 +869,7 @@ function OmniApp() {
           </div>
         </div>
       </div>
+    </div>
     );
   };
 
