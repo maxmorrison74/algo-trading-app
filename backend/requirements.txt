@@ -12,3 +12,4 @@ ccxt
 tenacity
 websockets
 google-generativeai
+google-cloud-aiplatform
