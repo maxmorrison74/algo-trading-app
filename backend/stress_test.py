@@ -2,9 +2,9 @@ import requests
 import concurrent.futures
 import time
 
-URL_STATUS = "http://localhost:8000/api/status"
-URL_TEST_CONN = "http://localhost:8000/api/test-connection"
-URL_LOGS = "http://localhost:8000/api/logs"
+URL_STATUS = "http://localhost:80/api/status"
+URL_TEST_CONN = "http://localhost:80/api/test-connection"
+URL_LOGS = "http://localhost:80/api/logs"
 
 def test_read_status():
     try:
