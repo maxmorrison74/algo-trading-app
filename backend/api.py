@@ -741,7 +741,7 @@ def test_connection(req: TestConnectionRequest):
             
         elif service == 'elevenlabs':
             # Simple ping with headers
-            import requests
+
             api_key = keys.get("ELEVENLABS_KEY", "")
             if not api_key:
                 return {"status": "error", "message": "Chiave ElevenLabs mancante."}
