@@ -305,7 +305,7 @@ function OmniApp() {
           <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>NewsAPI {savedKeys['NEWSAPI_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <input type="password" placeholder="NewsAPI Key" value={apiKeys.newsapi_key} onChange={e => setApiKeys({...apiKeys, newsapi_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
-            <button onClick={() => testApi('newsapi')} style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', padding: '0 1rem', cursor: 'pointer', fontWeight: 'bold' }}>TEST</button>
+            <button onClick={() => testConnection('newsapi')} style={{ background: 'transparent', border: '1px solid #06b6d4', color: '#06b6d4', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Test Connessione</button>
           </div>
           {testResults['newsapi'] && <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: testResults['newsapi'].includes('OK') ? '#10b981' : '#ef4444' }}>{testResults['newsapi']}</div>}
         </div>
