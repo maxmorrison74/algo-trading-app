@@ -11,9 +11,9 @@ npm install
 npm run build
 cd ..
 
-echo "3) Aggiornamento dipendenze Python..."
+echo "3) Aggiornamento dipendenze Python (potrebbe volerci qualche minuto)..."
 cd backend
-sudo ./venv/bin/python -m pip install -q -r requirements.txt
+sudo ./venv/bin/python -m pip install -r requirements.txt
 cd ..
 
 echo "4) Controllo PM2..."
