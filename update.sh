@@ -18,6 +18,7 @@ sudo ./venv/bin/python -m pip uninstall -y tensorflow tensorflow-cpu scikit-lear
 sudo ./venv/bin/python -m pip install -r requirements.txt
 cd ..
 
+# Riavvio definitivo con sudo per la porta 80
 echo "4) Controllo PM2..."
 if ! command -v pm2 &> /dev/null
 then
@@ -25,16 +26,12 @@ then
     sudo npm install -g pm2
 fi
 
-echo "🚀 Avvio/Riavvio del Server tramite PM2..."
-mkdir -p logs
+echo "🚀 Uccido vecchi processi..."
+sudo pm2 kill || true
+pm2 kill || true
 
-# Uccidiamo eventuali istanze orfane non gestite da PM2
-sudo pkill -f "uvicorn api:app" || true
-
-# Avviamo o ricarichiamo l'app con PM2 senza downtime
-sudo pm2 start ecosystem.config.js || sudo pm2 reload algotrading-api
-
-# Salviamo la configurazione per riavviare PM2 al boot del server
+echo "🚀 Avvio/Riavvio del Server tramite PM2 come amministratore..."
+sudo pm2 start ecosystem.config.js
 sudo pm2 save
 
 echo "✅ Update complete! Server gestito da PM2."
