@@ -58,10 +58,10 @@ Sei un gestore di un Hedge Fund Quantitativo.
 Il cliente vuole investire esattamente {budget}$.
 Il mercato attuale include Azioni Americane (es. MSFT, TSLA, PLTR) e Criptovalute (es. BTC, SOL).
 
-Devi generare ESATTAMENTE 3 proposte di investimento esclusive per lui:
-1. Una proposta 'Safe' (Stock blue-chip o ETF)
-2. Una proposta 'Moderate' (Stock Tech in crescita)
-3. Una proposta 'Aggressive' (Crypto ad alta volatilità)
+Devi generare ESATTAMENTE 6 proposte di investimento esclusive per lui:
+1. Due proposte 'Safe' (Stock blue-chip o ETF)
+2. Due proposte 'Moderate' (Stock Tech in crescita o Mid-cap)
+3. Due proposte 'Aggressive' (Crypto ad alta volatilità)
 
 Rispondi SOLTANTO con un array JSON in questo esatto formato, senza Markdown o backticks o spiegazioni extra:
 [
@@ -75,14 +75,10 @@ Rispondi SOLTANTO con un array JSON in questo esatto formato, senza Markdown o b
   }},
   {{
     "id": 2,
-    "risk": "Bilanciato",
+    "risk": "Conservativo",
     ...
   }},
-  {{
-    "id": 3,
-    "risk": "Aggressivo",
-    ...
-  }}
+  ... fino a 6
 ]
 """
         response = model.generate_content(prompt)
@@ -101,8 +97,11 @@ Rispondi SOLTANTO con un array JSON in questo esatto formato, senza Markdown o b
         print(f"Errore Gemini: {e}")
         return {"proposals": [
             {"id":1, "risk":"Conservativo", "symbol":"MSFT", "asset_type":"stock", "title":"Microsoft Corp", "rationale":"Eccellente bilancio e dominio nell'IA generativa."},
-            {"id":2, "risk":"Bilanciato", "symbol":"PLTR", "asset_type":"stock", "title":"Palantir Tech", "rationale":"Forte crescita nei contratti governativi B2B."},
-            {"id":3, "risk":"Aggressivo", "symbol":"SOL/USD", "asset_type":"crypto", "title":"Solana", "rationale":"Altissima volatilità e potenziale di breakout."}
+            {"id":2, "risk":"Conservativo", "symbol":"JNJ", "asset_type":"stock", "title":"Johnson & Johnson", "rationale":"Dividendi stabili e settore difensivo."},
+            {"id":3, "risk":"Bilanciato", "symbol":"PLTR", "asset_type":"stock", "title":"Palantir Tech", "rationale":"Forte crescita nei contratti governativi B2B."},
+            {"id":4, "risk":"Bilanciato", "symbol":"CRWD", "asset_type":"stock", "title":"CrowdStrike", "rationale":"Leader indiscusso nella cybersecurity cloud."},
+            {"id":5, "risk":"Aggressivo", "symbol":"SOL/USD", "asset_type":"crypto", "title":"Solana", "rationale":"Altissima volatilità e potenziale di breakout ecosistema."},
+            {"id":6, "risk":"Aggressivo", "symbol":"AVAX/USD", "asset_type":"crypto", "title":"Avalanche", "rationale":"Rete veloce in rapida espansione nel gaming Web3."}
         ]}
 
 @router.post("/execute")
