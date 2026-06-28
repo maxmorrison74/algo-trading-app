@@ -657,9 +657,9 @@ function OmniApp() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
           <span style={{ fontWeight: 'bold', color: '#e2e8f0', fontSize: '0.95rem' }}>🤖 Auto-Bet</span>
           <div
-            id="auto-bet-toggle"
             onClick={async () => {
               const newVal = !status.auto_bet_enabled;
+              setStatus(prev => ({ ...prev, auto_bet_enabled: newVal }));
               await fetch('/api/auto-bet-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -705,7 +705,19 @@ function OmniApp() {
             id="auto-bet-slider"
             type="range" min="1" max="30" step="0.5"
             value={status.auto_bet_threshold ?? 10}
-            onChange={async (e) => {
+            onChange={(e) => {
+              const val = parseFloat(e.target.value);
+              setStatus(prev => ({ ...prev, auto_bet_threshold: val }));
+            }}
+            onMouseUp={async (e) => {
+              const val = parseFloat(e.target.value);
+              await fetch('/api/auto-bet-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ threshold: val })
+              });
+            }}
+            onTouchEnd={async (e) => {
               const val = parseFloat(e.target.value);
               await fetch('/api/auto-bet-settings', {
                 method: 'POST',
