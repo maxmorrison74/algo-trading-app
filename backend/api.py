@@ -15,6 +15,7 @@ import threading
 from crypto_arbitrage import CryptoArbitrage
 from sports_arbitrage import SportsArbitrage
 from ai_content import AIContentCreator
+from alpaca_trading import AlpacaEngine
 import concurrent.futures
 import gc
 import time
@@ -183,281 +184,12 @@ class BotState:
                 print(f"Errore caricamento storico Alpaca: {e}")
 
 bot_state = BotState()
+# Inizializza moduli background
 arb_engine = CryptoArbitrage(bot_state)
 sports_engine = SportsArbitrage(bot_state)
 ai_engine = AIContentCreator(bot_state)
+alpaca_engine = AlpacaEngine(bot_state)
 trade_lock = threading.Lock()
-
-
-
-
-def calculate_rsi(series, period=14):
-    delta = series.diff()
-    gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
-    rs = gain / loss
-    return 100 - (100 / (1 + rs))
-
-def process_symbol(symbol, position, current_price):
-    global bot_state, trade_lock
-    prediction_prob = 50.0
-    try:
-        if super_model:
-            yf_sym = get_yf_symbol(symbol)
-            df = fetch_historical_data(yf_sym, period="6mo", interval="1h") 
-            X, _, _ = super_model.prepare_features(df)
-            
-            with trade_lock:
-                y_pred_prob = super_model.predict(X)
-                prediction_prob = float(y_pred_prob) * 100
-                if math.isnan(prediction_prob):
-                    prediction_prob = 50.0
-                
-            # Sentiment
-            sentiment_bonus = 0.0
-            if sentiment_analyzer:
-                try:
-                    ticker = yf.Ticker(yf_sym)
-                    news = ticker.news
-                    if news and len(news) > 0:
-                        scores = [sentiment_analyzer.polarity_scores(n['title'])['compound'] for n in news[:5]]
-                        if scores:
-                            avg_sentiment = sum(scores) / len(scores)
-                            sentiment_bonus = avg_sentiment * 15.0
-                            prediction_prob += sentiment_bonus
-                            prediction_prob = max(1.0, min(99.0, prediction_prob))
-                            with trade_lock:
-                                bot_state.add_log(f"📰 Sentiment {symbol}: {avg_sentiment:+.2f} -> Prob {prediction_prob:.1f}%")
-                except Exception as e:
-                    pass
-
-            # --- MOMENTUM & SCALPING (5-min timeframe) ---
-            try:
-                df_short = yf.download(yf_sym, period="5d", interval="5m", progress=False)
-                if not df_short.empty and len(df_short) > 20:
-                    # RSI 5-min
-                    rsi_series = calculate_rsi(df_short['Close'], period=14)
-                    current_rsi = rsi_series.iloc[-1].item() if isinstance(rsi_series.iloc[-1], pd.Series) else rsi_series.iloc[-1]
-                    
-                    # Volume Spike
-                    recent_vol = df_short['Volume'].iloc[-1].item() if isinstance(df_short['Volume'].iloc[-1], pd.Series) else df_short['Volume'].iloc[-1]
-                    avg_vol = df_short['Volume'].iloc[-21:-1].mean()
-                    avg_vol = avg_vol.item() if isinstance(avg_vol, pd.Series) else avg_vol
-                    
-                    current_close = df_short['Close'].iloc[-1].item() if isinstance(df_short['Close'].iloc[-1], pd.Series) else df_short['Close'].iloc[-1]
-                    prev_close = df_short['Close'].iloc[-2].item() if isinstance(df_short['Close'].iloc[-2], pd.Series) else df_short['Close'].iloc[-2]
-                    
-                    momentum_msg = []
-                    
-                    if not pd.isna(current_rsi):
-                        if current_rsi < 30:
-                            prediction_prob += 20.0
-                            momentum_msg.append(f"RSI Iper-Venduto ({current_rsi:.1f})")
-                        elif current_rsi > 70:
-                            prediction_prob -= 20.0
-                            momentum_msg.append(f"RSI Iper-Comprato ({current_rsi:.1f})")
-                            
-                    if avg_vol > 0 and recent_vol > (avg_vol * 3):
-                        if current_close > prev_close:
-                            prediction_prob += 20.0
-                            momentum_msg.append(f"Volume Spike UP ({recent_vol/avg_vol:.1f}x)")
-                        else:
-                            prediction_prob -= 20.0
-                            momentum_msg.append(f"Volume Spike DOWN ({recent_vol/avg_vol:.1f}x)")
-                            
-                    prediction_prob = max(1.0, min(99.0, prediction_prob))
-                    
-                    # --- AI SENTIMENT INTEGRATION ---
-                    # Simulazione chiamata LLM (Gemini)
-                    import random
-                    sentiment_score = random.random()
-                    if sentiment_score > 0.8:
-                        sentiment = "BULLISH"
-                        prediction_prob = min(99.0, prediction_prob + 15.0) # Boost
-                    elif sentiment_score < 0.2:
-                        sentiment = "BEARISH"
-                    else:
-                        sentiment = "NEUTRAL"
-                        
-                    with trade_lock:
-                        bot_state.ai_sentiment[symbol] = sentiment
-                    
-                    if momentum_msg:
-                        with trade_lock:
-                            bot_state.add_log(f"⚡ SCALPING {symbol}: {', '.join(momentum_msg)} -> Prob {prediction_prob:.1f}%")
-                    
-                    if sentiment == "BEARISH":
-                        with trade_lock:
-                            bot_state.add_log(f"🧠 AI VETO: Sentiment Bearish su {symbol}. Ordine bloccato preventivamente.")
-                        # Veto: abbattiamo la probabilità per bloccare acquisti
-                        prediction_prob = 1.0 
-                    elif sentiment == "BULLISH" and momentum_msg:
-                        with trade_lock:
-                            bot_state.add_log(f"🧠 AI BOOST: Sentiment Bullish su {symbol}. Aumentata confidenza d'acquisto.")
-                            
-                del df_short
-            except Exception as e:
-                print(f"Errore momentum {symbol}: {e}")
-
-            with trade_lock:
-                bot_state.latest_predictions[symbol] = f"{prediction_prob:.1f}% UP"
-            
-            # GC Aggressive
-            del df
-            del X
-            gc.collect()
-            
-        else:
-            prediction_prob = random.uniform(20.0, 80.0)
-            with trade_lock:
-                bot_state.latest_predictions[symbol] = f"{prediction_prob:.1f}% (TEST)"
-            
-        with trade_lock:
-            # --- RISK MANAGEMENT: Trailing Stop Loss ---
-            if position:
-                unrealized_plpc = float(position.unrealized_plpc)
-                is_crypto = '/' in symbol
-                tif = 'gtc' if is_crypto else 'day'
-                
-                if symbol not in bot_state.high_watermarks:
-                    bot_state.high_watermarks[symbol] = current_price
-                    
-                should_sell = False
-                if position.side == 'long':
-                    bot_state.high_watermarks[symbol] = max(bot_state.high_watermarks[symbol], current_price)
-                    drop_pct = (bot_state.high_watermarks[symbol] - current_price) / bot_state.high_watermarks[symbol]
-                    if drop_pct >= 0.025: should_sell = True
-                else:
-                    bot_state.high_watermarks[symbol] = min(bot_state.high_watermarks[symbol], current_price)
-                    rise_pct = (current_price - bot_state.high_watermarks[symbol]) / bot_state.high_watermarks[symbol]
-                    if rise_pct >= 0.025: should_sell = True
-                    
-                if should_sell:
-                    alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell' if position.side == 'long' else 'buy', type='market', time_in_force=tif)
-                    profit_usd = float(position.unrealized_pl)
-                    bot_state.add_log(f"TRAILING STOP: {symbol} chiuso al {unrealized_plpc*100:.2f}% (${profit_usd:.2f})")
-                    cash_change = float(position.qty) * current_price
-                    if position.side == 'long': bot_state.virtual_cash += cash_change
-                    else: bot_state.virtual_cash -= cash_change
-                    bot_state.close_trade(symbol, position.side, profit_usd, unrealized_plpc)
-                    return # Posizione chiusa
-            
-            # BUY / LONG
-            is_crypto = '/' in symbol
-            if prediction_prob >= bot_state.aggressiveness:
-                pos_side = position.side if position else None
-                if pos_side == 'short':
-                    alpaca.submit_order(symbol=symbol, qty=position.qty, side='buy', type='market', time_in_force='day')
-                    bot_state.add_log(f"COVER SHORT {position.qty} {symbol} (Prob {prediction_prob:.1f}%)")
-                    bot_state.virtual_cash -= (float(position.qty) * current_price)
-                    bot_state.close_trade(symbol, 'short', float(position.unrealized_pl), float(position.unrealized_plpc))
-                elif not position or is_crypto:
-                    confidence = (prediction_prob - bot_state.aggressiveness) / (100.0 - bot_state.aggressiveness) if (100.0 - bot_state.aggressiveness) > 0 else 1.0
-                    allocation_pct = 0.25 + (0.25 * confidence)
-                    max_trade_amount = bot_state.virtual_cash * allocation_pct
-                    if current_price > 0:
-                        tif = 'gtc' if is_crypto else 'day'
-                        if is_crypto:
-                            trade_amount = round(max_trade_amount, 2)
-                            if trade_amount >= 1.0 and trade_amount <= bot_state.virtual_cash:
-                                alpaca.submit_order(symbol=symbol, notional=trade_amount, side='buy', type='market', time_in_force=tif)
-                                bot_state.add_log(f"BUY CRYPTO {trade_amount}$ {symbol} | Prob: {prediction_prob:.1f}%")
-                                bot_state.virtual_cash -= trade_amount
-                                bot_state.save_state()
-                        else:
-                            qty_to_buy = math.floor(max_trade_amount / current_price)
-                            if qty_to_buy > 0 and (qty_to_buy * current_price) <= bot_state.virtual_cash:
-                                alpaca.submit_order(symbol=symbol, qty=qty_to_buy, side='buy', type='market', time_in_force=tif)
-                                bot_state.add_log(f"BUY LONG {qty_to_buy} {symbol} | Prob: {prediction_prob:.1f}%")
-                                bot_state.virtual_cash -= (qty_to_buy * current_price)
-                                bot_state.save_state()
-                                
-            # SELL / SHORT
-            elif prediction_prob <= (100.0 - bot_state.aggressiveness):
-                pos_side = position.side if position else None
-                is_crypto = '/' in symbol
-                tif = 'gtc' if is_crypto else 'day'
-                if pos_side == 'long':
-                    alpaca.submit_order(symbol=symbol, qty=position.qty, side='sell', type='market', time_in_force=tif)
-                    bot_state.add_log(f"SELL LONG {position.qty} {symbol} (Prob {prediction_prob:.1f}%)")
-                    bot_state.virtual_cash += (float(position.qty) * current_price)
-                    bot_state.close_trade(symbol, 'long', float(position.unrealized_pl), float(position.unrealized_plpc))
-                elif not position and not is_crypto:
-                    confidence = ((100.0 - bot_state.aggressiveness) - prediction_prob) / (100.0 - bot_state.aggressiveness) if (100.0 - bot_state.aggressiveness) > 0 else 1.0
-                    allocation_pct = 0.25 + (0.25 * confidence)
-                    max_trade_amount = bot_state.virtual_cash * allocation_pct
-                    if current_price > 0:
-                        qty_to_short = math.floor(max_trade_amount / current_price)
-                        if qty_to_short > 0:
-                            alpaca.submit_order(symbol=symbol, qty=qty_to_short, side='sell', type='market', time_in_force='day')
-                            bot_state.add_log(f"SELL SHORT {qty_to_short} {symbol} | Prob: {prediction_prob:.1f}%")
-                            bot_state.virtual_cash += (qty_to_short * current_price)
-                            bot_state.save_state()
-    except Exception as e:
-        print(f"Errore process_symbol {symbol}: {e}")
-        
-def trading_loop():
-    print("Inizio ciclo di trading in background (HFT Optimized)...")
-    bot_state.add_log("🟢 Scanner HFT Avviato. Il bot è operativo in parallelo.")
-    while bot_state.is_running:
-        try:
-            if alpaca:
-                print(f"[{datetime.now().strftime('%H:%M:%S')}] Scansione mercato...")
-                
-                # Screener Dinamico
-                if not bot_state.target_symbols:
-                    bot_state.add_log("Screener: Ricerca asset <30$...")
-                    valid_symbols = []
-                    for sym in POOL_TICKERS:
-                        try:
-                            trade = alpaca.get_latest_trade(sym)
-                            if trade.price < 30.0:
-                                valid_symbols.append((sym, trade.price))
-                        except: pass
-                        
-                    scanned = ["MRNA"]
-                    for s in valid_symbols:
-                        if s[0] != "MRNA" and len(scanned) < 5:
-                            scanned.append(s[0])
-                
-                    if scanned:
-                        bot_state.target_symbols = scanned
-                        bot_state.latest_predictions = {sym: "In attesa" for sym in scanned}
-                        bot_state.add_log(f"Screener: Selezionati {', '.join(scanned)}")
-                    else:
-                        time.sleep(30)
-                        continue
-
-                positions = alpaca.list_positions()
-                
-                current_prices = {}
-                for sym in bot_state.target_symbols:
-                    try:
-                        current_prices[sym] = alpaca.get_latest_trade(sym).price
-                    except:
-                        current_prices[sym] = 0.0
-
-                # Max 3 workers per non esaurire la memoria (OOM) e prevenire crash
-                with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
-                    futures = []
-                    for symbol in bot_state.target_symbols:
-                        pos = next((p for p in positions if p.symbol == symbol), None)
-                        price = current_prices.get(symbol, 0.0)
-                        if price > 0:
-                            futures.append(executor.submit(process_symbol, symbol, pos, price))
-                    
-                    concurrent.futures.wait(futures)
-                    
-                gc.collect()
-
-        except Exception as e:
-            print(f"Errore critico nel loop: {e}")
-            
-        time.sleep(60)
-    
-    print("Trading Loop terminato.")
-
-@app.get("/api/status")
 def get_status():
     if not alpaca: return {"error": "Alpaca API non configurata."}
     try:
@@ -546,9 +278,9 @@ async def toggle_module(payload: dict):
             if active and not arb_engine.running:
                 threading.Thread(target=arb_engine.loop, daemon=True).start()
         if mod_id == "trading":
-            if active and not bot_state.is_running:
+            if active and not alpaca_engine.running:
                 bot_state.is_running = True
-                threading.Thread(target=trading_loop, daemon=True).start()
+                threading.Thread(target=alpaca_engine.loop, daemon=True).start()
             elif not active:
                 bot_state.is_running = False
                 
@@ -563,11 +295,11 @@ async def toggle_module(payload: dict):
 
 @app.post("/api/start")
 def start_bot():
-    if not alpaca: raise HTTPException(status_code=500, detail="Alpaca non configurata")
+    if not alpaca_engine: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     if not bot_state.is_running:
         bot_state.is_running = True
-        bot_state.add_log("Avvio scanner Multi-Asset...")
-        threading.Thread(target=trading_loop, daemon=True).start()
+        bot_state.add_log("Avvio scanner Multi-Asset (Alpaca Quant Engine)...")
+        threading.Thread(target=alpaca_engine.loop, daemon=True).start()
     return {"message": "Bot avviato", "state": get_status()}
 
 @app.post("/api/config")
