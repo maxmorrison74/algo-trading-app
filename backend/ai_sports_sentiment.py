@@ -15,7 +15,7 @@ class AISentimentRadar:
         from dotenv import dotenv_values
         keys = dotenv_values(".env.keys") if os.path.exists(".env.keys") else {}
         self.api_key = keys.get("NEWSAPI_KEY", "223d48c7-2ead-46c7-83c4-03928fa452d0")
-        self.search_queries = ["soccer", "champions league", "premier league", "tennis atp", "nba basketball"]
+        self.search_queries = ["bitcoin", "ethereum", "tesla", "nvidia", "apple", "crypto", "stock market", "S&P 500"]
 
     def _log(self, message):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
@@ -53,16 +53,16 @@ class AISentimentRadar:
     def analyze_and_generate_bets(self, articles):
         new_bets = []
         
-        KNOWN_TEAMS = [
-            "Real Madrid", "Barcelona", "Manchester City", "Arsenal", "Liverpool", "Manchester United", "Chelsea", 
-            "Juventus", "AC Milan", "Inter", "Napoli", "Bayern Munich", "PSG", "Atletico Madrid", "Tottenham", "Roma", "Lazio",
-            "Lakers", "Warriors", "Celtics", "Bulls", "Heat", "Knicks", "Mavericks", "Nuggets", "Suns", "Bucks",
-            "Djokovic", "Alcaraz", "Sinner", "Medvedev", "Nadal", "Zverev", "Tsitsipas"
+        KNOWN_ASSETS = [
+            "Bitcoin", "BTC", "Ethereum", "ETH", "Solana", "SOL", "Ripple", "XRP",
+            "Tesla", "TSLA", "Apple", "AAPL", "Nvidia", "NVDA", "Microsoft", "MSFT",
+            "Amazon", "AMZN", "Meta", "Google", "GOOGL", "S&P 500", "Nasdaq"
         ]
         
         for article in articles:
             title = article.get("title", "")
             desc = article.get("description", "")
+            url = article.get("url", "")
             
             if not title or not desc:
                 continue
@@ -70,44 +70,36 @@ class AISentimentRadar:
             text = f"{title} {desc}"
             text_lower = text.lower()
             
-            # Filtra notizie di calciomercato o infortuni non legati a match
-            if "transfer" in text_lower or "signing" in text_lower or "rumor" in text_lower:
-                continue
-                
             sentiment = self.analyzer.polarity_scores(text)
             compound = sentiment['compound']
             
-            if abs(compound) > 0.35:  # Abbassato leggermente per trovare più match validi
-                # Estrai i team basandosi sulla lista nota
-                found_teams = [team for team in KNOWN_TEAMS if team.lower() in text_lower]
+            if abs(compound) > 0.25:  # Lower threshold to find more market news
+                # Estrai gli asset basandosi sulla lista nota
+                found_assets = [asset for asset in KNOWN_ASSETS if asset.lower() in text_lower]
                 
-                if len(found_teams) == 0:
-                    continue  # Se non trova team reali, ignora la notizia
+                if len(found_assets) == 0:
+                    continue
                     
-                team1 = found_teams[0]
-                if len(found_teams) >= 2:
-                    team2 = found_teams[1]
-                else:
-                    # Cerca un avversario generico nel titolo
-                    words = [w for w in title.replace("'", "").replace('"', "").split() if w.istitle() and len(w) > 4 and w.lower() not in team1.lower()]
-                    team2 = words[0] if words else random.choice(["Rivals", "FC Opponents", "United", "City"])
+                target_asset = found_assets[0]
                 
-                predicted_winner = team1 if compound > 0 else team2
-                odds = round(random.uniform(1.60, 3.50), 2)
+                direction = "BULLISH 🚀" if compound > 0 else "BEARISH 📉"
                 confidence = int(50 + (abs(compound) * 50))
                 
-                analysis_text = f"Analisi semantica: Rilevata notizia sul match. Sentiment Score: {compound:.2f}. Forte momentum per {predicted_winner} basato sulle news recenti."
+                analysis_text = f"Analisi NLP completata. Sentiment Score: {compound:.2f}. Outlook {direction} per {target_asset}."
 
                 bet = {
                     "id": str(int(time.time() * 1000)) + str(random.randint(100, 999)),
                     "timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
-                    "match": f"{team1} vs {team2}",
-                    "sport": "News Radar",
-                    "prediction": f"Vittoria {predicted_winner}",
-                    "odds": odds,
-                    "bookmaker": "Media Mercato",
+                    "match": target_asset,
+                    "sport": "Market News",
+                    "prediction": direction,
+                    "odds": round(abs(compound) * 5, 2), # fake impact multiplier
+                    "bookmaker": "AI Analysis",
                     "confidence": confidence,
-                    "analysis": analysis_text
+                    "analysis": analysis_text,
+                    "title": title,
+                    "url": url,
+                    "compound": compound
                 }
                 new_bets.append(bet)
                 

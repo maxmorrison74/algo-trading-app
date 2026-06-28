@@ -903,7 +903,7 @@ function OmniApp() {
               powered by NewsAPI & NLP
             </span>
           </h2>
-          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Scommesse suggerite dall'analisi del sentiment sportivo mondiale</div>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Segnali di mercato dall'analisi del sentiment globale (Crypto & Stock)</div>
         </div>
         
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
@@ -954,8 +954,8 @@ function OmniApp() {
                   <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '2px' }}>CONFIDENCE</div>
                   <div style={{ 
                     display: 'inline-block',
-                    background: vb.confidence > 85 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                    color: vb.confidence > 85 ? '#10b981' : '#f59e0b',
+                    background: vb.compound > 0 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                    color: vb.compound > 0 ? '#10b981' : '#ef4444',
                     padding: '0.2rem 0.6rem',
                     borderRadius: '20px',
                     fontWeight: 'bold'
@@ -969,21 +969,37 @@ function OmniApp() {
                 background: 'rgba(0,0,0,0.3)',
                 padding: '1rem',
                 borderRadius: '10px',
-                borderLeft: '4px solid #8b5cf6'
+                borderLeft: vb.compound > 0 ? '4px solid #10b981' : '4px solid #ef4444'
               }}>
+                <a href={vb.url || '#'} target="_blank" rel="noreferrer" style={{ textDecoration: 'none' }}>
+                  <div style={{ fontSize: '0.95rem', color: '#f8fafc', fontWeight: 'bold', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    📰 {vb.title || "Notizia Sensibile Rilevata"}
+                    <span style={{ fontSize: '0.7rem', color: '#8b5cf6' }}>↗️</span>
+                  </div>
+                </a>
                 <div style={{ fontSize: '0.85rem', color: '#cbd5e1', fontStyle: 'italic', lineHeight: '1.5' }}>
                   "{vb.analysis}"
                 </div>
               </div>
 
+              {/* Progress bar sentiment */}
+              <div style={{ width: '100%', height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
+                <div style={{ 
+                  width: `${vb.confidence}%`, 
+                  height: '100%', 
+                  background: vb.compound > 0 ? 'linear-gradient(90deg, #047857, #10b981)' : 'linear-gradient(90deg, #b91c1c, #ef4444)',
+                  float: vb.compound > 0 ? 'right' : 'left' 
+                }}></div>
+              </div>
+
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
                 <div>
                   <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>CONSIGLIO AI</div>
-                  <div style={{ fontWeight: 'bold', color: '#e2e8f0' }}>{vb.prediction}</div>
+                  <div style={{ fontWeight: 'bold', color: vb.compound > 0 ? '#10b981' : '#ef4444' }}>{vb.prediction}</div>
                 </div>
                 <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>QUOTA ({vb.bookmaker})</div>
-                  <div style={{ fontWeight: 'bold', color: '#8b5cf6', fontSize: '1.2rem' }}>@{vb.odds.toFixed(2)}</div>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>MOLTIPLICATORE</div>
+                  <div style={{ fontWeight: 'bold', color: '#8b5cf6', fontSize: '1.2rem' }}>{vb.odds.toFixed(2)}x</div>
                 </div>
               </div>
               <button
@@ -1297,10 +1313,10 @@ function OmniApp() {
             <span className="menu-icon">⚽</span> Sports SureBets
             {status.modules?.sports_arb && <div className="active-dot"></div>}
           </div>
-          {/* <div className={`menu-item ${activeTab === 'value_bets' ? 'active' : ''}`} onClick={() => setActiveTab('value_bets')}>
+          <div className={`menu-item ${activeTab === 'value_bets' ? 'active' : ''}`} onClick={() => setActiveTab('value_bets')}>
             <span className="menu-icon">🤖</span> AI Sentiment Radar
             {status.modules?.ai_sports_sentiment && <div className="active-dot"></div>}
-          </div> */}
+          </div>
           {/* <div className={`menu-item ${activeTab === 'ai_content' ? 'active' : ''}`} onClick={() => setActiveTab('ai_content')}>
             <span className="menu-icon">📱</span> AI Content Creator
             {status.modules?.ai_content && <div className="active-dot"></div>}
