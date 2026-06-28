@@ -14,3 +14,8 @@ websockets
 google-generativeai
 google-cloud-aiplatform
 python-multipart
+sqlalchemy
+passlib[bcrypt]
+python-jose[cryptography]
+stripe
+

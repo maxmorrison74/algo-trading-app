@@ -75,6 +75,11 @@ def save_db(state_dict):
 
 app = FastAPI(title="AlgoTrading Backend")
 
+# Inizializza Database
+import models
+from database import engine
+models.Base.metadata.create_all(bind=engine)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -82,6 +87,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Includi Routers
+from routers_auth import router as auth_router
+from routers_lemonsqueezy import router as ls_router
+app.include_router(auth_router)
+app.include_router(ls_router)
+
 
 API_KEY = os.getenv("ALPACA_API_KEY")
 API_SECRET = os.getenv("ALPACA_SECRET_KEY")

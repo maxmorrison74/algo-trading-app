@@ -1,10 +1,10 @@
 import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
-import OmniApp from './OmniApp.jsx'
+import AppRouter from './AppRouter.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <OmniApp />
+    <AppRouter />
   </StrictMode>,
 )
