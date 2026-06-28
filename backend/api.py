@@ -814,15 +814,15 @@ def test_connection(req: TestConnectionRequest):
                     k, v = line.strip().split("=", 1)
                     keys[k] = v
                     
-    # Overlay with keys from request if present
-    if req.alpaca_key: keys['ALPACA_KEY'] = req.alpaca_key
-    if req.alpaca_secret: keys['ALPACA_SECRET'] = req.alpaca_secret
-    if req.binance_key: keys['BINANCE_KEY'] = req.binance_key
-    if req.binance_secret: keys['BINANCE_SECRET'] = req.binance_secret
-    if req.kraken_key: keys['KRAKEN_KEY'] = req.kraken_key
-    if req.kraken_secret: keys['KRAKEN_SECRET'] = req.kraken_secret
-    if req.elevenlabs_key: keys['ELEVENLABS_KEY'] = req.elevenlabs_key
-    if req.theodds_key: keys['THEODDS_KEY'] = req.theodds_key
+    # Overlay with keys from request if present and not masked
+    if req.alpaca_key and "***" not in req.alpaca_key: keys['ALPACA_KEY'] = req.alpaca_key
+    if req.alpaca_secret and "***" not in req.alpaca_secret: keys['ALPACA_SECRET'] = req.alpaca_secret
+    if req.binance_key and "***" not in req.binance_key: keys['BINANCE_KEY'] = req.binance_key
+    if req.binance_secret and "***" not in req.binance_secret: keys['BINANCE_SECRET'] = req.binance_secret
+    if req.kraken_key and "***" not in req.kraken_key: keys['KRAKEN_KEY'] = req.kraken_key
+    if req.kraken_secret and "***" not in req.kraken_secret: keys['KRAKEN_SECRET'] = req.kraken_secret
+    if req.elevenlabs_key and "***" not in req.elevenlabs_key: keys['ELEVENLABS_KEY'] = req.elevenlabs_key
+    if req.theodds_key and "***" not in req.theodds_key: keys['THEODDS_KEY'] = req.theodds_key
     
 
     service = req.service.lower()
