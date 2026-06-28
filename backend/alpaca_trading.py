@@ -5,7 +5,6 @@ import datetime
 import math
 import alpaca_trade_api as tradeapi
 import pandas as pd
-import ta
 import google.generativeai as genai
 
 class AlpacaEngine:
@@ -27,7 +26,7 @@ class AlpacaEngine:
                     if "=" in line:
                         k, v = line.strip().split("=", 1)
                         keys[k] = v
-        except Exception:
+        except Exception as e:
             pass
             
         alpaca_key = keys.get("ALPACA_KEY", os.getenv("ALPACA_API_KEY", ""))
@@ -81,11 +80,19 @@ class AlpacaEngine:
             close_prices = bars['close']
             current_price = close_prices.iloc[-1]
             
-            # Calcolo Indicatori
-            rsi = ta.momentum.RSIIndicator(close_prices, window=14).rsi().iloc[-1]
-            bb = ta.volatility.BollingerBands(close_prices, window=20, window_dev=2)
-            bb_lower = bb.bollinger_lband().iloc[-1]
-            bb_upper = bb.bollinger_hband().iloc[-1]
+            # Calcolo Indicatori Manuale (Pandas)
+            # RSI
+            delta = close_prices.diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            rsi = (100 - (100 / (1 + rs))).iloc[-1]
+            
+            # Bollinger Bands
+            rolling_mean = close_prices.rolling(window=20).mean()
+            rolling_std = close_prices.rolling(window=20).std()
+            bb_lower = (rolling_mean - (rolling_std * 2)).iloc[-1]
+            bb_upper = (rolling_mean + (rolling_std * 2)).iloc[-1]
             
             # Self-update UI
             self.bot_state.latest_predictions[symbol] = f"RSI: {rsi:.1f} | BB_L: {bb_lower:.2f}"
