@@ -1040,15 +1040,20 @@ function OmniApp() {
   const generateAiIdea = async () => {
     setAiLoading(true);
     try {
+      const payload = { gemini_key: apiKeys.gemini_key || savedKeys.GEMINI_KEY || "" };
       const res = await fetch('/api/ai/generate-idea', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ gemini_key: apiKeys.gemini_key || savedKeys.GEMINI_KEY })
+        body: JSON.stringify(payload)
       });
       const data = await res.json();
-      if(data.topic) setAiIdea(data);
-      else alert(data.detail || "Errore");
+      if(data.topic) {
+        setAiIdea(data);
+      } else {
+        const errorMsg = typeof data.detail === 'object' ? JSON.stringify(data.detail) : (data.detail || "Errore sconosciuto");
+        alert("Errore API: " + errorMsg);
+      }
     } catch(e) {
-      alert("Errore generazione idea.");
+      alert("Errore di rete o server non raggiungibile: " + e.message);
     }
     setAiLoading(false);
   };
