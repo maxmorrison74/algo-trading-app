@@ -596,7 +596,32 @@ function OmniApp() {
   );
 
   
-  const renderSportsArbitrageView = () => (
+  const SPORT_LABELS = {
+    soccer_italy_serie_a:        '⚽ Serie A',
+    soccer_epl:                  '⚽ Premier League',
+    soccer_spain_la_liga:        '⚽ La Liga',
+    soccer_germany_bundesliga:   '⚽ Bundesliga',
+    soccer_france_ligue_one:     '⚽ Ligue 1',
+    soccer_uefa_champs_league:   '⚽ Champions League',
+    soccer_uefa_european_championship: '⚽ Euro',
+    soccer_usa_mls:              '⚽ MLS',
+    tennis_atp_french_open:      '🎾 ATP Roland Garros',
+    tennis_wta_french_open:      '🎾 WTA Roland Garros',
+    tennis_atp_wimbledon:        '🎾 ATP Wimbledon',
+    tennis_wta_wimbledon:        '🎾 WTA Wimbledon',
+    basketball_nba:              '🏀 NBA',
+    basketball_euroleague:       '🏀 Euroleague',
+    americanfootball_nfl:        '🏈 NFL',
+    icehockey_nhl:               '🏒 NHL',
+    baseball_mlb:                '⚾ MLB',
+  };
+  const getSportLabel = (key) => SPORT_LABELS[key] || (key ? key.replace(/_/g, ' ').toUpperCase() : '🏆 Sport');
+
+  const renderSportsArbitrageView = () => {
+    const sortedSurebets = [...(status.active_surebets || [])].sort(
+      (a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)
+    );
+    return (
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
@@ -627,14 +652,35 @@ function OmniApp() {
 
         {/* SureBets Found */}
         <div style={{ flex: 1 }}>
-          <h3 style={{ color: '#e2e8f0', marginBottom: '1rem' }}>Ultime SureBets Trovate</h3>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            {status.active_surebets?.map(sb => (
-              <div key={sb.id} style={{ background: 'rgba(16, 185, 129, 0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>
-                  <span style={{ fontWeight: 'bold', fontSize: '1.2rem' }}>{sb.match}</span>
-                  <span style={{ color: '#10b981', fontWeight: 'bold' }}>Profitto: +{Number(sb.profit_margin || 0).toFixed(2)}%</span>
+          <h3 style={{ color: '#e2e8f0', marginBottom: '1rem' }}>SureBets — ordinate per profitto 📊</h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '600px', overflowY: 'auto' }}>
+            {sortedSurebets.map((sb, idx) => (
+              <div key={sb.id} style={{
+                background: idx === 0 ? 'rgba(16,185,129,0.12)' : 'rgba(16, 185, 129, 0.05)',
+                padding: '1.5rem', borderRadius: '12px',
+                border: idx === 0 ? '1px solid rgba(16,185,129,0.6)' : '1px solid rgba(16, 185, 129, 0.3)'
+              }}>
+                {/* Header card con sport, rank e profitto */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                    {idx === 0 && <span style={{ fontSize: '1.1rem' }}>🥇</span>}
+                    {idx === 1 && <span style={{ fontSize: '1.1rem' }}>🥈</span>}
+                    {idx === 2 && <span style={{ fontSize: '1.1rem' }}>🥉</span>}
+                    {idx > 2  && <span style={{ color: '#64748b', fontWeight: 'bold', fontSize: '0.85rem' }}>#{idx + 1}</span>}
+                    <span style={{
+                      background: 'rgba(59,130,246,0.15)',
+                      color: '#60a5fa',
+                      fontSize: '0.75rem',
+                      padding: '0.2rem 0.6rem',
+                      borderRadius: '20px',
+                      border: '1px solid rgba(59,130,246,0.3)',
+                      fontWeight: 'bold',
+                      letterSpacing: '0.5px'
+                    }}>{getSportLabel(sb.sport)}</span>
+                  </div>
+                  <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '1.1rem' }}>+{Number(sb.profit_margin || 0).toFixed(2)}%</span>
                 </div>
+                <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{sb.match}</div>
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <div style={{ flex: 1 }}>
@@ -693,7 +739,7 @@ function OmniApp() {
               </div>
             ))}
             
-            {(!status.active_surebets || status.active_surebets.length === 0) && (
+            {sortedSurebets.length === 0 && (
               <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', color: 'var(--text-secondary)' }}>
                 Nessuna SureBet attiva al momento. Il Radar è in scansione...
               </div>
@@ -702,9 +748,10 @@ function OmniApp() {
         </div>
       </div>
     </div>
-  );
+    );
+  };
 
-  
+
   const renderAIContentView = () => (
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
