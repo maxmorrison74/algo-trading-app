@@ -340,6 +340,17 @@ function OmniApp() {
         {testResults['kraken'] && <div style={{ color: testResults['kraken'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['kraken']}</div>}
       </div>
 
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Google Gemini (AI Investments) {savedKeys['GEMINI_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</h3>
+          <button onClick={() => testConnection('gemini')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+          <input type="password" placeholder="Gemini API Key" value={apiKeys.gemini_key} onChange={e => setApiKeys({...apiKeys, gemini_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
+        </div>
+        {testResults['gemini'] && <div style={{ color: testResults['gemini'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['gemini']}</div>}
+      </div>
+
       <div style={{ textAlign: 'right' }}>
         <button onClick={saveKeys} className="btn btn-start" style={{ padding: '1rem 3rem', fontSize: '1.1rem' }}>Salva nel Vault Sicuro</button>
       </div>

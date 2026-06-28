@@ -683,8 +683,7 @@ class TestConnectionRequest(BaseModel):
     elevenlabs_key: str = ""
     theodds_key: str = ""
     newsapi_key: str = ""
-
-
+    gemini_key: str = ""
 @app.post("/api/test-connection")
 def test_connection(req: TestConnectionRequest):
     keys = {}
@@ -705,6 +704,7 @@ def test_connection(req: TestConnectionRequest):
     if req.elevenlabs_key and "***" not in req.elevenlabs_key: keys['ELEVENLABS_KEY'] = req.elevenlabs_key
     if req.newsapi_key and "***" not in req.newsapi_key: keys['NEWSAPI_KEY'] = req.newsapi_key
     if req.theodds_key and "***" not in req.theodds_key: keys['THEODDS_KEY'] = req.theodds_key
+    if req.gemini_key and "***" not in req.gemini_key: keys['GEMINI_KEY'] = req.gemini_key
     
 
     service = req.service.lower()
@@ -778,6 +778,19 @@ def test_connection(req: TestConnectionRequest):
                 return {"status": "success", "message": "Connessione NewsAPI stabilita! Auth OK."}
             else:
                 return {"status": "error", "message": f"Errore NewsAPI: {res.status_code} - {res.text}"}
+        elif service == 'gemini':
+            api_key = keys.get("GEMINI_KEY", "")
+            if not api_key:
+                return {"status": "error", "message": "Chiave Gemini mancante."}
+            try:
+                import google.generativeai as genai
+                genai.configure(api_key=api_key)
+                model = genai.GenerativeModel('gemini-1.5-flash')
+                res = model.generate_content("Say hi in 1 word")
+                if res.text:
+                    return {"status": "success", "message": "Connessione Gemini stabilita! Auth OK."}
+            except Exception as e:
+                return {"status": "error", "message": f"Errore Gemini: {str(e)}"}
                 
         else:
             # Fallback for others
