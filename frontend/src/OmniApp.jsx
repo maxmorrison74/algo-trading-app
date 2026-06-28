@@ -636,6 +636,100 @@ function OmniApp() {
         </button>
       </div>
 
+      {/* --- Pannello Auto-Bet --- */}
+      <div style={{
+        background: status.auto_bet_enabled
+          ? 'rgba(212,175,55,0.08)'
+          : 'rgba(255,255,255,0.03)',
+        border: status.auto_bet_enabled
+          ? '1px solid rgba(212,175,55,0.5)'
+          : '1px solid rgba(255,255,255,0.1)',
+        borderRadius: '12px',
+        padding: '1.2rem 1.5rem',
+        marginBottom: '1.5rem',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '2rem',
+        flexWrap: 'wrap',
+        transition: 'all 0.3s'
+      }}>
+        {/* Toggle on/off */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <span style={{ fontWeight: 'bold', color: '#e2e8f0', fontSize: '0.95rem' }}>🤖 Auto-Bet</span>
+          <div
+            id="auto-bet-toggle"
+            onClick={async () => {
+              const newVal = !status.auto_bet_enabled;
+              await fetch('/api/auto-bet-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ enabled: newVal })
+              });
+            }}
+            style={{
+              width: '52px', height: '28px',
+              background: status.auto_bet_enabled
+                ? 'linear-gradient(90deg, #d4af37, #f3e5ab)'
+                : 'rgba(255,255,255,0.15)',
+              borderRadius: '14px',
+              cursor: 'pointer',
+              position: 'relative',
+              transition: 'background 0.3s',
+              flexShrink: 0
+            }}
+          >
+            <div style={{
+              position: 'absolute',
+              top: '3px',
+              left: status.auto_bet_enabled ? '26px' : '3px',
+              width: '22px', height: '22px',
+              background: '#fff',
+              borderRadius: '50%',
+              transition: 'left 0.3s',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.4)'
+            }} />
+          </div>
+          <span style={{
+            fontSize: '0.8rem',
+            fontWeight: 'bold',
+            color: status.auto_bet_enabled ? '#d4af37' : '#64748b'
+          }}>
+            {status.auto_bet_enabled ? 'ATTIVO' : 'DISATTIVO'}
+          </span>
+        </div>
+
+        {/* Slider soglia */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flex: 1, minWidth: '220px' }}>
+          <span style={{ color: '#94a3b8', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>Soglia minima:</span>
+          <input
+            id="auto-bet-slider"
+            type="range" min="1" max="30" step="0.5"
+            value={status.auto_bet_threshold ?? 10}
+            onChange={async (e) => {
+              const val = parseFloat(e.target.value);
+              await fetch('/api/auto-bet-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ threshold: val })
+              });
+            }}
+            style={{ flex: 1, accentColor: '#d4af37', cursor: 'pointer' }}
+          />
+          <span style={{
+            fontWeight: 'bold',
+            color: '#d4af37',
+            minWidth: '42px',
+            fontSize: '1rem'
+          }}>{Number(status.auto_bet_threshold ?? 10).toFixed(1)}%</span>
+        </div>
+
+        {status.auto_bet_enabled && (
+          <div style={{ fontSize: '0.8rem', color: '#94a3b8', fontStyle: 'italic' }}>
+            Il sistema punta automaticamente €100 su ogni surebet ≥ {Number(status.auto_bet_threshold ?? 10).toFixed(1)}%
+          </div>
+        )}
+      </div>
+
       <div style={{ display: 'flex', gap: '2rem' }}>
         {/* Radar Logs */}
         <div style={{ flex: 1 }}>
