@@ -1083,6 +1083,30 @@ function OmniApp() {
     setUploadingVideo(false);
   };
 
+  const handleCopyPrompt = () => {
+    if (!aiIdea?.prompt) return;
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(aiIdea.prompt);
+      alert("Prompt copiato!");
+    } else {
+      // Fallback per HTTP non sicuro
+      const textArea = document.createElement("textarea");
+      textArea.value = aiIdea.prompt;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      try {
+        document.execCommand('copy');
+        alert("Prompt copiato!");
+      } catch (err) {
+        alert("Errore copia, fallo manualmente.");
+      }
+      document.body.removeChild(textArea);
+    }
+  };
+
   const renderAIContentView = () => (
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -1120,7 +1144,7 @@ function OmniApp() {
                 <div>
                   <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <span style={{ fontSize: '0.8rem', color: '#64748b' }}>PROMPT VEO / SORA:</span>
-                    <button onClick={() => navigator.clipboard.writeText(aiIdea.prompt)} style={{ background: 'transparent', border: '1px solid #a855f7', color: '#a855f7', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' }}>Copia</button>
+                    <button onClick={handleCopyPrompt} style={{ background: 'transparent', border: '1px solid #a855f7', color: '#a855f7', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' }}>Copia</button>
                   </div>
                   <p style={{ color: '#e2e8f0', fontSize: '0.9rem', margin: '0.2rem 0', fontFamily: 'monospace' }}>{aiIdea.prompt}</p>
                 </div>
