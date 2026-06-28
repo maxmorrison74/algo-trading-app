@@ -12,4 +12,6 @@ requests
 vaderSentiment==3.3.2
 ccxt
 tenacity
-
+websockets
+ta
+google-generativeai
