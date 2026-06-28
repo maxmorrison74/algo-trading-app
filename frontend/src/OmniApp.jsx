@@ -955,6 +955,50 @@ function OmniApp() {
                   <div style={{ fontWeight: 'bold', color: '#8b5cf6', fontSize: '1.2rem' }}>@{vb.odds.toFixed(2)}</div>
                 </div>
               </div>
+              <button
+                onClick={async () => {
+                  setPlacedBets(prev => ({ ...prev, [vb.id]: 'loading' }));
+                  await new Promise(r => setTimeout(r, 1500));
+                  if (Math.random() > 0.1) {
+                    setPlacedBets(prev => ({ ...prev, [vb.id]: 'placed' }));
+                  } else {
+                    setPlacedBets(prev => ({ ...prev, [vb.id]: 'error' }));
+                  }
+                }}
+                disabled={placedBets[vb.id] === 'loading' || placedBets[vb.id] === 'placed'}
+                style={{
+                  width: '100%',
+                  marginTop: '1rem',
+                  padding: '0.8rem',
+                  background: placedBets[vb.id] === 'placed' 
+                    ? 'rgba(16, 185, 129, 0.15)' 
+                    : placedBets[vb.id] === 'error'
+                      ? 'rgba(239, 68, 68, 0.1)'
+                      : placedBets[vb.id] === 'loading'
+                        ? 'rgba(139, 92, 246, 0.3)'
+                        : 'linear-gradient(90deg, #8b5cf6, #c084fc)',
+                  border: placedBets[vb.id] === 'placed' 
+                    ? '1px solid #10b981' 
+                    : placedBets[vb.id] === 'error'
+                      ? '1px solid #ef4444'
+                      : 'none',
+                  color: placedBets[vb.id] === 'placed' 
+                    ? '#10b981' 
+                    : placedBets[vb.id] === 'error'
+                      ? '#ef4444'
+                      : '#fff',
+                  fontWeight: 'bold',
+                  fontSize: '0.95rem',
+                  borderRadius: '8px',
+                  cursor: (placedBets[vb.id] === 'loading' || placedBets[vb.id] === 'placed') ? 'not-allowed' : 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {placedBets[vb.id] === 'loading' ? '⏳ Piazzando...' : 
+                 placedBets[vb.id] === 'placed' ? '✅ Scommessa piazzata!' : 
+                 placedBets[vb.id] === 'error' ? '❌ Errore' : 
+                 '⚡ PIAZZA SCOMMESSA (€50)'}
+              </button>
             </div>
           ))
         ) : (
