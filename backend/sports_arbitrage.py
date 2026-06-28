@@ -90,7 +90,10 @@ class SportsArbitrage:
             if resp.status_code == 200:
                 return resp.json()
             elif resp.status_code == 401:
-                self._log("❌ THEODDS_KEY non valida. Controlla le impostazioni.")
+                self._log("❌ THEODDS_KEY non valida. Modulo disattivato in automatico.")
+                self.running = False
+                if "sports_arb" in self.bot_state.modules:
+                    self.bot_state.modules["sports_arb"] = False
                 return []
             elif resp.status_code == 422:
                 # Sport non disponibile in questo momento (stagione chiusa)
