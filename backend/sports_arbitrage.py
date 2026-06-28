@@ -195,7 +195,7 @@ class SportsArbitrage:
 
         self._log(f"🔍 Scansione {len(sports_to_scan)} sport in corso...")
         
-        arb_found = 0
+        arb_results = []  # Raccogliamo tutte le opportunità prima di ordinarle
         events_scanned = 0
         
         for sport_key in sports_to_scan:
@@ -207,25 +207,30 @@ class SportsArbitrage:
                 events_scanned += 1
                 result = self._check_arbitrage(event)
                 if result:
-                    arb_found += 1
-                    profit = result["profit_margin"]
-                    match = result["match"]
-                    self._log(f"🔥 SUREBET! {match} | Profitto: {profit:.3f}% | {result['book1']} vs {result['book2']}")
-                    
-                    surebet_entry = {
-                        "id": str(int(time.time() * 1000)),
-                        "timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
-                        **result
-                    }
-                    self.bot_state.active_surebets.insert(0, surebet_entry)
-                    if len(self.bot_state.active_surebets) > 10:
-                        self.bot_state.active_surebets.pop()
+                    arb_results.append(result)
             
             # Rate limiting gentile per non esaurire i crediti API
             time.sleep(0.5)
 
-        self._log(f"✅ Scansione completata: {events_scanned} eventi | {arb_found} surebets trovate")
-        return arb_found
+        # Ordiniamo dal profitto più alto al più basso
+        arb_results.sort(key=lambda x: x["profit_margin"], reverse=True)
+
+        for result in arb_results:
+            profit = result["profit_margin"]
+            match = result["match"]
+            self._log(f"🔥 SUREBET! {match} | Profitto: {profit:.3f}% | {result['book1']} vs {result['book2']}")
+            
+            surebet_entry = {
+                "id": str(int(time.time() * 1000)),
+                "timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
+                **result
+            }
+            self.bot_state.active_surebets.insert(0, surebet_entry)
+            if len(self.bot_state.active_surebets) > 10:
+                self.bot_state.active_surebets.pop()
+
+        self._log(f"✅ Scansione completata: {events_scanned} eventi | {len(arb_results)} surebets trovate (ordinate per profitto)")
+        return len(arb_results)
 
     def loop(self):
         self.running = True
