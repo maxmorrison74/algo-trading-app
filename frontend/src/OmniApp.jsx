@@ -286,42 +286,6 @@ function OmniApp() {
         {testResults['kraken'] && <div style={{ color: testResults['kraken'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['kraken']}</div>}
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Altri Servizi</h3>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>ElevenLabs API {savedKeys['ELEVENLABS_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
-            <input type="password" placeholder="ElevenLabs API Key" value={apiKeys.elevenlabs_key} onChange={e => setApiKeys({...apiKeys, elevenlabs_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
-          </div>
-          <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>The-Odds-API {savedKeys['THEODDS_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
-            <input type="password" placeholder="The-Odds-API Key" value={apiKeys.theodds_key} onChange={e => setApiKeys({...apiKeys, theodds_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
-          </div>
-        </div>
-        <div style={{ flex: 1 }}>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Gemini AI {savedKeys['GEMINI_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
-          <input type="password" placeholder="Gemini API Key" value={apiKeys.gemini_key} onChange={e => setApiKeys({...apiKeys, gemini_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>NewsAPI {savedKeys['NEWSAPI_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <input type="password" placeholder="NewsAPI Key" value={apiKeys.newsapi_key} onChange={e => setApiKeys({...apiKeys, newsapi_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
-            <button onClick={() => testConnection('newsapi')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
-          </div>
-          {testResults['newsapi'] && <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: testResults['newsapi'].includes('OK') ? '#10b981' : '#ef4444' }}>{testResults['newsapi']}</div>}
-        </div>
-        <div style={{ flex: 1, marginTop: '1rem' }}>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Google Cloud Service Account (JSON per Veo) {savedKeys['GOOGLE_APPLICATION_CREDENTIALS'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
-          <textarea placeholder='Incolla qui l intero file JSON scaricato da Google Cloud...' value={apiKeys.google_cloud_json} onChange={e => setApiKeys({...apiKeys, google_cloud_json: e.target.value})} style={{ width: '100%', height: '100px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: '0.8rem' }} />
-        </div>
-        <div style={{ flex: 1, marginTop: '1rem' }}>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Make.com Webhook URL (per Pubblicazione Social Automatica) {savedKeys['MAKE_WEBHOOK_URL'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
-          <input type="text" placeholder="https://hook.eu1.make.com/..." value={apiKeys.make_webhook_url} onChange={e => setApiKeys({...apiKeys, make_webhook_url: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
-        </div>
-      </div>
-
       <div style={{ textAlign: 'right' }}>
         <button onClick={saveKeys} className="btn btn-start" style={{ padding: '1rem 3rem', fontSize: '1.1rem' }}>Salva nel Vault Sicuro</button>
       </div>

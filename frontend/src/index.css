@@ -446,3 +446,125 @@ input[type="text"]:focus, input[type="password"]:focus, textarea:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.2);
 }
+
+/* 📱 MOBILE RESPONSIVENESS (iPhone 16 Pro Max & simili) */
+@media (max-width: 768px) {
+  /* Layout: da orizzontale a verticale */
+  .omni-app {
+    flex-direction: column;
+  }
+
+  /* SIDEBAR -> BOTTOM TAB BAR */
+  .sidebar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    border-right: none;
+    border-top: 1px solid var(--border-color);
+    background: rgba(15, 23, 42, 0.85);
+    backdrop-filter: blur(20px);
+    z-index: 1000;
+  }
+
+  /* Nascondi header e footer sulla bottom bar */
+  .sidebar-header, .sidebar-footer {
+    display: none;
+  }
+
+  /* Adatta il menu a riga in basso */
+  .sidebar-menu {
+    flex-direction: row;
+    justify-content: space-around;
+    align-items: center;
+    padding: 0.5rem 0.2rem;
+    overflow: hidden;
+  }
+
+  .menu-item {
+    flex-direction: column;
+    padding: 0.5rem;
+    font-size: 0.65rem;
+    text-align: center;
+    border-radius: 8px;
+    gap: 0.2rem;
+    flex: 1;
+  }
+
+  .menu-item:hover {
+    transform: none;
+  }
+
+  .menu-item.active {
+    background: rgba(212, 175, 55, 0.15);
+    border: none;
+  }
+
+  .menu-icon {
+    margin-right: 0;
+    font-size: 1.4rem;
+  }
+
+  .active-dot {
+    top: 5px;
+    right: 25%;
+  }
+
+  /* MAIN CONTENT: Spazio per la bottom bar */
+  .main-content {
+    padding: 1.5rem 1rem 6rem 1rem;
+    height: 100vh;
+  }
+
+  /* Header più piccolo */
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .header h2 {
+    font-size: 1.5rem;
+  }
+
+  /* Cards impilate */
+  .card {
+    padding: 1rem;
+  }
+
+  .portfolio-value {
+    font-size: 2rem;
+  }
+
+  /* Fix Griglie che usavano display flex affiancati */
+  div[style*="display: flex; gap: 2rem"] {
+    flex-direction: column !important;
+    gap: 1rem !important;
+  }
+
+  div[style*="display: flex; gap: 1rem"] {
+    flex-direction: column !important;
+    gap: 0.8rem !important;
+  }
+
+  /* Bottoni full width */
+  .btn {
+    width: 100%;
+    padding: 1rem;
+  }
+
+  /* Inputs Settings */
+  input[type="text"], input[type="password"] {
+    width: 100%;
+    padding: 1rem;
+  }
+
+  /* Activity Feed / Terminal */
+  .terminal-window {
+    height: 300px;
+    padding: 1rem;
+  }
+}
