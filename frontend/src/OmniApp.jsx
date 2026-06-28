@@ -173,9 +173,25 @@ function OmniApp() {
         try {
           const res = await fetch('/api/keys?t=' + Date.now());
           const data = await res.json();
+          if (data.ERROR) {
+            alert("Errore critico dal backend nel leggere le chiavi: " + data.ERROR);
+          }
           setSavedKeys(data);
+          // PRE-POPULATE I CAMPI DI TESTO CON I PALLINI (o la stringa mascherata)
+          setApiKeys(prev => ({
+            ...prev,
+            alpaca_key: data.ALPACA_KEY || '',
+            alpaca_secret: data.ALPACA_SECRET || '',
+            binance_key: data.BINANCE_KEY || '',
+            binance_secret: data.BINANCE_SECRET || '',
+            kraken_key: data.KRAKEN_KEY || '',
+            kraken_secret: data.KRAKEN_SECRET || '',
+            elevenlabs_key: data.ELEVENLABS_KEY || '',
+            theodds_key: data.THEODDS_KEY || ''
+          }));
         } catch(err) {
-          console.error("Error fetching keys");
+          console.error("Error fetching keys", err);
+          alert("Errore di rete durante il caricamento delle chiavi dal Vault.");
         }
       };
       fetchKeys();
