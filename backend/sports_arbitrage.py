@@ -265,8 +265,8 @@ class SportsArbitrage:
                 value_bet = self._find_value_bets(event)
                 if value_bet:
                     self.bot_state.value_bets.insert(0, value_bet)
-                    # Manteniamo solo le ultime 10
-                    if len(self.bot_state.value_bets) > 10:
+                    # Manteniamo solo le ultime 50
+                    if len(self.bot_state.value_bets) > 50:
                         self.bot_state.value_bets.pop()
             
             # Rate limiting gentile per non esaurire i crediti API

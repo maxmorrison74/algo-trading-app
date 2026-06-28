@@ -26,6 +26,8 @@ class ErrorBoundary extends React.Component {
 
 function OmniApp() {
   const [status, setStatus] = useState({});
+  const [activeTab, setActiveTab] = useState('dashboard');
+  const [numValueBets, setNumValueBets] = useState(9);
   const [placedBets, setPlacedBets] = useState({});
   const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', gemini_key:''});
   const [testResults, setTestResults] = useState({});
@@ -867,86 +869,101 @@ function OmniApp() {
           </div>
         </div>
       </div>
-      
-      {/* --- Sezione Scommesse Interessanti (AI Value Bets) --- */}
-      <div style={{ marginTop: '3rem' }}>
-        <h3 style={{ color: '#e2e8f0', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-          🤖 Scommesse Interessanti (AI Value Bets)
-          <span style={{ fontSize: '0.75rem', background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', padding: '0.3rem 0.6rem', borderRadius: '4px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
-            powered by Gemini AI
-          </span>
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-          {status.value_bets && status.value_bets.length > 0 ? (
-            status.value_bets.map(vb => (
-              <div key={vb.id} style={{
-                background: 'rgba(15, 23, 42, 0.6)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(139, 92, 246, 0.4)',
-                borderRadius: '16px',
-                padding: '1.5rem',
-                boxShadow: '0 4px 20px rgba(139, 92, 246, 0.1)',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '1rem'
-              }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ color: '#a78bfa', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.3rem' }}>
-                      {vb.sport}
-                    </div>
-                    <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#f8fafc' }}>{vb.match}</div>
-                  </div>
-                  <div style={{ textAlign: 'right', minWidth: '80px' }}>
-                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '2px' }}>CONFIDENCE</div>
-                    <div style={{ 
-                      display: 'inline-block',
-                      background: vb.confidence > 85 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
-                      color: vb.confidence > 85 ? '#10b981' : '#f59e0b',
-                      padding: '0.2rem 0.6rem',
-                      borderRadius: '20px',
-                      fontWeight: 'bold'
-                    }}>
-                      {vb.confidence}%
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{
-                  background: 'rgba(0,0,0,0.3)',
-                  padding: '1rem',
-                  borderRadius: '10px',
-                  borderLeft: '4px solid #8b5cf6'
-                }}>
-                  <div style={{ fontSize: '0.85rem', color: '#cbd5e1', fontStyle: 'italic', lineHeight: '1.5' }}>
-                    "{vb.analysis}"
-                  </div>
-                </div>
-
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                  <div>
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>CONSIGLIO AI</div>
-                    <div style={{ fontWeight: 'bold', color: '#e2e8f0' }}>{vb.prediction}</div>
-                  </div>
-                  <div style={{ textAlign: 'right' }}>
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>QUOTA ({vb.bookmaker})</div>
-                    <div style={{ fontWeight: 'bold', color: '#8b5cf6', fontSize: '1.2rem' }}>@{vb.odds.toFixed(2)}</div>
-                  </div>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div style={{ gridColumn: '1 / -1', padding: '3rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)', color: '#64748b' }}>
-              Nessuna anomalia statistica rilevata al momento. L'intelligenza artificiale sta analizzando le quote...
-            </div>
-          )}
-        </div>
-      </div>
-
-    </div>
     );
   };
 
+  const renderValueBetsView = () => (
+    <div className="module-content">
+      <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            🤖 Scommesse Interessanti
+            <span style={{ fontSize: '0.75rem', background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', padding: '0.3rem 0.6rem', borderRadius: '4px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
+              powered by Gemini AI
+            </span>
+          </h2>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Analisi anomalie statistiche e Value Bets</div>
+        </div>
+        
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.8rem 1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+          <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Mostra:</span>
+          <input 
+            type="range" min="3" max="50" step="3" 
+            value={numValueBets} 
+            onChange={(e) => setNumValueBets(parseInt(e.target.value))} 
+            style={{ accentColor: '#8b5cf6', cursor: 'pointer' }}
+          />
+          <span style={{ fontWeight: 'bold', color: '#a78bfa', minWidth: '24px' }}>{numValueBets}</span>
+        </div>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+        {status.value_bets && status.value_bets.length > 0 ? (
+          status.value_bets.slice(0, numValueBets).map(vb => (
+            <div key={vb.id} style={{
+              background: 'rgba(15, 23, 42, 0.6)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(139, 92, 246, 0.4)',
+              borderRadius: '16px',
+              padding: '1.5rem',
+              boxShadow: '0 4px 20px rgba(139, 92, 246, 0.1)',
+              display: 'flex',
+              flexDirection: 'column',
+              gap: '1rem'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: '#a78bfa', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.3rem' }}>
+                    {vb.sport}
+                  </div>
+                  <div style={{ fontWeight: 'bold', fontSize: '1.2rem', color: '#f8fafc' }}>{vb.match}</div>
+                </div>
+                <div style={{ textAlign: 'right', minWidth: '80px' }}>
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '2px' }}>CONFIDENCE</div>
+                  <div style={{ 
+                    display: 'inline-block',
+                    background: vb.confidence > 85 ? 'rgba(16, 185, 129, 0.2)' : 'rgba(245, 158, 11, 0.2)',
+                    color: vb.confidence > 85 ? '#10b981' : '#f59e0b',
+                    padding: '0.2rem 0.6rem',
+                    borderRadius: '20px',
+                    fontWeight: 'bold'
+                  }}>
+                    {vb.confidence}%
+                  </div>
+                </div>
+              </div>
+
+              <div style={{
+                background: 'rgba(0,0,0,0.3)',
+                padding: '1rem',
+                borderRadius: '10px',
+                borderLeft: '4px solid #8b5cf6'
+              }}>
+                <div style={{ fontSize: '0.85rem', color: '#cbd5e1', fontStyle: 'italic', lineHeight: '1.5' }}>
+                  "{vb.analysis}"
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 'auto', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>CONSIGLIO AI</div>
+                  <div style={{ fontWeight: 'bold', color: '#e2e8f0' }}>{vb.prediction}</div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>QUOTA ({vb.bookmaker})</div>
+                  <div style={{ fontWeight: 'bold', color: '#8b5cf6', fontSize: '1.2rem' }}>@{vb.odds.toFixed(2)}</div>
+                </div>
+              </div>
+            </div>
+          ))
+        ) : (
+          <div style={{ gridColumn: '1 / -1', padding: '3rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px dashed rgba(255,255,255,0.1)', color: '#64748b' }}>
+            Nessuna anomalia statistica rilevata al momento. L'intelligenza artificiale sta analizzando le quote...
+          </div>
+        )}
+      </div>
+    </div>
+  );
 
   const renderAIContentView = () => (
     <div className="module-content">
@@ -1096,6 +1113,9 @@ function OmniApp() {
             <span className="menu-icon">⚽</span> Sports SureBets
             {status.modules?.sports_arb && <div className="active-dot"></div>}
           </div>
+          <div className={`menu-item ${activeTab === 'value_bets' ? 'active' : ''}`} onClick={() => setActiveTab('value_bets')}>
+            <span className="menu-icon">🤖</span> Scommesse Interessanti
+          </div>
           <div className={`menu-item ${activeTab === 'ai_content' ? 'active' : ''}`} onClick={() => setActiveTab('ai_content')}>
             <span className="menu-icon">📱</span> AI Content Creator
             {status.modules?.ai_content && <div className="active-dot"></div>}
@@ -1120,6 +1140,7 @@ function OmniApp() {
         {activeTab === 'trading' && renderTradingView()}
         {activeTab === 'crypto_arb' && renderArbitrageView()}
         {activeTab === 'sports_arb' && renderSportsArbitrageView()}
+        {activeTab === 'value_bets' && renderValueBetsView()}
         {activeTab === 'ai_content' && renderAIContentView()}
         {activeTab === 'saas' && (
            <div className="module-content" style={{ padding: '2rem' }}>
