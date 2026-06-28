@@ -2,20 +2,24 @@ import os
 import time
 import asyncio
 import datetime
-import math
-import alpaca_trade_api as tradeapi
+import threading
 import pandas as pd
 import google.generativeai as genai
+import alpaca_trade_api as tradeapi
+from alpaca_trade_api.stream import Stream
 
 class AlpacaEngine:
     def __init__(self, bot_state):
         self.bot_state = bot_state
         self.running = False
-        self.alpaca = None
+        self.alpaca_rest = None
+        self.alpaca_stream = None
         self.symbols = ["SPY", "QQQ", "AAPL", "MSFT", "TSLA", "NVDA"]
         self.llm_enabled = False
+        self.history_buffers = {sym: pd.DataFrame() for sym in self.symbols}
         
-        self.init_clients()
+        # Start async loop thread for streaming
+        self._stream_thread = None
 
     def init_clients(self):
         # Init Alpaca
@@ -26,18 +30,19 @@ class AlpacaEngine:
                     if "=" in line:
                         k, v = line.strip().split("=", 1)
                         keys[k] = v
-        except Exception as e:
+        except Exception:
             pass
             
-        alpaca_key = keys.get("ALPACA_KEY", os.getenv("ALPACA_API_KEY", ""))
-        alpaca_secret = keys.get("ALPACA_SECRET", os.getenv("ALPACA_SECRET_KEY", ""))
-        alpaca_base = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+        self.alpaca_key = keys.get("ALPACA_KEY", os.getenv("ALPACA_API_KEY", ""))
+        self.alpaca_secret = keys.get("ALPACA_SECRET", os.getenv("ALPACA_SECRET_KEY", ""))
+        self.alpaca_base = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
         
-        if alpaca_key and alpaca_secret:
+        if self.alpaca_key and self.alpaca_secret:
             try:
-                self.alpaca = tradeapi.REST(alpaca_key, alpaca_secret, alpaca_base, api_version='v2')
+                self.alpaca_rest = tradeapi.REST(self.alpaca_key, self.alpaca_secret, self.alpaca_base, api_version='v2')
+                self.sync_portfolio()
             except Exception as e:
-                self._log(f"Errore connessione Alpaca: {e}")
+                self._log(f"Errore connessione Alpaca REST: {e}")
                 
         # Init Gemini
         gemini_key = keys.get("GEMINI_KEY", os.getenv("GEMINI_API_KEY", ""))
@@ -46,21 +51,34 @@ class AlpacaEngine:
             self.model = genai.GenerativeModel('gemini-1.5-flash')
             self.llm_enabled = True
         else:
-            self._log("Avviso: GEMINI_KEY non trovata in .env.keys. Il bot userà solo la statistica.")
+            self._log("Avviso: GEMINI_KEY non trovata. Trading solo su Analisi Tecnica.")
+
+    def sync_portfolio(self):
+        try:
+            account = self.alpaca_rest.get_account()
+            self.bot_state.virtual_cash = float(account.portfolio_value)
+            # Potremmo anche listare le posizioni reali qui se servisse aggiornare UI
+        except Exception as e:
+            self._log(f"Errore sync portfolio: {e}")
 
     def _log(self, message):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         self.bot_state.add_log(f"[{timestamp}] 📈 ALPACA: {message}")
 
-    def get_llm_sentiment(self, symbol, news_headlines):
-        if not self.llm_enabled or not news_headlines:
+    def get_llm_sentiment(self, symbol):
+        if not self.llm_enabled:
             return "NEUTRAL"
             
-        prompt = f"Analizza il sentiment di queste notizie finanziarie recenti sul titolo {symbol}. Rispondi SOLO con una di queste tre parole: BULLISH, BEARISH, o NEUTRAL. Notizie:\n"
-        for i, n in enumerate(news_headlines):
-            prompt += f"- {n}\n"
-            
         try:
+            news = self.alpaca_rest.get_news(symbol, limit=3)
+            headlines = [n.headline for n in news]
+            if not headlines:
+                return "NEUTRAL"
+                
+            prompt = f"Analizza il sentiment di queste notizie finanziarie su {symbol}. Rispondi SOLO con BULLISH, BEARISH, o NEUTRAL.\nNotizie:\n"
+            for n in headlines:
+                prompt += f"- {n}\n"
+                
             response = self.model.generate_content(prompt)
             result = response.text.strip().upper()
             if "BULLISH" in result: return "BULLISH"
@@ -70,119 +88,146 @@ class AlpacaEngine:
             self._log(f"Errore Gemini API: {e}")
             return "NEUTRAL"
 
-    def process_symbol(self, symbol):
-        try:
-            # 1. Data Ingestion (Statistica)
-            bars = self.alpaca.get_bars(symbol, tradeapi.TimeFrame.Minute, limit=50).df
-            if bars.empty or len(bars) < 20:
-                return
-                
-            close_prices = bars['close']
-            current_price = close_prices.iloc[-1]
-            
-            # Calcolo Indicatori Manuale (Pandas)
-            # RSI
-            delta = close_prices.diff()
-            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
-            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
-            rs = gain / loss
-            rsi = (100 - (100 / (1 + rs))).iloc[-1]
-            
-            # Bollinger Bands
-            rolling_mean = close_prices.rolling(window=20).mean()
-            rolling_std = close_prices.rolling(window=20).std()
-            bb_lower = (rolling_mean - (rolling_std * 2)).iloc[-1]
-            bb_upper = (rolling_mean + (rolling_std * 2)).iloc[-1]
-            
-            # Self-update UI
-            self.bot_state.latest_predictions[symbol] = f"RSI: {rsi:.1f} | BB_L: {bb_lower:.2f}"
-            
-            # 2. Check Entrata (Mean Reversion)
-            if current_price < bb_lower and rsi < 30:
-                self._log(f"⚡ SETUP RILEVATO su {symbol}: Prezzo {current_price:.2f} < BB_Lower ({bb_lower:.2f}) e RSI {rsi:.1f}")
-                
-                # 3. LLM News Sentiment Veto
-                sentiment = "NEUTRAL"
-                if self.llm_enabled:
-                    news = self.alpaca.get_news(symbol, limit=3)
-                    headlines = [n.headline for n in news]
-                    sentiment = self.get_llm_sentiment(symbol, headlines)
-                    
-                if sentiment == "BEARISH":
-                    self._log(f"🧠 AI VETO: Sentiment Bearish rilevato per {symbol} a causa di news negative. Acquisto annullato.")
-                    return
-                elif sentiment == "BULLISH":
-                    self._log(f"🧠 AI BOOST: Sentiment Bullish per {symbol}. Condizioni ideali.")
-                
-                # 4. Esecuzione (Paper Trading Virtuale per ora)
-                trade_amount = self.bot_state.virtual_cash * 0.1 # 10% del capitale per trade
-                if trade_amount > 100:
-                    qty = math.floor(trade_amount / current_price)
-                    if qty > 0:
-                        self._log(f"🛒 ESECUZIONE SIMULATA: BUY {qty} {symbol} @ {current_price:.2f}")
-                        self.bot_state.virtual_cash -= (qty * current_price)
-                        # Salva posizione in memoria locale per il trailing stop
-                        if not hasattr(self, "virtual_positions"):
-                            self.virtual_positions = {}
-                        self.virtual_positions[symbol] = {
-                            "qty": qty,
-                            "entry_price": current_price,
-                            "high_watermark": current_price
-                        }
-            
-            # Check Trailing Stop Loss per posizioni aperte
-            if hasattr(self, "virtual_positions") and symbol in self.virtual_positions:
-                pos = self.virtual_positions[symbol]
-                pos["high_watermark"] = max(pos["high_watermark"], current_price)
-                
-                # Trailing stop del 2% dal massimo storico, o take profit
-                drop_pct = (pos["high_watermark"] - current_price) / pos["high_watermark"]
-                profit_pct = (current_price - pos["entry_price"]) / pos["entry_price"]
-                
-                if drop_pct >= 0.02 or profit_pct >= 0.05 or (current_price > bb_upper):
-                    profit_usd = (current_price - pos["entry_price"]) * pos["qty"]
-                    self._log(f"💰 CHIUSURA SIMULATA: SELL {pos['qty']} {symbol} @ {current_price:.2f} | PnL: +${profit_usd:.2f}")
-                    self.bot_state.virtual_cash += (pos["qty"] * current_price)
-                    del self.virtual_positions[symbol]
-                    
-        except Exception as e:
-            self._log(f"Errore su {symbol}: {e}")
-
-    async def _trading_loop(self):
-        self._log("Avvio Motore Alpaca Quantitativo + LLM (Gemini).")
-        while self.running and self.bot_state.modules.get("trading", False):
-            if not self.alpaca:
-                self._log("Alpaca non inizializzata. Ritento tra 30s...")
-                await asyncio.sleep(30)
-                self.init_clients()
-                continue
-                
+    def prefill_history(self):
+        """Pre-carica 50 candele storiche per ogni simbolo per calcolare RSI/BB subito"""
+        if not self.alpaca_rest: return
+        self._log("Pre-caricamento storico candele (REST)...")
+        for sym in self.symbols:
             try:
-                clock = self.alpaca.get_clock()
-                if not clock.is_open:
-                    self._log("Mercato USA Chiuso. In attesa...")
-                    await asyncio.sleep(60 * 5) # Check every 5 mins
-                    continue
+                bars = self.alpaca_rest.get_bars(sym, tradeapi.TimeFrame.Minute, limit=50).df
+                if not bars.empty:
+                    self.history_buffers[sym] = bars
             except Exception as e:
-                self._log(f"Errore controllo orario mercato: {e}")
-                await asyncio.sleep(60)
-                continue
-                
-            for symbol in self.symbols:
-                if not self.running or not self.bot_state.modules.get("trading", False):
-                    break
-                self.process_symbol(symbol)
-                await asyncio.sleep(5) # Rate limiting
-                
-            await asyncio.sleep(30) # Loop ogni 30 secondi
+                self._log(f"Errore history {sym}: {e}")
+
+    async def on_bar(self, bar):
+        sym = bar.symbol
+        if sym not in self.symbols: return
+        
+        # Converte l'oggetto bar in un formato compatibile con il dataframe
+        new_row = pd.DataFrame([{
+            'open': bar.open,
+            'high': bar.high,
+            'low': bar.low,
+            'close': bar.close,
+            'volume': bar.volume
+        }], index=[bar.timestamp])
+        
+        df = self.history_buffers[sym]
+        df = pd.concat([df, new_row])
+        # Mantieni solo le ultime 50 candele per non ingolfare la memoria
+        df = df.tail(50)
+        self.history_buffers[sym] = df
+        
+        self.evaluate_strategy(sym, df)
+
+    def evaluate_strategy(self, symbol, df):
+        if len(df) < 20: return
+        
+        close_prices = df['close']
+        current_price = float(close_prices.iloc[-1])
+        
+        # RSI 14
+        delta = close_prices.diff()
+        gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+        loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+        rs = gain / loss
+        rsi = float((100 - (100 / (1 + rs))).iloc[-1])
+        
+        # Bollinger Bands 20
+        rolling_mean = close_prices.rolling(window=20).mean()
+        rolling_std = close_prices.rolling(window=20).std()
+        bb_lower = float((rolling_mean - (rolling_std * 2)).iloc[-1])
+        bb_upper = float((rolling_mean + (rolling_std * 2)).iloc[-1])
+        
+        self.bot_state.latest_predictions[symbol] = f"RSI: {rsi:.1f} | BB_L: {bb_lower:.2f} | BB_U: {bb_upper:.2f}"
+        
+        # Check Long (Mean Reversion dal basso)
+        if current_price < bb_lower and rsi < 30:
+            self.execute_trade(symbol, current_price, "LONG")
             
-        self._log("Motore Alpaca Fermato.")
+        # Check Short (Mean Reversion dall'alto)
+        elif current_price > bb_upper and rsi > 70:
+            self.execute_trade(symbol, current_price, "SHORT")
+
+    def execute_trade(self, symbol, current_price, side):
+        self._log(f"⚡ SETUP {side} RILEVATO su {symbol}: Prezzo {current_price:.2f}")
+        
+        sentiment = self.get_llm_sentiment(symbol)
+        
+        if side == "LONG" and sentiment == "BEARISH":
+            self._log(f"🧠 AI VETO: Sentiment Bearish per {symbol}. Long annullato.")
+            return
+        elif side == "SHORT" and sentiment == "BULLISH":
+            self._log(f"🧠 AI VETO: Sentiment Bullish per {symbol}. Short annullato.")
+            return
+            
+        self._log(f"🧠 AI CONFERMA: Sentiment = {sentiment}. Esecuzione Ordine!")
+        
+        # Sincronizza per sicurezza
+        self.sync_portfolio()
+        
+        trade_amount = self.bot_state.virtual_cash * 0.1 # 10% del capitale
+        if trade_amount < 100:
+            return
+            
+        qty = int(trade_amount // current_price)
+        if qty <= 0: return
+        
+        # Bracket Order parameters
+        take_profit_price = current_price * 1.05 if side == "LONG" else current_price * 0.95
+        stop_loss_price = current_price * 0.98 if side == "LONG" else current_price * 1.02
+        
+        alpaca_side = 'buy' if side == "LONG" else 'sell'
+        
+        try:
+            self.alpaca_rest.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=alpaca_side,
+                type='market',
+                time_in_force='day',
+                order_class='bracket',
+                take_profit={'limit_price': round(take_profit_price, 2)},
+                stop_loss={'stop_price': round(stop_loss_price, 2), 'limit_price': round(stop_loss_price, 2)}
+            )
+            self._log(f"🚀 ORDINE REALE {side} {qty} {symbol} INVIATO AD ALPACA (TP: {take_profit_price:.2f}, SL: {stop_loss_price:.2f})")
+        except Exception as e:
+            self._log(f"❌ ERRORE INVIO ORDINE: {e}")
+
+    def _stream_runner(self):
+        self.alpaca_stream = Stream(self.alpaca_key, self.alpaca_secret, base_url=self.alpaca_base, data_feed='iex')
+        self.alpaca_stream.subscribe_bars(self.on_bar, *self.symbols)
+        try:
+            self._log("📡 WebSocket Connesso: in attesa di stream tick-by-tick...")
+            self.alpaca_stream.run()
+        except Exception as e:
+            if self.running:
+                self._log(f"❌ WebSocket disconnesso: {e}")
 
     def loop(self):
+        """Questo è il punto di ingresso chiamato dal main thread (api.py)"""
         self.running = True
-        try:
-            asyncio.run(self._trading_loop())
-        except Exception as e:
-            self._log(f"Errore critico: {e}")
-        finally:
+        self.init_clients()
+        
+        if not self.alpaca_rest:
+            self._log("Mancano chiavi Alpaca valide. Il modulo si ferma.")
             self.running = False
+            return
+            
+        self.prefill_history()
+        
+        # Avvia stream in un nuovo thread per non bloccare il loop
+        self._stream_thread = threading.Thread(target=self._stream_runner, daemon=True)
+        self._stream_thread.start()
+        
+        # Loop di keep-alive e sync
+        while self.running and self.bot_state.modules.get("trading", False):
+            time.sleep(60)
+            self.sync_portfolio() # Sincronizza bilancio ogni minuto per aggiornare la UI
+            
+        # Chiusura
+        self.running = False
+        if self.alpaca_stream:
+            self.alpaca_stream.stop()
+        self._log("Motore Alpaca Fermato.")
