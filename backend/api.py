@@ -785,7 +785,7 @@ def test_connection(req: TestConnectionRequest):
             try:
                 import google.generativeai as genai
                 genai.configure(api_key=api_key)
-                model = genai.GenerativeModel('gemini-1.5-flash')
+                model = genai.GenerativeModel('gemini-pro')
                 res = model.generate_content("Say hi in 1 word")
                 if res.text:
                     return {"status": "success", "message": "Connessione Gemini stabilita! Auth OK."}
