@@ -52,7 +52,7 @@ function OmniApp() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await fetch('/api/status');
+        const res = await fetch('/api/status?t=' + Date.now());
         const data = await res.json();
         if (!data.error) {
           setStatus(data);
@@ -120,7 +120,7 @@ function OmniApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ module: mod_id, active: !isActive })
       });
-      fetchData();
+      // Il polling da 2 secondi rileverà automaticamente il nuovo stato
     } catch (err) {
       console.error(err);
     }
