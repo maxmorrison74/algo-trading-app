@@ -24,6 +24,7 @@ from datetime import datetime
 import yfinance as yf
 import pandas as pd
 import sys
+import routers_ai_invest
 sys.path.append('/usr/local/lib/python3.13/dist-packages')
 
 try:
@@ -82,6 +83,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(routers_ai_invest.router)
 
 API_KEY = os.getenv("ALPACA_API_KEY")
 API_SECRET = os.getenv("ALPACA_SECRET_KEY")

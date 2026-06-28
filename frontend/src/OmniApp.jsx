@@ -39,6 +39,12 @@ function OmniApp() {
   const [aiLoading, setAiLoading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   
+  // AI Investment Hub state
+  const [aiBudget, setAiBudget] = useState(500);
+  const [aiProposals, setAiProposals] = useState([]);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [executionMessage, setExecutionMessage] = useState("");
+
   const checkAuthMemory = () => {
     const authTime = localStorage.getItem('omni_auth_time');
     if (authTime) {
@@ -129,6 +135,54 @@ function OmniApp() {
       // Il polling da 2 secondi rileverà automaticamente il nuovo stato
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const generateAiProposals = async () => {
+    setIsAiLoading(true);
+    setExecutionMessage("");
+    setAiProposals([]);
+    try {
+      const res = await fetch('/api/ai-invest/proposals', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ budget: Number(aiBudget) })
+      });
+      const data = await res.json();
+      if (data.proposals) {
+        setAiProposals(data.proposals);
+      } else {
+        setExecutionMessage(data.detail || "Errore sconosciuto");
+      }
+    } catch (err) {
+      console.error(err);
+      setExecutionMessage("Errore di connessione al server.");
+    }
+    setIsAiLoading(false);
+  };
+
+  const executeAiProposal = async (proposal) => {
+    setExecutionMessage(`Esecuzione in corso per ${proposal.symbol}...`);
+    try {
+      const res = await fetch('/api/ai-invest/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol: proposal.symbol,
+          asset_type: proposal.asset_type,
+          amount_usd: Number(aiBudget)
+        })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setExecutionMessage(`✅ ${data.message}`);
+        // Aggiorna lo stato del portafoglio forzando il refetch (sarà gestito dal polling)
+      } else {
+        setExecutionMessage(`❌ Errore: ${data.detail}`);
+      }
+    } catch (err) {
+      console.error(err);
+      setExecutionMessage("❌ Errore di rete durante l'esecuzione.");
     }
   };
 
@@ -394,6 +448,57 @@ function OmniApp() {
               RESET SIMULAZIONE
             </button>
         </div>
+      </div>
+
+      {/* AI INVESTMENT HUB */}
+      <div className="card" style={{ marginTop: '2rem', marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(56, 189, 248, 0.1) 100%)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <div>
+            <h3 style={{ margin: 0, color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <span>🧠</span> AI Guided Investment (One-Click)
+            </h3>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Lascia che il nostro modello quantitativo scelga le opportunità migliori per il tuo budget.</div>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <span style={{ color: 'var(--text-secondary)' }}>Budget ($)</span>
+            <input 
+              type="number" 
+              value={aiBudget} 
+              onChange={(e) => setAiBudget(e.target.value)} 
+              style={{ width: '120px', padding: '0.8rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff', fontSize: '1.1rem' }} 
+            />
+            <button className="btn btn-start" onClick={generateAiProposals} disabled={isAiLoading} style={{ padding: '0.8rem 1.5rem', background: '#38bdf8', color: '#000' }}>
+              {isAiLoading ? 'Analisi in corso...' : 'Genera Proposte'}
+            </button>
+          </div>
+        </div>
+
+        {executionMessage && (
+          <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', marginBottom: '1.5rem', color: executionMessage.includes('Errore') ? '#ef4444' : '#10b981', textAlign: 'center' }}>
+            {executionMessage}
+          </div>
+        )}
+
+        {aiProposals.length > 0 && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1.5rem' }}>
+            {aiProposals.map(prop => (
+              <div key={prop.id} style={{ background: 'rgba(0,0,0,0.4)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '1rem' }}>
+                  <span style={{ background: prop.risk === 'Conservativo' ? 'rgba(16, 185, 129, 0.2)' : prop.risk === 'Bilanciato' ? 'rgba(56, 189, 248, 0.2)' : 'rgba(245, 158, 11, 0.2)', color: prop.risk === 'Conservativo' ? '#10b981' : prop.risk === 'Bilanciato' ? '#38bdf8' : '#f59e0b', padding: '0.2rem 0.6rem', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                    {prop.risk}
+                  </span>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase' }}>{prop.asset_type}</span>
+                </div>
+                <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem', color: '#e2e8f0' }}>{prop.title}</h4>
+                <div style={{ fontFamily: 'var(--font-mono)', color: '#38bdf8', fontSize: '1.4rem', fontWeight: 'bold', marginBottom: '1rem' }}>{prop.symbol}</div>
+                <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.4', flex: 1 }}>{prop.rationale}</p>
+                <button className="btn" onClick={() => executeAiProposal(prop)} style={{ marginTop: '1rem', width: '100%', background: 'transparent', border: '1px solid #10b981', color: '#10b981' }}>
+                  Investi ${aiBudget} su {prop.symbol}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '2rem' }}>
