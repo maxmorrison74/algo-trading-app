@@ -689,25 +689,7 @@ def get_chart_data(symbol: str, timeframe: str = "1M"):
     except Exception as e:
         return {"error": str(e)}
 
-# --- SERVING FRONTEND (React) in Produzione ---
-# Questa sezione serve i file statici di React costruiti nella cartella 'dist'
-frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
-
-if os.path.exists(frontend_dist):
-    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
-    
-    @app.get("/{catchall:path}")
-    def serve_frontend(catchall: str):
-        # Evita conflitti con gli endpoint /api/
-        if catchall.startswith("api/"):
-            raise HTTPException(status_code=404, detail="API not found")
-            
-        file_path = os.path.join(frontend_dist, catchall)
-        if os.path.exists(file_path) and os.path.isfile(file_path):
-            return FileResponse(file_path)
-            
-        # Per React Router (SPA fallback)
-        return FileResponse(os.path.join(frontend_dist, "index.html"))
+# SPA Fallback will be moved to bottom
 
 
 from pydantic import BaseModel
@@ -756,13 +738,16 @@ class KeysRequest(BaseModel):
 def get_keys():
     # Return masked keys
     keys = {}
-    if os.path.exists(API_KEYS_FILE):
-        with open(API_KEYS_FILE, "r") as f:
-            for line in f:
-                if "=" in line:
-                    k, v = line.strip().split("=", 1)
-                    if v:
-                        keys[k] = v[:4] + "*" * 10 if len(v) > 4 else "***"
+    try:
+        if os.path.exists(API_KEYS_FILE):
+            with open(API_KEYS_FILE, "r") as f:
+                for line in f:
+                    if "=" in line:
+                        k, v = line.strip().split("=", 1)
+                        if v:
+                            keys[k] = v[:4] + "*" * 10 if len(v) > 4 else "***"
+    except Exception as e:
+        keys["ERROR"] = str(e)
     return keys
 
 @app.post("/api/keys")
@@ -910,6 +895,26 @@ def test_connection(req: TestConnectionRequest):
         return {"status": "error", "message": f"Errore di connessione: {str(e)}"}
 
 
+
+# --- SERVING FRONTEND (React) in Produzione ---
+# Questa sezione serve i file statici di React costruiti nella cartella 'dist'
+frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+
+if os.path.exists(frontend_dist):
+    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
+    
+    @app.get("/{catchall:path}")
+    def serve_frontend(catchall: str):
+        # Evita conflitti con gli endpoint /api/
+        if catchall.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API not found")
+            
+        file_path = os.path.join(frontend_dist, catchall)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            return FileResponse(file_path)
+            
+        # Per React Router (SPA fallback)
+        return FileResponse(os.path.join(frontend_dist, "index.html"))
 
 if __name__ == "__main__":
     import uvicorn
