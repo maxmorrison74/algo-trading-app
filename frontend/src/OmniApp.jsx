@@ -658,7 +658,10 @@ function OmniApp() {
               <div key={sb.id} style={{
                 background: idx === 0 ? 'rgba(16,185,129,0.12)' : 'rgba(16, 185, 129, 0.05)',
                 padding: '1.5rem', borderRadius: '12px',
-                border: idx === 0 ? '1px solid rgba(16,185,129,0.6)' : '1px solid rgba(16, 185, 129, 0.3)'
+                border: Number(sb.profit_margin) >= 10
+                  ? '2px solid rgba(212,175,55,0.8)'
+                  : idx === 0 ? '1px solid rgba(16,185,129,0.6)' : '1px solid rgba(16, 185, 129, 0.3)',
+                boxShadow: Number(sb.profit_margin) >= 10 ? '0 0 12px rgba(212,175,55,0.25)' : 'none'
               }}>
                 {/* Header card con sport, rank e profitto */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.6rem' }}>
@@ -677,8 +680,19 @@ function OmniApp() {
                       fontWeight: 'bold',
                       letterSpacing: '0.5px'
                     }}>{getSportLabel(sb.sport)}</span>
+                    {Number(sb.profit_margin) >= 10 && (
+                      <span style={{
+                        background: 'linear-gradient(90deg, #d4af37, #f3e5ab)',
+                        color: '#000',
+                        fontSize: '0.7rem',
+                        padding: '0.2rem 0.6rem',
+                        borderRadius: '20px',
+                        fontWeight: 'bold',
+                        letterSpacing: '1px'
+                      }}>🤖 AUTO</span>
+                    )}
                   </div>
-                  <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '1.1rem' }}>+{Number(sb.profit_margin || 0).toFixed(2)}%</span>
+                  <span style={{ color: Number(sb.profit_margin) >= 10 ? '#d4af37' : '#10b981', fontWeight: 'bold', fontSize: '1.1rem' }}>+{Number(sb.profit_margin || 0).toFixed(2)}%</span>
                 </div>
                 <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{sb.match}</div>
                 

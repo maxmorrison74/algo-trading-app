@@ -229,8 +229,46 @@ class SportsArbitrage:
             if len(self.bot_state.active_surebets) > 10:
                 self.bot_state.active_surebets.pop()
 
+            # --- AUTO-BET: piazza automaticamente se profitto >= 10% ---
+            AUTO_BET_THRESHOLD = 10.0
+            if profit >= AUTO_BET_THRESHOLD:
+                total_stake = 100.0
+                guaranteed_return = result.get("guaranteed_return", 0)
+                expected_profit = round(guaranteed_return - total_stake, 2)
+
+                if self.bot_state.virtual_cash >= total_stake:
+                    self.bot_state.virtual_cash -= total_stake
+                    bet_record = {
+                        "type": "SUREBET_AUTO",
+                        "match": match,
+                        "sport": result.get("sport", ""),
+                        "p1": result.get("p1"), "p2": result.get("p2"),
+                        "book1": result.get("book1"), "book2": result.get("book2"),
+                        "odds1": result.get("odds1"), "odds2": result.get("odds2"),
+                        "stake1": result.get("stake1"), "stake2": result.get("stake2"),
+                        "total_stake": total_stake,
+                        "profit_margin": profit,
+                        "guaranteed_return": guaranteed_return,
+                        "expected_profit": expected_profit,
+                        "status": "pending",
+                        "auto": True,
+                        "timestamp": datetime.datetime.now().strftime("%H:%M:%S")
+                    }
+                    self.bot_state.trade_history.insert(0, bet_record)
+                    self._log(
+                        f"🤖 AUTO-BET PIAZZATA! {match} | "
+                        f"Profitto: {profit:.2f}% >= {AUTO_BET_THRESHOLD}% soglia | "
+                        f"Stake: €{total_stake:.2f} → Ritorno atteso: €{guaranteed_return:.2f} (+€{expected_profit:.2f})"
+                    )
+                else:
+                    self._log(
+                        f"⚠️ AUTO-BET SALTATA: {match} (profitto {profit:.2f}%) — "
+                        f"Saldo insufficiente (disponibile: €{self.bot_state.virtual_cash:.2f})"
+                    )
+
         self._log(f"✅ Scansione completata: {events_scanned} eventi | {len(arb_results)} surebets trovate (ordinate per profitto)")
         return len(arb_results)
+
 
     def loop(self):
         self.running = True
