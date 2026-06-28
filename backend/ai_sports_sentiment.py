@@ -29,8 +29,16 @@ class AISentimentRadar:
 
     def fetch_sports_news(self):
         try:
+            import os
+            from dotenv import dotenv_values
+            keys = dotenv_values(".env.keys") if os.path.exists(".env.keys") else {}
+            current_api_key = keys.get("NEWSAPI_KEY", self.api_key)
+            if not current_api_key:
+                self._log("Nessuna API key configurata.")
+                return []
+                
             query = random.choice(self.search_queries)
-            url = f"https://newsapi.org/v2/everything?q={query}&language=en&sortBy=publishedAt&pageSize=10&apiKey={self.api_key}"
+            url = f"https://newsapi.org/v2/everything?q={query}&language=en&sortBy=publishedAt&pageSize=10&apiKey={current_api_key}"
             response = requests.get(url, timeout=10)
             if response.status_code == 200:
                 data = response.json()
