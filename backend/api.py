@@ -191,10 +191,12 @@ class BotState:
 
 bot_state = BotState()
 # Inizializza moduli background
-arb_engine = CryptoArbitrage(bot_state)
-sports_engine = SportsArbitrage(bot_state)
-sentiment_engine = AISentimentRadar(bot_state)
-ai_engine = AIContentCreator(bot_state)
+engines = {
+    "sports_arb": SportsArbitrage(bot_state),
+    "crypto_arb": CryptoArbitrage(bot_state),
+    # "ai_sports_sentiment": AISentimentRadar(bot_state),
+    "ai_content": AIContentCreator(bot_state)
+}
 alpaca_engine = AlpacaEngine(bot_state)
 trade_lock = threading.Lock()
 def get_status():
