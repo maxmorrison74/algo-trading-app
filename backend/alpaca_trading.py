@@ -150,7 +150,7 @@ class AlpacaEngine:
 
     async def _trading_loop(self):
         self._log("Avvio Motore Alpaca Quantitativo + LLM (Gemini).")
-        while self.running and self.bot_state.modules.get("ai_trading", False):
+        while self.running and self.bot_state.modules.get("trading", False):
             if not self.alpaca:
                 self._log("Alpaca non inizializzata. Ritento tra 30s...")
                 await asyncio.sleep(30)
@@ -169,7 +169,7 @@ class AlpacaEngine:
                 continue
                 
             for symbol in self.symbols:
-                if not self.running or not self.bot_state.modules.get("ai_trading", False):
+                if not self.running or not self.bot_state.modules.get("trading", False):
                     break
                 self.process_symbol(symbol)
                 await asyncio.sleep(5) # Rate limiting
