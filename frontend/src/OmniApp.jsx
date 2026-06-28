@@ -878,16 +878,26 @@ function OmniApp() {
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            🤖 Scommesse Interessanti
+            🤖 AI Sentiment Radar
             <span style={{ fontSize: '0.75rem', background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', padding: '0.3rem 0.6rem', borderRadius: '4px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
-              powered by Gemini AI
+              powered by NewsAPI & NLP
             </span>
           </h2>
-          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Analisi anomalie statistiche e Value Bets</div>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Scommesse suggerite dall'analisi del sentiment sportivo mondiale</div>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.8rem 1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-          <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Mostra:</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <button 
+            className={`toggle-btn ${status.modules?.ai_sports_sentiment ? 'active' : ''}`}
+            onClick={() => toggleModule('ai_sports_sentiment')}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            <div className="toggle-switch"></div>
+            {status.modules?.ai_sports_sentiment ? 'Radar Attivo' : 'Radar Spento'}
+          </button>
+        
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.8rem 1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Mostra:</span>
           <input 
             type="range" min="3" max="50" step="3" 
             value={numValueBets} 
@@ -895,6 +905,7 @@ function OmniApp() {
             style={{ accentColor: '#8b5cf6', cursor: 'pointer' }}
           />
           <span style={{ fontWeight: 'bold', color: '#a78bfa', minWidth: '24px' }}>{numValueBets}</span>
+        </div>
         </div>
       </div>
 
@@ -1159,7 +1170,8 @@ function OmniApp() {
             {status.modules?.sports_arb && <div className="active-dot"></div>}
           </div>
           <div className={`menu-item ${activeTab === 'value_bets' ? 'active' : ''}`} onClick={() => setActiveTab('value_bets')}>
-            <span className="menu-icon">🤖</span> Scommesse Interessanti
+            <span className="menu-icon">🤖</span> AI Sentiment Radar
+            {status.modules?.ai_sports_sentiment && <div className="active-dot"></div>}
           </div>
           <div className={`menu-item ${activeTab === 'ai_content' ? 'active' : ''}`} onClick={() => setActiveTab('ai_content')}>
             <span className="menu-icon">📱</span> AI Content Creator

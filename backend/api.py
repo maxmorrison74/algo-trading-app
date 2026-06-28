@@ -14,6 +14,7 @@ import requests
 import threading
 from crypto_arbitrage import CryptoArbitrage
 from sports_arbitrage import SportsArbitrage
+from ai_sports_sentiment import AISentimentRadar
 from ai_content import AIContentCreator
 from alpaca_trading import AlpacaEngine
 import concurrent.futures
@@ -127,6 +128,7 @@ class BotState:
             "trading": False,
             "crypto_arb": False,
             "sports_arb": False,
+            "ai_sports_sentiment": False,
             "ai_content": False
         }
         loaded_modules = db_data.get("modules", {})
@@ -191,6 +193,7 @@ bot_state = BotState()
 # Inizializza moduli background
 arb_engine = CryptoArbitrage(bot_state)
 sports_engine = SportsArbitrage(bot_state)
+sentiment_engine = AISentimentRadar(bot_state)
 ai_engine = AIContentCreator(bot_state)
 alpaca_engine = AlpacaEngine(bot_state)
 trade_lock = threading.Lock()
@@ -282,25 +285,32 @@ async def toggle_module(payload: dict):
         state_str = "ATTIVATO" if active else "DISATTIVATO"
         bot_state.add_log(f"⚙️ Modulo {mod_id.upper()} {state_str}")
         
-        # Start/Stop logic if needed
-        
-        
-        
-        if mod_id == "ai_content":
-            if active and not ai_engine.running:
+        # Start/Stop logic
+        module_name = mod_id
+        if active:
+            if module_name == "ai_content" and not ai_engine.running:
                 threading.Thread(target=ai_engine.loop, daemon=True).start()
-        if mod_id == "sports_arb":
-            if active and not sports_engine.running:
-                threading.Thread(target=sports_engine.loop, daemon=True).start()
-                
-        if mod_id == "crypto_arb":
-            if active and not arb_engine.running:
+            elif module_name == "sports_arb" and not sports_engine.running:
+                t = threading.Thread(target=sports_engine.loop, daemon=True)
+                t.start()
+                bot_state.add_log("⚽ Modulo Sports Arbitrage avviato.")
+            elif module_name == "ai_sports_sentiment" and not getattr(sentiment_engine, "running", False):
+                t = threading.Thread(target=sentiment_engine.loop, daemon=True)
+                t.start()
+                bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
+            elif module_name == "crypto_arb" and not arb_engine.running:
                 threading.Thread(target=arb_engine.loop, daemon=True).start()
-        if mod_id == "trading":
-            if active and not alpaca_engine.running:
+            elif module_name == "trading" and not alpaca_engine.running:
                 bot_state.is_running = True
                 threading.Thread(target=alpaca_engine.loop, daemon=True).start()
-            elif not active:
+        else:
+            if module_name == "sports_arb":
+                sports_engine.stop()
+                bot_state.add_log("⚽ Modulo Sports Arbitrage fermato.")
+            elif module_name == "ai_sports_sentiment":
+                sentiment_engine.stop()
+                bot_state.add_log("📡 Modulo AI Sentiment Radar fermato.")
+            elif module_name == "trading":
                 bot_state.is_running = False
                 
         return {"message": "Modulo aggiornato", "modules": bot_state.modules,
