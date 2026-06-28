@@ -35,7 +35,14 @@ def get_gemini_client():
     if not gemini_key:
         raise HTTPException(status_code=500, detail="Gemini API Key non configurata")
     genai.configure(api_key=gemini_key)
-    return genai.GenerativeModel('gemini-pro')
+    
+    model_name = 'gemini-1.5-flash'
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            model_name = m.name
+            break
+            
+    return genai.GenerativeModel(model_name)
 
 @router.post("/proposals")
 def get_ai_proposals(req: ProposalsRequest):
