@@ -35,6 +35,9 @@ function OmniApp() {
   const [timeframe, setTimeframe] = useState('1D');
   const [chartData, setChartData] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState(null);
+  const [aiIdea, setAiIdea] = useState(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [uploadingVideo, setUploadingVideo] = useState(false);
   
   const checkAuthMemory = () => {
     const authTime = localStorage.getItem('omni_auth_time');
@@ -1034,6 +1037,47 @@ function OmniApp() {
     </div>
   );
 
+  const generateAiIdea = async () => {
+    setAiLoading(true);
+    try {
+      const res = await fetch('/api/ai/generate-idea', {
+        method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ gemini_key: apiKeys.gemini_key || savedKeys.GEMINI_KEY })
+      });
+      const data = await res.json();
+      if(data.topic) setAiIdea(data);
+      else alert(data.detail || "Errore");
+    } catch(e) {
+      alert("Errore generazione idea.");
+    }
+    setAiLoading(false);
+  };
+
+  const handleVideoUpload = async (e) => {
+    if(!e.target.files[0] || !aiIdea) return;
+    setUploadingVideo(true);
+    const formData = new FormData();
+    formData.append('file', e.target.files[0]);
+    formData.append('topic', aiIdea.topic);
+    formData.append('prompt', aiIdea.prompt);
+    
+    try {
+      const res = await fetch('/api/ai/upload-video', {
+        method: 'POST', body: formData
+      });
+      const data = await res.json();
+      if(data.status === 'success') {
+        setAiIdea(null);
+        alert('Video caricato con successo! Aureo lo distribuirà presto.');
+      } else {
+        alert(data.detail || "Errore upload");
+      }
+    } catch(e) {
+      alert("Errore caricamento video.");
+    }
+    setUploadingVideo(false);
+  };
+
   const renderAIContentView = () => (
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -1050,51 +1094,87 @@ function OmniApp() {
       </div>
 
       <div style={{ display: 'flex', gap: '2rem' }}>
-        {/* Radar Logs */}
-        <div style={{ flex: 1 }}>
-          <h3 style={{ color: '#e2e8f0', marginBottom: '1rem' }}>Terminale Pipeline AI</h3>
-          <div style={{ background: '#000', padding: '1rem', borderRadius: '8px', height: '500px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.85rem', color: '#a855f7', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
-            {status.ai_logs?.map((l, i) => (
-              <div key={i} style={{ marginBottom: '0.5rem', color: l.includes("✅") || l.includes("💰") ? '#10b981' : l.includes("Rendering") ? '#f59e0b' : '#c084fc' }}>{l}</div>
-            ))}
-            {(!status.ai_logs || status.ai_logs.length === 0) && (
-              <div style={{ color: '#64748b' }}>In attesa di istruzioni. Clicca su Accendi Fabbrica Video per iniziare a generare profitti AdSense.</div>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
+            <h3 style={{ color: '#e2e8f0', marginTop: 0 }}>1. Generatore di Idee</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Chiedi a Gemini di creare uno script virale e un prompt Veo per il video.</p>
+            <button 
+              onClick={generateAiIdea}
+              disabled={aiLoading}
+              style={{ background: '#a855f7', color: '#fff', width: '100%', padding: '1rem', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', opacity: aiLoading ? 0.7 : 1 }}
+            >
+              {aiLoading ? '💡 Generazione in corso...' : '💡 Genera Idea Virale'}
+            </button>
+            {aiIdea && (
+              <div style={{ marginTop: '1.5rem', padding: '1rem', background: '#000', borderRadius: '8px', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+                <h4 style={{ color: '#a855f7', margin: '0 0 0.5rem 0' }}>Titolo: {aiIdea.topic}</h4>
+                <div style={{ marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '0.8rem', color: '#64748b' }}>SCRIPT DA LEGGERE:</span>
+                  <p style={{ color: '#e2e8f0', fontSize: '0.9rem', margin: '0.2rem 0', fontStyle: 'italic' }}>{aiIdea.script}</p>
+                </div>
+                <div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#64748b' }}>PROMPT VEO / SORA:</span>
+                    <button onClick={() => navigator.clipboard.writeText(aiIdea.prompt)} style={{ background: 'transparent', border: '1px solid #a855f7', color: '#a855f7', padding: '0.2rem 0.5rem', borderRadius: '4px', cursor: 'pointer', fontSize: '0.7rem' }}>Copia</button>
+                  </div>
+                  <p style={{ color: '#e2e8f0', fontSize: '0.9rem', margin: '0.2rem 0', fontFamily: 'monospace' }}>{aiIdea.prompt}</p>
+                </div>
+              </div>
             )}
+          </div>
+
+          <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', opacity: aiIdea ? 1 : 0.5, pointerEvents: aiIdea ? 'auto' : 'none' }}>
+            <h3 style={{ color: '#e2e8f0', marginTop: 0 }}>2. Carica Video Generato</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Genera il video gratuitamente su Veo incollando il prompt, scarica l'MP4 e caricalo qui.</p>
+            <input type="file" id="video-upload" accept="video/mp4" style={{ display: 'none' }} onChange={handleVideoUpload} />
+            <button 
+              onClick={() => document.getElementById('video-upload').click()}
+              disabled={uploadingVideo}
+              style={{ background: '#10b981', color: '#000', width: '100%', padding: '1rem', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', opacity: uploadingVideo ? 0.7 : 1 }}
+            >
+              {uploadingVideo ? '⏳ Caricamento in coda...' : '📤 Carica MP4'}
+            </button>
           </div>
         </div>
 
-        {/* Video Gallery */}
-        <div style={{ flex: 1.5 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-            <h3 style={{ color: '#e2e8f0', margin: 0 }}>Galleria Upload Automatici</h3>
-            <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '20px', fontWeight: 'bold' }}>
-              Totale Generato (Oggi): +${Number(status.ai_videos?.reduce((acc, v) => acc + (v.earnings || 0), 0) || 0).toFixed(2)}
-            </div>
-          </div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-            {status.ai_videos?.map(video => (
-              <div key={video.id} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ height: '140px', backgroundImage: `url(${video.thumbnail})`, backgroundSize: 'cover', backgroundPosition: 'center', position: 'relative' }}>
-                  <div style={{ position: 'absolute', top: '10px', right: '10px', background: 'rgba(0,0,0,0.7)', color: '#fff', fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '4px' }}>
-                    0:45
-                  </div>
-                  <div style={{ position: 'absolute', bottom: '10px', left: '10px', background: '#ef4444', color: '#fff', fontSize: '0.7rem', padding: '0.2rem 0.5rem', borderRadius: '4px', fontWeight: 'bold' }}>
-                    YOUTUBE SHORTS
-                  </div>
-                </div>
-                <div style={{ padding: '1rem' }}>
-                  <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '0.9rem', lineHeight: '1.4' }}>{video.title}</h4>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
-                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>👀 {video.views.toLocaleString()} views</div>
-                    <div style={{ color: '#10b981', fontWeight: 'bold' }}>+${Number(video.earnings || 0).toFixed(2)}</div>
-                  </div>
-                </div>
-              </div>
+        <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ background: '#000', padding: '1rem', borderRadius: '8px', height: '200px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.85rem', color: '#a855f7', border: '1px solid rgba(168, 85, 247, 0.3)' }}>
+            <h4 style={{ margin: '0 0 0.5rem 0', color: '#e2e8f0' }}>Logs di Distribuzione</h4>
+            {status.ai_logs?.map((l, i) => (
+              <div key={i} style={{ marginBottom: '0.5rem', color: l.includes("✅") || l.includes("💰") ? '#10b981' : l.includes("Upload") ? '#f59e0b' : '#c084fc' }}>{l}</div>
             ))}
+            {(!status.ai_logs || status.ai_logs.length === 0) && (
+              <div style={{ color: '#64748b' }}>In attesa di video in coda...</div>
+            )}
+          </div>
+          <div style={{ flex: 1 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ color: '#e2e8f0', margin: 0 }}>Coda e Pubblicazioni</h3>
+              <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '20px', fontWeight: 'bold' }}>
+                Totale Generato (Oggi): +${Number(status.ai_videos?.reduce((acc, v) => acc + (v.earnings || 0), 0) || 0).toFixed(2)}
+              </div>
+            </div>
             
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              {status.ai_videos?.map(video => (
+                <div key={video.id} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', padding: '1rem', gap: '1rem' }}>
+                    <img src={video.thumbnail} alt="thumb" style={{ width: '60px', height: '90px', objectFit: 'cover', borderRadius: '6px' }} />
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.5rem', lineHeight: '1.2' }}>{video.title}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.2rem' }}>👀 {video.views?.toLocaleString()} views</div>
+                      <div style={{ color: '#10b981', fontWeight: 'bold' }}>+${video.earnings?.toFixed(2)}</div>
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(0,0,0,0.3)', padding: '0.5rem 1rem', fontSize: '0.75rem', color: '#64748b', display: 'flex', justifyContent: 'space-between' }}>
+                    <span>Pubblicato {video.timestamp}</span>
+                    <span style={{ color: '#a855f7' }}>TikTok / Shorts</span>
+                  </div>
+                </div>
+              ))}
+            </div>
             {(!status.ai_videos || status.ai_videos.length === 0) && (
-              <div style={{ gridColumn: '1 / -1', padding: '3rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', color: 'var(--text-secondary)' }}>
+              <div style={{ gridColumn: '1 / -1', padding: '3rem', margin: '1rem 0', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', color: 'var(--text-secondary)' }}>
                 Nessun video generato.
               </div>
             )}

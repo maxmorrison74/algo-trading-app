@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Response
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Response, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -784,6 +784,53 @@ def test_connection(req: TestConnectionRequest):
         return {"status": "error", "message": f"Errore di connessione: {str(e)}"}
 
 
+
+class GenerateIdeaRequest(BaseModel):
+    gemini_key: str
+
+@app.post("/api/ai/generate-idea")
+def generate_idea(req: GenerateIdeaRequest):
+    if not req.gemini_key:
+        raise HTTPException(status_code=400, detail="Gemini API Key is required")
+    try:
+        import google.generativeai as genai
+        genai.configure(api_key=req.gemini_key)
+        model = genai.GenerativeModel("gemini-1.5-pro")
+        
+        topics = [
+            "Bitcoin verso nuovi massimi, cosa dicono gli analisti istituzionali",
+            "Il nuovo aggiornamento DeFi e come trarne profitto",
+            "Intelligenza Artificiale: l'impatto sul trading algoritmico",
+            "Mercati globali in tensione, beni rifugio in salita"
+        ]
+        topic = random.choice(topics)
+        
+        prompt = f"Sei un esperto creatore di contenuti per YouTube Shorts. Scrivi uno script di 45 secondi su: '{topic}'. Dopo lo script, fornisci un prompt esatto e iper-dettagliato in inglese per generare un video realistico e cinematico con Google Veo che faccia da sfondo allo script. Formato: SCRIPT: ... PROMPT_VEO: ..."
+        
+        response = model.generate_content(prompt)
+        text = response.text
+        
+        script_part = text.split("PROMPT_VEO:")[0].replace("SCRIPT:", "").strip()
+        veo_prompt = text.split("PROMPT_VEO:")[1].strip() if "PROMPT_VEO:" in text else "Cinematic 4k shot of trading charts."
+        
+        return {"topic": topic, "script": script_part, "prompt": veo_prompt}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/ai/upload-video")
+async def upload_video(topic: str = Form(...), prompt: str = Form(...), file: UploadFile = File(...)):
+    import uuid
+    import shutil
+    
+    os.makedirs("uploads", exist_ok=True)
+    filename = f"{uuid.uuid4()}.mp4"
+    filepath = os.path.join("uploads", filename)
+    
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+        
+    ai_engine.add_video_to_queue(topic, prompt, filepath)
+    return {"status": "success", "message": "Video aggiunto alla coda di distribuzione"}
 
 # --- SERVING FRONTEND (React) in Produzione ---
 # Questa sezione serve i file statici di React costruiti nella cartella 'dist'
