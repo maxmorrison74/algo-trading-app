@@ -716,7 +716,8 @@ import os
 # --- SECURITY & API KEYS ---
 # In produzione password dovrebbe essere hashata. Per ora plain text (protetto in .env)
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "impero2026")
-API_KEYS_FILE = ".env.keys"
+import os
+API_KEYS_FILE = os.path.join(os.path.dirname(__file__), ".env.keys")
 
 # FORZATURA: Scriviamo sempre le chiavi all'avvio
 with open(API_KEYS_FILE, "w") as f:
