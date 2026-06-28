@@ -1087,8 +1087,8 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Studio di Produzione IA 🎥🤖</h2>
-          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Genera idee, carica MP4 e affida la distribuzione ad Aureo</div>
+          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>AI Content Spammer 🤖🔥</h2>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Ti diamo l'idea, tu crei il video, Aureo lo spamma ovunque!</div>
         </div>
         <button 
           className={`btn ${status.modules?.ai_content ? 'btn-stop' : 'btn-start'}`}
@@ -1101,8 +1101,8 @@ function OmniApp() {
       <div style={{ display: 'flex', gap: '2rem' }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
-            <h3 style={{ color: '#e2e8f0', marginTop: 0 }}>1. Generatore di Idee</h3>
-            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Chiedi a Gemini di creare uno script virale e un prompt Veo per il video.</p>
+            <h3 style={{ color: '#e2e8f0', marginTop: 0 }}>1. Generatore di Argomenti</h3>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Lascia che l'algoritmo scelga l'argomento più caldo per il tuo prossimo video.</p>
             <button 
               onClick={generateAiIdea}
               disabled={aiLoading}

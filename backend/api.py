@@ -783,52 +783,26 @@ def test_connection(req: TestConnectionRequest):
     except Exception as e:
         return {"status": "error", "message": f"Errore di connessione: {str(e)}"}
 
-
-
 class GenerateIdeaRequest(BaseModel):
-    gemini_key: str
+    pass
 
 @app.post("/api/ai/generate-idea")
-def generate_idea(req: GenerateIdeaRequest):
-    if not req.gemini_key:
-        raise HTTPException(status_code=400, detail="Gemini API Key is required")
-    try:
-        import google.generativeai as genai
-        genai.configure(api_key=req.gemini_key)
-        
-        # Trova dinamicamente un modello supportato dalla chiave dell'utente
-        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
-        if not available_models:
-            raise HTTPException(status_code=500, detail="Nessun modello Gemini disponibile per questa API Key.")
-            
-        # Preferiamo i modelli più recenti, altrimenti prendiamo il primo disponibile
-        chosen_model = next((m for m in available_models if "1.5-flash" in m), None)
-        if not chosen_model:
-            chosen_model = next((m for m in available_models if "1.5-pro" in m), None)
-        if not chosen_model:
-            chosen_model = next((m for m in available_models if "gemini-pro" in m), available_models[0])
-            
-        model = genai.GenerativeModel(chosen_model)
-        
-        topics = [
-            "Bitcoin verso nuovi massimi, cosa dicono gli analisti istituzionali",
-            "Il nuovo aggiornamento DeFi e come trarne profitto",
-            "Intelligenza Artificiale: l'impatto sul trading algoritmico",
-            "Mercati globali in tensione, beni rifugio in salita"
-        ]
-        topic = random.choice(topics)
-        
-        prompt = f"Sei un esperto creatore di contenuti per YouTube Shorts. Scrivi uno script di 45 secondi su: '{topic}'. Dopo lo script, fornisci un prompt esatto e iper-dettagliato in inglese per generare un video realistico e cinematico con Google Veo che faccia da sfondo allo script. Formato: SCRIPT: ... PROMPT_VEO: ..."
-        
-        response = model.generate_content(prompt)
-        text = response.text
-        
-        script_part = text.split("PROMPT_VEO:")[0].replace("SCRIPT:", "").strip()
-        veo_prompt = text.split("PROMPT_VEO:")[1].strip() if "PROMPT_VEO:" in text else "Cinematic 4k shot of trading charts."
-        
-        return {"topic": topic, "script": script_part, "prompt": veo_prompt}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def generate_idea(req: GenerateIdeaRequest = None):
+    topics = [
+        "Bitcoin verso nuovi massimi, cosa dicono gli analisti istituzionali",
+        "Il nuovo aggiornamento DeFi e come trarne profitto",
+        "Intelligenza Artificiale: l'impatto sul trading algoritmico",
+        "Mercati globali in tensione, beni rifugio in salita",
+        "5 Altcoin che potrebbero esplodere nel prossimo trimestre",
+        "Come proteggere il proprio portafoglio dall'inflazione"
+    ]
+    import random
+    topic = random.choice(topics)
+    
+    script_part = f"Parla di: {topic}. Cerca di essere conciso, virale e di creare un gancio (hook) forte nei primi 3 secondi."
+    veo_prompt = f"Cinematic 4k realistic shot of trading charts, neon lights, highly detailed, dramatic lighting, representing {topic}"
+    
+    return {"topic": topic, "script": script_part, "prompt": veo_prompt}
 
 @app.post("/api/ai/upload-video")
 async def upload_video(topic: str = Form(...), prompt: str = Form(...), file: UploadFile = File(...)):
