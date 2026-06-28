@@ -1301,10 +1301,10 @@ function OmniApp() {
             <span className="menu-icon">🤖</span> AI Sentiment Radar
             {status.modules?.ai_sports_sentiment && <div className="active-dot"></div>}
           </div> */}
-          <div className={`menu-item ${activeTab === 'ai_content' ? 'active' : ''}`} onClick={() => setActiveTab('ai_content')}>
+          {/* <div className={`menu-item ${activeTab === 'ai_content' ? 'active' : ''}`} onClick={() => setActiveTab('ai_content')}>
             <span className="menu-icon">📱</span> AI Content Creator
             {status.modules?.ai_content && <div className="active-dot"></div>}
-          </div>
+          </div> */}
           <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
             <span className="menu-icon">🔐</span> Security & API
           </div>
