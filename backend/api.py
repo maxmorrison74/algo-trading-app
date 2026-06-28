@@ -253,6 +253,17 @@ def get_status():
         return {"error": str(e)}
 
 
+@app.get("/api/status")
+def api_status(response: Response):
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    try:
+        return get_status()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.post("/api/modules")
 async def toggle_module(payload: dict):
     mod_id = payload.get("module")
