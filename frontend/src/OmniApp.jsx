@@ -173,10 +173,6 @@ function OmniApp() {
         try {
           const res = await fetch('/api/keys?t=' + Date.now());
           const data = await res.json();
-          
-          // FORCED DEBUG ALERT
-          alert("Debug - Chiavi ricevute dal server: " + JSON.stringify(data));
-          
           if (data.ERROR) {
             alert("Errore critico dal backend nel leggere le chiavi: " + data.ERROR);
           }
