@@ -36,10 +36,15 @@ class AIContentCreator:
     def load_gcp_credentials(self):
         try:
             if os.path.exists(".env.gcp.json"):
-                with open(".env.gcp.json", "r") as f:
-                    data = json.load(f)
-                    self.project_id = data.get("project_id")
                 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ".env.gcp.json"
+                import google.auth
+                _, project = google.auth.default()
+                if project:
+                    self.project_id = project
+                else:
+                    with open(".env.gcp.json", "r") as f:
+                        data = json.load(f)
+                        self.project_id = data.get("project_id", "")
                 return True
             return False
         except Exception as e:
