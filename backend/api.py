@@ -831,13 +831,18 @@ def test_connection(req: TestConnectionRequest):
             api_secret = keys.get("BINANCE_SECRET", "")
             if not api_key or not api_secret:
                 return {"status": "error", "message": "Chiavi Binance mancanti."}
-            exchange = ccxt.binance({
-                'apiKey': api_key,
-                'secret': api_secret,
-                'enableRateLimit': True,
-            })
-            balance = exchange.fetch_balance()
-            return {"status": "success", "message": "Connessione Binance stabilita! Auth OK."}
+            try:
+                exchange = ccxt.binance({
+                    'apiKey': api_key,
+                    'secret': api_secret,
+                    'enableRateLimit': True,
+                })
+                # Check testnet flag if keys are for testnet
+                # exchange.set_sandbox_mode(True)
+                balance = exchange.fetch_balance()
+                return {"status": "success", "message": "Connessione Binance stabilita! Auth OK."}
+            except Exception as e:
+                return {"status": "error", "message": f"Errore Binance: {str(e)}"}
 
         elif service == 'kraken':
             import ccxt
