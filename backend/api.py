@@ -795,7 +795,7 @@ def generate_idea(req: GenerateIdeaRequest):
     try:
         import google.generativeai as genai
         genai.configure(api_key=req.gemini_key)
-        model = genai.GenerativeModel("gemini-1.5-pro")
+        model = genai.GenerativeModel("gemini-1.5-pro-latest")
         
         topics = [
             "Bitcoin verso nuovi massimi, cosa dicono gli analisti istituzionali",
