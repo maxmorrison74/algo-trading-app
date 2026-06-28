@@ -151,7 +151,8 @@ class BotState:
             "logs": self.logs,
             "aggressiveness": self.aggressiveness,
             "trade_history": self.trade_history,
-            "high_watermarks": self.high_watermarks
+            "high_watermarks": self.high_watermarks,
+            "modules": self.modules
         })
 
     def close_trade(self, symbol: str, side: str, profit_usd: float, profit_pct: float):
@@ -272,6 +273,7 @@ async def toggle_module(payload: dict):
         if mod_id == "sports_arb":
             if active and not sports_engine.running:
                 threading.Thread(target=sports_engine.loop, daemon=True).start()
+                
         if mod_id == "crypto_arb":
             if active and not arb_engine.running:
                 threading.Thread(target=arb_engine.loop, daemon=True).start()
