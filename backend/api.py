@@ -805,8 +805,8 @@ def generate_idea(req: GenerateIdeaRequest = None):
     except Exception as e:
         print(f"Errore lettura news reali: {e}")
         
-    script_part = f"NOTIZIA FLASH: {topic}. Cerca di tradurre e spiegare in 45 secondi in italiano con un gancio fortissimo."
-    veo_prompt = f"Cinematic 4k realistic shot, dramatic lighting, representing the financial news: {topic}"
+    script_part = f"Spiega questa news in ITALIANO (durata ~45 sec, possibilmente con sottotitoli stile TikTok).\nNews originale: '{topic}'"
+    veo_prompt = f"Cinematic 4k realistic shot, dramatic lighting, dynamic motion, representing the financial news: {topic}"
     
     return {"topic": topic, "script": script_part, "prompt": veo_prompt}
 
