@@ -213,8 +213,8 @@ class SportsArbitrage:
 
         if count_home > 2 and best_home["price"] > 0:
             avg_home = avg_home / count_home
-            # Se la migliore quota è significativamente più alta della media (es. > 8%)
-            if best_home["price"] > avg_home * 1.08:
+            # Se la migliore quota è significativamente più alta della media (es. > 2% per trovarne di più)
+            if best_home["price"] > avg_home * 1.02:
                 confidence = random.randint(75, 95)
                 # Generiamo un'analisi IA fittizia basata sui dati
                 motivations = [
