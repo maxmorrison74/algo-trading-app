@@ -148,7 +148,9 @@ class SportsArbitrage:
         outcomes = list(best_odds.items())
         arb_sum = sum(1.0 / o["price"] for _, o in outcomes)
         
-        if arb_sum < 1.0:
+        MIN_PROFIT_PCT = 1.0  # Ignoriamo surebets sotto l'1% (commissioni, ritardi)
+        
+        if arb_sum < 1.0 and (1.0 - arb_sum) * 100 >= MIN_PROFIT_PCT:
             profit_margin = (1.0 - arb_sum) * 100
 
             # Calcola stakes ottimali su €100 totali
