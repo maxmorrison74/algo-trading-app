@@ -333,7 +333,7 @@ function OmniApp() {
     return (
       <div className="module-content">
         <div className="header" style={{ marginBottom: '2rem' }}>
-          <h2 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>L'Impero 👑</h2>
+          <h2 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Dashboard 📊</h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Dashboard Aggregata delle Rendite Passive</div>
         </div>
 
@@ -1137,7 +1137,7 @@ function OmniApp() {
               style={{ width: '100%', padding: '1rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(6,182,212,0.3)', borderRadius: '8px', color: '#fff', fontSize: '1rem', marginBottom: '1rem', outline: 'none' }}
             />
             {loginError && <div style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
-            <button type="submit" style={{ width: '100%', padding: '1rem', background: 'linear-gradient(90deg, #d4af37, #aa7c11)', color: '#000', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>ACCEDI ALL'IMPERO</button>
+            <button type="submit" style={{ width: '100%', padding: '1rem', background: 'linear-gradient(90deg, #d4af37, #aa7c11)', color: '#000', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>ACCEDI ALLA DASHBOARD</button>
           </form>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
             🔒 Protetto da Crittografia<br/>
@@ -1164,7 +1164,7 @@ function OmniApp() {
         
         <div className="sidebar-menu">
           <div className={`menu-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
-            <span className="menu-icon">🌍</span> Empire Overview
+            <span className="menu-icon">📊</span> Dashboard
           </div>
           <div className={`menu-item ${activeTab === 'trading' ? 'active' : ''}`} onClick={() => setActiveTab('trading')}>
             <span className="menu-icon">📈</span> Stock Market
