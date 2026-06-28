@@ -121,6 +121,8 @@ class BotState:
         self.high_watermarks = db_data.get("high_watermarks", {})
         self.loop_task = None
         self.aggressiveness = db_data.get("aggressiveness", 55.0)
+        self.auto_bet_enabled = db_data.get("auto_bet_enabled", False)
+        self.auto_bet_threshold = db_data.get("auto_bet_threshold", 10.0)
         default_modules = {
             "trading": False,
             "crypto_arb": False,
@@ -150,6 +152,8 @@ class BotState:
             "virtual_cash": self.virtual_cash,
             "logs": self.logs,
             "aggressiveness": self.aggressiveness,
+            "auto_bet_enabled": self.auto_bet_enabled,
+            "auto_bet_threshold": self.auto_bet_threshold,
             "trade_history": self.trade_history,
             "high_watermarks": self.high_watermarks,
             "modules": self.modules
@@ -242,6 +246,8 @@ def get_status():
             "trade_history": bot_state.trade_history,
             "win_rate": win_rate,
             "modules": bot_state.modules,
+            "auto_bet_enabled": bot_state.auto_bet_enabled,
+            "auto_bet_threshold": bot_state.auto_bet_threshold,
             "arb_logs": getattr(bot_state, "arb_logs", []),
             "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
             "sports_logs": getattr(bot_state, "sports_logs", []),
@@ -303,6 +309,38 @@ async def toggle_module(payload: dict):
             "ai_logs": getattr(bot_state, "ai_logs", []),
             "ai_videos": getattr(bot_state, "ai_videos", [])}
     return {"error": "Modulo non trovato"}
+
+
+@app.post("/api/auto-bet-settings")
+async def update_auto_bet_settings(payload: dict):
+    """Aggiorna le impostazioni dell'auto-bet (abilitato + soglia %)"""
+    try:
+        changed = False
+        if "enabled" in payload:
+            bot_state.auto_bet_enabled = bool(payload["enabled"])
+            changed = True
+            state = "ABILITATO" if bot_state.auto_bet_enabled else "DISABILITATO"
+            thresh = float(getattr(bot_state, "auto_bet_threshold", 10.0))
+            bot_state.add_log(f"🤖 Auto-Bet {state} (soglia: {thresh:.1f}%)")
+        
+        if "threshold" in payload:
+            val = float(payload["threshold"])
+            bot_state.auto_bet_threshold = max(1.0, min(val, 50.0))  # clamp 1-50%
+            changed = True
+            thresh = float(bot_state.auto_bet_threshold)
+            bot_state.add_log(f"🤖 Auto-Bet soglia aggiornata a {thresh:.1f}%")
+            
+        if changed:
+            bot_state.save_state()
+            
+        return {
+            "status": "ok",
+            "auto_bet_enabled": getattr(bot_state, "auto_bet_enabled", False),
+            "auto_bet_threshold": getattr(bot_state, "auto_bet_threshold", 10.0)
+        }
+    except Exception as e:
+        print(f"Errore update_auto_bet_settings: {e}")
+        return {"error": str(e)}
 
 
 @app.post("/api/place-bet")
