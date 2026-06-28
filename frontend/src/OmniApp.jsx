@@ -181,8 +181,8 @@ function OmniApp() {
   const renderSettingsView = () => (
     <div className="module-content">
       <div className="header" style={{ marginBottom: '2rem' }}>
-        <h2 style={{ margin: 0, fontSize: '2rem', color: '#f8fafc' }}>🔐 Security & API Vault</h2>
-        <div style={{ color: '#94a3b8', marginTop: '0.5rem' }}>Gestione chiavi crittografate per le connessioni ai mercati reali.</div>
+        <h2 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>🔐 Security & API Vault</h2>
+        <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Gestione chiavi crittografate per le connessioni ai mercati reali.</div>
       </div>
 
       <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
@@ -227,11 +227,11 @@ function OmniApp() {
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>ElevenLabs API {savedKeys['ELEVENLABS_KEY'] && <span title='API Key presente nel Vault'>🟠</span>}</label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>ElevenLabs API {savedKeys['ELEVENLABS_KEY'] && <span title='API Key presente nel Vault'>🟠</span>}</label>
             <input type="password" placeholder="ElevenLabs API Key" value={apiKeys.elevenlabs_key} onChange={e => setApiKeys({...apiKeys, elevenlabs_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
           </div>
           <div style={{ flex: 1 }}>
-            <label style={{ fontSize: '0.8rem', color: '#94a3b8', display: 'block', marginBottom: '0.5rem' }}>The-Odds-API {savedKeys['THEODDS_KEY'] && <span title='API Key presente nel Vault'>🟠</span>}</label>
+            <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>The-Odds-API {savedKeys['THEODDS_KEY'] && <span title='API Key presente nel Vault'>🟠</span>}</label>
             <input type="password" placeholder="The-Odds-API Key" value={apiKeys.theodds_key} onChange={e => setApiKeys({...apiKeys, theodds_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
           </div>
         </div>
@@ -250,7 +250,7 @@ function OmniApp() {
     const totalWorth = virtualCash + (tradingProfit > 0 ? tradingProfit : 0) + aiEarnings;
     
     const pieData = [
-      { name: 'Liquidità', value: virtualCash, color: '#94a3b8' },
+      { name: 'Liquidità', value: virtualCash, color: 'var(--text-secondary)' },
       { name: 'Azioni (Trading)', value: Math.abs(tradingProfit) || 100, color: '#38bdf8' },
       { name: 'TikTok (AdSense)', value: aiEarnings || 50, color: '#a855f7' },
       { name: 'DeFi & Scommesse', value: 150, color: '#f59e0b' } // Valore fittizio minimo per vederlo nel grafico
@@ -259,13 +259,13 @@ function OmniApp() {
     return (
       <div className="module-content">
         <div className="header" style={{ marginBottom: '2rem' }}>
-          <h2 style={{ margin: 0, fontSize: '2rem', color: '#f8fafc' }}>L'Impero 👑</h2>
-          <div style={{ color: '#94a3b8', marginTop: '0.5rem' }}>Dashboard Aggregata delle Rendite Passive</div>
+          <h2 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>L'Impero 👑</h2>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Dashboard Aggregata delle Rendite Passive</div>
         </div>
 
         {/* Big Number */}
         <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(0,0,0,0) 100%)', padding: '3rem', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.3)', textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ color: '#94a3b8', fontSize: '1.2rem', marginBottom: '1rem' }}>Net Worth Totale Stimato</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', marginBottom: '1rem' }}>Net Worth Totale Stimato</div>
           <div style={{ fontSize: '4.5rem', fontWeight: 'bold', color: '#10b981', textShadow: '0 0 20px rgba(16, 185, 129, 0.4)' }}>
             ${totalWorth.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
           </div>
@@ -299,8 +299,8 @@ function OmniApp() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <span style={{ fontSize: '1.5rem' }}>🥇</span>
                   <div>
-                    <div style={{ fontWeight: 'bold', color: '#f8fafc' }}>Algo-Trading</div>
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Trading Quantitativo AI</div>
+                    <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Algo-Trading</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Trading Quantitativo AI</div>
                   </div>
                 </div>
                 <div style={{ fontWeight: 'bold', color: '#10b981' }}>+${Math.abs(tradingProfit).toFixed(2)}</div>
@@ -310,8 +310,8 @@ function OmniApp() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <span style={{ fontSize: '1.5rem' }}>🥈</span>
                   <div>
-                    <div style={{ fontWeight: 'bold', color: '#f8fafc' }}>AI Faceless Content</div>
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Monetizzazione AdSense</div>
+                    <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>AI Faceless Content</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Monetizzazione AdSense</div>
                   </div>
                 </div>
                 <div style={{ fontWeight: 'bold', color: '#10b981' }}>+${aiEarnings.toFixed(2)}</div>
@@ -321,8 +321,8 @@ function OmniApp() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                   <span style={{ fontSize: '1.5rem' }}>🥉</span>
                   <div>
-                    <div style={{ fontWeight: 'bold', color: '#f8fafc' }}>DeFi Arbitrage</div>
-                    <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>Spread BTC/USDT</div>
+                    <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>DeFi Arbitrage</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Spread BTC/USDT</div>
                   </div>
                 </div>
                 <div style={{ fontWeight: 'bold', color: '#10b981' }}>+${status.modules?.crypto_arb ? '120.50' : '0.00'}</div>
@@ -338,8 +338,8 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: '#f8fafc' }}>Algo-Trading & Scalping</h2>
-          <div style={{ color: '#94a3b8', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>ALGO-TRADING ENGINE</h2>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: status.market_open ? '#10b981' : '#f59e0b' }}></div>
             Market {status.market_open ? 'Open' : 'Closed'}
           </div>
@@ -413,14 +413,14 @@ function OmniApp() {
         <div style={{ flex: 1 }}>
           <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Portafoglio Corrente</h3>
           {Object.entries(status.positions || {}).length === 0 ? (
-            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Nessuna posizione aperta. Il bot sta scansionando...</p>
+            <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nessuna posizione aperta. Il bot sta scansionando...</p>
           ) : (
             Object.entries(status.positions).map(([sym, p]) => (
               <div key={sym} style={{ display: 'flex', flexDirection: 'column', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', marginBottom: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ fontWeight: 'bold' }}>{sym} {p.side === 'short' ? '(SHORT)' : ''}</span>
                   {p === "LIQUID" ? (
-                    <span style={{ color: '#94a3b8' }}>IN ATTESA</span>
+                    <span style={{ color: 'var(--text-secondary)' }}>IN ATTESA</span>
                   ) : (
                     <span style={{ color: p.unrealized_pl >= 0 ? '#10b981' : '#ef4444' }}>
                       {p.unrealized_pl >= 0 ? '+' : ''}{Number(p.unrealized_pl || 0).toFixed(2)}$ ({Number(p.unrealized_plpc || 0).toFixed(2)}%)
@@ -433,7 +433,7 @@ function OmniApp() {
                     <span style={{ color: '#64748b', marginRight: '0.5rem' }}>🧠 AI Sentiment:</span>
                     {status.table_data.find(r => r.symbol === sym).sentiment === 'BULLISH' && <span style={{ color: '#10b981', fontWeight: 'bold' }}>🟢 BULLISH (+15% Boost)</span>}
                     {status.table_data.find(r => r.symbol === sym).sentiment === 'BEARISH' && <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🔴 BEARISH (VETO Attivo)</span>}
-                    {status.table_data.find(r => r.symbol === sym).sentiment === 'NEUTRAL' && <span style={{ color: '#94a3b8' }}>⚪ NEUTRAL</span>}
+                    {status.table_data.find(r => r.symbol === sym).sentiment === 'NEUTRAL' && <span style={{ color: 'var(--text-secondary)' }}>⚪ NEUTRAL</span>}
                   </div>
                 )}
               </div>
@@ -442,7 +442,7 @@ function OmniApp() {
           <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', marginTop: '2rem' }}>Impostazioni IA</h3>
           <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-              <label style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Soglia Aggressività IA</label>
+              <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>Soglia Aggressività IA</label>
               <span style={{ fontSize: '0.85rem', fontWeight: 'bold', color: '#06b6d4' }}>{status.aggressiveness || 55}%</span>
             </div>
             <input 
@@ -479,10 +479,10 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: '#f8fafc' }}>DeFi Arbitrage (BTC/USDT) <span style={{ fontSize: '0.8rem', background: '#f59e0b', color: '#000', padding: '0.2rem 0.5rem', borderRadius: '4px', verticalAlign: 'middle', marginLeft: '1rem' }}>MODALITÀ SIMULAZIONE ATTIVA</span></h2>
-          <div style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.9rem' }}>Esecuzione automatica live (Paper Trading)</div>
+          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>DeFi Arbitrage (BTC/USDT) <span style={{ fontSize: '0.8rem', background: '#f59e0b', color: '#000', padding: '0.2rem 0.5rem', borderRadius: '4px', verticalAlign: 'middle', marginLeft: '1rem' }}>MODALITÀ SIMULAZIONE ATTIVA</span></h2>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Esecuzione automatica live (Paper Trading)</div>
           <div style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '6px', display: 'inline-block' }}>
-            <span style={{ color: '#94a3b8', marginRight: '1rem' }}>Portafoglio Virtuale:</span>
+            <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>Portafoglio Virtuale:</span>
             <span style={{ fontSize: '1.2rem', fontWeight: 'bold', color: '#10b981' }}>${Number(status.portfolio_value || 0).toFixed(2)}</span>
           </div>
         </div>
@@ -537,8 +537,8 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: '#f8fafc' }}>Sports SureBets ⚽🎾</h2>
-          <div style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.9rem' }}>Calcolatore Matematico di Scommesse Sicure</div>
+          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Sports SureBets ⚽🎾</h2>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Calcolatore Matematico di Scommesse Sicure</div>
         </div>
         <button 
           className={`btn ${status.modules?.sports_arb ? 'btn-stop' : 'btn-start'}`}
@@ -575,12 +575,12 @@ function OmniApp() {
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ color: '#94a3b8', fontSize: '0.8rem' }}>PUNTA SU {sb.p1.toUpperCase()}</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>PUNTA SU {sb.p1.toUpperCase()}</div>
                     <div style={{ fontWeight: 'bold' }}>{sb.book1} (@{Number(sb.odds1 || 0).toFixed(2)})</div>
                     <div style={{ color: '#f59e0b', fontSize: '1.1rem', marginTop: '0.2rem' }}>Stake: €{Number(sb.stake1 || 0).toFixed(2)}</div>
                   </div>
                   <div style={{ flex: 1, textAlign: 'right' }}>
-                    <div style={{ color: '#94a3b8', fontSize: '0.8rem' }}>PUNTA SU {sb.p2.toUpperCase()}</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>PUNTA SU {sb.p2.toUpperCase()}</div>
                     <div style={{ fontWeight: 'bold' }}>{sb.book2} (@{Number(sb.odds2 || 0).toFixed(2)})</div>
                     <div style={{ color: '#f59e0b', fontSize: '1.1rem', marginTop: '0.2rem' }}>Stake: €{Number(sb.stake2 || 0).toFixed(2)}</div>
                   </div>
@@ -593,7 +593,7 @@ function OmniApp() {
             ))}
             
             {(!status.active_surebets || status.active_surebets.length === 0) && (
-              <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', color: '#94a3b8' }}>
+              <div style={{ padding: '2rem', textAlign: 'center', background: 'rgba(255,255,255,0.05)', borderRadius: '12px', color: 'var(--text-secondary)' }}>
                 Nessuna SureBet attiva al momento. Il Radar è in scansione...
               </div>
             )}
@@ -608,8 +608,8 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: '#f8fafc' }}>Studio di Produzione IA 🎥🤖</h2>
-          <div style={{ color: '#94a3b8', marginTop: '0.5rem', fontSize: '0.9rem' }}>Macchina Autonoma per TikTok / YouTube Shorts</div>
+          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Studio di Produzione IA 🎥🤖</h2>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Macchina Autonoma per TikTok / YouTube Shorts</div>
         </div>
         <button 
           className={`btn ${status.modules?.ai_content ? 'btn-stop' : 'btn-start'}`}
@@ -654,9 +654,9 @@ function OmniApp() {
                   </div>
                 </div>
                 <div style={{ padding: '1rem' }}>
-                  <h4 style={{ margin: '0 0 0.5rem 0', color: '#f8fafc', fontSize: '0.9rem', lineHeight: '1.4' }}>{video.title}</h4>
+                  <h4 style={{ margin: '0 0 0.5rem 0', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontSize: '0.9rem', lineHeight: '1.4' }}>{video.title}</h4>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem' }}>
-                    <div style={{ color: '#94a3b8', fontSize: '0.8rem' }}>👀 {video.views.toLocaleString()} views</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>👀 {video.views.toLocaleString()} views</div>
                     <div style={{ color: '#10b981', fontWeight: 'bold' }}>+${Number(video.earnings || 0).toFixed(2)}</div>
                   </div>
                 </div>
@@ -664,7 +664,7 @@ function OmniApp() {
             ))}
             
             {(!status.ai_videos || status.ai_videos.length === 0) && (
-              <div style={{ gridColumn: '1 / -1', padding: '3rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', color: '#94a3b8' }}>
+              <div style={{ gridColumn: '1 / -1', padding: '3rem', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '12px', color: 'var(--text-secondary)' }}>
                 Nessun video generato.
               </div>
             )}
@@ -676,8 +676,8 @@ function OmniApp() {
 
   const renderComingSoon = (title, mod_id, description) => (
     <div className="module-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', textAlign: 'center' }}>
-      <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: '#f8fafc' }}>{title}</h2>
-      <p style={{ color: '#94a3b8', fontSize: '1.2rem', maxWidth: '600px', marginBottom: '2rem' }}>{description}</p>
+      <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{title}</h2>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', maxWidth: '600px', marginBottom: '2rem' }}>{description}</p>
       
       <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
         <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Stato Modulo</h3>
@@ -698,10 +698,10 @@ function OmniApp() {
   
   if (!isAuthenticated) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#020617', color: '#f8fafc', fontFamily: 'system-ui, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#020617', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ background: 'rgba(255,255,255,0.05)', padding: '3rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center', width: '400px' }}>
           <h1 style={{ fontSize: '2rem', background: 'linear-gradient(90deg, #06b6d4, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '0.5rem' }}>OMNI-PROFIT V2</h1>
-          <p style={{ color: '#94a3b8', marginBottom: '2rem' }}>Ponte di Comando Autenticato</p>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Ponte di Comando Autenticato</p>
           <form onSubmit={handleLogin}>
             <input 
               type="password" 
@@ -776,8 +776,8 @@ function OmniApp() {
         {activeTab === 'ai_content' && renderAIContentView()}
         {activeTab === 'saas' && (
            <div className="module-content" style={{ padding: '2rem' }}>
-             <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#f8fafc' }}>Gestione SaaS & Clienti</h2>
-             <p style={{ color: '#94a3b8' }}>Da qui potrai generare i link Stripe e gestire gli utenti paganti che si iscrivono al tuo ecosistema.</p>
+             <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Gestione SaaS & Clienti</h2>
+             <p style={{ color: 'var(--text-secondary)' }}>Da qui potrai generare i link Stripe e gestire gli utenti paganti che si iscrivono al tuo ecosistema.</p>
            </div>
         )}
       </div>
