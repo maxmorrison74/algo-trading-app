@@ -13,3 +13,4 @@ tenacity
 websockets
 google-generativeai
 google-cloud-aiplatform
+python-multipart
