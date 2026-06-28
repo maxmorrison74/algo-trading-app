@@ -1083,13 +1083,13 @@ function OmniApp() {
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Studio di Produzione IA 🎥🤖</h2>
-          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Macchina Autonoma per TikTok / YouTube Shorts</div>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Genera idee, carica MP4 e affida la distribuzione ad Aureo</div>
         </div>
         <button 
           className={`btn ${status.modules?.ai_content ? 'btn-stop' : 'btn-start'}`}
           onClick={() => toggleModule('ai_content', status.modules?.ai_content)}
         >
-          {status.modules?.ai_content ? 'SPEGNI FABBRICA VIDEO' : 'ACCENDI FABBRICA VIDEO'}
+          {status.modules?.ai_content ? 'FERMA DISTRIBUZIONE (PAUSA CODA)' : 'AVVIA DISTRIBUZIONE (ELABORA CODA)'}
         </button>
       </div>
 
