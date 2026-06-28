@@ -138,7 +138,7 @@ function OmniApp() {
     }
   };
 
-  const generateAiProposals = async () => {
+  const generateAiProposals = async (strategy = 'balanced') => {
     setIsAiLoading(true);
     setExecutionMessage("");
     setAiProposals([]);
@@ -146,7 +146,7 @@ function OmniApp() {
       const res = await fetch('/api/ai-invest/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ budget: Number(aiBudget) })
+        body: JSON.stringify({ budget: Number(aiBudget), strategy })
       });
       const data = await res.json();
       if (data.proposals) {
@@ -478,8 +478,11 @@ function OmniApp() {
               onChange={(e) => setAiBudget(e.target.value)} 
               style={{ width: '120px', padding: '0.8rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff', fontSize: '1.1rem' }} 
             />
-            <button className="btn btn-start" onClick={generateAiProposals} disabled={isAiLoading} style={{ padding: '0.8rem 1.5rem', background: '#38bdf8', color: '#000' }}>
-              {isAiLoading ? 'Analisi in corso...' : 'Genera Proposte'}
+            <button className="btn btn-start" onClick={() => generateAiProposals('balanced')} disabled={isAiLoading} style={{ padding: '0.8rem 1.5rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: '1px solid #38bdf8' }}>
+              {isAiLoading ? 'Analisi...' : 'Diversificate'}
+            </button>
+            <button className="btn btn-start" onClick={() => generateAiProposals('momentum')} disabled={isAiLoading} style={{ padding: '0.8rem 1.5rem', background: '#10b981', color: '#000', border: '1px solid #10b981' }}>
+              {isAiLoading ? 'Analisi...' : 'Trend / Momentum'}
             </button>
           </div>
         </div>

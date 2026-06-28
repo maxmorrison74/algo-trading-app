@@ -5,6 +5,7 @@ import json
 import google.generativeai as genai
 import ccxt
 import alpaca_trade_api as tradeapi
+import yfinance as yf
 
 # Usa le chiavi condivise da api.py (in produzione andrebbero unificate)
 API_KEYS_FILE = os.path.join(os.path.dirname(__file__), ".env.keys")
@@ -13,6 +14,7 @@ router = APIRouter(prefix="/api/ai-invest", tags=["ai-invest"])
 
 class ProposalsRequest(BaseModel):
     budget: float
+    strategy: str = "balanced"
 
 class InvestRequest(BaseModel):
     symbol: str
@@ -47,16 +49,35 @@ def get_gemini_client():
 @router.post("/proposals")
 def get_ai_proposals(req: ProposalsRequest):
     budget = req.budget
+    strategy = req.strategy
     if budget <= 0:
         raise HTTPException(status_code=400, detail="Il budget deve essere maggiore di zero.")
         
     try:
         model = get_gemini_client()
         
+        market_data_context = ""
+        if strategy == "momentum":
+            tickers = ["AAPL", "MSFT", "NVDA", "TSLA", "META", "AMZN", "BTC-USD", "ETH-USD", "SOL-USD"]
+            data = yf.download(tickers, period="5d", group_by="ticker")
+            market_data_context = "\n=== DATI REALI MERCATO (Ultimi 5 giorni) ===\n"
+            for t in tickers:
+                try:
+                    df = data[t] if len(tickers) > 1 else data
+                    if not df.empty:
+                        start_price = df['Close'].iloc[0]
+                        end_price = df['Close'].iloc[-1]
+                        perf = ((end_price - start_price) / start_price) * 100
+                        market_data_context += f"- {t}: {perf:.2f}% (Prezzo attuale: {end_price:.2f})\n"
+                except Exception:
+                    pass
+            market_data_context += "========================================\n\nAnalizza i dati qui sopra e individua i 6 asset con il miglior slancio rialzista (Momentum) per le tue proposte."
+
         prompt = f"""
 Sei un gestore di un Hedge Fund Quantitativo.
 Il cliente vuole investire esattamente {budget}$.
 Il mercato attuale include Azioni Americane (es. MSFT, TSLA, PLTR) e Criptovalute (es. BTC, SOL).
+{market_data_context}
 
 Devi generare ESATTAMENTE 6 proposte di investimento esclusive per lui:
 1. Due proposte 'Safe' (Stock blue-chip o ETF)
@@ -95,6 +116,17 @@ Rispondi SOLTANTO con un array JSON in questo esatto formato, senza Markdown o b
     except Exception as e:
         # Fallback in caso di errore AI o rate limit
         print(f"Errore Gemini: {e}")
+        
+        if req.strategy == "momentum":
+            return {"proposals": [
+                {"id":1, "risk":"Conservativo", "symbol":"AAPL", "asset_type":"stock", "title":"Apple Inc", "rationale":"Forte momentum rialzista nell'ultimo periodo."},
+                {"id":2, "risk":"Conservativo", "symbol":"META", "asset_type":"stock", "title":"Meta Platforms", "rationale":"Trend solido con aumento degli utili."},
+                {"id":3, "risk":"Bilanciato", "symbol":"NVDA", "asset_type":"stock", "title":"NVIDIA Corp", "rationale":"Leader indiscusso spinto dal boom AI."},
+                {"id":4, "risk":"Bilanciato", "symbol":"TSLA", "asset_type":"stock", "title":"Tesla", "rationale":"Recupero recente dopo cali significativi."},
+                {"id":5, "risk":"Aggressivo", "symbol":"BTC/USD", "asset_type":"crypto", "title":"Bitcoin", "rationale":"Spinta inflazionistica e volumi record."},
+                {"id":6, "risk":"Aggressivo", "symbol":"ETH/USD", "asset_type":"crypto", "title":"Ethereum", "rationale":"Adozione layer-2 in accelerazione."}
+            ]}
+            
         return {"proposals": [
             {"id":1, "risk":"Conservativo", "symbol":"MSFT", "asset_type":"stock", "title":"Microsoft Corp", "rationale":"Eccellente bilancio e dominio nell'IA generativa."},
             {"id":2, "risk":"Conservativo", "symbol":"JNJ", "asset_type":"stock", "title":"Johnson & Johnson", "rationale":"Dividendi stabili e settore difensivo."},
