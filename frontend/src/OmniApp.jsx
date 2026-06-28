@@ -29,7 +29,7 @@ function OmniApp() {
 
   const [numValueBets, setNumValueBets] = useState(9);
   const [placedBets, setPlacedBets] = useState({});
-  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', gemini_key:'', newsapi_key:''});
+  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', gemini_key:'', newsapi_key:'', google_cloud_json:''});
   const [testResults, setTestResults] = useState({});
   const [savedKeys, setSavedKeys] = useState({});
   const [timeframe, setTimeframe] = useState('1D');
@@ -308,6 +308,10 @@ function OmniApp() {
             <button onClick={() => testConnection('newsapi')} style={{ background: 'transparent', border: '1px solid #06b6d4', color: '#06b6d4', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Test Connessione</button>
           </div>
           {testResults['newsapi'] && <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: testResults['newsapi'].includes('OK') ? '#10b981' : '#ef4444' }}>{testResults['newsapi']}</div>}
+        </div>
+        <div style={{ flex: 1, marginTop: '1rem' }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Google Cloud Service Account (JSON per Veo) {savedKeys['GOOGLE_APPLICATION_CREDENTIALS'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
+          <textarea placeholder='Incolla qui l intero file JSON scaricato da Google Cloud...' value={apiKeys.google_cloud_json} onChange={e => setApiKeys({...apiKeys, google_cloud_json: e.target.value})} style={{ width: '100%', height: '100px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: '0.8rem' }} />
         </div>
       </div>
 

@@ -593,6 +593,7 @@ class KeysRequest(BaseModel):
     theodds_key: str = ""
     gemini_key: str = ""
     newsapi_key: str = ""
+    google_cloud_json: str = ""
 
 
 @app.get("/api/keys")
@@ -607,6 +608,8 @@ def get_keys():
                         k, v = line.strip().split("=", 1)
                         if v:
                             keys[k] = v[:4] + "*" * 10 if len(v) > 4 else "***"
+        if os.path.exists(".env.gcp.json"):
+            keys["GOOGLE_APPLICATION_CREDENTIALS"] = "MASKED_JSON"
     except Exception as e:
         keys["ERROR"] = str(e)
     return keys
@@ -651,6 +654,11 @@ def save_keys(req: KeysRequest):
             f.write(f"THEODDS_KEY={new_theodds_key}\n")
             f.write(f"GEMINI_KEY={new_gemini_key}\n")
             f.write(f"NEWSAPI_KEY={new_newsapi_key}\n")
+            
+        if req.google_cloud_json and "***" not in req.google_cloud_json:
+            with open(".env.gcp.json", "w") as f:
+                f.write(req.google_cloud_json)
+            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ".env.gcp.json"
             
         return {"status": "success", "message": "Chiavi salvate nel Vault"}
     except Exception as e:
