@@ -795,7 +795,20 @@ def generate_idea(req: GenerateIdeaRequest):
     try:
         import google.generativeai as genai
         genai.configure(api_key=req.gemini_key)
-        model = genai.GenerativeModel("gemini-pro")
+        
+        # Trova dinamicamente un modello supportato dalla chiave dell'utente
+        available_models = [m.name for m in genai.list_models() if 'generateContent' in m.supported_generation_methods]
+        if not available_models:
+            raise HTTPException(status_code=500, detail="Nessun modello Gemini disponibile per questa API Key.")
+            
+        # Preferiamo i modelli più recenti, altrimenti prendiamo il primo disponibile
+        chosen_model = next((m for m in available_models if "1.5-flash" in m), None)
+        if not chosen_model:
+            chosen_model = next((m for m in available_models if "1.5-pro" in m), None)
+        if not chosen_model:
+            chosen_model = next((m for m in available_models if "gemini-pro" in m), available_models[0])
+            
+        model = genai.GenerativeModel(chosen_model)
         
         topics = [
             "Bitcoin verso nuovi massimi, cosa dicono gli analisti istituzionali",
