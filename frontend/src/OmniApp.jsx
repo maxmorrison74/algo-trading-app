@@ -26,6 +26,7 @@ class ErrorBoundary extends React.Component {
 
 function OmniApp() {
   const [status, setStatus] = useState({});
+  const [placedBets, setPlacedBets] = useState({});
   const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', gemini_key:''});
   const [testResults, setTestResults] = useState({});
   const [savedKeys, setSavedKeys] = useState({});
@@ -123,6 +124,34 @@ function OmniApp() {
       // Il polling da 2 secondi rileverà automaticamente il nuovo stato
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const placeBet = async (sb) => {
+    if (placedBets[sb.id]) return; // già piazzata
+    setPlacedBets(prev => ({ ...prev, [sb.id]: 'loading' }));
+    try {
+      const res = await fetch('/api/place-bet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          match: sb.match,
+          sport: sb.sport,
+          p1: sb.p1, book1: sb.book1, odds1: sb.odds1, stake1: sb.stake1,
+          p2: sb.p2, book2: sb.book2, odds2: sb.odds2, stake2: sb.stake2,
+          profit_margin: sb.profit_margin,
+          guaranteed_return: sb.guaranteed_return,
+          total_stake: 100.0
+        })
+      });
+      const data = await res.json();
+      if (data.status === 'ok') {
+        setPlacedBets(prev => ({ ...prev, [sb.id]: 'placed' }));
+      } else {
+        setPlacedBets(prev => ({ ...prev, [sb.id]: 'error' }));
+      }
+    } catch {
+      setPlacedBets(prev => ({ ...prev, [sb.id]: 'error' }));
     }
   };
 
@@ -620,9 +649,47 @@ function OmniApp() {
                   </div>
                 </div>
                 
-                <div style={{ marginTop: '1rem', background: 'rgba(0,0,0,0.5)', padding: '0.8rem', borderRadius: '6px', textAlign: 'center', color: '#e2e8f0' }}>
+                <div style={{ marginTop: '1rem', background: 'rgba(0,0,0,0.5)', padding: '0.8rem', borderRadius: '6px', textAlign: 'center', color: '#e2e8f0', marginBottom: '1rem' }}>
                   Investimento Totale: <strong>€100.00</strong> ➔ Ritorno Garantito: <strong style={{ color: '#10b981' }}>€{Number(sb.guaranteed_return || 0).toFixed(2)}</strong>
                 </div>
+
+                {/* Bottone piazza scommessa */}
+                {(() => {
+                  const betState = placedBets[sb.id];
+                  if (betState === 'placed') return (
+                    <div style={{ textAlign: 'center', padding: '0.8rem', borderRadius: '8px', background: 'rgba(16,185,129,0.15)', border: '1px solid #10b981', color: '#10b981', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                      ✅ Scommessa piazzata! In attesa del risultato...
+                    </div>
+                  );
+                  if (betState === 'error') return (
+                    <div style={{ textAlign: 'center', padding: '0.8rem', borderRadius: '8px', background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', color: '#ef4444', fontWeight: 'bold' }}>
+                      ❌ Errore nel piazzare la scommessa.
+                    </div>
+                  );
+                  return (
+                    <button
+                      onClick={() => placeBet(sb)}
+                      disabled={betState === 'loading'}
+                      style={{
+                        width: '100%',
+                        padding: '0.9rem',
+                        background: betState === 'loading'
+                          ? 'rgba(212,175,55,0.3)'
+                          : 'linear-gradient(90deg, #d4af37, #f3e5ab)',
+                        color: '#000',
+                        fontWeight: 'bold',
+                        fontSize: '1rem',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: betState === 'loading' ? 'wait' : 'pointer',
+                        letterSpacing: '1px',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      {betState === 'loading' ? '⏳ Piazzando...' : '⚡ PIAZZA SCOMMESSA (€100)'}
+                    </button>
+                  );
+                })()}
               </div>
             ))}
             

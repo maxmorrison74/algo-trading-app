@@ -304,6 +304,68 @@ async def toggle_module(payload: dict):
             "ai_videos": getattr(bot_state, "ai_videos", [])}
     return {"error": "Modulo non trovato"}
 
+
+@app.post("/api/place-bet")
+async def place_bet(payload: dict):
+    """
+    Registra una scommessa virtuale su una surebet identificata dal radar.
+    Deduce lo stake dal portafoglio virtuale e traccia la bet in attesa del risultato.
+    """
+    try:
+        match   = payload.get("match", "N/A")
+        p1      = payload.get("p1", "?")
+        p2      = payload.get("p2", "?")
+        book1   = payload.get("book1", "?")
+        book2   = payload.get("book2", "?")
+        odds1   = float(payload.get("odds1", 0))
+        odds2   = float(payload.get("odds2", 0))
+        stake1  = float(payload.get("stake1", 0))
+        stake2  = float(payload.get("stake2", 0))
+        total   = float(payload.get("total_stake", 100.0))
+        profit_margin    = float(payload.get("profit_margin", 0))
+        guaranteed_return = float(payload.get("guaranteed_return", 0))
+
+        if bot_state.virtual_cash < total:
+            return {"status": "error", "message": f"Saldo insufficiente (disponibile: ${bot_state.virtual_cash:.2f})"}
+
+        # Deduce lo stake dal portafoglio virtuale
+        bot_state.virtual_cash -= total
+
+        # Registra la scommessa nella cronologia
+        bet_record = {
+            "type": "SUREBET",
+            "match": match,
+            "p1": p1, "p2": p2,
+            "book1": book1, "book2": book2,
+            "odds1": odds1, "odds2": odds2,
+            "stake1": stake1, "stake2": stake2,
+            "total_stake": total,
+            "profit_margin": profit_margin,
+            "guaranteed_return": guaranteed_return,
+            "expected_profit": round(guaranteed_return - total, 2),
+            "status": "pending",
+            "timestamp": datetime.now().strftime("%H:%M:%S")
+        }
+        bot_state.trade_history.insert(0, bet_record)
+        bot_state.save_state()
+
+        bot_state.add_log(
+            f"⚽ SUREBET PIAZZATA: {match} | "
+            f"{book1} @{odds1:.2f} (€{stake1:.2f}) + {book2} @{odds2:.2f} (€{stake2:.2f}) | "
+            f"Profitto atteso: +€{guaranteed_return - total:.2f} ({profit_margin:.2f}%)"
+        )
+
+        return {
+            "status": "ok",
+            "message": "Scommessa registrata con successo",
+            "cash_remaining": round(bot_state.virtual_cash, 2),
+            "expected_profit": round(guaranteed_return - total, 2)
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
 @app.post("/api/start")
 def start_bot():
     if not alpaca_engine: raise HTTPException(status_code=500, detail="Alpaca non configurata")
