@@ -1309,14 +1309,14 @@ function OmniApp() {
             <span className="menu-icon">⛓️</span> DeFi Arbitrage
             {status.modules?.crypto_arb && <div className="active-dot"></div>}
           </div>
-          <div className={`menu-item ${activeTab === 'sports_arb' ? 'active' : ''}`} onClick={() => setActiveTab('sports_arb')}>
+          {/* <div className={`menu-item ${activeTab === 'sports_arb' ? 'active' : ''}`} onClick={() => setActiveTab('sports_arb')}>
             <span className="menu-icon">⚽</span> Sports SureBets
             {status.modules?.sports_arb && <div className="active-dot"></div>}
-          </div>
-          <div className={`menu-item ${activeTab === 'value_bets' ? 'active' : ''}`} onClick={() => setActiveTab('value_bets')}>
+          </div> */}
+          {/* <div className={`menu-item ${activeTab === 'value_bets' ? 'active' : ''}`} onClick={() => setActiveTab('value_bets')}>
             <span className="menu-icon">🤖</span> AI Sentiment Radar
             {status.modules?.ai_sports_sentiment && <div className="active-dot"></div>}
-          </div>
+          </div> */}
           {/* <div className={`menu-item ${activeTab === 'ai_content' ? 'active' : ''}`} onClick={() => setActiveTab('ai_content')}>
             <span className="menu-icon">📱</span> AI Content Creator
             {status.modules?.ai_content && <div className="active-dot"></div>}
