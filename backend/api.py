@@ -788,19 +788,25 @@ class GenerateIdeaRequest(BaseModel):
 
 @app.post("/api/ai/generate-idea")
 def generate_idea(req: GenerateIdeaRequest = None):
-    topics = [
-        "Bitcoin verso nuovi massimi, cosa dicono gli analisti istituzionali",
-        "Il nuovo aggiornamento DeFi e come trarne profitto",
-        "Intelligenza Artificiale: l'impatto sul trading algoritmico",
-        "Mercati globali in tensione, beni rifugio in salita",
-        "5 Altcoin che potrebbero esplodere nel prossimo trimestre",
-        "Come proteggere il proprio portafoglio dall'inflazione"
-    ]
     import random
-    topic = random.choice(topics)
+    import requests
+    import xml.etree.ElementTree as ET
     
-    script_part = f"Parla di: {topic}. Cerca di essere conciso, virale e di creare un gancio (hook) forte nei primi 3 secondi."
-    veo_prompt = f"Cinematic 4k realistic shot of trading charts, neon lights, highly detailed, dramatic lighting, representing {topic}"
+    topic = "Bitcoin verso nuovi massimi, cosa dicono gli analisti" # fallback
+    try:
+        # Peschiamo vere news fresche dal feed RSS di CoinDesk o Cointelegraph
+        res = requests.get("https://cointelegraph.com/rss", timeout=3)
+        if res.status_code == 200:
+            root = ET.fromstring(res.content)
+            titles = [item.find('title').text for item in root.findall('./channel/item') if item.find('title') is not None]
+            if titles:
+                # Scegliamo una delle 10 news più recenti
+                topic = random.choice(titles[:10])
+    except Exception as e:
+        print(f"Errore lettura news reali: {e}")
+        
+    script_part = f"NOTIZIA FLASH: {topic}. Cerca di tradurre e spiegare in 45 secondi in italiano con un gancio fortissimo."
+    veo_prompt = f"Cinematic 4k realistic shot, dramatic lighting, representing the financial news: {topic}"
     
     return {"topic": topic, "script": script_part, "prompt": veo_prompt}
 
