@@ -246,14 +246,14 @@ function OmniApp() {
   const renderSettingsView = () => (
     <div className="module-content">
       <div className="header" style={{ marginBottom: '2rem' }}>
-        <h2 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>🔐 Security & API Vault</h2>
+        <h2>🔐 Security & API Vault</h2>
         <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Gestione chiavi crittografate per le connessioni ai mercati reali.</div>
       </div>
 
-      <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
+      <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0' }}>Alpaca (Stock Market) {savedKeys['ALPACA_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</h3>
-          <button onClick={() => testConnection('alpaca')} style={{ background: 'transparent', border: '1px solid #06b6d4', color: '#06b6d4', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Test Connessione</button>
+          <button onClick={() => testConnection('alpaca')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <input type="password" placeholder="API Key" value={apiKeys.alpaca_key} onChange={e => setApiKeys({...apiKeys, alpaca_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
@@ -262,10 +262,10 @@ function OmniApp() {
         {testResults['alpaca'] && <div style={{ color: testResults['alpaca'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['alpaca']}</div>}
       </div>
 
-      <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
+      <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0' }}>Binance (Crypto Arb) {savedKeys['BINANCE_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</h3>
-          <button onClick={() => testConnection('binance')} style={{ background: 'transparent', border: '1px solid #06b6d4', color: '#06b6d4', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Test Connessione</button>
+          <button onClick={() => testConnection('binance')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <input type="password" placeholder="API Key" value={apiKeys.binance_key} onChange={e => setApiKeys({...apiKeys, binance_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
@@ -274,10 +274,10 @@ function OmniApp() {
         {testResults['binance'] && <div style={{ color: testResults['binance'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['binance']}</div>}
       </div>
 
-      <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
+      <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0' }}>Kraken (Crypto Arb) {savedKeys['KRAKEN_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</h3>
-          <button onClick={() => testConnection('kraken')} style={{ background: 'transparent', border: '1px solid #06b6d4', color: '#06b6d4', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Test Connessione</button>
+          <button onClick={() => testConnection('kraken')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <input type="password" placeholder="API Key" value={apiKeys.kraken_key} onChange={e => setApiKeys({...apiKeys, kraken_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
@@ -286,7 +286,7 @@ function OmniApp() {
         {testResults['kraken'] && <div style={{ color: testResults['kraken'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['kraken']}</div>}
       </div>
 
-      <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', marginBottom: '2rem' }}>
+      <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0' }}>Altri Servizi</h3>
         </div>
@@ -308,7 +308,7 @@ function OmniApp() {
           <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>NewsAPI {savedKeys['NEWSAPI_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <input type="password" placeholder="NewsAPI Key" value={apiKeys.newsapi_key} onChange={e => setApiKeys({...apiKeys, newsapi_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
-            <button onClick={() => testConnection('newsapi')} style={{ background: 'transparent', border: '1px solid #06b6d4', color: '#06b6d4', padding: '0.5rem 1rem', borderRadius: '6px', cursor: 'pointer' }}>Test Connessione</button>
+            <button onClick={() => testConnection('newsapi')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
           </div>
           {testResults['newsapi'] && <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: testResults['newsapi'].includes('OK') ? '#10b981' : '#ef4444' }}>{testResults['newsapi']}</div>}
         </div>
@@ -323,7 +323,7 @@ function OmniApp() {
       </div>
 
       <div style={{ textAlign: 'right' }}>
-        <button onClick={saveKeys} style={{ background: '#10b981', color: '#000', padding: '1rem 3rem', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', border: 'none', cursor: 'pointer' }}>Salva nel Vault Sicuro</button>
+        <button onClick={saveKeys} className="btn btn-start" style={{ padding: '1rem 3rem', fontSize: '1.1rem' }}>Salva nel Vault Sicuro</button>
       </div>
     </div>
   );
@@ -344,7 +344,7 @@ function OmniApp() {
     return (
       <div className="module-content">
         <div className="header" style={{ marginBottom: '2rem' }}>
-          <h2 style={{ margin: 0, fontSize: '2rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Dashboard 📊</h2>
+          <h2>Dashboard 📊</h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Dashboard Aggregata delle Rendite Passive</div>
         </div>
 
@@ -423,7 +423,7 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>ALGO-TRADING ENGINE</h2>
+          <h2>ALGO-TRADING ENGINE</h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
             <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: status.market_open ? '#10b981' : '#f59e0b' }}></div>
             Market {status.market_open ? 'Open' : 'Closed'}
@@ -564,7 +564,7 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>DeFi Arbitrage (BTC/USDT) <span style={{ fontSize: '0.8rem', background: '#f59e0b', color: '#000', padding: '0.2rem 0.5rem', borderRadius: '4px', verticalAlign: 'middle', marginLeft: '1rem' }}>MODALITÀ SIMULAZIONE ATTIVA</span></h2>
+          <h2>DeFi Arbitrage (BTC/USDT) <span className="badge badge-gold" style={{ marginLeft: '1rem', verticalAlign: 'middle' }}>MODALITÀ SIMULAZIONE ATTIVA</span></h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Esecuzione automatica live (Paper Trading)</div>
           <div style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '6px', display: 'inline-block' }}>
             <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>Portafoglio Virtuale:</span>
@@ -647,7 +647,7 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Sports SureBets ⚽🎾</h2>
+          <h2>Sports SureBets ⚽🎾</h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Calcolatore Matematico di Scommesse Sicure</div>
         </div>
         <button 
@@ -897,7 +897,7 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             🤖 AI Sentiment Radar
             <span style={{ fontSize: '0.75rem', background: 'rgba(139, 92, 246, 0.2)', color: '#a78bfa', padding: '0.3rem 0.6rem', borderRadius: '4px', border: '1px solid rgba(139, 92, 246, 0.3)' }}>
               powered by NewsAPI & NLP
@@ -1117,7 +1117,7 @@ function OmniApp() {
     <div className="module-content">
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
-          <h2 style={{ margin: 0, fontSize: '1.8rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>AI Content Spammer 🤖🔥</h2>
+          <h2>AI Content Spammer 🤖🔥</h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Ti diamo l'idea, tu crei il video, Aureo lo spamma ovunque!</div>
         </div>
         <button 
@@ -1221,7 +1221,7 @@ function OmniApp() {
 
   const renderComingSoon = (title, mod_id, description) => (
     <div className="module-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '80vh', textAlign: 'center' }}>
-      <h2 style={{ fontSize: '2.5rem', marginBottom: '1rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>{title}</h2>
+      <h2>{title}</h2>
       <p style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', maxWidth: '600px', marginBottom: '2rem' }}>{description}</p>
       
       <div style={{ background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
@@ -1243,20 +1243,20 @@ function OmniApp() {
   
   if (!isAuthenticated) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#020617', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ background: 'rgba(255,255,255,0.05)', padding: '3rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center', width: '400px' }}>
+      <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div className="card" style={{ textAlign: 'center', width: '400px', padding: '3rem 2rem' }}>
           <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Ponte di Comando Autenticato</p>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>Ponte di Comando Autenticato</p>
           <form onSubmit={handleLogin}>
             <input 
               type="password" 
               placeholder="Inserisci Master Password" 
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={{ width: '100%', padding: '1rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(6,182,212,0.3)', borderRadius: '8px', color: '#fff', fontSize: '1rem', marginBottom: '1rem', outline: 'none' }}
+              style={{ marginBottom: '1rem' }}
             />
-            {loginError && <div style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
-            <button type="submit" style={{ width: '100%', padding: '1rem', background: 'linear-gradient(90deg, #d4af37, #aa7c11)', color: '#000', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>ACCEDI ALLA DASHBOARD</button>
+            {loginError && <div style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
+            <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>ACCEDI ALLA DASHBOARD</button>
           </form>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
             🔒 Protetto da Crittografia<br/>
@@ -1329,7 +1329,7 @@ function OmniApp() {
         {activeTab === 'ai_content' && renderAIContentView()}
         {activeTab === 'saas' && (
            <div className="module-content" style={{ padding: '2rem' }}>
-             <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>Gestione SaaS & Clienti</h2>
+             <h2>Gestione SaaS & Clienti</h2>
              <p style={{ color: 'var(--text-secondary)' }}>Da qui potrai generare i link Stripe e gestire gli utenti paganti che si iscrivono al tuo ecosistema.</p>
            </div>
         )}
