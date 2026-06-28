@@ -590,6 +590,7 @@ class KeysRequest(BaseModel):
     elevenlabs_key: str = ""
     theodds_key: str = ""
     gemini_key: str = ""
+    newsapi_key: str = ""
 
 
 @app.get("/api/keys")
@@ -635,6 +636,7 @@ def save_keys(req: KeysRequest):
         new_elevenlabs_key = merge("ELEVENLABS_KEY", req.elevenlabs_key)
         new_theodds_key = merge("THEODDS_KEY", req.theodds_key)
         new_gemini_key = merge("GEMINI_KEY", req.gemini_key)
+        new_newsapi_key = merge("NEWSAPI_KEY", req.newsapi_key)
 
         with open(API_KEYS_FILE, "w") as f:
             f.write(f"ALPACA_KEY={new_alpaca_key}\n")
@@ -646,6 +648,7 @@ def save_keys(req: KeysRequest):
             f.write(f"ELEVENLABS_KEY={new_elevenlabs_key}\n")
             f.write(f"THEODDS_KEY={new_theodds_key}\n")
             f.write(f"GEMINI_KEY={new_gemini_key}\n")
+            f.write(f"NEWSAPI_KEY={new_newsapi_key}\n")
             
         return {"status": "success", "message": "Chiavi salvate nel Vault"}
     except Exception as e:
@@ -662,6 +665,7 @@ class TestConnectionRequest(BaseModel):
     kraken_secret: str = ""
     elevenlabs_key: str = ""
     theodds_key: str = ""
+    newsapi_key: str = ""
 
 
 @app.post("/api/test-connection")
@@ -682,6 +686,7 @@ def test_connection(req: TestConnectionRequest):
     if req.kraken_key and "***" not in req.kraken_key: keys['KRAKEN_KEY'] = req.kraken_key
     if req.kraken_secret and "***" not in req.kraken_secret: keys['KRAKEN_SECRET'] = req.kraken_secret
     if req.elevenlabs_key and "***" not in req.elevenlabs_key: keys['ELEVENLABS_KEY'] = req.elevenlabs_key
+    if req.newsapi_key and "***" not in req.newsapi_key: keys['NEWSAPI_KEY'] = req.newsapi_key
     if req.theodds_key and "***" not in req.theodds_key: keys['THEODDS_KEY'] = req.theodds_key
     
 
@@ -746,6 +751,16 @@ def test_connection(req: TestConnectionRequest):
                 return {"status": "success", "message": "Connessione ElevenLabs stabilita! Auth OK."}
             else:
                 return {"status": "error", "message": f"Errore ElevenLabs: {res.status_code}"}
+                
+        elif service == 'newsapi':
+            api_key = keys.get("NEWSAPI_KEY", "")
+            if not api_key:
+                return {"status": "error", "message": "Chiave NewsAPI mancante."}
+            res = requests.get(f"https://newsapi.org/v2/top-headlines?country=us&pageSize=1&apiKey={api_key}")
+            if res.status_code == 200:
+                return {"status": "success", "message": "Connessione NewsAPI stabilita! Auth OK."}
+            else:
+                return {"status": "error", "message": f"Errore NewsAPI: {res.status_code} - {res.text}"}
                 
         else:
             # Fallback for others

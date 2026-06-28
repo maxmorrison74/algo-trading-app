@@ -11,7 +11,10 @@ class AISentimentRadar:
         self.analyzer = SentimentIntensityAnalyzer()
         
         # API Key NewsAPI
-        self.api_key = "223d48c7-2ead-46c7-83c4-03928fa452d0"
+        import os
+        from dotenv import dotenv_values
+        keys = dotenv_values(".env.keys") if os.path.exists(".env.keys") else {}
+        self.api_key = keys.get("NEWSAPI_KEY", "223d48c7-2ead-46c7-83c4-03928fa452d0")
         self.search_queries = ["soccer", "champions league", "premier league", "tennis atp", "nba basketball"]
 
     def _log(self, message):

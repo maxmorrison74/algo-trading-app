@@ -29,7 +29,7 @@ function OmniApp() {
 
   const [numValueBets, setNumValueBets] = useState(9);
   const [placedBets, setPlacedBets] = useState({});
-  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', gemini_key:''});
+  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', gemini_key:'', newsapi_key:''});
   const [testResults, setTestResults] = useState({});
   const [savedKeys, setSavedKeys] = useState({});
   const [timeframe, setTimeframe] = useState('1D');
@@ -228,7 +228,8 @@ function OmniApp() {
             kraken_secret: data.KRAKEN_SECRET || '',
             elevenlabs_key: data.ELEVENLABS_KEY || '',
             theodds_key: data.THEODDS_KEY || '',
-            gemini_key: data.GEMINI_KEY || ''
+            gemini_key: data.GEMINI_KEY || '',
+            newsapi_key: data.NEWSAPI_KEY || ''
           }));
         } catch(err) {
           console.error("Error fetching keys", err);
@@ -299,6 +300,14 @@ function OmniApp() {
         <div style={{ flex: 1 }}>
           <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Gemini AI {savedKeys['GEMINI_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
           <input type="password" placeholder="Gemini API Key" value={apiKeys.gemini_key} onChange={e => setApiKeys({...apiKeys, gemini_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>NewsAPI {savedKeys['NEWSAPI_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <input type="password" placeholder="NewsAPI Key" value={apiKeys.newsapi_key} onChange={e => setApiKeys({...apiKeys, newsapi_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
+            <button onClick={() => testApi('newsapi')} style={{ background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', padding: '0 1rem', cursor: 'pointer', fontWeight: 'bold' }}>TEST</button>
+          </div>
+          {testResults['newsapi'] && <div style={{ fontSize: '0.8rem', marginTop: '0.5rem', color: testResults['newsapi'].includes('OK') ? '#10b981' : '#ef4444' }}>{testResults['newsapi']}</div>}
         </div>
       </div>
 
