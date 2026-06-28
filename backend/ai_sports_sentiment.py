@@ -52,6 +52,14 @@ class AISentimentRadar:
 
     def analyze_and_generate_bets(self, articles):
         new_bets = []
+        
+        KNOWN_TEAMS = [
+            "Real Madrid", "Barcelona", "Manchester City", "Arsenal", "Liverpool", "Manchester United", "Chelsea", 
+            "Juventus", "AC Milan", "Inter", "Napoli", "Bayern Munich", "PSG", "Atletico Madrid", "Tottenham", "Roma", "Lazio",
+            "Lakers", "Warriors", "Celtics", "Bulls", "Heat", "Knicks", "Mavericks", "Nuggets", "Suns", "Bucks",
+            "Djokovic", "Alcaraz", "Sinner", "Medvedev", "Nadal", "Zverev", "Tsitsipas"
+        ]
+        
         for article in articles:
             title = article.get("title", "")
             desc = article.get("description", "")
@@ -59,22 +67,36 @@ class AISentimentRadar:
             if not title or not desc:
                 continue
                 
-            text = f"{title}. {desc}"
+            text = f"{title} {desc}"
+            text_lower = text.lower()
+            
+            # Filtra notizie di calciomercato o infortuni non legati a match
+            if "transfer" in text_lower or "signing" in text_lower or "rumor" in text_lower:
+                continue
+                
             sentiment = self.analyzer.polarity_scores(text)
             compound = sentiment['compound']
             
-            if abs(compound) > 0.4:
-                words = [w for w in title.split() if w.istitle() and len(w) > 3]
-                if not words: continue
+            if abs(compound) > 0.35:  # Abbassato leggermente per trovare più match validi
+                # Estrai i team basandosi sulla lista nota
+                found_teams = [team for team in KNOWN_TEAMS if team.lower() in text_lower]
                 
-                team1 = words[0]
-                team2 = random.choice(["Rivals", "Opponents", "FC", "United", "City"]) if len(words) < 2 else words[1]
+                if len(found_teams) == 0:
+                    continue  # Se non trova team reali, ignora la notizia
+                    
+                team1 = found_teams[0]
+                if len(found_teams) >= 2:
+                    team2 = found_teams[1]
+                else:
+                    # Cerca un avversario generico nel titolo
+                    words = [w for w in title.replace("'", "").replace('"', "").split() if w.istitle() and len(w) > 4 and w.lower() not in team1.lower()]
+                    team2 = words[0] if words else random.choice(["Rivals", "FC Opponents", "United", "City"])
                 
                 predicted_winner = team1 if compound > 0 else team2
-                odds = round(random.uniform(1.80, 4.50), 2)
+                odds = round(random.uniform(1.60, 3.50), 2)
                 confidence = int(50 + (abs(compound) * 50))
                 
-                analysis_text = f"Analisi semantica: Rilevata notizia '{title[:60]}...'. Sentiment Score: {compound:.2f}. Questo indica un forte momentum per {predicted_winner}."
+                analysis_text = f"Analisi semantica: Rilevata notizia sul match. Sentiment Score: {compound:.2f}. Forte momentum per {predicted_winner} basato sulle news recenti."
 
                 bet = {
                     "id": str(int(time.time() * 1000)) + str(random.randint(100, 999)),
