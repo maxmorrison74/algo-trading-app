@@ -301,9 +301,8 @@ function OmniApp() {
     const pieData = [
       { name: 'Liquidità', value: virtualCash, color: 'var(--text-secondary)' },
       { name: 'Azioni (Trading)', value: Math.abs(tradingProfit) || 100, color: '#38bdf8' },
-      { name: 'TikTok (AdSense)', value: aiEarnings || 50, color: '#a855f7' },
-      { name: 'DeFi & Scommesse', value: 150, color: '#f59e0b' } // Valore fittizio minimo per vederlo nel grafico
-    ];
+      { name: 'Crypto Arbitrage', value: status.modules?.crypto_arb ? 120.50 : 0, color: '#10b981' }
+    ].filter(item => item.value > 0);
 
     return (
       <div className="module-content">
@@ -355,20 +354,11 @@ function OmniApp() {
                 <div style={{ fontWeight: 'bold', color: '#10b981' }}>+${Math.abs(tradingProfit).toFixed(2)}</div>
               </div>
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span style={{ fontSize: '1.5rem' }}>🥈</span>
-                  <div>
-                    <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>AI Faceless Content</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Monetizzazione AdSense</div>
-                  </div>
-                </div>
-                <div style={{ fontWeight: 'bold', color: '#10b981' }}>+${aiEarnings.toFixed(2)}</div>
-              </div>
+
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span style={{ fontSize: '1.5rem' }}>🥉</span>
+                  <span style={{ fontSize: '1.5rem' }}>🥈</span>
                   <div>
                     <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>DeFi Arbitrage</div>
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Spread BTC/USDT</div>
