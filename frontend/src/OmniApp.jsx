@@ -110,11 +110,20 @@ function OmniApp() {
   };
 
   const toggleModule = async (mod_id, isActive) => {
-    await fetch('/api/modules', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ module: mod_id, active: !isActive })
-    });
+    setStatus(prev => ({
+      ...prev,
+      modules: { ...(prev.modules || {}), [mod_id]: !isActive }
+    }));
+    try {
+      await fetch('/api/modules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ module: mod_id, active: !isActive })
+      });
+      fetchData();
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleReset = async () => {
