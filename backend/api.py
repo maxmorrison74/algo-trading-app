@@ -131,6 +131,7 @@ class BotState:
         }
         loaded_modules = db_data.get("modules", {})
         self.modules = {**default_modules, **loaded_modules}
+        self.value_bets = []
         
         # Migrazione vecchie chiavi DB
         if "ai_trading" in self.modules:
@@ -252,6 +253,7 @@ def get_status():
             "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
             "sports_logs": getattr(bot_state, "sports_logs", []),
             "active_surebets": getattr(bot_state, "active_surebets", []),
+            "value_bets": getattr(bot_state, "value_bets", []),
             "ai_logs": getattr(bot_state, "ai_logs", []),
             "ai_videos": getattr(bot_state, "ai_videos", [])
         }
@@ -306,6 +308,7 @@ async def toggle_module(payload: dict):
             "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
             "sports_logs": getattr(bot_state, "sports_logs", []),
             "active_surebets": getattr(bot_state, "active_surebets", []),
+            "value_bets": getattr(bot_state, "value_bets", []),
             "ai_logs": getattr(bot_state, "ai_logs", []),
             "ai_videos": getattr(bot_state, "ai_videos", [])}
     return {"error": "Modulo non trovato"}
