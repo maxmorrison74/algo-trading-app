@@ -57,16 +57,20 @@ from lstm_model import LSTMTradingModel
 from data_loader import fetch_historical_data
 
 DB_FILE = "bot_db.json"
+import threading
+db_lock = threading.Lock()
 
 def load_db():
-    if os.path.exists(DB_FILE):
-        with open(DB_FILE, "r") as f:
-            return json.load(f)
-    return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "crypto_arb": False, "sports_arb": False, "ai_content": False}}
+    with db_lock:
+        if os.path.exists(DB_FILE):
+            with open(DB_FILE, "r") as f:
+                return json.load(f)
+        return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "crypto_arb": False, "sports_arb": False, "ai_content": False}}
 
 def save_db(state_dict):
-    with open(DB_FILE, "w") as f:
-        json.dump(state_dict, f)
+    with db_lock:
+        with open(DB_FILE, "w") as f:
+            json.dump(state_dict, f)
 
 app = FastAPI(title="AlgoTrading Backend")
 
