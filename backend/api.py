@@ -1,7 +1,7 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 import alpaca_trade_api as tradeapi
 import os
@@ -465,6 +465,7 @@ class KeysRequest(BaseModel):
     theodds_key: str = ""
     gemini_key: str = ""
 
+
 @app.get("/api/keys")
 def get_keys():
     # Return masked keys
@@ -644,10 +645,20 @@ if os.path.exists(frontend_dist):
             
         file_path = os.path.join(frontend_dist, catchall)
         if os.path.exists(file_path) and os.path.isfile(file_path):
-            return FileResponse(file_path)
+            headers = {}
+            if file_path.endswith(".html"):
+                headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                headers["Pragma"] = "no-cache"
+                headers["Expires"] = "0"
+            return FileResponse(file_path, headers=headers)
             
         # Per React Router (SPA fallback)
-        return FileResponse(os.path.join(frontend_dist, "index.html"))
+        headers = {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+        return FileResponse(os.path.join(frontend_dist, "index.html"), headers=headers)
 
 if __name__ == "__main__":
     import uvicorn
