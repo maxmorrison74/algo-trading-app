@@ -720,7 +720,7 @@ function OmniApp() {
     return (
       <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#020617', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)', fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ background: 'rgba(255,255,255,0.05)', padding: '3rem', borderRadius: '16px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center', width: '400px' }}>
-          <h1 style={{ fontSize: '2rem', background: 'linear-gradient(90deg, #06b6d4, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '0.5rem' }}>OMNI-PROFIT V2</h1>
+          <img src="/aureo-logo.png" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>Ponte di Comando Autenticato</p>
           <form onSubmit={handleLogin}>
             <input 
@@ -731,7 +731,7 @@ function OmniApp() {
               style={{ width: '100%', padding: '1rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(6,182,212,0.3)', borderRadius: '8px', color: '#fff', fontSize: '1rem', marginBottom: '1rem', outline: 'none' }}
             />
             {loginError && <div style={{ color: '#ef4444', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
-            <button type="submit" style={{ width: '100%', padding: '1rem', background: 'linear-gradient(90deg, #06b6d4, #3b82f6)', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>ACCEDI ALL'IMPERO</button>
+            <button type="submit" style={{ width: '100%', padding: '1rem', background: 'linear-gradient(90deg, #d4af37, #aa7c11)', color: '#000', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer' }}>ACCEDI ALL'IMPERO</button>
           </form>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
             🔒 Protetto da Crittografia<br/>
@@ -746,11 +746,14 @@ function OmniApp() {
   <ErrorBoundary>
     <div className="omni-app">
       <div className="sidebar">
-        <div className="sidebar-header">
-          <h1 style={{ fontSize: '1.4rem', background: 'linear-gradient(90deg, #06b6d4, #3b82f6)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            OMNI-PROFIT
-          </h1>
-          <div style={{ fontSize: '0.7rem', color: '#64748b', marginTop: '0.2rem' }}>V2.0 OS FINANZIARIO</div>
+        <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <img src="/aureo-icon.png" alt="Aureo Icon" style={{ height: '36px', objectFit: 'contain' }} />
+            <h1 style={{ margin: 0, fontSize: '1.5rem', background: 'linear-gradient(90deg, #d4af37, #f3e5ab)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '2px' }}>
+              AUREO
+            </h1>
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.5rem', marginLeft: '0.2rem', letterSpacing: '1px' }}>CRYPTO, INVESTMENT & SPORT TRADING</div>
         </div>
         
         <div className="sidebar-menu">
