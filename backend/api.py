@@ -465,6 +465,7 @@ class KeysRequest(BaseModel):
     kraken_secret: str = ""
     elevenlabs_key: str = ""
     theodds_key: str = ""
+    gemini_key: str = ""
 
 @app.get("/api/keys")
 def get_keys():
@@ -508,6 +509,7 @@ def save_keys(req: KeysRequest):
         new_kraken_secret = merge("KRAKEN_SECRET", req.kraken_secret)
         new_elevenlabs_key = merge("ELEVENLABS_KEY", req.elevenlabs_key)
         new_theodds_key = merge("THEODDS_KEY", req.theodds_key)
+        new_gemini_key = merge("GEMINI_KEY", req.gemini_key)
 
         with open(API_KEYS_FILE, "w") as f:
             f.write(f"ALPACA_KEY={new_alpaca_key}\n")
@@ -518,6 +520,7 @@ def save_keys(req: KeysRequest):
             f.write(f"KRAKEN_SECRET={new_kraken_secret}\n")
             f.write(f"ELEVENLABS_KEY={new_elevenlabs_key}\n")
             f.write(f"THEODDS_KEY={new_theodds_key}\n")
+            f.write(f"GEMINI_KEY={new_gemini_key}\n")
             
         return {"status": "success", "message": "Chiavi salvate nel Vault"}
     except Exception as e:

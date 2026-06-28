@@ -26,7 +26,7 @@ class ErrorBoundary extends React.Component {
 
 function OmniApp() {
   const [status, setStatus] = useState({});
-  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:''});
+  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', gemini_key:''});
   const [testResults, setTestResults] = useState({});
   const [savedKeys, setSavedKeys] = useState({});
   const [timeframe, setTimeframe] = useState('1D');
@@ -187,7 +187,8 @@ function OmniApp() {
             kraken_key: data.KRAKEN_KEY || '',
             kraken_secret: data.KRAKEN_SECRET || '',
             elevenlabs_key: data.ELEVENLABS_KEY || '',
-            theodds_key: data.THEODDS_KEY || ''
+            theodds_key: data.THEODDS_KEY || '',
+            gemini_key: data.GEMINI_KEY || ''
           }));
         } catch(err) {
           console.error("Error fetching keys", err);
@@ -254,6 +255,10 @@ function OmniApp() {
             <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>The-Odds-API {savedKeys['THEODDS_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
             <input type="password" placeholder="The-Odds-API Key" value={apiKeys.theodds_key} onChange={e => setApiKeys({...apiKeys, theodds_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
           </div>
+        </div>
+        <div style={{ flex: 1 }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Gemini AI {savedKeys['GEMINI_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
+          <input type="password" placeholder="Gemini API Key" value={apiKeys.gemini_key} onChange={e => setApiKeys({...apiKeys, gemini_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
         </div>
       </div>
 
