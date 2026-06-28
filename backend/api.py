@@ -121,7 +121,17 @@ class BotState:
         self.high_watermarks = db_data.get("high_watermarks", {})
         self.loop_task = None
         self.aggressiveness = db_data.get("aggressiveness", 55.0)
-        self.modules = db_data.get("modules", {"trading": False, "crypto_arb": False, "sports_arb": False, "ai_content": False})
+        self.modules = db_data.get("modules", {
+            "trading": False,
+            "crypto_arb": False,
+            "sports_arb": False,
+            "ai_content": False
+        })
+        # Migrazione vecchie chiavi DB
+        if "ai_trading" in self.modules:
+            self.modules["trading"] = self.modules.pop("ai_trading")
+        if "trading" not in self.modules:
+            self.modules["trading"] = False
 
     def add_log(self, message: str):
         print(message)
