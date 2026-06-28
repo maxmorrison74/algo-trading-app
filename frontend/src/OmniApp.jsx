@@ -316,6 +316,10 @@ function OmniApp() {
           <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Google Cloud Service Account (JSON per Veo) {savedKeys['GOOGLE_APPLICATION_CREDENTIALS'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
           <textarea placeholder='Incolla qui l intero file JSON scaricato da Google Cloud...' value={apiKeys.google_cloud_json} onChange={e => setApiKeys({...apiKeys, google_cloud_json: e.target.value})} style={{ width: '100%', height: '100px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box', fontFamily: 'monospace', fontSize: '0.8rem' }} />
         </div>
+        <div style={{ flex: 1, marginTop: '1rem' }}>
+          <label style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '0.5rem' }}>Make.com Webhook URL (per Pubblicazione Social Automatica) {savedKeys['MAKE_WEBHOOK_URL'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</label>
+          <input type="text" placeholder="https://hook.eu1.make.com/..." value={apiKeys.make_webhook_url} onChange={e => setApiKeys({...apiKeys, make_webhook_url: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
+        </div>
       </div>
 
       <div style={{ textAlign: 'right' }}>
@@ -1065,6 +1069,8 @@ function OmniApp() {
     formData.append('file', e.target.files[0]);
     formData.append('topic', aiIdea.topic);
     formData.append('prompt', aiIdea.prompt);
+    formData.append('description', aiIdea.description || "");
+    formData.append('hashtags', aiIdea.hashtags || "");
     
     try {
       const res = await fetch('/api/ai/upload-video', {

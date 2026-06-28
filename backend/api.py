@@ -808,10 +808,16 @@ def generate_idea(req: GenerateIdeaRequest = None):
     script_part = f"Spiega questa news in ITALIANO (durata ~45 sec, possibilmente con sottotitoli stile TikTok).\nNews originale: '{topic}'"
     veo_prompt = f"Cinematic 4k realistic shot, dramatic lighting, dynamic motion, representing the financial news: {topic}"
     
-    return {"topic": topic, "script": script_part, "prompt": veo_prompt}
+    # Generazione dinamica Hashtag e Descrizione
+    words = [w for w in topic.replace(',', '').replace(':', '').split() if len(w) > 4]
+    dynamic_tags = [f"#{w}" for w in words[:3]]
+    hashtags = " ".join(dynamic_tags + ["#AureoBot", "#Trading", "#Crypto"])
+    description = f"Ultime notizie dai mercati! 🚨 {topic} Cosa ne pensi? Fammelo sapere nei commenti! 👇"
+    
+    return {"topic": topic, "script": script_part, "prompt": veo_prompt, "description": description, "hashtags": hashtags}
 
 @app.post("/api/ai/upload-video")
-async def upload_video(topic: str = Form(...), prompt: str = Form(...), file: UploadFile = File(...)):
+async def upload_video(topic: str = Form(...), prompt: str = Form(...), description: str = Form(""), hashtags: str = Form(""), file: UploadFile = File(...)):
     import uuid
     import shutil
     
@@ -822,7 +828,14 @@ async def upload_video(topic: str = Form(...), prompt: str = Form(...), file: Up
     with open(filepath, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
         
-    ai_engine.add_video_to_queue(topic, prompt, filepath)
+    ai_engine.add_video_to_queue({
+        "topic": topic,
+        "prompt": prompt,
+        "description": description,
+        "hashtags": hashtags,
+        "file_path": filepath,
+        "created_at": time.time()
+    })
     return {"status": "success", "message": "Video aggiunto alla coda di distribuzione"}
 
 # --- SERVING FRONTEND (React) in Produzione ---
