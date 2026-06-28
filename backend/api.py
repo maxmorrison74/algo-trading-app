@@ -54,7 +54,6 @@ def send_telegram_message(message: str):
         print(f"Errore invio Telegram: {e}")
 
 # Importiamo il modello
-from lstm_model import LSTMTradingModel
 from data_loader import fetch_historical_data
 
 DB_FILE = "bot_db.json"
@@ -106,18 +105,6 @@ def get_yf_symbol(symbol):
     return symbol.replace("/", "-")
 
 target_symbols = [] # Inizialmente vuoto, verrà popolato dinamicamente
-
-# Carichiamo in memoria il Super Modello Generalista
-models_dir = os.path.join(os.path.dirname(__file__), "models")
-super_model_path = os.path.join(models_dir, "SUPER_MODEL.keras")
-super_model = None
-
-if os.path.exists(super_model_path):
-    super_model = LSTMTradingModel()
-    super_model.load(super_model_path)
-    print("✅ SUPER MODELLO IA caricato con successo.")
-else:
-    print("⚠️ Attenzione: SUPER_MODEL.keras non trovato. Fallback casuale.")
 
 class BotState:
     def __init__(self):
