@@ -719,16 +719,17 @@ ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "impero2026")
 import os
 API_KEYS_FILE = os.path.join(os.path.dirname(__file__), ".env.keys")
 
-# FORZATURA: Scriviamo sempre le chiavi all'avvio
-with open(API_KEYS_FILE, "w") as f:
-    f.write("ALPACA_KEY=PKS3UEZSKP65JV6BKPJLWSIS75\n")
-    f.write("ALPACA_SECRET=oY4vQX8SEaLE6JJM9FpD7mMNZ1kknwGmQDMrhow8qjk\n")
-    f.write("BINANCE_KEY=7SZAMU47R3dIffolzEpVGNfofSHKkgjvXiiEhMzwUN5rPy1sv6WBt5nrIFKQbFDw\n")
-    f.write("BINANCE_SECRET=vjeCiMl7MnJ7NhG46iAMzmPXjJ0EMbqQ65D6GH54wMjBydpCAzZ0Tvm1xlc3rZPV\n")
-    f.write("THEODDS_KEY=7aaa30fc512aa2fbf0e180d1431f1f73\n")
-    f.write("KRAKEN_KEY=\n")
-    f.write("KRAKEN_SECRET=\n")
-    f.write("ELEVENLABS_KEY=\n")
+# Se il file non esiste, creiamolo vuoto o con un seed base
+if not os.path.exists(API_KEYS_FILE):
+    with open(API_KEYS_FILE, "w") as f:
+        f.write("ALPACA_KEY=PKS3UEZSKP65JV6BKPJLWSIS75\n")
+        f.write("ALPACA_SECRET=oY4vQX8SEaLE6JJM9FpD7mMNZ1kknwGmQDMrhow8qjk\n")
+        f.write("BINANCE_KEY=7SZAMU47R3dIffolzEpVGNfofSHKkgjvXiiEhMzwUN5rPy1sv6WBt5nrIFKQbFDw\n")
+        f.write("BINANCE_SECRET=vjeCiMl7MnJ7NhG46iAMzmPXjJ0EMbqQ65D6GH54wMjBydpCAzZ0Tvm1xlc3rZPV\n")
+        f.write("THEODDS_KEY=7aaa30fc512aa2fbf0e180d1431f1f73\n")
+        f.write("KRAKEN_KEY=\n")
+        f.write("KRAKEN_SECRET=\n")
+        f.write("ELEVENLABS_KEY=\n")
 
 
 
