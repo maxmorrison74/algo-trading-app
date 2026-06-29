@@ -65,8 +65,11 @@ db_lock = threading.Lock()
 def load_db():
     with db_lock:
         if os.path.exists(DB_FILE):
-            with open(DB_FILE, "r") as f:
-                return json.load(f)
+            try:
+                with open(DB_FILE, "r") as f:
+                    return json.load(f)
+            except json.JSONDecodeError:
+                print("⚠️ bot_db.json corrotto (forse per un riavvio forzato). Ricarico default.")
         return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "crypto_arb": False, "sports_arb": False, "ai_content": False}}
 
 def save_db(state_dict):
