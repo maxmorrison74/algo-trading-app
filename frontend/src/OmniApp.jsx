@@ -1,8 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
+
+
+const HighRiskPnLSparkline = ({ history = [] }) => {
+  const data = Array.isArray(history)
+    ? history.map((x, i) => ({
+        idx: i,
+        pnl: Number(x.pnl ?? x.pnl_pct ?? 0),
+      }))
+    : [];
+
+  if (!data.length) {
+    return <span style={{ opacity: 0.45, fontSize: 11 }}>—</span>;
+  }
+
+  const last = data[data.length - 1]?.pnl ?? 0;
+  const stroke = last >= 0 ? '#10b981' : '#ef4444';
+
+  return (
+    <div style={{ width: 90, height: 34 }}>
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data}>
+          <Tooltip
+            formatter={(v) => [`${Number(v).toFixed(2)}%`, 'P&L']}
+            labelFormatter={() => ''}
+            contentStyle={{
+              background: '#111827',
+              border: '1px solid #374151',
+              borderRadius: 8,
+              fontSize: 11,
+              color: '#fff',
+            }}
+          />
+          <Area
+            type="monotone"
+            dataKey="pnl"
+            stroke={stroke}
+            fill={stroke}
+            fillOpacity={0.18}
+            strokeWidth={2}
+            dot={false}
+            isAnimationActive={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  );
+};
+
 
 
 class ErrorBoundary extends React.Component {
@@ -1825,7 +1870,10 @@ function OmniApp() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '1.2rem' }}>
                   <div style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', padding: '0.7rem', textAlign: 'center' }}>
                     <div style={{ color: '#64748b', fontSize: '0.75rem' }}>🎯 Target</div>
-                    <div style={{ color: '#10b981', fontFamily: 'monospace', fontWeight: 'bold' }}>${Number(r.target_price).toFixed(r.target_price < 0.01 ? 8 : r.target_price < 1 ? 6 : 4)}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <HighRiskPnLSparkline history={r.price_history} />
+                      <div style={{ color: '#10b981', fontFamily: 'monospace', fontWeight: 'bold' }}>${Number(r.target_price).toFixed(r.target_price < 0.01 ? 8 : r.target_price < 1 ? 6 : 4)}</div>
+                    </div>
                   </div>
                   <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '0.7rem', textAlign: 'center' }}>
                     <div style={{ color: '#64748b', fontSize: '0.75rem' }}>🛡️ Stop Loss</div>
