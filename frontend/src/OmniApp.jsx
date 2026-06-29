@@ -1853,8 +1853,13 @@ function OmniApp() {
     <div className="omni-app">
       <div className="sidebar">
         <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <img src="/aureo-logo.jpg" alt="AUREO OS" style={{ maxWidth: '80%', maxHeight: '50px', objectFit: 'contain', marginBottom: '0.5rem' }} />
-          <div style={{ fontSize: '0.7rem', color: '#888', letterSpacing: '1px', textAlign: 'center' }}>CRYPTO & INVESTMENT TRADING</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+            <img src="/aureo-icon.png" alt="Aureo Icon" style={{ height: '36px', objectFit: 'contain' }} />
+            <h1 style={{ margin: 0, fontSize: '1.5rem', background: 'linear-gradient(90deg, #d4af37, #f3e5ab)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '2px' }}>
+              AUREO
+            </h1>
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.5rem', letterSpacing: '1px', textAlign: 'center' }}>CRYPTO & INVESTMENT TRADING</div>
         </div>
         
         <div className="sidebar-menu">
