@@ -67,7 +67,10 @@ def load_db():
         if os.path.exists(DB_FILE):
             try:
                 with open(DB_FILE, "r") as f:
-                    return json.load(f)
+                    data = json.load(f)
+                    if "modules" in data and "high_risk_crypto_arb" not in data["modules"]:
+                        data["modules"]["high_risk_crypto_arb"] = False
+                    return data
             except json.JSONDecodeError:
                 print("⚠️ bot_db.json corrotto (forse per un riavvio forzato). Ricarico default.")
         return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "crypto_arb": False, "high_risk_crypto_arb": False, "sports_arb": False, "ai_content": False}}
