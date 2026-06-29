@@ -1896,9 +1896,6 @@ function OmniApp() {
       </div>
       
       <div className="main-content">
-        <div className="mobile-header" style={{ textAlign: 'center', marginBottom: '1.5rem' }}>
-          <img src="/aureo-logo.jpg" alt="AUREO OS" style={{ maxWidth: '60%', maxHeight: '60px', objectFit: 'contain' }} />
-        </div>
         {activeTab === 'home' && renderHomeView()}
         {activeTab === 'settings' && renderSettingsView()}
         {activeTab === 'trading' && renderTradingView()}
