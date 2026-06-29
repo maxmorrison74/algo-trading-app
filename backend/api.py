@@ -126,7 +126,8 @@ class BotState:
         self.high_risk_arb_logs = []
         self.high_risk_arb_prices = {}
         self.high_risk_volatile_assets = []
-        self.monitored_positions = []  # [{symbol, buy_price, qty, amount, peak_price, timestamp}]
+        self.monitored_positions = []  # [{symbol, buy_price, qty, amount, peak_price, target_price, price_history, timestamp}]
+        self.reentry_watchlist = []   # [{symbol, exit_price, original_amount, reentry_count, trigger_pct, added_at}]
         self.loop_task = None
         self.aggressiveness = db_data.get("aggressiveness", 55.0)
         self.auto_bet_enabled = db_data.get("auto_bet_enabled", False)
@@ -218,7 +219,6 @@ def _fetch_ccxt_price(symbol: str) -> float:
     try:
         import ccxt
         exchange = ccxt.binance({"enableRateLimit": True})
-        # symbol arriva come es. "DOGEUSDT" → convert to "DOGE/USDT"
         if "/" not in symbol:
             sym_fmt = symbol[:-4] + "/" + symbol[-4:] if symbol.endswith("USDT") else symbol
         else:
@@ -230,23 +230,53 @@ def _fetch_ccxt_price(symbol: str) -> float:
         return 0.0
 
 
+def _send_telegram_trade(event: str, symbol: str, qty: float, price: float,
+                          profit_usd: float = 0.0, profit_pct: float = 0.0,
+                          reason: str = "", virtual_cash: float = 0.0):
+    """Invia una notifica Telegram ricca per eventi di trading HIGH RISK."""
+    sign = "+" if profit_usd >= 0 else ""
+    emoji_map = {
+        "BUY":     "⚡",
+        "SELL":    "💰",
+        "AUTO-EXIT": "🤖",
+        "TARGET":  "🎯",
+        "STOP":    "🛡️",
+        "REENTRY": "🔄",
+    }
+    emoji = emoji_map.get(event, "📢")
+    msg = (
+        f"{emoji} *AUREO HIGH RISK — {event}*\n"
+        f"Token: `{symbol}`\n"
+        f"Prezzo: `${price:.8f}`\n"
+        f"Quantità: `{qty:.4f}`\n"
+    )
+    if profit_usd != 0.0 or profit_pct != 0.0:
+        msg += f"P&L: `{sign}{profit_usd:.2f}$ ({sign}{profit_pct:.2f}%)`\n"
+    if reason:
+        msg += f"Motivo: {reason}\n"
+    if virtual_cash > 0:
+        msg += f"Saldo virtuale: `${virtual_cash:.2f}`"
+    send_telegram_message(msg)
+
+
 def _auto_exit_loop():
-    """Loop background: monitora le posizioni aperte e vende con trailing stop."""
-    import time
-    TRAILING_DROP = 0.015   # vendi se cala 1.5% dal picco
-    STOP_LOSS    = 0.05     # vendi se cala 5% dal prezzo d'acquisto
-    CHECK_INTERVAL = 30     # secondi tra un controllo e l'altro
+    """Loop background: monitora le posizioni aperte e vende con trailing stop / target price."""
+    TRAILING_DROP  = 0.015   # sell if drops 1.5% from peak
+    STOP_LOSS      = 0.05    # sell if drops 5% from buy
+    CHECK_INTERVAL = 30      # seconds between checks
+    MAX_HISTORY    = 50      # max price history points per position
 
     print("[AUTO-EXIT] Loop di sorveglianza avviato.")
     while True:
         try:
-            positions = list(bot_state.monitored_positions)  # copia snapshot
+            positions = list(bot_state.monitored_positions)  # snapshot
             for pos in positions:
                 symbol     = pos["symbol"]
                 buy_price  = pos["buy_price"]
                 qty        = pos["qty"]
                 amount     = pos["amount"]
                 peak_price = pos.get("peak_price", buy_price)
+                target_price = pos.get("target_price", None)
 
                 current_price = _fetch_ccxt_price(symbol)
                 if current_price <= 0:
@@ -257,50 +287,102 @@ def _auto_exit_loop():
                     pos["peak_price"] = current_price
                     peak_price = current_price
 
-                profit_pct   = (current_price - buy_price) / buy_price
+                profit_pct     = (current_price - buy_price) / buy_price
                 drop_from_peak = (peak_price - current_price) / peak_price if peak_price > 0 else 0
 
-                should_sell = False
-                reason = ""
+                # Aggiorna price_history (max MAX_HISTORY punti)
+                if "price_history" not in pos:
+                    pos["price_history"] = []
+                pos["price_history"].append({
+                    "t": datetime.now().strftime("%H:%M"),
+                    "p": round(current_price, 8),
+                    "pnl": round(profit_pct * 100, 3)
+                })
+                if len(pos["price_history"]) > MAX_HISTORY:
+                    pos["price_history"] = pos["price_history"][-MAX_HISTORY:]
 
-                # Trailing stop: calo dal picco mentre in profit
-                if profit_pct > 0 and drop_from_peak >= TRAILING_DROP:
+                should_sell  = False
+                sell_reason  = ""
+                is_trailing  = False
+
+                # 1) Target price raggiunto
+                if target_price and current_price >= target_price:
                     should_sell = True
-                    reason = f"🔔 TRAILING STOP: -{drop_from_peak*100:.1f}% dal picco (profit era +{profit_pct*100:.1f}%)"
+                    sell_reason = f"🎯 TARGET RAGGIUNTO: ${target_price:.8f}"
 
-                # Hard stop loss
+                # 2) Trailing stop: calo dal picco mentre in profit
+                elif profit_pct > 0 and drop_from_peak >= TRAILING_DROP:
+                    should_sell = True
+                    is_trailing = True
+                    sell_reason = f"🔔 TRAILING STOP: -{drop_from_peak*100:.1f}% dal picco (+{profit_pct*100:.1f}%)"
+
+                # 3) Hard stop loss
                 elif profit_pct <= -STOP_LOSS:
                     should_sell = True
-                    reason = f"🛡️ STOP LOSS: -{abs(profit_pct)*100:.1f}% dal prezzo d'acquisto"
+                    sell_reason = f"🛡️ STOP LOSS: -{abs(profit_pct)*100:.1f}% dal prezzo d'acquisto"
 
                 if should_sell:
-                    realized_value = qty * current_price
+                    realized_value  = qty * current_price
                     realized_profit = realized_value - amount
                     bot_state.virtual_cash += realized_value
                     pct_str = f"+{realized_profit:.2f}" if realized_profit >= 0 else f"{realized_profit:.2f}"
-                    log_msg = (f"[{datetime.now().strftime('%H:%M:%S')}] "
-                               f"🤖 AUTO-EXIT {symbol} {qty:.4f} @ ${current_price:.6f} "
-                               f"({pct_str}$) — {reason}")
+                    log_msg = (
+                        f"[{datetime.now().strftime('%H:%M:%S')}] "
+                        f"🤖 AUTO-EXIT {symbol} {qty:.4f} @ ${current_price:.8f} "
+                        f"({pct_str}$) — {sell_reason}"
+                    )
                     bot_state.high_risk_arb_logs.insert(0, log_msg)
                     bot_state.add_log(log_msg)
-                    # Registra in trade_history
+
+                    # Notifica Telegram ricca
+                    event_type = "TARGET" if "TARGET" in sell_reason else ("STOP" if "STOP LOSS" in sell_reason else "AUTO-EXIT")
+                    _send_telegram_trade(
+                        event=event_type,
+                        symbol=symbol, qty=qty, price=current_price,
+                        profit_usd=realized_profit, profit_pct=profit_pct * 100,
+                        reason=sell_reason, virtual_cash=bot_state.virtual_cash
+                    )
+
+                    # Trade history
                     bot_state.trade_history.append({
-                        "symbol": symbol,
-                        "side": "AUTO-EXIT",
+                        "symbol": symbol, "side": "AUTO-EXIT",
                         "profit_usd": round(realized_profit, 4),
                         "profit_pct": round(profit_pct * 100, 2),
                         "date": datetime.now().strftime("%Y-%m-%d %H:%M")
                     })
+
+                    # Re-entry watchlist solo dopo trailing stop (non stop loss)
+                    if is_trailing:
+                        already = any(w["symbol"] == symbol for w in bot_state.reentry_watchlist)
+                        existing_count = sum(1 for t in bot_state.trade_history
+                                            if t.get("symbol") == symbol and t.get("side") == "REENTRY")
+                        if not already and existing_count < 3:
+                            bot_state.reentry_watchlist.append({
+                                "symbol": symbol,
+                                "exit_price": current_price,
+                                "original_amount": amount,
+                                "trigger_price": round(current_price * 1.02, 8),  # +2%
+                                "trigger_pct": 2.0,
+                                "reentry_count": existing_count,
+                                "added_at": datetime.now().strftime("%H:%M:%S")
+                            })
+                            bot_state.high_risk_arb_logs.insert(0,
+                                f"[{datetime.now().strftime('%H:%M:%S')}] 🔄 RE-ENTRY watchlist: {symbol} — attendo +2% da ${current_price:.8f}")
+
                     # Rimuovi dalla lista monitorata
                     try:
                         bot_state.monitored_positions.remove(pos)
                     except ValueError:
                         pass
                     bot_state.save_state()
+
                 else:
-                    log_snap = (f"[{datetime.now().strftime('%H:%M:%S')}] "
-                                f"👁️ SORVEGLIANDO {symbol} @ ${current_price:.6f} "
-                                f"(P&L: {profit_pct*100:+.2f}%, picco: ${peak_price:.6f})")
+                    log_snap = (
+                        f"[{datetime.now().strftime('%H:%M:%S')}] "
+                        f"👁️ {symbol} @ ${current_price:.8f} "
+                        f"P&L: {profit_pct*100:+.2f}% | picco: ${peak_price:.8f}"
+                        + (f" | 🎯 target: ${target_price:.8f}" if target_price else "")
+                    )
                     bot_state.high_risk_arb_logs.insert(0, log_snap)
                     if len(bot_state.high_risk_arb_logs) > 100:
                         bot_state.high_risk_arb_logs = bot_state.high_risk_arb_logs[:100]
@@ -309,9 +391,92 @@ def _auto_exit_loop():
         time.sleep(CHECK_INTERVAL)
 
 
-# Avvia il loop auto-exit in background
+def _reentry_loop():
+    """Loop background: monitora la re-entry watchlist e riacquista se il prezzo rimbalza."""
+    CHECK_INTERVAL = 60  # secondi
+    MAX_REENTRY    = 3
+
+    print("[RE-ENTRY] Loop watchlist avviato.")
+    while True:
+        try:
+            watchlist = list(bot_state.reentry_watchlist)
+            for entry in watchlist:
+                symbol          = entry["symbol"]
+                exit_price      = entry["exit_price"]
+                trigger_price   = entry["trigger_price"]
+                original_amount = entry["original_amount"]
+                reentry_count   = entry.get("reentry_count", 0)
+
+                if reentry_count >= MAX_REENTRY:
+                    try:
+                        bot_state.reentry_watchlist.remove(entry)
+                    except ValueError:
+                        pass
+                    continue
+
+                current_price = _fetch_ccxt_price(symbol)
+                if current_price <= 0:
+                    continue
+
+                if current_price >= trigger_price:
+                    # Verifica liquidità virtuale
+                    if bot_state.virtual_cash < original_amount:
+                        continue
+
+                    qty = original_amount / current_price
+                    bot_state.virtual_cash -= original_amount
+
+                    # Aggiungi alla sorveglianza
+                    bot_state.monitored_positions.append({
+                        "symbol":      symbol,
+                        "buy_price":   current_price,
+                        "qty":         qty,
+                        "amount":      original_amount,
+                        "peak_price":  current_price,
+                        "target_price": None,
+                        "price_history": [],
+                        "timestamp":   datetime.now().strftime("%H:%M:%S")
+                    })
+
+                    log_msg = (
+                        f"[{datetime.now().strftime('%H:%M:%S')}] "
+                        f"🔄 RE-ENTRY #{reentry_count+1} {symbol} {qty:.4f} @ ${current_price:.8f} "
+                        f"(exit era ${exit_price:.8f}, +{((current_price/exit_price)-1)*100:.1f}%)"
+                    )
+                    bot_state.high_risk_arb_logs.insert(0, log_msg)
+                    bot_state.add_log(log_msg)
+
+                    # Telegram
+                    _send_telegram_trade(
+                        event="REENTRY", symbol=symbol, qty=qty, price=current_price,
+                        reason=f"Re-entry #{reentry_count+1} — +{((current_price/exit_price)-1)*100:.1f}% dall'uscita",
+                        virtual_cash=bot_state.virtual_cash
+                    )
+
+                    # Trade history
+                    bot_state.trade_history.append({
+                        "symbol": symbol, "side": "REENTRY",
+                        "profit_usd": 0.0, "profit_pct": 0.0,
+                        "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                    })
+
+                    # Rimuovi dalla watchlist
+                    try:
+                        bot_state.reentry_watchlist.remove(entry)
+                    except ValueError:
+                        pass
+                    bot_state.save_state()
+
+        except Exception as e:
+            print(f"[RE-ENTRY] Errore nel loop: {e}")
+        time.sleep(CHECK_INTERVAL)
+
+
+# Avvia i loop in background
 _auto_exit_thread = threading.Thread(target=_auto_exit_loop, daemon=True)
 _auto_exit_thread.start()
+_reentry_thread = threading.Thread(target=_reentry_loop, daemon=True)
+_reentry_thread.start()
 def get_status():
     if not alpaca: return {"error": "Alpaca API non configurata."}
     pos_dict = {}
@@ -399,6 +564,7 @@ def get_status():
             "high_risk_arb_prices": getattr(bot_state, "high_risk_arb_prices", {}),
             "high_risk_volatile_assets": getattr(bot_state, "high_risk_volatile_assets", []),
             "monitored_positions": getattr(bot_state, "monitored_positions", []),
+            "reentry_watchlist": getattr(bot_state, "reentry_watchlist", []),
             "sports_logs": getattr(bot_state, "sports_logs", []),
             "active_surebets": getattr(bot_state, "active_surebets", []),
             "value_bets": getattr(bot_state, "value_bets", []),
@@ -542,6 +708,48 @@ async def high_risk_trade(payload: dict):
         }
     except Exception as e:
         return {"error": str(e)}
+
+
+@app.post("/api/high-risk/set-target")
+async def high_risk_set_target(payload: dict):
+    """Imposta o aggiorna il target price su una posizione monitorata."""
+    symbol       = payload.get("symbol", "").upper()
+    target_price = payload.get("target_price", None)
+
+    if not symbol:
+        return {"error": "Symbol mancante"}
+
+    found = False
+    for pos in bot_state.monitored_positions:
+        if pos["symbol"].upper() == symbol:
+            pos["target_price"] = float(target_price) if target_price else None
+            found = True
+            break
+
+    if not found:
+        return {"error": f"Nessuna posizione aperta per {symbol}"}
+
+    label = f"${float(target_price):.8f}" if target_price else "rimosso"
+    bot_state.high_risk_arb_logs.insert(0,
+        f"[{datetime.now().strftime('%H:%M:%S')}] 🎯 TARGET impostato su {symbol}: {label}")
+    return {"status": "ok", "symbol": symbol, "target_price": float(target_price) if target_price else None}
+
+
+@app.post("/api/high-risk/cancel-reentry")
+async def high_risk_cancel_reentry(payload: dict):
+    """Rimuove un simbolo dalla re-entry watchlist."""
+    symbol = payload.get("symbol", "").upper()
+    if not symbol:
+        return {"error": "Symbol mancante"}
+
+    before = len(bot_state.reentry_watchlist)
+    bot_state.reentry_watchlist = [w for w in bot_state.reentry_watchlist if w["symbol"].upper() != symbol]
+    removed = before - len(bot_state.reentry_watchlist)
+    if removed == 0:
+        return {"error": f"{symbol} non trovato nella re-entry watchlist"}
+    bot_state.high_risk_arb_logs.insert(0,
+        f"[{datetime.now().strftime('%H:%M:%S')}] ❌ RE-ENTRY annullato per {symbol}")
+    return {"status": "ok", "symbol": symbol, "removed": removed}
 
 
 @app.post("/api/high-risk/ai-signal")

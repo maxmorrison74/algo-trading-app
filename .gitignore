@@ -16,3 +16,9 @@ bot_db.json
 .DS_Store
 .npm-cache
 frontend/dist
+
+backend/.env.keys
+backend/*.log
+*.log
+__pycache__/
+.env
