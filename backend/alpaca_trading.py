@@ -85,7 +85,7 @@ class AlpacaEngine:
                 
             response = self.model.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="llama3-8b-8192"
+                model="llama-3.1-8b-instant"
             )
             result = response.choices[0].message.content.strip().upper()
             if "BULLISH" in result: return "BULLISH"

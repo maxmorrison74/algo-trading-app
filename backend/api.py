@@ -801,7 +801,7 @@ def test_connection(req: TestConnectionRequest):
                 from groq import Groq
                 client = Groq(api_key=api_key)
                 
-                model_name = 'llama3-8b-8192'
+                model_name = 'llama-3.1-8b-instant'
                 res = client.chat.completions.create(
                     messages=[{"role": "user", "content": "Say hi in 1 word"}],
                     model=model_name

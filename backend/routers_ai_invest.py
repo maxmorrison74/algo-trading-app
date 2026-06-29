@@ -105,7 +105,7 @@ Rispondi SOLTANTO con un array JSON in questo esatto formato, senza Markdown o b
 """
         response = model.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
-            model="llama3-70b-8192",
+            model="llama-3.3-70b-versatile",
             response_format={"type": "json_object"}
         )
         result_text = response.choices[0].message.content
