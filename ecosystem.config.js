@@ -3,7 +3,7 @@ module.exports = {
     {
       name: "algotrading-api",
       script: "venv/bin/python",
-      args: "-m uvicorn api:app --host 0.0.0.0 --port 80",
+      args: "-m uvicorn api:app --host 0.0.0.0 --port 8000",
       cwd: "./backend",
       interpreter: "none",
       instances: 1,
