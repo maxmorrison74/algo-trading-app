@@ -993,6 +993,7 @@ function OmniApp() {
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Token</th>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Buy Price</th>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Picco</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>📊 P&L</th>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Qty</th>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Investito</th>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Ore</th>
