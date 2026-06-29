@@ -279,7 +279,7 @@ def get_status():
             "cash": round(bot_state.virtual_cash, 2),
             "symbols": bot_state.target_symbols,
             "logs": bot_state.logs,
-            "market_open": market_open,
+            "market_open": st["market_open"],
             "aggressiveness": bot_state.aggressiveness,
             "trade_history": bot_state.trade_history,
             "win_rate": win_rate,
