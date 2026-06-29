@@ -97,10 +97,19 @@ class CryptoArbitrage:
         self.kraken_client = None
 
     def _log(self, message):
-        timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
-        self.bot_state.arb_logs.insert(0, f"[{timestamp}] {message}")
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S")
+        msg = f"[{timestamp}] {message}"
+        self.bot_state.arb_logs.insert(0, msg)
         if len(self.bot_state.arb_logs) > 50:
             self.bot_state.arb_logs.pop()
+        
+        # Copia i log generici anche nel tab Alto Rischio se attivo
+        if self.bot_state.modules.get("high_risk_crypto_arb", False):
+            if not hasattr(self.bot_state, "high_risk_arb_logs"):
+                self.bot_state.high_risk_arb_logs = []
+            self.bot_state.high_risk_arb_logs.insert(0, msg)
+            if len(self.bot_state.high_risk_arb_logs) > 50:
+                self.bot_state.high_risk_arb_logs.pop()
 
     def _log_pair(self, pair, message):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]

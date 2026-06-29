@@ -642,6 +642,11 @@ async def toggle_module(payload: dict):
                 bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
             elif (module_name == "crypto_arb" or module_name == "high_risk_crypto_arb") and not arb_engine.running:
                 threading.Thread(target=arb_engine.loop, daemon=True).start()
+                
+            if module_name == "high_risk_crypto_arb":
+                bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 Motore Alto Rischio Avviato (Ricerca memecoin volatili...)")
+                if len(bot_state.high_risk_arb_logs) > 50:
+                    bot_state.high_risk_arb_logs.pop()
             elif module_name == "trading" and not alpaca_engine.running:
                 bot_state.is_running = True
                 threading.Thread(target=alpaca_engine.loop, daemon=True).start()
@@ -654,6 +659,10 @@ async def toggle_module(payload: dict):
                 bot_state.add_log("📡 Modulo AI Sentiment Radar fermato.")
             elif module_name == "trading":
                 bot_state.is_running = False
+            elif module_name == "high_risk_crypto_arb":
+                bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 🛑 Motore Alto Rischio Fermato.")
+                if len(bot_state.high_risk_arb_logs) > 50:
+                    bot_state.high_risk_arb_logs.pop()
                 
         return {"message": "Modulo aggiornato", "modules": bot_state.modules,
             "arb_logs": getattr(bot_state, "arb_logs", []),
