@@ -416,17 +416,72 @@ class CryptoArbitrage:
         
         if net_profit1_perc > 0.0001: # 0.01% Netto minimo richiesto
             self.last_execution_time[pair] = current_time
-            self._log_pair(pair, f"⚡ {pair} SPREAD RILEVATO: Buy KRA @ {k_ask:.3f} | Sell BIN @ {b_bid:.3f} | Net Prof %: {net_profit1_perc*100:.3f}%")
-            opt_qty = await self.verify_depth_and_adjust_qty(pair, "kraken", "binance", qty)
-            if opt_qty > 0.0:
-                await self.execute_hedging(pair, "kraken", "binance", k_ask, b_bid, opt_qty)
+            if pair in self.high_risk_pairs and getattr(self.bot_state, "auto_bet_enabled", False):
+                self._log_pair(pair, f"⚡ {pair} SPREAD RILEVATO! Avvio analisi AI per Auto-Scalp...")
+                asyncio.create_task(self.evaluate_ai_and_buy(pair, b_bid))
+            else:
+                self._log_pair(pair, f"⚡ {pair} SPREAD RILEVATO: Buy KRA @ {k_ask:.3f} | Sell BIN @ {b_bid:.3f} | Net Prof %: {net_profit1_perc*100:.3f}%")
+                opt_qty = await self.verify_depth_and_adjust_qty(pair, "kraken", "binance", qty)
+                if opt_qty > 0.0:
+                    await self.execute_hedging(pair, "kraken", "binance", k_ask, b_bid, opt_qty)
             
         elif net_profit2_perc > 0.0001:
             self.last_execution_time[pair] = current_time
-            self._log_pair(pair, f"⚡ {pair} SPREAD RILEVATO: Buy BIN @ {b_ask:.3f} | Sell KRA @ {k_bid:.3f} | Net Prof %: {net_profit2_perc*100:.3f}%")
-            opt_qty = await self.verify_depth_and_adjust_qty(pair, "binance", "kraken", qty)
-            if opt_qty > 0.0:
-                await self.execute_hedging(pair, "binance", "kraken", b_ask, k_bid, opt_qty)
+            if pair in self.high_risk_pairs and getattr(self.bot_state, "auto_bet_enabled", False):
+                self._log_pair(pair, f"⚡ {pair} SPREAD RILEVATO! Avvio analisi AI per Auto-Scalp...")
+                asyncio.create_task(self.evaluate_ai_and_buy(pair, b_ask))
+            else:
+                self._log_pair(pair, f"⚡ {pair} SPREAD RILEVATO: Buy BIN @ {b_ask:.3f} | Sell KRA @ {k_bid:.3f} | Net Prof %: {net_profit2_perc*100:.3f}%")
+                opt_qty = await self.verify_depth_and_adjust_qty(pair, "binance", "kraken", qty)
+                if opt_qty > 0.0:
+                    await self.execute_hedging(pair, "binance", "kraken", b_ask, k_bid, opt_qty)
+
+    async def evaluate_ai_and_buy(self, pair, current_price):
+        """Richiama l'endpoint AI internamente per valutare l'auto-scalp."""
+        import aiohttp
+        import datetime
+        from api import _send_telegram_trade
+        
+        # Evita duplicati se è già in sorveglianza
+        if any(p["symbol"] == pair for p in getattr(self.bot_state, "monitored_positions", [])):
+            return
+            
+        try:
+            async with aiohttp.ClientSession() as session:
+                payload = {"symbol": pair, "price": current_price, "change_24h": 0.0, "volatility": 2.0}
+                async with session.post("http://127.0.0.1:8000/api/high-risk/ai-signal", json=payload) as resp:
+                    if resp.status == 200:
+                        data = await resp.json()
+                        score = data.get("confidence", 0)
+                        signal = data.get("signal", "HOLD")
+                        
+                        if signal == "BUY" and score >= 80:
+                            amount_to_invest = 100.0  # Dimensione fissa 100$ per gli auto-scalp
+                            if self.bot_state.virtual_cash >= amount_to_invest:
+                                qty = amount_to_invest / current_price
+                                self.bot_state.virtual_cash -= amount_to_invest
+                                
+                                new_pos = {
+                                    "symbol": pair,
+                                    "buy_price": current_price,
+                                    "qty": qty,
+                                    "amount": amount_to_invest,
+                                    "peak_price": current_price,
+                                    "timestamp": datetime.datetime.now().strftime("%H:%M:%S")
+                                }
+                                self.bot_state.monitored_positions.append(new_pos)
+                                
+                                log_msg = f"[{datetime.datetime.now().strftime('%H:%M:%S')}] 🤖 AUTO-SCALP {pair} {qty:.4f} @ ${current_price:.6f} — Score: {score}/100"
+                                self.bot_state.high_risk_arb_logs.insert(0, log_msg)
+                                _send_telegram_trade(
+                                    event="BUY", symbol=pair, qty=qty, price=current_price,
+                                    reason=f"🤖 Auto-Scalp AI (Score {score})", virtual_cash=self.bot_state.virtual_cash
+                                )
+                                self.bot_state.save_state()
+                        else:
+                            self._log_pair(pair, f"🤖 Analisi AI per {pair}: Score {score}/100, segnale {signal}. Acquisto annullato.")
+        except Exception as e:
+            self._log_pair(pair, f"❌ Errore AI evaluation: {e}")
 
     async def scan_market_volatility(self):
         try:

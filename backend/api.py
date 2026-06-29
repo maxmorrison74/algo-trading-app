@@ -277,9 +277,12 @@ def _send_telegram_trade(event: str, symbol: str, qty: float, price: float,
 
 def _auto_exit_loop():
     """Loop background: monitora le posizioni aperte e vende con trailing stop / target price."""
-    TRAILING_DROP  = 0.015   # sell if drops 1.5% from peak
+    # Gestione dinamica del Trailing Stop: 
+    # Meno profitto = stop più largo (-1.5%). Più profitto = stop stretto (-0.8%)
+    BASE_TRAILING_DROP  = 0.015   
+    TIGHT_TRAILING_DROP = 0.008
     STOP_LOSS      = 0.05    # sell if drops 5% from buy
-    CHECK_INTERVAL = 30      # seconds between checks
+    CHECK_INTERVAL = 3       # seconds between checks (ULTRA FAST)
     MAX_HISTORY    = 50      # max price history points per position
 
     print("[AUTO-EXIT] Loop di sorveglianza avviato.")
@@ -326,11 +329,14 @@ def _auto_exit_loop():
                     should_sell = True
                     sell_reason = f"🎯 TARGET RAGGIUNTO: ${target_price:.8f}"
 
-                # 2) Trailing stop: calo dal picco mentre in profit
-                elif profit_pct > 0 and drop_from_peak >= TRAILING_DROP:
+                # 2) Trailing stop dinamico
+                # Se il profitto dal picco è alto (es. > 5%), usiamo un trailing stop più stretto per bloccare il profitto
+                current_trailing = TIGHT_TRAILING_DROP if profit_pct > 0.05 else BASE_TRAILING_DROP
+                
+                elif profit_pct > 0 and drop_from_peak >= current_trailing:
                     should_sell = True
                     is_trailing = True
-                    sell_reason = f"🔔 TRAILING STOP: -{drop_from_peak*100:.1f}% dal picco (+{profit_pct*100:.1f}%)"
+                    sell_reason = f"🔔 TRAILING STOP DINAMICO (-{current_trailing*100:.1f}%): -{drop_from_peak*100:.1f}% dal picco (+{profit_pct*100:.1f}%)"
 
                 # 3) Hard stop loss
                 elif profit_pct <= -STOP_LOSS:
@@ -408,8 +414,8 @@ def _auto_exit_loop():
 
 
 def _reentry_loop():
-    """Loop background: monitora la re-entry watchlist e riacquista se il prezzo rimbalza."""
-    CHECK_INTERVAL = 60  # secondi
+    """Loop asincrono che monitora i prezzi per triggerare i re-entry automatici."""
+    CHECK_INTERVAL = 3  # secondi (FAST)
     MAX_REENTRY    = 3
 
     print("[RE-ENTRY] Loop watchlist avviato.")
@@ -826,7 +832,7 @@ Trend intraday: {direction_hint}
 Rispondi SOLO in questo formato JSON (nessun altro testo):
 {{
   "signal": "BUY" oppure "SELL" oppure "HOLD",
-  "confidence": numero da 1 a 5,
+  "confidence_score": numero intero da 1 a 100 (es. 85 per alta confidenza),
   "reasoning": "spiegazione breve in italiano (max 2 frasi)",
   "entry_price": prezzo di ingresso suggerito (numero),
   "target_price": prezzo obiettivo (numero),
@@ -849,7 +855,7 @@ Rispondi SOLO in questo formato JSON (nessun altro testo):
             return {
                 "symbol": symbol,
                 "signal": data.get("signal", "HOLD"),
-                "confidence": int(data.get("confidence", 3)),
+                "confidence": int(data.get("confidence_score", 50)),
                 "reasoning": data.get("reasoning", "Analisi non disponibile"),
                 "entry_price": float(data.get("entry_price", price)),
                 "target_price": float(data.get("target_price", price)),

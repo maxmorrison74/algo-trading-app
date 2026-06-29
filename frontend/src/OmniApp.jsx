@@ -800,13 +800,28 @@ function OmniApp() {
             </h2>
             <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Scansione e hedging automatico su asset ad alta volatilità (DOGE, SHIB, PEPE, WIF, LINK)</div>
           </div>
-          <button 
-            className={`btn ${status.modules?.high_risk_crypto_arb ? 'btn-stop' : 'btn-start'}`}
-            style={{ background: status.modules?.high_risk_crypto_arb ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.6)', border: '1px solid #ef4444', color: '#fff' }}
-            onClick={() => toggleModule('high_risk_crypto_arb', status.modules?.high_risk_crypto_arb)}
-          >
-            {status.modules?.high_risk_crypto_arb ? 'FERMA ALTO RISCHIO' : 'ATTIVA MOTORE ALTO RISCHIO'}
-          </button>
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button 
+              className={`btn ${status.auto_bet_enabled ? 'btn-stop' : 'btn-start'}`}
+              style={{ background: status.auto_bet_enabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.8)', border: '1px solid #10b981', color: '#fff' }}
+              onClick={() => {
+                fetch('/api/auto-bet-settings', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ enabled: !status.auto_bet_enabled })
+                });
+              }}
+            >
+              ⚙️ AUTO-SCALPING AI {status.auto_bet_enabled ? '(ON)' : '(OFF)'}
+            </button>
+            <button 
+              className={`btn ${status.modules?.high_risk_crypto_arb ? 'btn-stop' : 'btn-start'}`}
+              style={{ background: status.modules?.high_risk_crypto_arb ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.6)', border: '1px solid #ef4444', color: '#fff' }}
+              onClick={() => toggleModule('high_risk_crypto_arb', status.modules?.high_risk_crypto_arb)}
+            >
+              {status.modules?.high_risk_crypto_arb ? 'FERMA ALTO RISCHIO' : 'ATTIVA MOTORE ALTO RISCHIO'}
+            </button>
+          </div>
         </div>
 
         {/* Real-time prices grid for Altcoins */}
@@ -1940,7 +1955,6 @@ function OmniApp() {
             const signalColor = r.signal === 'BUY' ? '#10b981' : r.signal === 'SELL' ? '#ef4444' : '#f59e0b';
             const signalBg = r.signal === 'BUY' ? 'rgba(16,185,129,0.15)' : r.signal === 'SELL' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)';
             const signalEmoji = r.signal === 'BUY' ? '📈' : r.signal === 'SELL' ? '📉' : '⏸️';
-            const stars = '★'.repeat(r.confidence) + '☆'.repeat(5 - r.confidence);
             return (
               <>
                 {/* Signal badge */}
@@ -1949,8 +1963,10 @@ function OmniApp() {
                     <span style={{ fontSize: '1.8rem' }}>{signalEmoji}</span>
                     <span style={{ fontSize: '1.6rem', fontWeight: '900', color: signalColor, letterSpacing: '2px' }}>{r.signal}</span>
                   </div>
-                  <div style={{ color: '#f59e0b', marginTop: '0.5rem', fontSize: '1.1rem', letterSpacing: '2px' }}>{stars}</div>
-                  <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Confidenza AI: {r.confidence}/5</div>
+                  <div style={{ color: r.confidence >= 80 ? '#10b981' : r.confidence >= 50 ? '#f59e0b' : '#ef4444', marginTop: '0.5rem', fontSize: '1.5rem', fontWeight: 'bold' }}>
+                    {r.confidence}%
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Confidence Score AI</div>
                 </div>
 
                 {/* Reasoning */}
