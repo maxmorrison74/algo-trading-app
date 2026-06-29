@@ -51,8 +51,14 @@ class AlpacaEngine:
         gemini_key = keys.get("GEMINI_KEY", os.getenv("GEMINI_API_KEY", ""))
         if gemini_key:
             genai.configure(api_key=gemini_key)
-            self.model = genai.GenerativeModel('gemini-1.5-flash')
+            model_name = 'gemini-1.5-flash'
+            for m in genai.list_models():
+                if 'generateContent' in m.supported_generation_methods:
+                    model_name = m.name
+                    break
+            self.model = genai.GenerativeModel(model_name)
             self.llm_enabled = True
+            self._log("Modulo AI Sentiment basato su notizie in tempo reale abilitato (Gemini).")
         else:
             self._log("Avviso: GEMINI_KEY non trovata. Trading solo su Analisi Tecnica.")
 
