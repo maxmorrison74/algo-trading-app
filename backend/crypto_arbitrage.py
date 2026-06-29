@@ -266,40 +266,39 @@ class CryptoArbitrage:
                     await asyncio.sleep(2)
 
     async def execute_hedging(self, pair, buy_exchange, sell_exchange, buy_price, sell_price, qty):
-        # OPZIONE A: Ordini a mercato (Market) per non rischiare mancate esecuzioni.
-        # Usa CCXT per sparare gli ordini simultaneamente.
+        # In paper_mode NON creare coroutine reali: altrimenti restano "was never awaited".
         ccxt_sym = self.ccxt_symbols[pair]
-        
-        # Preparazione tasks
-        tasks = []
-        if buy_exchange == "binance":
-            buy_task = self.binance_client.create_market_buy_order(ccxt_sym, qty)
-            sell_task = self.kraken_client.create_market_sell_order(ccxt_sym, qty)
-        else:
-            buy_task = self.kraken_client.create_market_buy_order(ccxt_sym, qty)
-            sell_task = self.binance_client.create_market_sell_order(ccxt_sym, qty)
-            
+
         try:
             if self.paper_mode:
-                # OPZIONE C: Paper Mode per evitare rischi su soldi veri in fase di test
                 self._log_pair(pair, f"⚠️ PAPER HEDGE {pair}: BUY {buy_exchange} ({qty}), SELL {sell_exchange} ({qty})")
-                await asyncio.sleep(0.5) # Simula latenza di rete
-                # Sulla carta il bilancio virtuale sale
-                spread_val = (sell_price - buy_price)
+                await asyncio.sleep(0.5)
+
+                spread_val = sell_price - buy_price
                 fees = (buy_price * self.fees[buy_exchange]) + (sell_price * self.fees[sell_exchange])
                 net_profit = (spread_val * qty) - (fees * qty)
+
                 self.bot_state.virtual_cash += net_profit
                 self._log_pair(pair, f"✅ PAPER HEDGE COMPLETATO: Profitto Netto Simulato +${net_profit:.2f}")
+                return
+
+            self._log_pair(pair, f"🔥 REAL HEDGE {pair}: Lancio MARKET Orders ({buy_exchange} vs {sell_exchange})")
+
+            if buy_exchange == "binance":
+                buy_coro = self.binance_client.create_market_buy_order(ccxt_sym, qty)
+                sell_coro = self.kraken_client.create_market_sell_order(ccxt_sym, qty)
             else:
-                self._log_pair(pair, f"🔥 REAL HEDGE {pair}: Lancio MARKET Orders ({buy_exchange} vs {sell_exchange})")
-                results = await asyncio.gather(buy_task, sell_task, return_exceptions=True)
-                
-                # Check errori
-                errs = [r for r in results if isinstance(r, Exception)]
-                if errs:
-                    self._log_pair(pair, f"❌ ERRORE in Hedge Reale! {errs}")
-                else:
-                    self._log_pair(pair, f"✅ REAL HEDGE {pair} ESEGUITO CON SUCCESSO!")
+                buy_coro = self.kraken_client.create_market_buy_order(ccxt_sym, qty)
+                sell_coro = self.binance_client.create_market_sell_order(ccxt_sym, qty)
+
+            results = await asyncio.gather(buy_coro, sell_coro, return_exceptions=True)
+
+            errs = [r for r in results if isinstance(r, Exception)]
+            if errs:
+                self._log_pair(pair, f"❌ ERRORE in Hedge Reale! {errs}")
+            else:
+                self._log_pair(pair, f"✅ REAL HEDGE {pair} ESEGUITO CON SUCCESSO!")
+
         except Exception as e:
             self._log_pair(pair, f"❌ Eccezione fatale esecuzione {pair}: {e}")
 
