@@ -603,6 +603,38 @@ function OmniApp() {
             ))}
           </div>
         )}
+
+        {status.ai_investments && status.ai_investments.length > 0 && (
+          <div style={{ marginTop: '2rem', borderTop: '1px solid rgba(255,255,255,0.1)', paddingTop: '1.5rem' }}>
+            <h4 style={{ color: '#e2e8f0', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '1.1rem' }}>
+              <span>📊</span> Registro Investimenti AI Piazzati
+            </h4>
+            <div style={{ background: 'rgba(0,0,0,0.3)', borderRadius: '12px', overflowX: 'auto', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <table className="data-table" style={{ width: '100%', minWidth: '600px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ paddingLeft: '1rem' }}>Asset</th>
+                    <th>Simbolo</th>
+                    <th>Importo ($)</th>
+                    <th>Piattaforma</th>
+                    <th>Orario</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {status.ai_investments.map((inv, idx) => (
+                    <tr key={idx} className="data-row" style={{ padding: '0' }}>
+                      <td style={{ padding: '1rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{inv.asset_type}</td>
+                      <td style={{ padding: '1rem', fontWeight: 'bold', color: '#38bdf8' }}>{inv.symbol}</td>
+                      <td style={{ padding: '1rem', color: '#10b981', fontWeight: 'bold' }}>${Number(inv.amount_usd).toFixed(2)}</td>
+                      <td style={{ padding: '1rem', color: '#e2e8f0' }}>{inv.platform}</td>
+                      <td style={{ padding: '1rem', color: 'var(--text-muted)' }}>{inv.timestamp}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="dashboard-grid" style={{ marginTop: "2rem" }}>

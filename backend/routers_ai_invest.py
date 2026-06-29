@@ -141,6 +141,8 @@ Rispondi SOLTANTO con un array JSON in questo esatto formato, senza Markdown o b
 
 @router.post("/execute")
 def execute_investment(req: InvestRequest):
+    from api import bot_state
+    from datetime import datetime
     keys = get_api_keys()
     
     # 1. LOGICA AZIONI (Alpaca)
@@ -162,6 +164,19 @@ def execute_investment(req: InvestRequest):
                 type='market',
                 time_in_force='day'
             )
+            
+            if not hasattr(bot_state, "ai_investments"):
+                bot_state.ai_investments = []
+            
+            bot_state.ai_investments.insert(0, {
+                "symbol": req.symbol,
+                "asset_type": req.asset_type,
+                "amount_usd": req.amount_usd,
+                "platform": "Alpaca",
+                "timestamp": datetime.now().strftime("%H:%M:%S")
+            })
+            bot_state.save_state()
+            
             return {"status": "success", "message": f"Ordine Notional per {req.amount_usd}$ su {req.symbol} inviato ad Alpaca!"}
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -199,6 +214,19 @@ def execute_investment(req: InvestRequest):
             # order = exchange.create_market_buy_order(symbol_ccxt, qty)
             
             # Simulazione sicura (Dato che l'utente sta usando testnet per l'arbitraggio, simuliamo qui a meno che non forzino)
+            
+            if not hasattr(bot_state, "ai_investments"):
+                bot_state.ai_investments = []
+            
+            bot_state.ai_investments.insert(0, {
+                "symbol": req.symbol,
+                "asset_type": req.asset_type,
+                "amount_usd": req.amount_usd,
+                "platform": "Binance (Paper)",
+                "timestamp": datetime.now().strftime("%H:%M:%S")
+            })
+            bot_state.save_state()
+            
             return {"status": "success", "message": f"Esecuzione Crypto PAPER MODE: Comprati {qty:.6f} {symbol_ccxt} per {req.amount_usd}$"}
             
         except Exception as e:

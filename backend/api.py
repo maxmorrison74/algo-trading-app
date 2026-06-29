@@ -128,6 +128,7 @@ class BotState:
         self.last_trade = None
         self.logs = db_data.get("logs", [])
         self.trade_history = db_data.get("trade_history", [])
+        self.ai_investments = db_data.get("ai_investments", [])
         self.high_watermarks = db_data.get("high_watermarks", {})
         self.high_risk_arb_logs = []
         self.high_risk_arb_prices = {}
@@ -173,6 +174,7 @@ class BotState:
             "auto_bet_enabled": self.auto_bet_enabled,
             "auto_bet_threshold": self.auto_bet_threshold,
             "trade_history": self.trade_history,
+            "ai_investments": self.ai_investments,
             "high_watermarks": self.high_watermarks,
             "modules": self.modules
         })
@@ -597,7 +599,8 @@ def get_status():
             "active_surebets": getattr(bot_state, "active_surebets", []),
             "value_bets": getattr(bot_state, "value_bets", []),
             "ai_logs": getattr(bot_state, "ai_logs", []),
-            "ai_videos": getattr(bot_state, "ai_videos", [])
+            "ai_videos": getattr(bot_state, "ai_videos", []),
+            "ai_investments": getattr(bot_state, "ai_investments", [])
         }
     except Exception as e:
         return {"error": str(e)}
