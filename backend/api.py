@@ -427,6 +427,91 @@ async def high_risk_trade(payload: dict):
         return {"error": str(e)}
 
 
+@app.post("/api/high-risk/ai-signal")
+async def high_risk_ai_signal(payload: dict):
+    """
+    Chiede a Groq LLaMA un'analisi tecnica e sentiment su un crypto token.
+    Restituisce: signal (BUY/SELL/HOLD), confidence, reasoning, target_price, stop_loss
+    """
+    symbol = payload.get("symbol", "").upper()
+    price = float(payload.get("price", 0))
+    volatility = float(payload.get("volatility", 0))
+    change_24h = float(payload.get("change_24h", 0))
+    
+    if not symbol:
+        return {"error": "Symbol mancante"}
+    
+    try:
+        # Carica la chiave Groq
+        keys = {}
+        keys_file = os.path.join(os.path.dirname(__file__), ".env.keys")
+        try:
+            with open(keys_file, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        keys[k.strip()] = v.strip()
+        except Exception:
+            pass
+        
+        groq_key = keys.get("GROQ_KEY", "")
+        if not groq_key:
+            return {"error": "Chiave GROQ non configurata. Aggiungila nelle Impostazioni."}
+        
+        from groq import Groq
+        client = Groq(api_key=groq_key)
+        
+        direction_hint = "rialzista" if change_24h > 0 else "ribassista"
+        
+        prompt = f"""Sei un trader crypto professionale specializzato in altcoins ad alta volatilità.
+Analizza questo asset e dammi un segnale operativo preciso.
+
+Token: {symbol}
+Prezzo attuale: ${price}
+Variazione 24h: {change_24h:+.2f}%
+Volatilità 24h (range H/L): {volatility:.1f}%
+Trend intraday: {direction_hint}
+
+Rispondi SOLO in questo formato JSON (nessun altro testo):
+{{
+  "signal": "BUY" oppure "SELL" oppure "HOLD",
+  "confidence": numero da 1 a 5,
+  "reasoning": "spiegazione breve in italiano (max 2 frasi)",
+  "entry_price": prezzo di ingresso suggerito (numero),
+  "target_price": prezzo obiettivo (numero),
+  "stop_loss": prezzo di stop loss (numero)
+}}"""
+
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.3,
+            max_tokens=250,
+        )
+        
+        raw = response.choices[0].message.content.strip()
+        # Estrai il JSON dalla risposta
+        import re
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
+        if match:
+            data = json.loads(match.group())
+            return {
+                "symbol": symbol,
+                "signal": data.get("signal", "HOLD"),
+                "confidence": int(data.get("confidence", 3)),
+                "reasoning": data.get("reasoning", "Analisi non disponibile"),
+                "entry_price": float(data.get("entry_price", price)),
+                "target_price": float(data.get("target_price", price)),
+                "stop_loss": float(data.get("stop_loss", price))
+            }
+        else:
+            return {"error": "Risposta AI non parsabile", "raw": raw}
+            
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.post("/api/auto-bet-settings")
 async def update_auto_bet_settings(payload: dict):
     """Aggiorna le impostazioni dell'auto-bet (abilitato + soglia %)"""

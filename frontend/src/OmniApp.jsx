@@ -48,6 +48,26 @@ function OmniApp() {
   // High Risk Quick Scalping state
   const [tradeSize, setTradeSize] = useState(100);
   const [tradeResult, setTradeResult] = useState(null);
+  const [aiModal, setAiModal] = useState(null); // null | { symbol, price, volatility, change_24h, loading, result, error }
+
+  const openAiSignal = async (asset) => {
+    setAiModal({ symbol: asset.symbol, price: asset.price, volatility: asset.volatility, change_24h: asset.change_24h, loading: true, result: null, error: null });
+    try {
+      const res = await fetch('/api/high-risk/ai-signal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: asset.symbol, price: asset.price, volatility: asset.volatility, change_24h: asset.change_24h })
+      });
+      const data = await res.json();
+      if (data.error) {
+        setAiModal(prev => ({ ...prev, loading: false, error: data.error }));
+      } else {
+        setAiModal(prev => ({ ...prev, loading: false, result: data }));
+      }
+    } catch (e) {
+      setAiModal(prev => ({ ...prev, loading: false, error: 'Errore di rete: ' + e.message }));
+    }
+  };
 
   const quickTrade = async (symbol, side, amount) => {
     setTradeResult(null);
@@ -853,7 +873,13 @@ function OmniApp() {
                     <tr key={asset.symbol} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', fontFamily: 'monospace' }}>
                       <td style={{ padding: '0.9rem 1rem', color: '#f59e0b', fontWeight: 'bold' }}>#{i + 1}</td>
                       <td style={{ padding: '0.9rem 1rem' }}>
-                        <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontSize: '1rem' }}>{asset.symbol}</div>
+                        <div
+                          onClick={() => openAiSignal(asset)}
+                          style={{ fontWeight: 'bold', color: '#f59e0b', fontSize: '1rem', cursor: 'pointer', textDecoration: 'underline dotted', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                          title="Clicca per analisi AI"
+                        >
+                          🤖 {asset.symbol}
+                        </div>
                         <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{asset.pair}</div>
                       </td>
                       <td style={{ padding: '0.9rem 1rem', color: '#e2e8f0' }}>${asset.price.toFixed(decimals)}</td>
@@ -1641,6 +1667,129 @@ function OmniApp() {
         )}
       </div>
     </div>
+
+    {/* ===== AI SIGNAL MODAL ===== */}
+    {aiModal && (
+      <div
+        onClick={() => setAiModal(null)}
+        style={{
+          position: 'fixed', inset: 0, zIndex: 9999,
+          background: 'rgba(0,0,0,0.75)', backdropFilter: 'blur(6px)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center'
+        }}
+      >
+        <div
+          onClick={e => e.stopPropagation()}
+          style={{
+            background: 'linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%)',
+            border: '1px solid rgba(245, 158, 11, 0.4)',
+            borderRadius: '20px', padding: '2rem', width: '420px',
+            boxShadow: '0 25px 60px rgba(0,0,0,0.6)', position: 'relative'
+          }}
+        >
+          {/* Close button */}
+          <button
+            onClick={() => setAiModal(null)}
+            style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'rgba(255,255,255,0.1)', border: 'none', borderRadius: '50%', width: '32px', height: '32px', color: '#fff', cursor: 'pointer', fontSize: '1rem' }}
+          >×</button>
+
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', marginBottom: '1.5rem' }}>
+            <div style={{ fontSize: '2rem' }}>🤖</div>
+            <div>
+              <div style={{ fontWeight: 'bold', fontSize: '1.3rem', color: '#f59e0b' }}>{aiModal.symbol}</div>
+              <div style={{ color: '#64748b', fontSize: '0.85rem' }}>Analisi AI – Groq LLaMA</div>
+            </div>
+          </div>
+
+          {/* Context row */}
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '0.7rem', textAlign: 'center' }}>
+              <div style={{ color: '#64748b', fontSize: '0.75rem' }}>Prezzo</div>
+              <div style={{ color: '#e2e8f0', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                ${aiModal.price < 0.01 ? aiModal.price.toFixed(8) : aiModal.price < 1 ? aiModal.price.toFixed(6) : aiModal.price.toFixed(4)}
+              </div>
+            </div>
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '0.7rem', textAlign: 'center' }}>
+              <div style={{ color: '#64748b', fontSize: '0.75rem' }}>Var 24h</div>
+              <div style={{ color: aiModal.change_24h >= 0 ? '#10b981' : '#ef4444', fontFamily: 'monospace', fontWeight: 'bold' }}>
+                {aiModal.change_24h >= 0 ? '+' : ''}{aiModal.change_24h?.toFixed(2)}%
+              </div>
+            </div>
+            <div style={{ flex: 1, background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '0.7rem', textAlign: 'center' }}>
+              <div style={{ color: '#64748b', fontSize: '0.75rem' }}>Volatilità</div>
+              <div style={{ color: '#f59e0b', fontFamily: 'monospace', fontWeight: 'bold' }}>{aiModal.volatility?.toFixed(1)}%</div>
+            </div>
+          </div>
+
+          {/* Loading state */}
+          {aiModal.loading && (
+            <div style={{ textAlign: 'center', padding: '2rem 0', color: '#f59e0b' }}>
+              <div style={{ fontSize: '2rem', animation: 'spin 1s linear infinite', display: 'inline-block' }}>⏳</div>
+              <div style={{ marginTop: '0.8rem', color: '#94a3b8' }}>LLaMA sta analizzando il mercato...</div>
+            </div>
+          )}
+
+          {/* Error state */}
+          {!aiModal.loading && aiModal.error && (
+            <div style={{ background: 'rgba(239,68,68,0.1)', border: '1px solid #ef4444', borderRadius: '10px', padding: '1rem', color: '#f87171', textAlign: 'center' }}>
+              ❌ {aiModal.error}
+            </div>
+          )}
+
+          {/* Result state */}
+          {!aiModal.loading && aiModal.result && (() => {
+            const r = aiModal.result;
+            const signalColor = r.signal === 'BUY' ? '#10b981' : r.signal === 'SELL' ? '#ef4444' : '#f59e0b';
+            const signalBg = r.signal === 'BUY' ? 'rgba(16,185,129,0.15)' : r.signal === 'SELL' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)';
+            const signalEmoji = r.signal === 'BUY' ? '📈' : r.signal === 'SELL' ? '📉' : '⏸️';
+            const stars = '★'.repeat(r.confidence) + '☆'.repeat(5 - r.confidence);
+            return (
+              <>
+                {/* Signal badge */}
+                <div style={{ textAlign: 'center', marginBottom: '1.2rem' }}>
+                  <div style={{ background: signalBg, border: `2px solid ${signalColor}`, borderRadius: '14px', display: 'inline-flex', alignItems: 'center', gap: '0.6rem', padding: '0.7rem 2rem' }}>
+                    <span style={{ fontSize: '1.8rem' }}>{signalEmoji}</span>
+                    <span style={{ fontSize: '1.6rem', fontWeight: '900', color: signalColor, letterSpacing: '2px' }}>{r.signal}</span>
+                  </div>
+                  <div style={{ color: '#f59e0b', marginTop: '0.5rem', fontSize: '1.1rem', letterSpacing: '2px' }}>{stars}</div>
+                  <div style={{ color: '#64748b', fontSize: '0.8rem' }}>Confidenza AI: {r.confidence}/5</div>
+                </div>
+
+                {/* Reasoning */}
+                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '1rem', marginBottom: '1.2rem', color: '#cbd5e1', fontSize: '0.95rem', lineHeight: '1.6' }}>
+                  💡 {r.reasoning}
+                </div>
+
+                {/* Price targets */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.7rem', marginBottom: '1.2rem' }}>
+                  <div style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.3)', borderRadius: '8px', padding: '0.7rem', textAlign: 'center' }}>
+                    <div style={{ color: '#64748b', fontSize: '0.75rem' }}>🎯 Target</div>
+                    <div style={{ color: '#10b981', fontFamily: 'monospace', fontWeight: 'bold' }}>${Number(r.target_price).toFixed(r.target_price < 0.01 ? 8 : r.target_price < 1 ? 6 : 4)}</div>
+                  </div>
+                  <div style={{ background: 'rgba(239,68,68,0.07)', border: '1px solid rgba(239,68,68,0.3)', borderRadius: '8px', padding: '0.7rem', textAlign: 'center' }}>
+                    <div style={{ color: '#64748b', fontSize: '0.75rem' }}>🛡️ Stop Loss</div>
+                    <div style={{ color: '#ef4444', fontFamily: 'monospace', fontWeight: 'bold' }}>${Number(r.stop_loss).toFixed(r.stop_loss < 0.01 ? 8 : r.stop_loss < 1 ? 6 : 4)}</div>
+                  </div>
+                </div>
+
+                {/* Quick trade from modal */}
+                <div style={{ display: 'flex', gap: '0.7rem' }}>
+                  <button
+                    onClick={() => { quickTrade(aiModal.symbol, 'buy', tradeSize); setAiModal(null); }}
+                    style={{ flex: 1, padding: '0.8rem', borderRadius: '10px', background: 'rgba(16,185,129,0.2)', border: '1px solid #10b981', color: '#10b981', cursor: 'pointer', fontWeight: 'bold' }}
+                  >⬆ BUY ${tradeSize}</button>
+                  <button
+                    onClick={() => { quickTrade(aiModal.symbol, 'sell', tradeSize); setAiModal(null); }}
+                    style={{ flex: 1, padding: '0.8rem', borderRadius: '10px', background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}
+                  >⬇ SELL ${tradeSize}</button>
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      </div>
+    )}
   </ErrorBoundary>
   );
 }
