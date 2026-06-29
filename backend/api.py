@@ -520,7 +520,6 @@ def reset_simulation():
 
 @app.get("/api/chart-data/{symbol:path}")
 def get_chart_data(symbol: str, timeframe: str = "1M"):
-    if not alpaca: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     try:
         sym = get_yf_symbol(symbol)
         
@@ -687,7 +686,6 @@ def save_keys(req: KeysRequest):
 
 class TestConnectionRequest(BaseModel):
     service: str
-    service: str = ""
     alpaca_key: str = ""
     alpaca_secret: str = ""
     binance_key: str = ""
