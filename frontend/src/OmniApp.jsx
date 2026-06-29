@@ -474,7 +474,7 @@ function OmniApp() {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: '2rem' }}>
+        <div className="dashboard-grid">
           {/* Pie Chart Asset Allocation */}
           <div style={{ flex: 1, background: 'rgba(255,255,255,0.05)', borderRadius: '12px', padding: '2rem', border: '1px solid rgba(255,255,255,0.1)' }}>
             <h3 style={{ color: '#e2e8f0', margin: '0 0 1rem 0' }}>Asset Allocation</h3>
@@ -605,30 +605,30 @@ function OmniApp() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginTop: '2rem' }}>
-        <div className="stat-card">
-          <div className="stat-title">Portafoglio Virtuale</div>
-          <div className="stat-value">${Number(status.portfolio_value || 0).toFixed(2)}</div>
+      <div className="dashboard-grid" style={{ marginTop: "2rem" }}>
+        <div className="card col-span-4">
+          <div className="card-title">Portafoglio Virtuale</div>
+          <div className="portfolio-value">${Number(status.portfolio_value || 0).toFixed(2)}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-title">Capitale Investito</div>
-          <div className="stat-value">
+        <div className="card col-span-4">
+          <div className="card-title">Capitale Investito</div>
+          <div className="portfolio-value">
             ${(Object.values(status.positions || {}).reduce((sum, p) => sum + (p !== "LIQUID" ? Math.abs(p.market_value || 0) : 0), 0)).toFixed(2)}
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-title">Liquidità Libera</div>
-          <div className="stat-value" style={{ color: '#10b981' }}>${Number(status.cash || 0).toFixed(2)}</div>
+        <div className="card col-span-4">
+          <div className="card-title">Liquidità Libera</div>
+          <div className="portfolio-value" style={{ color: '#10b981' }}>${Number(status.cash || 0).toFixed(2)}</div>
         </div>
-        <div className="stat-card">
-          <div className="stat-title">P/L Tempo Reale</div>
-          <div className="stat-value" style={{ color: Number(status.profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+        <div className="card col-span-4">
+          <div className="card-title">P/L Tempo Reale</div>
+          <div className="portfolio-value" style={{ color: Number(status.profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
             {Number(status.profit || 0) >= 0 ? '+' : ''}{Number(status.profit || 0).toFixed(2)}
           </div>
         </div>
-        <div className="stat-card">
-          <div className="stat-title">Win Rate</div>
-          <div className="stat-value" style={{ color: '#f59e0b' }}>{Number(status.win_rate || 0).toFixed(1)}%</div>
+        <div className="card col-span-4">
+          <div className="card-title">Win Rate</div>
+          <div className="portfolio-value" style={{ color: '#f59e0b' }}>{Number(status.win_rate || 0).toFixed(1)}%</div>
         </div>
       </div>
 
@@ -657,8 +657,8 @@ function OmniApp() {
         </ResponsiveContainer>
       </div>
 
-      <div style={{ display: 'flex', gap: '2rem', marginTop: '2rem' }}>
-        <div style={{ flex: 1 }}>
+      <div className="dashboard-grid" style={{ marginTop: "2rem" }}>
+        <div className="card col-span-6">
           <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Portafoglio Corrente</h3>
           {Object.entries(status.positions || {}).length === 0 ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nessuna posizione aperta. Il bot sta scansionando...</p>
@@ -719,9 +719,9 @@ function OmniApp() {
           </div>
         </div>
 
-        <div style={{ flex: 1 }}>
+        <div className="card col-span-6">
           <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Terminale Scansione</h3>
-          <div style={{ background: '#000', padding: '1rem', borderRadius: '8px', height: '350px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.85rem', color: '#10b981' }}>
+          <div className="terminal-window">
             {status.logs?.map((l, i) => (
               <div key={i} style={{ marginBottom: '0.3rem' }}>{l}</div>
             ))}
@@ -754,8 +754,8 @@ function OmniApp() {
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: '2rem' }}>
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+        <div className="dashboard-grid">
+          <div className="card col-span-4" style={{ textAlign: "center" }}>
             <img src="https://cryptologos.cc/logos/binance-coin-bnb-logo.png" alt="Binance" style={{ height: '40px', marginBottom: '1rem' }} />
             <h3 style={{ color: '#e2e8f0', margin: 0 }}>Binance (Ask)</h3>
             <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#06b6d4', marginTop: '1rem' }}>
@@ -763,7 +763,7 @@ function OmniApp() {
             </div>
           </div>
 
-          <div style={{ flex: 1, background: 'rgba(255,255,255,0.05)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', textAlign: 'center' }}>
+          <div className="card col-span-4" style={{ textAlign: "center" }}>
             <img src="https://cryptologos.cc/logos/kraken-kcs-logo.png" alt="Kraken" style={{ height: '40px', marginBottom: '1rem', filter: 'grayscale(100%) brightness(200%)' }} />
             <h3 style={{ color: '#e2e8f0', margin: 0 }}>Kraken (Ask)</h3>
             <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#3b82f6', marginTop: '1rem' }}>
@@ -771,7 +771,7 @@ function OmniApp() {
             </div>
           </div>
           
-          <div style={{ flex: 1, background: 'rgba(0,0,0,0.3)', padding: '2rem', borderRadius: '12px', border: '1px solid rgba(16, 185, 129, 0.3)', textAlign: 'center' }}>
+          <div className="card col-span-4" style={{ textAlign: "center", borderColor: "rgba(16,185,129,0.3)" }}>
             <h3 style={{ color: '#10b981', margin: 0, fontSize: '1rem' }}>Spread Attuale</h3>
             <div style={{ fontSize: '3rem', fontWeight: 'bold', color: '#10b981', marginTop: '0.5rem' }}>
               {Math.abs(Number(status.arb_prices?.binance || 0) - Number(status.arb_prices?.kraken || 0)).toFixed(2)}$
@@ -826,7 +826,7 @@ function OmniApp() {
 
         {/* Real-time prices grid for Altcoins */}
         <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', padding: '1.5rem', marginBottom: '2rem' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+          <table className="data-table">
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
                 <th style={{ padding: '0.8rem 1rem' }}>Asset</th>
@@ -864,7 +864,7 @@ function OmniApp() {
         </div>
 
         <h3 style={{ color: '#ef4444', marginTop: '2rem', marginBottom: '1rem' }}>Radar Inefficienze HIGH RISK</h3>
-        <div style={{ background: '#1c1917', padding: '1.5rem', borderRadius: '8px', height: '200px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.9rem', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+        <div className="terminal-window" style={{ height: "250px" }}>
           {status.high_risk_arb_logs?.map((l, i) => (
             <div key={i} style={{ marginBottom: '0.5rem', color: l.includes("HEDGE") || l.includes("SCALP") ? '#f59e0b' : '#f87171' }}>{l}</div>
           ))}
@@ -913,7 +913,7 @@ function OmniApp() {
           </div>
         ) : (
           <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.15)', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+            <table className="data-table">
               <thead>
                 <tr style={{ background: 'rgba(245, 158, 11, 0.08)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
                   <th style={{ padding: '0.9rem 1rem' }}>Rank</th>
@@ -1290,9 +1290,9 @@ function OmniApp() {
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '2rem' }}>
+      <div className="dashboard-grid">
         {/* Radar Logs */}
-        <div style={{ flex: 1 }}>
+        <div className="card col-span-6">
           <h3 style={{ color: '#e2e8f0', marginBottom: '1rem' }}>Radar Bookmakers Live</h3>
           <div style={{ background: '#000', padding: '1rem', borderRadius: '8px', height: '400px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.85rem', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
             {status.sports_logs?.map((l, i) => (
@@ -1305,7 +1305,7 @@ function OmniApp() {
         </div>
 
         {/* SureBets Found */}
-        <div style={{ flex: 1 }}>
+        <div className="card col-span-6">
           <h3 style={{ color: '#e2e8f0', marginBottom: '1rem' }}>SureBets — ordinate per profitto 📊</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', maxHeight: '600px', overflowY: 'auto' }}>
             {sortedSurebets.map((sb, idx) => (
@@ -1351,7 +1351,7 @@ function OmniApp() {
                 <div style={{ fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '1rem', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>{sb.match}</div>
                 
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <div style={{ flex: 1 }}>
+                  <div className="card col-span-6">
                     <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>PUNTA SU {sb.p1.toUpperCase()}</div>
                     <div style={{ fontWeight: 'bold' }}>{sb.book1} (@{Number(sb.odds1 || 0).toFixed(2)})</div>
                     <div style={{ color: '#f59e0b', fontSize: '1.1rem', marginTop: '0.2rem' }}>Stake: €{Number(sb.stake1 || 0).toFixed(2)}</div>
@@ -1470,7 +1470,7 @@ function OmniApp() {
               gap: '1rem'
             }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
+                <div className="card col-span-6">
                   <div style={{ color: '#a78bfa', fontSize: '0.8rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '0.3rem' }}>
                     {vb.sport}
                   </div>
@@ -1670,7 +1670,7 @@ function OmniApp() {
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: '2rem' }}>
+      <div className="dashboard-grid">
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
             <h3 style={{ color: '#e2e8f0', marginTop: 0 }}>1. Generatore di Argomenti</h3>
@@ -1726,7 +1726,7 @@ function OmniApp() {
               <div style={{ color: '#64748b' }}>In attesa di video in coda...</div>
             )}
           </div>
-          <div style={{ flex: 1 }}>
+          <div className="card col-span-6">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ color: '#e2e8f0', margin: 0 }}>Coda e Pubblicazioni</h3>
               <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '20px', fontWeight: 'bold' }}>
@@ -1739,7 +1739,7 @@ function OmniApp() {
                 <div key={video.id} style={{ background: 'rgba(255,255,255,0.05)', borderRadius: '12px', overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', display: 'flex', flexDirection: 'column' }}>
                   <div style={{ display: 'flex', padding: '1rem', gap: '1rem' }}>
                     <img src={video.thumbnail} alt="thumb" style={{ width: '60px', height: '90px', objectFit: 'cover', borderRadius: '6px' }} />
-                    <div style={{ flex: 1 }}>
+                    <div className="card col-span-6">
                       <div style={{ fontWeight: 'bold', fontSize: '0.9rem', marginBottom: '0.5rem', lineHeight: '1.2' }}>{video.title}</div>
                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginBottom: '0.2rem' }}>👀 {video.views?.toLocaleString()} views</div>
                       <div style={{ color: '#10b981', fontWeight: 'bold' }}>+${video.earnings?.toFixed(2)}</div>
