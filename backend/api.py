@@ -324,15 +324,15 @@ def _auto_exit_loop():
                 sell_reason  = ""
                 is_trailing  = False
 
+                # Gestione trailing dinamico
+                current_trailing = TIGHT_TRAILING_DROP if profit_pct > 0.05 else BASE_TRAILING_DROP
+
                 # 1) Target price raggiunto
                 if target_price and current_price >= target_price:
                     should_sell = True
                     sell_reason = f"🎯 TARGET RAGGIUNTO: ${target_price:.8f}"
 
                 # 2) Trailing stop dinamico
-                # Se il profitto dal picco è alto (es. > 5%), usiamo un trailing stop più stretto per bloccare il profitto
-                current_trailing = TIGHT_TRAILING_DROP if profit_pct > 0.05 else BASE_TRAILING_DROP
-                
                 elif profit_pct > 0 and drop_from_peak >= current_trailing:
                     should_sell = True
                     is_trailing = True
