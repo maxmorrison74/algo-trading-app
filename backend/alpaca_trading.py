@@ -143,13 +143,20 @@ class AlpacaEngine:
             self._log(f"Errore Groq Sentiment API: {e}")
             return "NEUTRAL", 3
 
+    def clean_sym(self, sym):
+        # Le API Alpaca (incluso get_bars) per le criptovalute richiedono BTCUSD e non BTC/USD
+        if "/" in sym:
+            return sym.replace("/", "")
+        return sym
+
     def prefill_history(self):
         """Pre-carica 50 candele storiche per ogni simbolo per calcolare RSI/BB subito"""
         if not self.alpaca_rest: return
         self._log("Pre-caricamento storico candele (REST)...")
         for sym in self.symbols:
             try:
-                bars = self.alpaca_rest.get_bars(sym, tradeapi.TimeFrame.Minute, limit=50).df
+                query_sym = self.clean_sym(sym)
+                bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=50).df
                 if not bars.empty:
                     self.history_buffers[sym] = bars
                     # Calcola subito la predizione iniziale ad ogni avvio!
@@ -346,7 +353,8 @@ class AlpacaEngine:
             # Polling REST per tenere aggiornati i segnali di tutti i simboli (Crypto inclusi)
             for sym in self.symbols:
                 try:
-                    bars = self.alpaca_rest.get_bars(sym, tradeapi.TimeFrame.Minute, limit=50).df
+                    query_sym = self.clean_sym(sym)
+                    bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=50).df
                     if not bars.empty:
                         self.history_buffers[sym] = bars
                         self.evaluate_strategy(sym, bars)
