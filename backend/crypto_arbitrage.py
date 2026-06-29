@@ -13,36 +13,58 @@ class CryptoArbitrage:
         self.paper_mode = True # OPZIONE C: Testnet/Paper mode attivo di default per sicurezza
         
         # Mapping symbols
-        self.pairs = ["BTC", "ETH", "SOL", "XRP"]
+        self.standard_pairs = ["BTC", "ETH", "SOL", "XRP"]
+        self.high_risk_pairs = ["DOGE", "SHIB", "PEPE", "WIF", "LINK"]
+        self.pairs = self.standard_pairs + self.high_risk_pairs
         
         # CCXT Markets uses standard symbols like BTC/USDT
         self.ccxt_symbols = {
             "BTC": "BTC/USDT",
             "ETH": "ETH/USDT",
             "SOL": "SOL/USDT",
-            "XRP": "XRP/USDT"
+            "XRP": "XRP/USDT",
+            "DOGE": "DOGE/USDT",
+            "SHIB": "SHIB/USDT",
+            "PEPE": "PEPE/USDT",
+            "WIF": "WIF/USDT",
+            "LINK": "LINK/USDT"
         }
         
         self.binance_streams = {
             "BTC": "btcusdt",
             "ETH": "ethusdt",
             "SOL": "solusdt",
-            "XRP": "xrpusdt"
+            "XRP": "xrpusdt",
+            "DOGE": "dogeusdt",
+            "SHIB": "shibusdt",
+            "PEPE": "pepeusdt",
+            "WIF": "wifusdt",
+            "LINK": "linkusdt"
         }
         
         self.kraken_streams = {
             "BTC": "XBT/USD",
             "ETH": "ETH/USD",
             "SOL": "SOL/USD",
-            "XRP": "XRP/USD"
+            "XRP": "XRP/USD",
+            "DOGE": "DOGE/USD",
+            "SHIB": "SHIB/USD",
+            "PEPE": "PEPE/USD",
+            "WIF": "WIF/USD",
+            "LINK": "LINK/USD"
         }
 
-        # Size fissa per hedge (es. 0.01 BTC, 0.5 ETH)
+        # Size fissa per hedge
         self.trade_qty = {
             "BTC": 0.01,
             "ETH": 0.5,
             "SOL": 10.0,
-            "XRP": 500.0
+            "XRP": 500.0,
+            "DOGE": 1000.0,
+            "SHIB": 5000000.0,
+            "PEPE": 10000000.0,
+            "WIF": 100.0,
+            "LINK": 20.0
         }
 
         # Pricing state
@@ -62,8 +84,12 @@ class CryptoArbitrage:
         
         if not hasattr(self.bot_state, "arb_logs"):
             self.bot_state.arb_logs = []
+        if not hasattr(self.bot_state, "high_risk_arb_logs"):
+            self.bot_state.high_risk_arb_logs = []
         if not hasattr(self.bot_state, "arb_prices"):
             self.bot_state.arb_prices = {"binance": 0, "kraken": 0}
+        if not hasattr(self.bot_state, "high_risk_arb_prices"):
+            self.bot_state.high_risk_arb_prices = {}
             
         self.last_execution_time = {pair: 0 for pair in self.pairs}
         
@@ -75,6 +101,20 @@ class CryptoArbitrage:
         self.bot_state.arb_logs.insert(0, f"[{timestamp}] {message}")
         if len(self.bot_state.arb_logs) > 50:
             self.bot_state.arb_logs.pop()
+
+    def _log_pair(self, pair, message):
+        timestamp = datetime.datetime.now().strftime("%H:%M:%S.%f")[:-3]
+        msg = f"[{timestamp}] {message}"
+        if pair in self.high_risk_pairs:
+            if not hasattr(self.bot_state, "high_risk_arb_logs"):
+                self.bot_state.high_risk_arb_logs = []
+            self.bot_state.high_risk_arb_logs.insert(0, msg)
+            if len(self.bot_state.high_risk_arb_logs) > 50:
+                self.bot_state.high_risk_arb_logs.pop()
+        else:
+            self.bot_state.arb_logs.insert(0, msg)
+            if len(self.bot_state.arb_logs) > 50:
+                self.bot_state.arb_logs.pop()
 
     async def init_ccxt(self):
         keys = {}
@@ -132,11 +172,11 @@ class CryptoArbitrage:
         # Invert map per lookup veloce
         stream_to_pair = {v: k for k, v in self.binance_streams.items()}
         
-        while self.running and self.bot_state.modules.get("crypto_arb", False):
+        while self.running and (self.bot_state.modules.get("crypto_arb", False) or self.bot_state.modules.get("high_risk_crypto_arb", False)):
             try:
                 async with websockets.connect(uri) as ws:
                     self._log(f"Binance WebSocket Connesso ({', '.join(self.pairs)}).")
-                    while self.running and self.bot_state.modules.get("crypto_arb", False):
+                    while self.running and (self.bot_state.modules.get("crypto_arb", False) or self.bot_state.modules.get("high_risk_crypto_arb", False)):
                         message = await asyncio.wait_for(ws.recv(), timeout=10)
                         payload = json.loads(message)
                         
@@ -149,12 +189,26 @@ class CryptoArbitrage:
                                 self.prices[pair]["binance"]["bid"] = float(data['b'])
                                 self.prices[pair]["binance"]["ask"] = float(data['a'])
                                 
+                                # Filtro moduli
+                                is_high_risk = pair in self.high_risk_pairs
+                                mod_needed = "high_risk_crypto_arb" if is_high_risk else "crypto_arb"
+                                if not self.bot_state.modules.get(mod_needed, False):
+                                    continue
+                                    
                                 if pair == "BTC":
                                     self.bot_state.arb_prices["binance"] = float(data['a'])
                                     
+                                if is_high_risk:
+                                    if not hasattr(self.bot_state, "high_risk_arb_prices"):
+                                        self.bot_state.high_risk_arb_prices = {}
+                                    self.bot_state.high_risk_arb_prices[pair] = {
+                                        "binance": float(data['a']),
+                                        "kraken": self.prices[pair]["kraken"]["ask"] or float(data['a'])
+                                    }
+                                    
                                 await self.check_arbitrage(pair)
             except Exception as e:
-                if self.running and self.bot_state.modules.get("crypto_arb", False):
+                if self.running and (self.bot_state.modules.get("crypto_arb", False) or self.bot_state.modules.get("high_risk_crypto_arb", False)):
                     self._log(f"Errore Binance WS: {str(e)[:50]}. Riconnessione...")
                     await asyncio.sleep(2)
             
@@ -164,7 +218,7 @@ class CryptoArbitrage:
         # Invert map
         stream_to_pair = {v: k for k, v in self.kraken_streams.items()}
         
-        while self.running and self.bot_state.modules.get("crypto_arb", False):
+        while self.running and (self.bot_state.modules.get("crypto_arb", False) or self.bot_state.modules.get("high_risk_crypto_arb", False)):
             try:
                 async with websockets.connect(uri) as ws:
                     self._log(f"Kraken WebSocket Connesso ({', '.join(self.pairs)}).")
@@ -175,7 +229,7 @@ class CryptoArbitrage:
                     }
                     await ws.send(json.dumps(subscribe_msg))
                     
-                    while self.running and self.bot_state.modules.get("crypto_arb", False):
+                    while self.running and (self.bot_state.modules.get("crypto_arb", False) or self.bot_state.modules.get("high_risk_crypto_arb", False)):
                         message = await asyncio.wait_for(ws.recv(), timeout=10)
                         data = json.loads(message)
                         
@@ -188,12 +242,26 @@ class CryptoArbitrage:
                                 self.prices[pair]["kraken"]["bid"] = float(ticker['b'][0])
                                 self.prices[pair]["kraken"]["ask"] = float(ticker['a'][0])
                                 
+                                # Filtro moduli
+                                is_high_risk = pair in self.high_risk_pairs
+                                mod_needed = "high_risk_crypto_arb" if is_high_risk else "crypto_arb"
+                                if not self.bot_state.modules.get(mod_needed, False):
+                                    continue
+                                    
                                 if pair == "BTC":
                                     self.bot_state.arb_prices["kraken"] = float(ticker['a'][0])
                                     
+                                if is_high_risk:
+                                    if not hasattr(self.bot_state, "high_risk_arb_prices"):
+                                        self.bot_state.high_risk_arb_prices = {}
+                                    self.bot_state.high_risk_arb_prices[pair] = {
+                                        "binance": self.prices[pair]["binance"]["ask"] or float(ticker['a'][0]),
+                                        "kraken": float(ticker['a'][0])
+                                    }
+                                    
                                 await self.check_arbitrage(pair)
             except Exception as e:
-                if self.running and self.bot_state.modules.get("crypto_arb", False):
+                if self.running and (self.bot_state.modules.get("crypto_arb", False) or self.bot_state.modules.get("high_risk_crypto_arb", False)):
                     self._log(f"Errore Kraken WS: {str(e)[:50]}. Riconnessione...")
                     await asyncio.sleep(2)
 
@@ -214,27 +282,26 @@ class CryptoArbitrage:
         try:
             if self.paper_mode:
                 # OPZIONE C: Paper Mode per evitare rischi su soldi veri in fase di test
-                self._log(f"⚠️ PAPER HEDGE {pair}: BUY {buy_exchange} ({qty}), SELL {sell_exchange} ({qty})")
+                self._log_pair(pair, f"⚠️ PAPER HEDGE {pair}: BUY {buy_exchange} ({qty}), SELL {sell_exchange} ({qty})")
                 await asyncio.sleep(0.5) # Simula latenza di rete
                 # Sulla carta il bilancio virtuale sale
                 spread_val = (sell_price - buy_price)
                 fees = (buy_price * self.fees[buy_exchange]) + (sell_price * self.fees[sell_exchange])
                 net_profit = (spread_val * qty) - (fees * qty)
                 self.bot_state.virtual_cash += net_profit
-                self._log(f"✅ PAPER HEDGE COMPLETATO: Profitto Netto Simulato +${net_profit:.2f}")
+                self._log_pair(pair, f"✅ PAPER HEDGE COMPLETATO: Profitto Netto Simulato +${net_profit:.2f}")
             else:
-                self._log(f"🔥 REAL HEDGE {pair}: Lancio MARKET Orders ({buy_exchange} vs {sell_exchange})")
+                self._log_pair(pair, f"🔥 REAL HEDGE {pair}: Lancio MARKET Orders ({buy_exchange} vs {sell_exchange})")
                 results = await asyncio.gather(buy_task, sell_task, return_exceptions=True)
                 
                 # Check errori
                 errs = [r for r in results if isinstance(r, Exception)]
                 if errs:
-                    self._log(f"❌ ERRORE in Hedge Reale! {errs}")
-                    # In un sistema avanzato qui scatterebbe logica di "Unwind" (chiusura gambe scoperte)
+                    self._log_pair(pair, f"❌ ERRORE in Hedge Reale! {errs}")
                 else:
-                    self._log(f"✅ REAL HEDGE {pair} ESEGUITO CON SUCCESSO!")
+                    self._log_pair(pair, f"✅ REAL HEDGE {pair} ESEGUITO CON SUCCESSO!")
         except Exception as e:
-            self._log(f"❌ Eccezione fatale esecuzione {pair}: {e}")
+            self._log_pair(pair, f"❌ Eccezione fatale esecuzione {pair}: {e}")
 
     async def verify_depth_and_adjust_qty(self, pair, buy_exchange, sell_exchange, qty):
         """
@@ -279,7 +346,7 @@ class CryptoArbitrage:
                 weighted_buy_sum += price * take_vol
                 
             if accum_qty_buy < qty * 0.5: # Se non c'è nemmeno il 50% della liquidità richiesta
-                self._log(f"⚠️ LIQUIDITÀ INSUFFICIENTE (Buy) su {buy_exchange} per {pair}: richiesti {qty}, trovati solo {accum_qty_buy:.4f}")
+                self._log_pair(pair, f"⚠️ LIQUIDITÀ INSUFFICIENTE (Buy) su {buy_exchange} per {pair}: richiesti {qty}, trovati solo {accum_qty_buy:.4f}")
                 return 0.0
                 
             avg_buy_price = weighted_buy_sum / accum_qty_buy
@@ -297,7 +364,7 @@ class CryptoArbitrage:
                 weighted_sell_sum += price * take_vol
                 
             if accum_qty_sell < qty * 0.5:
-                self._log(f"⚠️ LIQUIDITÀ INSUFFICIENTE (Sell) su {sell_exchange} per {pair}: richiesti {qty}, trovati solo {accum_qty_sell:.4f}")
+                self._log_pair(pair, f"⚠️ LIQUIDITÀ INSUFFICIENTE (Sell) su {sell_exchange} per {pair}: richiesti {qty}, trovati solo {accum_qty_sell:.4f}")
                 return 0.0
                 
             avg_sell_price = weighted_sell_sum / accum_qty_sell
@@ -312,13 +379,13 @@ class CryptoArbitrage:
             real_net_profit_perc = real_profit_perc - total_fee_perc
             
             if real_net_profit_perc <= 0.0001:
-                self._log(f"⚠️ SLIPPAGE PROTECT: Lo spread stimato sui book per {pair} svanisce a causa dei volumi (Profitto Netto Stimato: {real_net_profit_perc*100:.3f}%). Trade annullato.")
+                self._log_pair(pair, f"⚠️ SLIPPAGE PROTECT: Lo spread stimato sui book per {pair} svanisce a causa dei volumi (Profitto Netto Stimato: {real_net_profit_perc*100:.3f}%). Trade annullato.")
                 return 0.0
                 
             return exec_qty
             
         except Exception as e:
-            self._log(f"⚠️ Impossibile verificare profondità book per {pair}: {e}. Uso quantità di default.")
+            self._log_pair(pair, f"⚠️ Impossibile verificare profondità book per {pair}: {e}. Uso quantità di default.")
             return qty
 
     async def check_arbitrage(self, pair):
@@ -350,14 +417,14 @@ class CryptoArbitrage:
         
         if net_profit1_perc > 0.0001: # 0.01% Netto minimo richiesto
             self.last_execution_time[pair] = current_time
-            self._log(f"⚡ {pair} SPREAD RILEVATO: Buy KRA @ {k_ask:.3f} | Sell BIN @ {b_bid:.3f} | Net Prof %: {net_profit1_perc*100:.3f}%")
+            self._log_pair(pair, f"⚡ {pair} SPREAD RILEVATO: Buy KRA @ {k_ask:.3f} | Sell BIN @ {b_bid:.3f} | Net Prof %: {net_profit1_perc*100:.3f}%")
             opt_qty = await self.verify_depth_and_adjust_qty(pair, "kraken", "binance", qty)
             if opt_qty > 0.0:
                 await self.execute_hedging(pair, "kraken", "binance", k_ask, b_bid, opt_qty)
             
         elif net_profit2_perc > 0.0001:
             self.last_execution_time[pair] = current_time
-            self._log(f"⚡ {pair} SPREAD RILEVATO: Buy BIN @ {b_ask:.3f} | Sell KRA @ {k_bid:.3f} | Net Prof %: {net_profit2_perc*100:.3f}%")
+            self._log_pair(pair, f"⚡ {pair} SPREAD RILEVATO: Buy BIN @ {b_ask:.3f} | Sell KRA @ {k_bid:.3f} | Net Prof %: {net_profit2_perc*100:.3f}%")
             opt_qty = await self.verify_depth_and_adjust_qty(pair, "binance", "kraken", qty)
             if opt_qty > 0.0:
                 await self.execute_hedging(pair, "binance", "kraken", b_ask, k_bid, opt_qty)

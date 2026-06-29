@@ -123,6 +123,8 @@ class BotState:
         self.logs = db_data.get("logs", [])
         self.trade_history = db_data.get("trade_history", [])
         self.high_watermarks = db_data.get("high_watermarks", {})
+        self.high_risk_arb_logs = []
+        self.high_risk_arb_prices = {}
         self.loop_task = None
         self.aggressiveness = db_data.get("aggressiveness", 55.0)
         self.auto_bet_enabled = db_data.get("auto_bet_enabled", False)
@@ -130,6 +132,7 @@ class BotState:
         default_modules = {
             "trading": False,
             "crypto_arb": False,
+            "high_risk_crypto_arb": False,
             "sports_arb": False,
             "ai_sports_sentiment": False,
             "ai_content": False
@@ -288,6 +291,8 @@ def get_status():
             "auto_bet_threshold": bot_state.auto_bet_threshold,
             "arb_logs": getattr(bot_state, "arb_logs", []),
             "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
+            "high_risk_arb_logs": getattr(bot_state, "high_risk_arb_logs", []),
+            "high_risk_arb_prices": getattr(bot_state, "high_risk_arb_prices", {}),
             "sports_logs": getattr(bot_state, "sports_logs", []),
             "active_surebets": getattr(bot_state, "active_surebets", []),
             "value_bets": getattr(bot_state, "value_bets", []),
@@ -332,7 +337,7 @@ async def toggle_module(payload: dict):
                 t = threading.Thread(target=sentiment_engine.loop, daemon=True)
                 t.start()
                 bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
-            elif module_name == "crypto_arb" and not arb_engine.running:
+            elif (module_name == "crypto_arb" or module_name == "high_risk_crypto_arb") and not arb_engine.running:
                 threading.Thread(target=arb_engine.loop, daemon=True).start()
             elif module_name == "trading" and not alpaca_engine.running:
                 bot_state.is_running = True
@@ -350,6 +355,8 @@ async def toggle_module(payload: dict):
         return {"message": "Modulo aggiornato", "modules": bot_state.modules,
             "arb_logs": getattr(bot_state, "arb_logs", []),
             "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
+            "high_risk_arb_logs": getattr(bot_state, "high_risk_arb_logs", []),
+            "high_risk_arb_prices": getattr(bot_state, "high_risk_arb_prices", {}),
             "sports_logs": getattr(bot_state, "sports_logs", []),
             "active_surebets": getattr(bot_state, "active_surebets", []),
             "value_bets": getattr(bot_state, "value_bets", []),
