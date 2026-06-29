@@ -611,7 +611,7 @@ class KeysRequest(BaseModel):
     kraken_secret: str = ""
     elevenlabs_key: str = ""
     theodds_key: str = ""
-    gemini_key: str = ""
+    groq_key: str = ""
     newsapi_key: str = ""
     google_cloud_json: str = ""
 
@@ -660,7 +660,7 @@ def save_keys(req: KeysRequest):
         new_kraken_secret = merge("KRAKEN_SECRET", req.kraken_secret)
         new_elevenlabs_key = merge("ELEVENLABS_KEY", req.elevenlabs_key)
         new_theodds_key = merge("THEODDS_KEY", req.theodds_key)
-        new_gemini_key = merge("GEMINI_KEY", req.gemini_key)
+        new_groq_key = merge("GROQ_KEY", req.groq_key)
         new_newsapi_key = merge("NEWSAPI_KEY", req.newsapi_key)
 
         with open(API_KEYS_FILE, "w") as f:
@@ -672,7 +672,7 @@ def save_keys(req: KeysRequest):
             f.write(f"KRAKEN_SECRET={new_kraken_secret}\n")
             f.write(f"ELEVENLABS_KEY={new_elevenlabs_key}\n")
             f.write(f"THEODDS_KEY={new_theodds_key}\n")
-            f.write(f"GEMINI_KEY={new_gemini_key}\n")
+            f.write(f"GROQ_KEY={new_groq_key}\n")
             f.write(f"NEWSAPI_KEY={new_newsapi_key}\n")
             
         if req.google_cloud_json and "***" not in req.google_cloud_json:
@@ -687,6 +687,7 @@ def save_keys(req: KeysRequest):
 
 class TestConnectionRequest(BaseModel):
     service: str
+    service: str = ""
     alpaca_key: str = ""
     alpaca_secret: str = ""
     binance_key: str = ""
@@ -696,7 +697,8 @@ class TestConnectionRequest(BaseModel):
     elevenlabs_key: str = ""
     theodds_key: str = ""
     newsapi_key: str = ""
-    gemini_key: str = ""
+    groq_key: str = ""
+
 @app.post("/api/test-connection")
 def test_connection(req: TestConnectionRequest):
     keys = {}
@@ -717,7 +719,7 @@ def test_connection(req: TestConnectionRequest):
     if req.elevenlabs_key and "***" not in req.elevenlabs_key: keys['ELEVENLABS_KEY'] = req.elevenlabs_key
     if req.newsapi_key and "***" not in req.newsapi_key: keys['NEWSAPI_KEY'] = req.newsapi_key
     if req.theodds_key and "***" not in req.theodds_key: keys['THEODDS_KEY'] = req.theodds_key
-    if req.gemini_key and "***" not in req.gemini_key: keys['GEMINI_KEY'] = req.gemini_key
+    if req.groq_key and "***" not in req.groq_key: keys['GROQ_KEY'] = req.groq_key
     
 
     service = req.service.lower()
@@ -791,27 +793,23 @@ def test_connection(req: TestConnectionRequest):
                 return {"status": "success", "message": "Connessione NewsAPI stabilita! Auth OK."}
             else:
                 return {"status": "error", "message": f"Errore NewsAPI: {res.status_code} - {res.text}"}
-        elif service == 'gemini':
-            api_key = keys.get("GEMINI_KEY", "")
+        elif service == 'groq':
+            api_key = keys.get("GROQ_KEY", "")
             if not api_key:
-                return {"status": "error", "message": "Chiave Gemini mancante."}
+                return {"status": "error", "message": "Chiave Groq mancante."}
             try:
-                import google.generativeai as genai
-                genai.configure(api_key=api_key)
+                from groq import Groq
+                client = Groq(api_key=api_key)
                 
-                # Auto-discover first available model
-                model_name = 'gemini-1.5-flash'
-                for m in genai.list_models():
-                    if 'generateContent' in m.supported_generation_methods:
-                        model_name = m.name
-                        break
-                        
-                model = genai.GenerativeModel(model_name)
-                res = model.generate_content("Say hi in 1 word")
-                if res.text:
-                    return {"status": "success", "message": f"Connessione Gemini stabilita! Modello: {model_name}"}
+                model_name = 'llama3-8b-8192'
+                res = client.chat.completions.create(
+                    messages=[{"role": "user", "content": "Say hi in 1 word"}],
+                    model=model_name
+                )
+                if res.choices[0].message.content:
+                    return {"status": "success", "message": f"Connessione Groq stabilita! Modello: {model_name}"}
             except Exception as e:
-                return {"status": "error", "message": f"Errore Gemini: {str(e)}"}
+                return {"status": "error", "message": f"Errore Groq: {str(e)}"}
                 
         else:
             # Fallback for others

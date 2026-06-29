@@ -4,7 +4,7 @@ import asyncio
 import datetime
 import threading
 import pandas as pd
-import google.generativeai as genai
+from groq import Groq
 import alpaca_trade_api as tradeapi
 from alpaca_trade_api.stream import Stream
 
@@ -48,19 +48,13 @@ class AlpacaEngine:
                 self.bot_state.modules["trading"] = False
                 
         # Init Gemini
-        gemini_key = keys.get("GEMINI_KEY", os.getenv("GEMINI_API_KEY", ""))
-        if gemini_key:
-            genai.configure(api_key=gemini_key)
-            model_name = 'gemini-1.5-flash'
-            for m in genai.list_models():
-                if 'generateContent' in m.supported_generation_methods:
-                    model_name = m.name
-                    break
-            self.model = genai.GenerativeModel(model_name)
+        groq_key = keys.get("GROQ_KEY", os.getenv("GROQ_API_KEY", ""))
+        if groq_key:
+            self.model = Groq(api_key=groq_key)
             self.llm_enabled = True
-            self._log("Modulo AI Sentiment basato su notizie in tempo reale abilitato (Gemini).")
+            self._log("Modulo AI Sentiment basato su notizie in tempo reale abilitato (Groq LLaMA3).")
         else:
-            self._log("Avviso: GEMINI_KEY non trovata. Trading solo su Analisi Tecnica.")
+            self._log("Avviso: GROQ_KEY non trovata. Trading solo su Analisi Tecnica.")
 
     def sync_portfolio(self):
         try:
@@ -89,13 +83,16 @@ class AlpacaEngine:
             for n in headlines:
                 prompt += f"- {n}\n"
                 
-            response = self.model.generate_content(prompt)
-            result = response.text.strip().upper()
+            response = self.model.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama3-8b-8192"
+            )
+            result = response.choices[0].message.content.strip().upper()
             if "BULLISH" in result: return "BULLISH"
             if "BEARISH" in result: return "BEARISH"
             return "NEUTRAL"
         except Exception as e:
-            self._log(f"Errore Gemini API: {e}")
+            self._log(f"Errore Groq API: {e}")
             return "NEUTRAL"
 
     def prefill_history(self):

@@ -11,6 +11,6 @@ vaderSentiment==3.3.2
 ccxt
 tenacity
 websockets
-google-generativeai
+groq
 google-cloud-aiplatform
 python-multipart

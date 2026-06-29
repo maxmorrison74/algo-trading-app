@@ -2,7 +2,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 import os
 import json
-import google.generativeai as genai
+from groq import Groq
 import ccxt
 import alpaca_trade_api as tradeapi
 import yfinance as yf
@@ -31,20 +31,13 @@ def get_api_keys():
                     keys[k] = v
     return keys
 
-def get_gemini_client():
+def get_groq_client():
     keys = get_api_keys()
-    gemini_key = keys.get("GEMINI_KEY") or os.getenv("GEMINI_API_KEY")
-    if not gemini_key:
-        raise HTTPException(status_code=500, detail="Gemini API Key non configurata")
-    genai.configure(api_key=gemini_key)
+    groq_key = keys.get("GROQ_KEY") or os.getenv("GROQ_API_KEY")
+    if not groq_key:
+        raise HTTPException(status_code=500, detail="Groq API Key non configurata")
     
-    model_name = 'gemini-1.5-flash'
-    for m in genai.list_models():
-        if 'generateContent' in m.supported_generation_methods:
-            model_name = m.name
-            break
-            
-    return genai.GenerativeModel(model_name)
+    return Groq(api_key=groq_key)
 
 @router.post("/proposals")
 def get_ai_proposals(req: ProposalsRequest):
@@ -54,7 +47,7 @@ def get_ai_proposals(req: ProposalsRequest):
         raise HTTPException(status_code=400, detail="Il budget deve essere maggiore di zero.")
         
     try:
-        model = get_gemini_client()
+        model = get_groq_client()
         
         market_data_context = ""
         if strategy == "momentum":
@@ -97,25 +90,35 @@ Rispondi SOLTANTO con un array JSON in questo esatto formato, senza Markdown o b
   {{
     "id": 2,
     "risk": "Conservativo",
-    ...
-  }},
-  ... fino a 6
-]
+{
+  "proposals": [
+    {
+      "id": 1,
+      "risk": "Conservativo",
+      "symbol": "AAPL",
+      "asset_type": "stock",
+      "title": "Apple Inc - Porto Sicuro",
+      "rationale": "Breve spiegazione del perché è sicura oggi."
+    }
+  ]
+}
 """
-        response = model.generate_content(prompt)
-        testo = response.text.strip()
-        # Rimuove possibili blocchi markdown
-        if testo.startswith("```json"):
-            testo = testo.replace("```json", "", 1)
-        if testo.endswith("```"):
-            testo = testo[:-3]
-            
-        proposals = json.loads(testo.strip())
+        response = model.chat.completions.create(
+            messages=[{"role": "user", "content": prompt}],
+            model="llama3-70b-8192",
+            response_format={"type": "json_object"}
+        )
+        result_text = response.choices[0].message.content
+        
+        # Parse output as JSON
+        proposals = json.loads(result_text)
+        if "proposals" in proposals:
+            proposals = proposals["proposals"]
         return {"proposals": proposals}
         
     except Exception as e:
         # Fallback in caso di errore AI o rate limit
-        print(f"Errore Gemini: {e}")
+        print(f"Errore Groq: {e}")
         
         if req.strategy == "momentum":
             return {"proposals": [

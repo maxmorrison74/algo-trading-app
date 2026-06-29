@@ -29,7 +29,7 @@ function OmniApp() {
 
   const [numValueBets, setNumValueBets] = useState(9);
   const [placedBets, setPlacedBets] = useState({});
-  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', gemini_key:'', newsapi_key:'', google_cloud_json:''});
+  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', groq_key:'', newsapi_key:'', google_cloud_json:''});
   const [testResults, setTestResults] = useState({});
   const [savedKeys, setSavedKeys] = useState({});
   const [timeframe, setTimeframe] = useState('1D');
@@ -285,7 +285,7 @@ function OmniApp() {
             kraken_secret: data.KRAKEN_SECRET || '',
             elevenlabs_key: data.ELEVENLABS_KEY || '',
             theodds_key: data.THEODDS_KEY || '',
-            gemini_key: data.GEMINI_KEY || '',
+            groq_key: data.GROQ_KEY || '',
             newsapi_key: data.NEWSAPI_KEY || ''
           }));
         } catch(err) {
@@ -342,13 +342,13 @@ function OmniApp() {
 
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Google Gemini (AI Investments) {savedKeys['GEMINI_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</h3>
-          <button onClick={() => testConnection('gemini')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
+          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Groq AI (Sentiment & Investments) {savedKeys['GROQ_KEY'] && <span className='badge badge-long' style={{ marginLeft: '0.5rem' }}>SECURE</span>}</h3>
+          <button onClick={() => testConnection('groq')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <input type="password" placeholder="Gemini API Key" value={apiKeys.gemini_key} onChange={e => setApiKeys({...apiKeys, gemini_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
+          <input type="password" placeholder="Groq API Key" value={apiKeys.groq_key} onChange={e => setApiKeys({...apiKeys, groq_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
         </div>
-        {testResults['gemini'] && <div style={{ color: testResults['gemini'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['gemini']}</div>}
+        {testResults['groq'] && <div style={{ color: testResults['groq'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['groq']}</div>}
       </div>
 
       <div style={{ textAlign: 'right' }}>
@@ -1133,7 +1133,7 @@ function OmniApp() {
   const generateAiIdea = async () => {
     setAiLoading(true);
     try {
-      const payload = { gemini_key: apiKeys.gemini_key || savedKeys.GEMINI_KEY || "" };
+      const payload = { groq_key: apiKeys.groq_key || savedKeys.GROQ_KEY || "" };
       const res = await fetch('/api/ai/generate-idea', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(payload)
@@ -1247,6 +1247,7 @@ function OmniApp() {
             )}
           </div>
 
+          {/* Nascondo temporaneamente l'upload video
           <div style={{ background: 'rgba(255,255,255,0.05)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)', opacity: aiIdea ? 1 : 0.5, pointerEvents: aiIdea ? 'auto' : 'none' }}>
             <h3 style={{ color: '#e2e8f0', marginTop: 0 }}>2. Carica Video Generato</h3>
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Genera il video gratuitamente su Veo incollando il prompt, scarica l'MP4 e caricalo qui.</p>
@@ -1259,6 +1260,7 @@ function OmniApp() {
               {uploadingVideo ? '⏳ Caricamento in coda...' : '📤 Carica MP4'}
             </button>
           </div>
+          */}
         </div>
 
         <div style={{ flex: 1.5, display: 'flex', flexDirection: 'column', gap: '1rem' }}>
