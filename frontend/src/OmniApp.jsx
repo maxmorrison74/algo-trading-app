@@ -516,7 +516,7 @@ function OmniApp() {
                   <span style={{ fontSize: '1.5rem' }}>🥈</span>
                   <div>
                     <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>DeFi Arbitrage</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Spread BTC/USDT</div>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Spread</div>
                   </div>
                 </div>
                 <div style={{ fontWeight: 'bold', color: '#10b981' }}>+${status.modules?.crypto_arb ? '120.50' : '0.00'}</div>
@@ -771,7 +771,7 @@ function OmniApp() {
       <div className="module-content">
         <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
-            <h2>DeFi Arbitrage (BTC/USDT) <span className="badge badge-gold" style={{ marginLeft: '1rem', verticalAlign: 'middle' }}>MODALITÀ SIMULAZIONE ATTIVA</span></h2>
+            <h2>DeFi Arbitrage <span className="badge badge-gold" style={{ marginLeft: '1rem', verticalAlign: 'middle' }}>MODALITÀ SIMULAZIONE ATTIVA</span></h2>
             <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Esecuzione automatica live (Paper Trading)</div>
             <div style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '6px', display: 'inline-block' }}>
               <span style={{ color: 'var(--text-secondary)', marginRight: '1rem' }}>Portafoglio Virtuale:</span>
