@@ -561,7 +561,13 @@ def get_chart_data(symbol: str, timeframe: str = "1M"):
             interval = "1h"
             time_format = "%d/%m"
 
-        df = fetch_historical_data(sym, interval=interval, period=period)
+        try:
+            df = fetch_historical_data(sym, interval=interval, period=period)
+        except Exception as e:
+            print(f"Errore in yfinance per {sym}: {e}")
+            import pandas as pd
+            df = pd.DataFrame()
+
         if df.empty:
             # Fallback in caso di blocco IP da parte di Yahoo Finance
             try:
