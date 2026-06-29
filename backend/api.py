@@ -249,11 +249,24 @@ def get_status():
             wins = sum(1 for t in bot_state.trade_history if t.get("profit_usd", 0) > 0)
             win_rate = round((wins / len(bot_state.trade_history)) * 100, 1)
 
-        market_open = False
+        st = {}
+        st["market_open"] = False
         try:
             if alpaca:
                 clock = alpaca.get_clock()
-                market_open = clock.is_open
+                st["market_open"] = clock.is_open
+        except Exception:
+            pass
+
+        # Fallback orario se l'API Alpaca fallisce
+        try:
+            from datetime import datetime
+            import pytz
+            ny = pytz.timezone('America/New_York')
+            now = datetime.now(ny)
+            fallback_open = now.weekday() < 5 and (now.hour > 9 or (now.hour == 9 and now.minute >= 30)) and now.hour < 16
+            if st["market_open"] == False:
+                st["market_open"] = fallback_open
         except Exception:
             pass
 
@@ -549,6 +562,36 @@ def get_chart_data(symbol: str, timeframe: str = "1M"):
             time_format = "%d/%m"
 
         df = fetch_historical_data(sym, interval=interval, period=period)
+        if df.empty:
+            # Fallback in caso di blocco IP da parte di Yahoo Finance
+            try:
+                import pandas as pd
+                if "-" in sym or "/" in sym:
+                    import ccxt
+                    exchange = ccxt.binance()
+                    s = sym.replace("-", "/")
+                    if s.endswith("/USD"): s = s.replace("/USD", "/USDT")
+                    tf_map = {"5m": "5m", "15m": "15m", "1h": "1h", "1d": "1d", "1wk": "1w"}
+                    ohlcv = exchange.fetch_ohlcv(s, timeframe=tf_map.get(interval, "1h"), limit=100)
+                    df = pd.DataFrame(ohlcv, columns=['timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
+                    df.set_index('timestamp', inplace=True)
+                elif alpaca:
+                    import alpaca_trade_api as tradeapi
+                    from datetime import datetime, timedelta
+                    tf_map = {"5m": tradeapi.TimeFrame.Minute, "15m": tradeapi.TimeFrame.Minute, "1h": tradeapi.TimeFrame.Hour, "1d": tradeapi.TimeFrame.Day, "1wk": tradeapi.TimeFrame.Day}
+                    days = 30
+                    if period == "1d": days = 2
+                    elif period == "5d": days = 7
+                    end_dt = datetime.now()
+                    start_dt = end_dt - timedelta(days=days)
+                    bars = alpaca.get_bars(sym, tf_map.get(interval, tradeapi.TimeFrame.Hour), start=start_dt.strftime('%Y-%m-%d'), end=end_dt.strftime('%Y-%m-%d')).df
+                    if not bars.empty:
+                        bars.rename(columns={'close': 'Close'}, inplace=True)
+                        df = bars
+            except Exception as e:
+                pass
+
         if df.empty:
             return []
         
