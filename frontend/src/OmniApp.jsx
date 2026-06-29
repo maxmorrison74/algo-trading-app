@@ -924,7 +924,67 @@ function OmniApp() {
             border: `1px solid ${tradeResult.error ? '#ef4444' : '#10b981'}`,
             color: tradeResult.error ? '#ef4444' : '#10b981', fontFamily: 'monospace', fontSize: '0.9rem'
           }}>
-            {tradeResult.error ? `❌ ${tradeResult.error}` : `✅ ${tradeResult.side?.toUpperCase()} ${tradeResult.qty} ${tradeResult.symbol} @ $${tradeResult.price?.toFixed ? tradeResult.price.toFixed(6) : tradeResult.price} — Saldo: $${tradeResult.virtual_cash}`}
+            {tradeResult.error
+              ? `❌ ${tradeResult.error}`
+              : `✅ ${tradeResult.side?.toUpperCase()} ${tradeResult.qty} ${tradeResult.symbol} @ $${tradeResult.price?.toFixed ? tradeResult.price.toFixed(6) : tradeResult.price} — Saldo: $${tradeResult.virtual_cash}${tradeResult.monitored ? ' — 👁️ IN SORVEGLIANZA' : ''}`
+            }
+          </div>
+        )}
+
+        {/* ===== POSIZIONI SORVEGLIATE ===== */}
+        {status.monitored_positions && status.monitored_positions.length > 0 && (
+          <div style={{ marginTop: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1rem' }}>
+              <span style={{ fontSize: '1.3rem' }}>👁️</span>
+              <h3 style={{ margin: 0, color: '#a78bfa' }}>Posizioni in Sorveglianza Auto-Exit</h3>
+              <span style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '12px', padding: '0.15rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                {status.monitored_positions.length} APERTE
+              </span>
+            </div>
+            <div style={{ background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Token</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Buy Price</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Picco</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Qty</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Investito</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Ore</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Azione</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {status.monitored_positions.map((pos, i) => {
+                    const dec = pos.buy_price < 0.01 ? 8 : pos.buy_price < 1 ? 6 : 4;
+                    return (
+                      <tr key={`${pos.symbol}-${i}`} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', fontFamily: 'monospace' }}>
+                        <td style={{ padding: '0.8rem 1rem', fontWeight: 'bold', color: '#a78bfa' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a78bfa', display: 'inline-block', animation: 'pulse 1.5s ease-in-out infinite' }}></span>
+                            {pos.symbol}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.8rem 1rem', color: '#e2e8f0' }}>${Number(pos.buy_price).toFixed(dec)}</td>
+                        <td style={{ padding: '0.8rem 1rem', color: '#f59e0b' }}>${Number(pos.peak_price || pos.buy_price).toFixed(dec)}</td>
+                        <td style={{ padding: '0.8rem 1rem', color: '#94a3b8' }}>{Number(pos.qty).toFixed(4)}</td>
+                        <td style={{ padding: '0.8rem 1rem', color: '#94a3b8' }}>${Number(pos.amount).toFixed(2)}</td>
+                        <td style={{ padding: '0.8rem 1rem', color: '#64748b', fontSize: '0.85rem' }}>{pos.timestamp}</td>
+                        <td style={{ padding: '0.8rem 1rem' }}>
+                          <button
+                            onClick={() => quickTrade(pos.symbol, 'sell', pos.amount)}
+                            style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+                          >✕ Chiudi ora</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div style={{ padding: '0.6rem 1rem', background: 'rgba(167,139,250,0.05)', color: '#64748b', fontSize: '0.78rem', borderTop: '1px solid rgba(167,139,250,0.1)' }}>
+                🔔 Trailing stop: -1.5% dal picco | 🛡️ Stop loss: -5% dal buy price | Controllo ogni 30 sec
+              </div>
+            </div>
           </div>
         )}
       </div>

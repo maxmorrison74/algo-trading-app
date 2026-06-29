@@ -126,6 +126,7 @@ class BotState:
         self.high_risk_arb_logs = []
         self.high_risk_arb_prices = {}
         self.high_risk_volatile_assets = []
+        self.monitored_positions = []  # [{symbol, buy_price, qty, amount, peak_price, timestamp}]
         self.loop_task = None
         self.aggressiveness = db_data.get("aggressiveness", 55.0)
         self.auto_bet_enabled = db_data.get("auto_bet_enabled", False)
@@ -210,6 +211,107 @@ engines = {
 }
 alpaca_engine = AlpacaEngine(bot_state)
 trade_lock = threading.Lock()
+
+
+def _fetch_ccxt_price(symbol: str) -> float:
+    """Recupera il prezzo corrente di un token da Binance via CCXT."""
+    try:
+        import ccxt
+        exchange = ccxt.binance({"enableRateLimit": True})
+        # symbol arriva come es. "DOGEUSDT" → convert to "DOGE/USDT"
+        if "/" not in symbol:
+            sym_fmt = symbol[:-4] + "/" + symbol[-4:] if symbol.endswith("USDT") else symbol
+        else:
+            sym_fmt = symbol
+        ticker = exchange.fetch_ticker(sym_fmt)
+        return float(ticker.get("last", 0) or 0)
+    except Exception as e:
+        print(f"[AUTO-EXIT] Errore fetch prezzo {symbol}: {e}")
+        return 0.0
+
+
+def _auto_exit_loop():
+    """Loop background: monitora le posizioni aperte e vende con trailing stop."""
+    import time
+    TRAILING_DROP = 0.015   # vendi se cala 1.5% dal picco
+    STOP_LOSS    = 0.05     # vendi se cala 5% dal prezzo d'acquisto
+    CHECK_INTERVAL = 30     # secondi tra un controllo e l'altro
+
+    print("[AUTO-EXIT] Loop di sorveglianza avviato.")
+    while True:
+        try:
+            positions = list(bot_state.monitored_positions)  # copia snapshot
+            for pos in positions:
+                symbol     = pos["symbol"]
+                buy_price  = pos["buy_price"]
+                qty        = pos["qty"]
+                amount     = pos["amount"]
+                peak_price = pos.get("peak_price", buy_price)
+
+                current_price = _fetch_ccxt_price(symbol)
+                if current_price <= 0:
+                    continue
+
+                # Aggiorna il picco
+                if current_price > peak_price:
+                    pos["peak_price"] = current_price
+                    peak_price = current_price
+
+                profit_pct   = (current_price - buy_price) / buy_price
+                drop_from_peak = (peak_price - current_price) / peak_price if peak_price > 0 else 0
+
+                should_sell = False
+                reason = ""
+
+                # Trailing stop: calo dal picco mentre in profit
+                if profit_pct > 0 and drop_from_peak >= TRAILING_DROP:
+                    should_sell = True
+                    reason = f"🔔 TRAILING STOP: -{drop_from_peak*100:.1f}% dal picco (profit era +{profit_pct*100:.1f}%)"
+
+                # Hard stop loss
+                elif profit_pct <= -STOP_LOSS:
+                    should_sell = True
+                    reason = f"🛡️ STOP LOSS: -{abs(profit_pct)*100:.1f}% dal prezzo d'acquisto"
+
+                if should_sell:
+                    realized_value = qty * current_price
+                    realized_profit = realized_value - amount
+                    bot_state.virtual_cash += realized_value
+                    pct_str = f"+{realized_profit:.2f}" if realized_profit >= 0 else f"{realized_profit:.2f}"
+                    log_msg = (f"[{datetime.now().strftime('%H:%M:%S')}] "
+                               f"🤖 AUTO-EXIT {symbol} {qty:.4f} @ ${current_price:.6f} "
+                               f"({pct_str}$) — {reason}")
+                    bot_state.high_risk_arb_logs.insert(0, log_msg)
+                    bot_state.add_log(log_msg)
+                    # Registra in trade_history
+                    bot_state.trade_history.append({
+                        "symbol": symbol,
+                        "side": "AUTO-EXIT",
+                        "profit_usd": round(realized_profit, 4),
+                        "profit_pct": round(profit_pct * 100, 2),
+                        "date": datetime.now().strftime("%Y-%m-%d %H:%M")
+                    })
+                    # Rimuovi dalla lista monitorata
+                    try:
+                        bot_state.monitored_positions.remove(pos)
+                    except ValueError:
+                        pass
+                    bot_state.save_state()
+                else:
+                    log_snap = (f"[{datetime.now().strftime('%H:%M:%S')}] "
+                                f"👁️ SORVEGLIANDO {symbol} @ ${current_price:.6f} "
+                                f"(P&L: {profit_pct*100:+.2f}%, picco: ${peak_price:.6f})")
+                    bot_state.high_risk_arb_logs.insert(0, log_snap)
+                    if len(bot_state.high_risk_arb_logs) > 100:
+                        bot_state.high_risk_arb_logs = bot_state.high_risk_arb_logs[:100]
+        except Exception as e:
+            print(f"[AUTO-EXIT] Errore nel loop: {e}")
+        time.sleep(CHECK_INTERVAL)
+
+
+# Avvia il loop auto-exit in background
+_auto_exit_thread = threading.Thread(target=_auto_exit_loop, daemon=True)
+_auto_exit_thread.start()
 def get_status():
     if not alpaca: return {"error": "Alpaca API non configurata."}
     pos_dict = {}
@@ -296,6 +398,7 @@ def get_status():
             "high_risk_arb_logs": getattr(bot_state, "high_risk_arb_logs", []),
             "high_risk_arb_prices": getattr(bot_state, "high_risk_arb_prices", {}),
             "high_risk_volatile_assets": getattr(bot_state, "high_risk_volatile_assets", []),
+            "monitored_positions": getattr(bot_state, "monitored_positions", []),
             "sports_logs": getattr(bot_state, "sports_logs", []),
             "active_surebets": getattr(bot_state, "active_surebets", []),
             "value_bets": getattr(bot_state, "value_bets", []),
@@ -405,12 +508,25 @@ async def high_risk_trade(payload: dict):
             if bot_state.virtual_cash < amount:
                 return {"error": "Fondi virtuali insufficienti"}
             bot_state.virtual_cash -= amount
-            profit_sim = 0.0
-            bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] ⚡ SCALP BUY {symbol} {qty:.4f} @ ${price:.4f} (${amount:.2f})")
+            # Registra in sorveglianza per auto-exit
+            bot_state.monitored_positions.append({
+                "symbol": symbol,
+                "buy_price": price,
+                "qty": qty,
+                "amount": amount,
+                "peak_price": price,
+                "timestamp": datetime.now().strftime("%H:%M:%S")
+            })
+            bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] ⚡ SCALP BUY {symbol} {qty:.4f} @ ${price:.6f} (${amount:.2f}) — 👁️ IN SORVEGLIANZA")
         else:
-            sim_profit = amount * 0.02  # simula un profit del 2% su sell rapido
-            bot_state.virtual_cash += amount + sim_profit
-            bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 💰 SCALP SELL {symbol} {qty:.4f} @ ${price:.4f} (+${sim_profit:.2f} sim)")
+            # Cerca ed elimina posizione monitorata per questo simbolo
+            current_value = qty * price
+            realized_profit = current_value - amount
+            bot_state.virtual_cash += current_value
+            # Rimuovi eventuali posizioni monitorate per questo symbol
+            bot_state.monitored_positions = [p for p in bot_state.monitored_positions if p["symbol"].upper() != symbol.upper()]
+            pct_str = f"+{realized_profit:.2f}" if realized_profit >= 0 else f"{realized_profit:.2f}"
+            bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 💰 SCALP SELL {symbol} {qty:.4f} @ ${price:.6f} ({pct_str}$) — posizione chiusa")
             
         bot_state.save_state()
         
@@ -421,7 +537,8 @@ async def high_risk_trade(payload: dict):
             "qty": round(qty, 6),
             "price": price,
             "amount": amount,
-            "virtual_cash": round(bot_state.virtual_cash, 2)
+            "virtual_cash": round(bot_state.virtual_cash, 2),
+            "monitored": side == "buy"
         }
     except Exception as e:
         return {"error": str(e)}
