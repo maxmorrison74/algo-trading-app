@@ -958,6 +958,34 @@ if os.path.exists(frontend_dist):
         }
         return FileResponse(os.path.join(frontend_dist, "index.html"), headers=headers)
 
+# --- LIFECYCLE EVENT FOR AUTORESTART ON BOOT ---
+@app.on_event("startup")
+def startup_event():
+    # Avvia i motori che erano attivi prima del riavvio/spegnimento
+    if bot_state.modules.get("trading", False):
+        bot_state.is_running = True
+        bot_state.add_log("Autostart: Avvio automatico Alpaca Engine...")
+        threading.Thread(target=alpaca_engine.loop, daemon=True).start()
+        
+    if bot_state.modules.get("crypto_arb", False) or bot_state.modules.get("high_risk_crypto_arb", False):
+        bot_state.add_log("Autostart: Avvio automatico DeFi Arbitrage Engine...")
+        threading.Thread(target=arb_engine.loop, daemon=True).start()
+        
+    if bot_state.modules.get("sports_arb", False):
+        bot_state.add_log("Autostart: Avvio automatico Sports Arbitrage Engine...")
+        t = threading.Thread(target=sports_engine.loop, daemon=True)
+        t.start()
+        
+    if bot_state.modules.get("ai_sports_sentiment", False):
+        bot_state.add_log("Autostart: Avvio automatico AI Sentiment Radar...")
+        t = threading.Thread(target=sentiment_engine.loop, daemon=True)
+        t.start()
+        
+    if bot_state.modules.get("ai_content", False):
+        bot_state.add_log("Autostart: Avvio automatico AI Content Creator...")
+        threading.Thread(target=ai_engine.loop, daemon=True).start()
+
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
