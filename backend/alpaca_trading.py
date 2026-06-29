@@ -239,9 +239,29 @@ class AlpacaEngine:
             else:
                 self._log(f"🧠 AI VETO PREDICTIVE: Setup SHORT su {symbol}, ma Groq prevede UP. Annullato.")
 
+    def is_shortable(self, symbol):
+        if not hasattr(self, "_shortable_cache"):
+            self._shortable_cache = {}
+        if symbol in self._shortable_cache:
+            return self._shortable_cache[symbol]
+        if "/" in symbol:
+            self._shortable_cache[symbol] = False
+            return False
+        try:
+            asset = self.alpaca_rest.get_asset(symbol)
+            self._shortable_cache[symbol] = asset.shortable
+            return asset.shortable
+        except Exception:
+            self._shortable_cache[symbol] = False
+            return False
+
     def execute_trade(self, symbol, current_price, side, atr):
         self._log(f"⚡ SETUP {side} RILEVATO su {symbol}: Prezzo {current_price:.2f} (ATR: {atr:.2f})")
         
+        if side == "SHORT" and not self.is_shortable(symbol):
+            self._log(f"⚠️ SKIP SHORT su {symbol}: L'asset non è shortabile su Alpaca. Operazione annullata.")
+            return
+            
         sentiment, confidence = self.get_llm_sentiment_with_confidence(symbol)
         
         # Veto basato su sentiment
