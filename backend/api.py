@@ -214,17 +214,33 @@ alpaca_engine = AlpacaEngine(bot_state)
 trade_lock = threading.Lock()
 
 
+def _normalize_ccxt_symbol(symbol: str) -> str:
+    symbol = symbol.upper().strip()
+
+    if "/" in symbol:
+        return symbol
+
+    if symbol.endswith("USDT"):
+        return symbol[:-4] + "/USDT"
+
+    return symbol + "/USDT"
+
+
 def _fetch_ccxt_price(symbol: str) -> float:
-    """Recupera il prezzo corrente di un token da Binance via CCXT."""
     try:
         import ccxt
         exchange = ccxt.binance({"enableRateLimit": True})
-        if "/" not in symbol:
-            sym_fmt = symbol[:-4] + "/" + symbol[-4:] if symbol.endswith("USDT") else symbol
-        else:
-            sym_fmt = symbol
+
+        sym_fmt = _normalize_ccxt_symbol(symbol)
+        markets = exchange.load_markets()
+
+        if sym_fmt not in markets:
+            print(f"[AUTO-EXIT] Simbolo non trovato su Binance: {symbol} -> {sym_fmt}")
+            return 0.0
+
         ticker = exchange.fetch_ticker(sym_fmt)
-        return float(ticker.get("last", 0) or 0)
+        return float(ticker.get("last") or ticker.get("close") or 0.0)
+
     except Exception as e:
         print(f"[AUTO-EXIT] Errore fetch prezzo {symbol}: {e}")
         return 0.0
