@@ -700,6 +700,10 @@ async def high_risk_trade(payload: dict):
                 "timestamp": datetime.now().strftime("%H:%M:%S")
             })
             bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] ⚡ SCALP BUY {symbol} {qty:.4f} @ ${price:.6f} (${amount:.2f}) — 👁️ IN SORVEGLIANZA")
+            _send_telegram_trade(
+                event="BUY", symbol=symbol, qty=qty, price=price,
+                reason="Acquisto manuale rapido", virtual_cash=bot_state.virtual_cash
+            )
         else:
             # Cerca ed elimina posizione monitorata per questo simbolo
             current_value = qty * price
@@ -709,6 +713,11 @@ async def high_risk_trade(payload: dict):
             bot_state.monitored_positions = [p for p in bot_state.monitored_positions if p["symbol"].upper() != symbol.upper()]
             pct_str = f"+{realized_profit:.2f}" if realized_profit >= 0 else f"{realized_profit:.2f}"
             bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 💰 SCALP SELL {symbol} {qty:.4f} @ ${price:.6f} ({pct_str}$) — posizione chiusa")
+            _send_telegram_trade(
+                event="SELL", symbol=symbol, qty=qty, price=price,
+                profit_usd=realized_profit, reason="Vendita manuale rapida",
+                virtual_cash=bot_state.virtual_cash
+            )
             
         bot_state.save_state()
         

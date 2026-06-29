@@ -992,8 +992,9 @@ function OmniApp() {
                   <tr style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Token</th>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Buy Price</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Picco</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Target / Picco</th>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>📊 P&L</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Trend</th>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Qty</th>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Investito</th>
                     <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Ore</th>
@@ -1003,24 +1004,55 @@ function OmniApp() {
                 <tbody>
                   {status.monitored_positions.map((pos, i) => {
                     const dec = pos.buy_price < 0.01 ? 8 : pos.buy_price < 1 ? 6 : 4;
+                    const currentPrice = status.high_risk_arb_prices?.[pos.symbol]?.binance || pos.buy_price;
+                    const pnlPct = ((currentPrice - pos.buy_price) / pos.buy_price) * 100;
+                    const pnlColor = pnlPct >= 0 ? '#10b981' : '#ef4444';
+                    
+                    const sparklineData = pos.price_history ? pos.price_history.map(ph => ({ pnl: ((ph.price - pos.buy_price) / pos.buy_price) * 100 })) : [];
+
                     return (
                       <tr key={`${pos.symbol}-${i}`} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', fontFamily: 'monospace' }}>
                         <td style={{ padding: '0.8rem 1rem', fontWeight: 'bold', color: '#a78bfa' }}>
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                          <span 
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
+                            onClick={() => openAiSignal({ symbol: pos.symbol, price: currentPrice, volatility: 0, change_24h: 0 })}
+                            title="Chiedi all'IA"
+                          >
                             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a78bfa', display: 'inline-block', animation: 'pulse 1.5s ease-in-out infinite' }}></span>
-                            {pos.symbol}
+                            <span style={{ borderBottom: '1px dashed #a78bfa' }}>{pos.symbol}</span>
                           </span>
                         </td>
                         <td style={{ padding: '0.8rem 1rem', color: '#e2e8f0' }}>${Number(pos.buy_price).toFixed(dec)}</td>
-                        <td style={{ padding: '0.8rem 1rem', color: '#f59e0b' }}>${Number(pos.peak_price || pos.buy_price).toFixed(dec)}</td>
+                        <td style={{ padding: '0.8rem 1rem', color: '#f59e0b' }}>
+                          {pos.target_price && <div style={{ color: '#10b981', fontSize: '0.8rem', fontWeight: 'bold' }}>🎯 ${Number(pos.target_price).toFixed(dec)}</div>}
+                          <div>${Number(pos.peak_price || pos.buy_price).toFixed(dec)}</div>
+                        </td>
+                        <td style={{ padding: '0.8rem 1rem', color: pnlColor, fontWeight: 'bold' }}>{pnlPct >= 0 ? '+' : ''}{pnlPct.toFixed(2)}%</td>
+                        <td style={{ padding: '0.8rem 1rem' }}>
+                           <HighRiskPnLSparkline history={sparklineData} />
+                        </td>
                         <td style={{ padding: '0.8rem 1rem', color: '#94a3b8' }}>{Number(pos.qty).toFixed(4)}</td>
                         <td style={{ padding: '0.8rem 1rem', color: '#94a3b8' }}>${Number(pos.amount).toFixed(2)}</td>
                         <td style={{ padding: '0.8rem 1rem', color: '#64748b', fontSize: '0.85rem' }}>{pos.timestamp}</td>
-                        <td style={{ padding: '0.8rem 1rem' }}>
+                        <td style={{ padding: '0.8rem 1rem', display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                          <button
+                            onClick={() => {
+                              const t = prompt(`Inserisci Target Price per ${pos.symbol}:`, pos.target_price || '');
+                              if (t !== null) {
+                                fetch('/api/high-risk/set-target', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ symbol: pos.symbol, target_price: t ? parseFloat(t) : null })
+                                });
+                              }
+                            }}
+                            style={{ padding: '0.35rem 0.6rem', borderRadius: '6px', background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', color: '#10b981', cursor: 'pointer', fontSize: '0.8rem' }}
+                            title="Set Target Price"
+                          >🎯</button>
                           <button
                             onClick={() => quickTrade(pos.symbol, 'sell', pos.amount)}
                             style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
-                          >✕ Chiudi ora</button>
+                          >✕ Chiudi</button>
                         </td>
                       </tr>
                     );
@@ -1029,6 +1061,66 @@ function OmniApp() {
               </table>
               <div style={{ padding: '0.6rem 1rem', background: 'rgba(167,139,250,0.05)', color: '#64748b', fontSize: '0.78rem', borderTop: '1px solid rgba(167,139,250,0.1)' }}>
                 🔔 Trailing stop: -1.5% dal picco | 🛡️ Stop loss: -5% dal buy price | Controllo ogni 30 sec
+              </div>
+            </div>
+          </div>
+        )}
+
+        {status.reentry_watchlist && status.reentry_watchlist.length > 0 && (
+          <div style={{ marginTop: '2rem' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1rem' }}>
+              <span style={{ fontSize: '1.3rem' }}>🔄</span>
+              <h3 style={{ margin: 0, color: '#fcd34d' }}>Re-Entry Watchlist</h3>
+              <span style={{ background: 'rgba(252,211,77,0.15)', color: '#fcd34d', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.15rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold' }}>
+                {status.reentry_watchlist.length} IN ATTESA
+              </span>
+            </div>
+            <div style={{ background: 'rgba(252,211,77,0.04)', border: '1px solid rgba(252,211,77,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: 'rgba(252,211,77,0.08)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Token</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Exit Price (Prev)</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Re-entry Trigger (Drop)</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Qty Base</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Tentativo</th>
+                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Azione</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {status.reentry_watchlist.map((pos, i) => {
+                    const dec = pos.exit_price < 0.01 ? 8 : pos.exit_price < 1 ? 6 : 4;
+                    const trigger = pos.exit_price * (1 - pos.drop_target);
+                    return (
+                      <tr key={`${pos.symbol}-reentry-${i}`} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', fontFamily: 'monospace' }}>
+                        <td style={{ padding: '0.8rem 1rem', fontWeight: 'bold', color: '#fcd34d' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}>
+                            {pos.symbol}
+                          </span>
+                        </td>
+                        <td style={{ padding: '0.8rem 1rem', color: '#e2e8f0' }}>${Number(pos.exit_price).toFixed(dec)}</td>
+                        <td style={{ padding: '0.8rem 1rem', color: '#ef4444' }}>${Number(trigger).toFixed(dec)} ({(pos.drop_target * 100).toFixed(1)}%)</td>
+                        <td style={{ padding: '0.8rem 1rem', color: '#94a3b8' }}>{Number(pos.qty).toFixed(4)}</td>
+                        <td style={{ padding: '0.8rem 1rem', color: '#64748b' }}>{pos.attempts} / 3</td>
+                        <td style={{ padding: '0.8rem 1rem' }}>
+                          <button
+                            onClick={() => {
+                              fetch('/api/high-risk/cancel-reentry', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ symbol: pos.symbol })
+                              });
+                            }}
+                            style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
+                          >✕ Annulla</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <div style={{ padding: '0.6rem 1rem', background: 'rgba(252,211,77,0.05)', color: '#64748b', fontSize: '0.78rem', borderTop: '1px solid rgba(252,211,77,0.1)' }}>
+                🔄 Ricompra automatica quando il prezzo cala e c'è segnale BUY. Massimo 3 tentativi.
               </div>
             </div>
           </div>
