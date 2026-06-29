@@ -70,31 +70,72 @@ class AlpacaEngine:
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         self.bot_state.add_log(f"[{timestamp}] 📈 ALPACA: {message}")
 
-    def get_llm_sentiment(self, symbol):
+    def predict_pattern_with_groq(self, symbol, close_prices):
         if not self.llm_enabled:
-            return "NEUTRAL"
+            return "UP"
             
         try:
-            news = self.alpaca_rest.get_news(symbol, limit=3)
+            import json
+            prices_str = ", ".join([f"{p:.2f}" for p in close_prices.tail(30)])
+            prompt = (
+                f"Agisci come un analista quantitativo di time-series. Analizza questa sequenza di prezzi di chiusura recenti (dal meno recente al più recente) per {symbol}:\n"
+                f"[{prices_str}]\n\n"
+                f"Predici se la prossima chiusura sarà maggiore (UP) o minore (DOWN) del prezzo corrente ({close_prices.iloc[-1]:.2f}).\n"
+                f"Rispondi rigidamente in formato JSON con questo schema:\n"
+                f"{{\n  \"prediction\": \"UP\" | \"DOWN\",\n  \"confidence\": 1,\n  \"reason\": \"spiegazione tecnica\"\n}}"
+            )
+            response = self.model.chat.completions.create(
+                messages=[{"role": "user", "content": prompt}],
+                model="llama-3.1-8b-instant",
+                response_format={"type": "json_object"}
+            )
+            data = json.loads(response.choices[0].message.content)
+            prediction = data.get("prediction", "UP").strip().upper()
+            self._log(f"🧠 AI Predictor per {symbol}: {prediction} (Confidenza: {data.get('confidence')}/5) - {data.get('reason')}")
+            return prediction
+        except Exception as e:
+            self._log(f"Errore Groq Pattern Predictor per {symbol}: {e}")
+            return "UP"
+
+    def get_llm_sentiment_with_confidence(self, symbol):
+        if not self.llm_enabled:
+            return "NEUTRAL", 3
+            
+        try:
+            import json
+            news = self.alpaca_rest.get_news(symbol, limit=6)
             headlines = [n.headline for n in news]
             if not headlines:
-                return "NEUTRAL"
+                return "NEUTRAL", 3
                 
-            prompt = f"Analizza il sentiment di queste notizie finanziarie su {symbol}. Rispondi SOLO con BULLISH, BEARISH, o NEUTRAL.\nNotizie:\n"
+            prompt = (
+                f"Analizza il sentiment di queste notizie finanziarie su {symbol}.\n"
+                f"Notizie:\n"
+            )
             for n in headlines:
                 prompt += f"- {n}\n"
+            prompt += (
+                f"\nRispondi RIGIDAMENTE in formato JSON con la seguente struttura:\n"
+                f"{{\n"
+                f"  \"sentiment\": \"BULLISH\" | \"BEARISH\" | \"NEUTRAL\",\n"
+                f"  \"confidence\": 1,\n"
+                f"  \"reason\": \"breve spiegazione\"\n"
+                f"}}"
+            )
                 
             response = self.model.chat.completions.create(
                 messages=[{"role": "user", "content": prompt}],
-                model="llama-3.1-8b-instant"
+                model="llama-3.1-8b-instant",
+                response_format={"type": "json_object"}
             )
-            result = response.choices[0].message.content.strip().upper()
-            if "BULLISH" in result: return "BULLISH"
-            if "BEARISH" in result: return "BEARISH"
-            return "NEUTRAL"
+            data = json.loads(response.choices[0].message.content)
+            sentiment = data.get("sentiment", "NEUTRAL").strip().upper()
+            confidence = int(data.get("confidence", 3))
+            self._log(f"🧠 AI Sentiment per {symbol}: {sentiment} (Confidenza: {confidence}/5) - {data.get('reason')}")
+            return sentiment, confidence
         except Exception as e:
-            self._log(f"Errore Groq API: {e}")
-            return "NEUTRAL"
+            self._log(f"Errore Groq Sentiment API: {e}")
+            return "NEUTRAL", 3
 
     def prefill_history(self):
         """Pre-carica 50 candele storiche per ogni simbolo per calcolare RSI/BB subito"""
@@ -148,21 +189,47 @@ class AlpacaEngine:
         bb_lower = float((rolling_mean - (rolling_std * 2)).iloc[-1])
         bb_upper = float((rolling_mean + (rolling_std * 2)).iloc[-1])
         
-        self.bot_state.latest_predictions[symbol] = f"RSI: {rsi:.1f} | BB_L: {bb_lower:.2f} | BB_U: {bb_upper:.2f}"
+        # Calcolo ATR (Average True Range) a 14 periodi
+        highs = df['high']
+        lows = df['low']
+        closes = df['close']
+        prev_closes = closes.shift(1)
+        tr = pd.concat([
+            highs - lows,
+            (highs - prev_closes).abs(),
+            (lows - prev_closes).abs()
+        ], axis=1).max(axis=1)
+        atr_series = tr.rolling(window=14).mean()
+        
+        if len(atr_series) >= 14 and not pd.isna(atr_series.iloc[-1]):
+            atr = float(atr_series.iloc[-1])
+        else:
+            atr = current_price * 0.01
+
+        self.bot_state.latest_predictions[symbol] = f"RSI: {rsi:.1f} | BB_L: {bb_lower:.2f} | BB_U: {bb_upper:.2f} | ATR: {atr:.2f}"
         
         # Check Long (Mean Reversion dal basso)
         if current_price < bb_lower and rsi < 30:
-            self.execute_trade(symbol, current_price, "LONG")
+            pattern = self.predict_pattern_with_groq(symbol, close_prices)
+            if pattern == "UP":
+                self.execute_trade(symbol, current_price, "LONG", atr)
+            else:
+                self._log(f"🧠 AI VETO PREDICTIVE: Setup LONG su {symbol}, ma Groq prevede DOWN. Annullato.")
             
         # Check Short (Mean Reversion dall'alto)
         elif current_price > bb_upper and rsi > 70:
-            self.execute_trade(symbol, current_price, "SHORT")
+            pattern = self.predict_pattern_with_groq(symbol, close_prices)
+            if pattern == "DOWN":
+                self.execute_trade(symbol, current_price, "SHORT", atr)
+            else:
+                self._log(f"🧠 AI VETO PREDICTIVE: Setup SHORT su {symbol}, ma Groq prevede UP. Annullato.")
 
-    def execute_trade(self, symbol, current_price, side):
-        self._log(f"⚡ SETUP {side} RILEVATO su {symbol}: Prezzo {current_price:.2f}")
+    def execute_trade(self, symbol, current_price, side, atr):
+        self._log(f"⚡ SETUP {side} RILEVATO su {symbol}: Prezzo {current_price:.2f} (ATR: {atr:.2f})")
         
-        sentiment = self.get_llm_sentiment(symbol)
+        sentiment, confidence = self.get_llm_sentiment_with_confidence(symbol)
         
+        # Veto basato su sentiment
         if side == "LONG" and sentiment == "BEARISH":
             self._log(f"🧠 AI VETO: Sentiment Bearish per {symbol}. Long annullato.")
             return
@@ -170,21 +237,41 @@ class AlpacaEngine:
             self._log(f"🧠 AI VETO: Sentiment Bullish per {symbol}. Short annullato.")
             return
             
-        self._log(f"🧠 AI CONFERMA: Sentiment = {sentiment}. Esecuzione Ordine!")
+        # Veto basato su bassa confidenza (1 o 2)
+        if confidence <= 2:
+            self._log(f"🧠 AI VETO: Confidenza Groq troppo bassa ({confidence}/5). Operazione annullata per ridurre il rischio.")
+            return
+            
+        self._log(f"🧠 AI CONFERMA: Sentiment = {sentiment} (Confidenza: {confidence}/5). Esecuzione Ordine!")
         
         # Sincronizza per sicurezza
         self.sync_portfolio()
         
-        trade_amount = self.bot_state.virtual_cash * 0.1 # 10% del capitale
+        # Position Sizing Dinamico basato su confidenza
+        size_multiplier = 0.05
+        if confidence == 4:
+            size_multiplier = 0.10
+        elif confidence == 5:
+            size_multiplier = 0.15
+            
+        trade_amount = self.bot_state.virtual_cash * size_multiplier
         if trade_amount < 100:
             return
             
         qty = int(trade_amount // current_price)
         if qty <= 0: return
         
-        # Bracket Order parameters
-        take_profit_price = current_price * 1.05 if side == "LONG" else current_price * 0.95
-        stop_loss_price = current_price * 0.98 if side == "LONG" else current_price * 1.02
+        # Bracket Order parameters dinamici con ATR
+        if side == "LONG":
+            take_profit_price = current_price + (3.0 * atr)
+            stop_loss_price = current_price - (1.5 * atr)
+        else:
+            take_profit_price = current_price - (3.0 * atr)
+            stop_loss_price = current_price + (1.5 * atr)
+        
+        # Clamp di sicurezza per evitare stop/profit impossibili
+        take_profit_price = max(0.01, take_profit_price)
+        stop_loss_price = max(0.01, stop_loss_price)
         
         alpaca_side = 'buy' if side == "LONG" else 'sell'
         
@@ -199,7 +286,7 @@ class AlpacaEngine:
                 take_profit={'limit_price': round(take_profit_price, 2)},
                 stop_loss={'stop_price': round(stop_loss_price, 2), 'limit_price': round(stop_loss_price, 2)}
             )
-            self._log(f"🚀 ORDINE REALE {side} {qty} {symbol} INVIATO AD ALPACA (TP: {take_profit_price:.2f}, SL: {stop_loss_price:.2f})")
+            self._log(f"🚀 ORDINE REALE {side} {qty} {symbol} INVIATO AD ALPACA (TP: {take_profit_price:.2f}, SL: {stop_loss_price:.2f} | Taglia: {size_multiplier*100:.0f}%)")
         except Exception as e:
             self._log(f"❌ ERRORE INVIO ORDINE: {e}")
 

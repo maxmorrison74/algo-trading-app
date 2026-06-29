@@ -236,6 +236,91 @@ class CryptoArbitrage:
         except Exception as e:
             self._log(f"❌ Eccezione fatale esecuzione {pair}: {e}")
 
+    async def verify_depth_and_adjust_qty(self, pair, buy_exchange, sell_exchange, qty):
+        """
+        Verifica la profondità dell'order book per evitare lo slippage.
+        Ritorna la quantità ottimale da scambiare (pari o inferiore a qty).
+        Se non c'è abbastanza liquidità o lo spread svanisce, ritorna 0.0.
+        """
+        ccxt_binance_sym = self.ccxt_symbols[pair]
+        ccxt_kraken_sym = self.kraken_streams[pair]
+        
+        buy_client = self.binance_client if buy_exchange == "binance" else self.kraken_client
+        buy_sym = ccxt_binance_sym if buy_exchange == "binance" else ccxt_kraken_sym
+        
+        sell_client = self.binance_client if sell_exchange == "binance" else self.kraken_client
+        sell_sym = ccxt_binance_sym if sell_exchange == "binance" else ccxt_kraken_sym
+        
+        try:
+            # Recupera gli order book in parallelo
+            buy_ob, sell_ob = await asyncio.gather(
+                buy_client.fetch_order_book(buy_sym, limit=5),
+                sell_client.fetch_order_book(sell_sym, limit=5)
+            )
+            
+            # Per comprare (buy_exchange), guardiamo gli ASK (lettera)
+            # Per vendere (sell_exchange), guardiamo i BID (denaro)
+            asks = buy_ob.get('asks', [])
+            bids = sell_ob.get('bids', [])
+            
+            if not asks or not bids:
+                return 0.0
+                
+            # Calcoliamo quanta quantità qty è disponibile a prezzi convenienti
+            accum_qty_buy = 0.0
+            weighted_buy_sum = 0.0
+            
+            for price, vol in asks:
+                needed = qty - accum_qty_buy
+                if needed <= 0:
+                    break
+                take_vol = min(vol, needed)
+                accum_qty_buy += take_vol
+                weighted_buy_sum += price * take_vol
+                
+            if accum_qty_buy < qty * 0.5: # Se non c'è nemmeno il 50% della liquidità richiesta
+                self._log(f"⚠️ LIQUIDITÀ INSUFFICIENTE (Buy) su {buy_exchange} per {pair}: richiesti {qty}, trovati solo {accum_qty_buy:.4f}")
+                return 0.0
+                
+            avg_buy_price = weighted_buy_sum / accum_qty_buy
+            
+            # Lato Sell (Bid)
+            accum_qty_sell = 0.0
+            weighted_sell_sum = 0.0
+            
+            for price, vol in bids:
+                needed = qty - accum_qty_sell
+                if needed <= 0:
+                    break
+                take_vol = min(vol, needed)
+                accum_qty_sell += take_vol
+                weighted_sell_sum += price * take_vol
+                
+            if accum_qty_sell < qty * 0.5:
+                self._log(f"⚠️ LIQUIDITÀ INSUFFICIENTE (Sell) su {sell_exchange} per {pair}: richiesti {qty}, trovati solo {accum_qty_sell:.4f}")
+                return 0.0
+                
+            avg_sell_price = weighted_sell_sum / accum_qty_sell
+            
+            # Quantità massima eseguibile
+            exec_qty = min(accum_qty_buy, accum_qty_sell)
+            
+            # Verifica se lo spread netto basato sui prezzi reali (ponderati) è ancora profittevole
+            total_fee_perc = self.fees['binance'] + self.fees['kraken']
+            real_spread = avg_sell_price - avg_buy_price
+            real_profit_perc = real_spread / avg_buy_price
+            real_net_profit_perc = real_profit_perc - total_fee_perc
+            
+            if real_net_profit_perc <= 0.0001:
+                self._log(f"⚠️ SLIPPAGE PROTECT: Lo spread stimato sui book per {pair} svanisce a causa dei volumi (Profitto Netto Stimato: {real_net_profit_perc*100:.3f}%). Trade annullato.")
+                return 0.0
+                
+            return exec_qty
+            
+        except Exception as e:
+            self._log(f"⚠️ Impossibile verificare profondità book per {pair}: {e}. Uso quantità di default.")
+            return qty
+
     async def check_arbitrage(self, pair):
         b_bid = self.prices[pair]["binance"]["bid"]
         b_ask = self.prices[pair]["binance"]["ask"]
@@ -266,12 +351,16 @@ class CryptoArbitrage:
         if net_profit1_perc > 0.0001: # 0.01% Netto minimo richiesto
             self.last_execution_time[pair] = current_time
             self._log(f"⚡ {pair} SPREAD RILEVATO: Buy KRA @ {k_ask:.3f} | Sell BIN @ {b_bid:.3f} | Net Prof %: {net_profit1_perc*100:.3f}%")
-            await self.execute_hedging(pair, "kraken", "binance", k_ask, b_bid, qty)
+            opt_qty = await self.verify_depth_and_adjust_qty(pair, "kraken", "binance", qty)
+            if opt_qty > 0.0:
+                await self.execute_hedging(pair, "kraken", "binance", k_ask, b_bid, opt_qty)
             
         elif net_profit2_perc > 0.0001:
             self.last_execution_time[pair] = current_time
             self._log(f"⚡ {pair} SPREAD RILEVATO: Buy BIN @ {b_ask:.3f} | Sell KRA @ {k_bid:.3f} | Net Prof %: {net_profit2_perc*100:.3f}%")
-            await self.execute_hedging(pair, "binance", "kraken", b_ask, k_bid, qty)
+            opt_qty = await self.verify_depth_and_adjust_qty(pair, "binance", "kraken", qty)
+            if opt_qty > 0.0:
+                await self.execute_hedging(pair, "binance", "kraken", b_ask, k_bid, opt_qty)
 
     async def _arb_loop(self):
         self._log(f"🚀 Avvio CCXT Arbitrage Engine ({'PAPER' if self.paper_mode else 'REAL'} MODE)")
