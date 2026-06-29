@@ -45,6 +45,31 @@ function OmniApp() {
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [executionMessage, setExecutionMessage] = useState("");
 
+  // High Risk Quick Scalping state
+  const [tradeSize, setTradeSize] = useState(100);
+  const [tradeResult, setTradeResult] = useState(null);
+
+  const quickTrade = async (symbol, side, amount) => {
+    setTradeResult(null);
+    try {
+      const res = await fetch('/api/high-risk/trade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol, side, amount })
+      });
+      const data = await res.json();
+      setTradeResult(data);
+      // Aggiorna il saldo virtuale nel context locale
+      if (!data.error && data.virtual_cash !== undefined) {
+        setStatus(prev => ({ ...prev, cash: data.virtual_cash }));
+      }
+      // Cancella il messaggio dopo 5 secondi
+      setTimeout(() => setTradeResult(null), 5000);
+    } catch (e) {
+      setTradeResult({ error: 'Errore di rete: ' + e.message });
+    }
+  };
+
   const checkAuthMemory = () => {
     const authTime = localStorage.getItem('omni_auth_time');
     if (authTime) {
@@ -759,14 +784,123 @@ function OmniApp() {
         </div>
 
         <h3 style={{ color: '#ef4444', marginTop: '2rem', marginBottom: '1rem' }}>Radar Inefficienze HIGH RISK</h3>
-        <div style={{ background: '#1c1917', padding: '1.5rem', borderRadius: '8px', height: '250px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.9rem', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
+        <div style={{ background: '#1c1917', padding: '1.5rem', borderRadius: '8px', height: '200px', overflowY: 'auto', fontFamily: 'monospace', fontSize: '0.9rem', color: '#f87171', border: '1px solid rgba(239, 68, 68, 0.2)' }}>
           {status.high_risk_arb_logs?.map((l, i) => (
-            <div key={i} style={{ marginBottom: '0.5rem', color: l.includes("HEDGE") ? '#f59e0b' : '#f87171' }}>{l}</div>
+            <div key={i} style={{ marginBottom: '0.5rem', color: l.includes("HEDGE") || l.includes("SCALP") ? '#f59e0b' : '#f87171' }}>{l}</div>
           ))}
           {(!status.high_risk_arb_logs || status.high_risk_arb_logs.length === 0) && (
             <div style={{ color: '#78716c' }}>Radar ad alto rischio inattivo. Clicca su Attiva Motore Alto Rischio per avviare il monitoraggio dei book...</div>
           )}
         </div>
+
+        <hr style={{ margin: '3rem 0 2rem 0', borderColor: 'rgba(239, 68, 68, 0.15)' }} />
+
+        {/* --- VOLATILITY RADAR + QUICK SCALPING --- */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+          <div style={{ fontSize: '1.5rem' }}>🌡️</div>
+          <div>
+            <h2 style={{ margin: 0, color: '#f59e0b' }}>Volatility Radar & Quick Scalping</h2>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.3rem' }}>
+              Top 5 crypto più volatili nelle ultime 24h — buy/sell rapido con 1 click
+            </div>
+          </div>
+        </div>
+
+        {/* Size selector */}
+        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center' }}>
+          <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Size trade:</span>
+          {[50, 100, 250, 500].map(s => (
+            <button
+              key={s}
+              onClick={() => setTradeSize(s)}
+              style={{
+                padding: '0.4rem 0.9rem', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 'bold',
+                background: tradeSize === s ? '#f59e0b' : 'rgba(255,255,255,0.05)',
+                color: tradeSize === s ? '#000' : 'var(--text-primary)',
+                border: tradeSize === s ? 'none' : '1px solid rgba(255,255,255,0.1)'
+              }}
+            >${s}</button>
+          ))}
+          <span style={{ marginLeft: 'auto', color: '#10b981', fontWeight: 'bold' }}>
+            💰 Saldo Virtuale: ${Number(status.cash || 0).toFixed(2)}
+          </span>
+        </div>
+
+        {/* Volatile assets table with BUY/SELL buttons */}
+        {(!status.high_risk_volatile_assets || status.high_risk_volatile_assets.length === 0) ? (
+          <div style={{ background: 'rgba(245, 158, 11, 0.05)', border: '1px dashed rgba(245, 158, 11, 0.3)', borderRadius: '12px', padding: '2rem', textAlign: 'center', color: '#78716c' }}>
+            🌡️ Radar inattivo — Attiva il motore HIGH RISK per scoprire le top crypto più volatili del momento
+          </div>
+        ) : (
+          <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.15)', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+              <thead>
+                <tr style={{ background: 'rgba(245, 158, 11, 0.08)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
+                  <th style={{ padding: '0.9rem 1rem' }}>Rank</th>
+                  <th style={{ padding: '0.9rem 1rem' }}>Token</th>
+                  <th style={{ padding: '0.9rem 1rem' }}>Prezzo</th>
+                  <th style={{ padding: '0.9rem 1rem' }}>Volatilità 24h</th>
+                  <th style={{ padding: '0.9rem 1rem' }}>Variazione %</th>
+                  <th style={{ padding: '0.9rem 1rem' }}>Quick Trade</th>
+                </tr>
+              </thead>
+              <tbody>
+                {status.high_risk_volatile_assets.map((asset, i) => {
+                  const isPositive = asset.change_24h >= 0;
+                  const isVeryVolatile = asset.volatility > 10;
+                  const decimals = asset.price < 0.01 ? 8 : asset.price < 1 ? 6 : 4;
+                  return (
+                    <tr key={asset.symbol} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', fontFamily: 'monospace' }}>
+                      <td style={{ padding: '0.9rem 1rem', color: '#f59e0b', fontWeight: 'bold' }}>#{i + 1}</td>
+                      <td style={{ padding: '0.9rem 1rem' }}>
+                        <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontSize: '1rem' }}>{asset.symbol}</div>
+                        <div style={{ fontSize: '0.75rem', color: '#64748b' }}>{asset.pair}</div>
+                      </td>
+                      <td style={{ padding: '0.9rem 1rem', color: '#e2e8f0' }}>${asset.price.toFixed(decimals)}</td>
+                      <td style={{ padding: '0.9rem 1rem' }}>
+                        <span style={{
+                          background: isVeryVolatile ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.1)',
+                          color: isVeryVolatile ? '#ef4444' : '#f59e0b',
+                          padding: '0.2rem 0.6rem', borderRadius: '4px', fontWeight: 'bold'
+                        }}>
+                          {asset.volatility.toFixed(1)}%
+                        </span>
+                      </td>
+                      <td style={{ padding: '0.9rem 1rem', color: isPositive ? '#10b981' : '#ef4444', fontWeight: 'bold' }}>
+                        {isPositive ? '+' : ''}{asset.change_24h.toFixed(2)}%
+                      </td>
+                      <td style={{ padding: '0.9rem 1rem' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          <button
+                            id={`buy-${asset.symbol}`}
+                            onClick={() => quickTrade(asset.symbol, 'buy', tradeSize)}
+                            style={{ padding: '0.4rem 0.9rem', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.2)', border: '1px solid #10b981', color: '#10b981', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                          >⬆ BUY</button>
+                          <button
+                            id={`sell-${asset.symbol}`}
+                            onClick={() => quickTrade(asset.symbol, 'sell', tradeSize)}
+                            style={{ padding: '0.4rem 0.9rem', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                          >⬇ SELL</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {tradeResult && (
+          <div style={{
+            marginTop: '1rem', padding: '0.8rem 1.2rem', borderRadius: '8px',
+            background: tradeResult.error ? 'rgba(239,68,68,0.1)' : 'rgba(16,185,129,0.1)',
+            border: `1px solid ${tradeResult.error ? '#ef4444' : '#10b981'}`,
+            color: tradeResult.error ? '#ef4444' : '#10b981', fontFamily: 'monospace', fontSize: '0.9rem'
+          }}>
+            {tradeResult.error ? `❌ ${tradeResult.error}` : `✅ ${tradeResult.side?.toUpperCase()} ${tradeResult.qty} ${tradeResult.symbol} @ $${tradeResult.price?.toFixed ? tradeResult.price.toFixed(6) : tradeResult.price} — Saldo: $${tradeResult.virtual_cash}`}
+          </div>
+        )}
       </div>
     );
   };

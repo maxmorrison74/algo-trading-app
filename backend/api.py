@@ -125,6 +125,7 @@ class BotState:
         self.high_watermarks = db_data.get("high_watermarks", {})
         self.high_risk_arb_logs = []
         self.high_risk_arb_prices = {}
+        self.high_risk_volatile_assets = []
         self.loop_task = None
         self.aggressiveness = db_data.get("aggressiveness", 55.0)
         self.auto_bet_enabled = db_data.get("auto_bet_enabled", False)
@@ -294,6 +295,7 @@ def get_status():
             "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
             "high_risk_arb_logs": getattr(bot_state, "high_risk_arb_logs", []),
             "high_risk_arb_prices": getattr(bot_state, "high_risk_arb_prices", {}),
+            "high_risk_volatile_assets": getattr(bot_state, "high_risk_volatile_assets", []),
             "sports_logs": getattr(bot_state, "sports_logs", []),
             "active_surebets": getattr(bot_state, "active_surebets", []),
             "value_bets": getattr(bot_state, "value_bets", []),
@@ -365,6 +367,64 @@ async def toggle_module(payload: dict):
             "ai_logs": getattr(bot_state, "ai_logs", []),
             "ai_videos": getattr(bot_state, "ai_videos", [])}
     return {"error": "Modulo non trovato"}
+
+
+@app.post("/api/high-risk/trade")
+async def high_risk_trade(payload: dict):
+    """
+    Endpoint per trading manuale rapido nella sezione HIGH RISK.
+    Accetta: symbol (es. "DOGEUSDT"), side ("buy"/"sell"), amount (USD)
+    """
+    symbol = payload.get("symbol", "").upper()
+    side = payload.get("side", "buy")
+    amount = float(payload.get("amount", 100))
+    
+    if not symbol or side not in ["buy", "sell"]:
+        return {"error": "Parametri non validi (symbol, side, amount)"}
+    
+    try:
+        price = 0.0
+        # Cerca il prezzo corrente dalla lista degli asset volatili
+        for asset in getattr(bot_state, "high_risk_volatile_assets", []):
+            if asset["symbol"].upper() == symbol.upper():
+                price = float(asset["price"])
+                break
+        # Fallback: cerca nei prezzi dell'arbitraggio
+        if price == 0.0:
+            prices = getattr(bot_state, "high_risk_arb_prices", {})
+            if symbol in prices:
+                price = float(prices[symbol].get("binance", 0) or prices[symbol].get("kraken", 0))
+                
+        if price == 0.0:
+            return {"error": f"Prezzo non disponibile per {symbol}. Il motore HIGH RISK deve essere attivo."}
+
+        qty = amount / price
+        
+        # Paper Mode: simula il bilancio virtuale
+        if side == "buy":
+            if bot_state.virtual_cash < amount:
+                return {"error": "Fondi virtuali insufficienti"}
+            bot_state.virtual_cash -= amount
+            profit_sim = 0.0
+            bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] ⚡ SCALP BUY {symbol} {qty:.4f} @ ${price:.4f} (${amount:.2f})")
+        else:
+            sim_profit = amount * 0.02  # simula un profit del 2% su sell rapido
+            bot_state.virtual_cash += amount + sim_profit
+            bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 💰 SCALP SELL {symbol} {qty:.4f} @ ${price:.4f} (+${sim_profit:.2f} sim)")
+            
+        bot_state.save_state()
+        
+        return {
+            "status": "ok",
+            "symbol": symbol,
+            "side": side,
+            "qty": round(qty, 6),
+            "price": price,
+            "amount": amount,
+            "virtual_cash": round(bot_state.virtual_cash, 2)
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 @app.post("/api/auto-bet-settings")

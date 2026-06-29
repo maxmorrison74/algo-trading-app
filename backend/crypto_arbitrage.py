@@ -429,6 +429,43 @@ class CryptoArbitrage:
             if opt_qty > 0.0:
                 await self.execute_hedging(pair, "binance", "kraken", b_ask, k_bid, opt_qty)
 
+    async def scan_market_volatility(self):
+        try:
+            if not self.binance_client:
+                return
+            tickers = await self.binance_client.fetch_tickers()
+            volatile_list = []
+            for sym, t in tickers.items():
+                if not sym.endswith("/USDT"):
+                    continue
+                base = sym.split("/")[0]
+                if base in ["BTC", "ETH", "USDC", "FDUSD", "USDT"]:
+                    continue
+                high = t.get('high')
+                low = t.get('low')
+                close = t.get('close')
+                if high and low and low > 0 and close:
+                    vol = ((high - low) / low) * 100
+                    change = t.get('percentage', 0.0)
+                    volatile_list.append({
+                        "symbol": base,
+                        "pair": sym,
+                        "price": close,
+                        "volatility": round(vol, 2),
+                        "change_24h": round(change, 2)
+                    })
+            # Ordina per volatilità decrescente
+            volatile_list.sort(key=lambda x: x["volatility"], reverse=True)
+            self.bot_state.high_risk_volatile_assets = volatile_list[:5]
+        except Exception as e:
+            pass
+
+    async def _volatility_loop(self):
+        while self.running:
+            if self.bot_state.modules.get("high_risk_crypto_arb", False):
+                await self.scan_market_volatility()
+            await asyncio.sleep(60)
+
     async def _arb_loop(self):
         self._log(f"🚀 Avvio CCXT Arbitrage Engine ({'PAPER' if self.paper_mode else 'REAL'} MODE)")
         await self.init_ccxt()
@@ -436,10 +473,17 @@ class CryptoArbitrage:
             self._log("❌ ERRORE: API keys mancanti per Binance o Kraken. Controlla le impostazioni!")
             self.running = False
             self.bot_state.modules["crypto_arb"] = False
+            self.bot_state.modules["high_risk_crypto_arb"] = False
             return
+            
+        # Carica una prima scansione di volatilità subito se attivo
+        if self.bot_state.modules.get("high_risk_crypto_arb", False):
+            await self.scan_market_volatility()
+            
         await asyncio.gather(
             self.connect_binance(),
-            self.connect_kraken()
+            self.connect_kraken(),
+            self._volatility_loop()
         )
         self._log("Motore DeFi Arbitrage fermato.")
         
