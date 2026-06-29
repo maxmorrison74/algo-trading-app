@@ -977,32 +977,33 @@ function OmniApp() {
         )}
 
         {/* ===== POSIZIONI SORVEGLIATE ===== */}
-        {status.monitored_positions && status.monitored_positions.length > 0 && (
-          <div style={{ marginTop: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1rem' }}>
-              <span style={{ fontSize: '1.3rem' }}>👁️</span>
-              <h3 style={{ margin: 0, color: '#a78bfa' }}>Posizioni in Sorveglianza Auto-Exit</h3>
-              <span style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '12px', padding: '0.15rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                {status.monitored_positions.length} APERTE
-              </span>
-            </div>
-            <div style={{ background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Token</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Buy Price</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Target / Picco</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>📊 P&L</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Trend</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Qty</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Investito</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Ore</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Azione</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {status.monitored_positions.map((pos, i) => {
+        <div style={{ marginTop: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '1.3rem' }}>👁️</span>
+            <h3 style={{ margin: 0, color: '#a78bfa' }}>Posizioni in Sorveglianza Auto-Exit</h3>
+            <span style={{ background: 'rgba(167,139,250,0.15)', color: '#a78bfa', border: '1px solid #a78bfa', borderRadius: '12px', padding: '0.15rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold' }}>
+              {(status.monitored_positions || []).length} APERTE
+            </span>
+          </div>
+          <div style={{ background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Token</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Buy Price</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Target / Picco</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>📊 P&L</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Trend</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Qty</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Investito</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Ore</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Azione</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(!status.monitored_positions || status.monitored_positions.length === 0) ? (
+                  <tr><td colSpan="9" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>Nessuna posizione in sorveglianza. Acquista un token per iniziare.</td></tr>
+                ) : status.monitored_positions.map((pos, i) => {
                     const dec = pos.buy_price < 0.01 ? 8 : pos.buy_price < 1 ? 6 : 4;
                     const currentPrice = status.high_risk_arb_prices?.[pos.symbol]?.binance || pos.buy_price;
                     const pnlPct = ((currentPrice - pos.buy_price) / pos.buy_price) * 100;
@@ -1064,31 +1065,30 @@ function OmniApp() {
               </div>
             </div>
           </div>
-        )}
-
-        {status.reentry_watchlist && status.reentry_watchlist.length > 0 && (
-          <div style={{ marginTop: '2rem' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1rem' }}>
-              <span style={{ fontSize: '1.3rem' }}>🔄</span>
-              <h3 style={{ margin: 0, color: '#fcd34d' }}>Re-Entry Watchlist</h3>
-              <span style={{ background: 'rgba(252,211,77,0.15)', color: '#fcd34d', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.15rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold' }}>
-                {status.reentry_watchlist.length} IN ATTESA
-              </span>
-            </div>
-            <div style={{ background: 'rgba(252,211,77,0.04)', border: '1px solid rgba(252,211,77,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'rgba(252,211,77,0.08)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Token</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Exit Price (Prev)</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Re-entry Trigger (Drop)</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Qty Base</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Tentativo</th>
-                    <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Azione</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {status.reentry_watchlist.map((pos, i) => {
+        <div style={{ marginTop: '2rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.7rem', marginBottom: '1rem' }}>
+            <span style={{ fontSize: '1.3rem' }}>🔄</span>
+            <h3 style={{ margin: 0, color: '#fcd34d' }}>Re-Entry Watchlist</h3>
+            <span style={{ background: 'rgba(252,211,77,0.15)', color: '#fcd34d', border: '1px solid #fcd34d', borderRadius: '12px', padding: '0.15rem 0.6rem', fontSize: '0.8rem', fontWeight: 'bold' }}>
+              {(status.reentry_watchlist || []).length} IN ATTESA
+            </span>
+          </div>
+          <div style={{ background: 'rgba(252,211,77,0.04)', border: '1px solid rgba(252,211,77,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: 'rgba(252,211,77,0.08)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Token</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Exit Price (Prev)</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Re-entry Trigger (Drop)</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Qty Base</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Tentativo</th>
+                  <th style={{ padding: '0.7rem 1rem', textAlign: 'left' }}>Azione</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(!status.reentry_watchlist || status.reentry_watchlist.length === 0) ? (
+                  <tr><td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>Nessun token in attesa di rientro automatico.</td></tr>
+                ) : status.reentry_watchlist.map((pos, i) => {
                     const dec = pos.exit_price < 0.01 ? 8 : pos.exit_price < 1 ? 6 : 4;
                     const trigger = pos.exit_price * (1 - pos.drop_target);
                     return (
@@ -1124,7 +1124,6 @@ function OmniApp() {
               </div>
             </div>
           </div>
-        )}
       </div>
     );
   };
