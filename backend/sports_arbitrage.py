@@ -6,7 +6,8 @@ import os
 # --- Legge la chiave THEODDS_KEY dal vault .env.keys ---
 def _load_keys():
     keys = {}
-    key_paths = [".env.keys", "../.env.keys"]
+    keys_file_abs = os.path.join(os.path.dirname(__file__), ".env.keys")
+    key_paths = [".env.keys", "../.env.keys", keys_file_abs]
     for path in key_paths:
         try:
             with open(path, "r") as f:

@@ -13,7 +13,8 @@ class AISentimentRadar:
         # API Key NewsAPI
         import os
         from dotenv import dotenv_values
-        keys = dotenv_values(".env.keys") if os.path.exists(".env.keys") else {}
+        keys_file = os.path.join(os.path.dirname(__file__), ".env.keys")
+        keys = dotenv_values(keys_file) if os.path.exists(keys_file) else {}
         self.api_key = keys.get("NEWSAPI_KEY", "223d48c7-2ead-46c7-83c4-03928fa452d0")
         self.search_queries = ["bitcoin", "ethereum", "tesla", "nvidia", "apple", "crypto", "stock market", "S&P 500"]
 
@@ -31,7 +32,8 @@ class AISentimentRadar:
         try:
             import os
             from dotenv import dotenv_values
-            keys = dotenv_values(".env.keys") if os.path.exists(".env.keys") else {}
+            keys_file = os.path.join(os.path.dirname(__file__), ".env.keys")
+            keys = dotenv_values(keys_file) if os.path.exists(keys_file) else {}
             current_api_key = keys.get("NEWSAPI_KEY", self.api_key)
             if not current_api_key:
                 self._log("Nessuna API key configurata.")

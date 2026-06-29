@@ -25,7 +25,8 @@ class AlpacaEngine:
         # Init Alpaca
         keys = {}
         try:
-            with open(".env.keys", "r") as f:
+            keys_file = os.path.join(os.path.dirname(__file__), ".env.keys")
+            with open(keys_file, "r") as f:
                 for line in f:
                     if "=" in line:
                         k, v = line.strip().split("=", 1)
