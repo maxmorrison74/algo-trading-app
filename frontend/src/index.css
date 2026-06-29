@@ -754,9 +754,12 @@ input[type="text"]:focus, input[type="password"]:focus, textarea:focus, select:f
   .main-content { padding: 1.5rem 1rem 6rem 1rem; }
 
   .header { flex-direction: column; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
-  .header h2 { font-size: 1.8rem; }
+  .header h2 { font-size: 1.5rem; }
 
-  .portfolio-value { font-size: 2.5rem; }
+  .portfolio-value { font-size: 1.8rem; }
+  .crypto-price { font-size: 1.8rem; }
+
+  .data-table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
 
   .dashboard-grid { gap: 1rem; }
   .card { padding: 1.25rem; }

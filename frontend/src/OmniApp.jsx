@@ -790,7 +790,7 @@ function OmniApp() {
           <div className="card col-span-4" style={{ textAlign: "center" }}>
             <img src="https://s2.coinmarketcap.com/static/img/exchanges/64x64/270.png" alt="Binance" style={{ width: '40px', height: '40px', objectFit: 'cover', marginBottom: '1rem', borderRadius: '50%' }} />
             <h3 style={{ color: '#e2e8f0', margin: 0 }}>Binance (Ask)</h3>
-            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#06b6d4', marginTop: '1rem' }}>
+            <div className="crypto-price" style={{ color: '#06b6d4', marginTop: '1rem' }}>
               ${Number(status.arb_prices?.binance || 0).toFixed(2)}
             </div>
           </div>
@@ -798,7 +798,7 @@ function OmniApp() {
           <div className="card col-span-4" style={{ textAlign: "center" }}>
             <img src="https://s2.coinmarketcap.com/static/img/exchanges/64x64/24.png" alt="Kraken" style={{ width: '40px', height: '40px', objectFit: 'cover', marginBottom: '1rem', borderRadius: '50%' }} />
             <h3 style={{ color: '#e2e8f0', margin: 0 }}>Kraken (Ask)</h3>
-            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#3b82f6', marginTop: '1rem' }}>
+            <div className="crypto-price" style={{ color: '#3b82f6', marginTop: '1rem' }}>
               ${Number(status.arb_prices?.kraken || 0).toFixed(2)}
             </div>
           </div>
