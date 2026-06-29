@@ -275,6 +275,11 @@ class CryptoArbitrage:
     async def _arb_loop(self):
         self._log(f"🚀 Avvio CCXT Arbitrage Engine ({'PAPER' if self.paper_mode else 'REAL'} MODE)")
         await self.init_ccxt()
+        if not self.binance_client.apiKey or not self.kraken_client.apiKey:
+            self._log("❌ ERRORE: API keys mancanti per Binance o Kraken. Controlla le impostazioni!")
+            self.running = False
+            self.bot_state.modules["crypto_arb"] = False
+            return
         await asyncio.gather(
             self.connect_binance(),
             self.connect_kraken()

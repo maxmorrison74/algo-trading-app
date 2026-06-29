@@ -208,17 +208,27 @@ alpaca_engine = AlpacaEngine(bot_state)
 trade_lock = threading.Lock()
 def get_status():
     if not alpaca: return {"error": "Alpaca API non configurata."}
+    pos_dict = {}
+    virtual_portfolio_value = bot_state.virtual_cash
     try:
-        account = alpaca.get_account()
-        positions = alpaca.list_positions()
-        
-        # Creiamo un dizionario delle posizioni aperte formattato per il frontend
-        pos_dict = {}
-        for p in positions:
-            if p.symbol in bot_state.target_symbols:
-                # Includiamo il side (long o short) per il frontend
-                pos_dict[p.symbol] = {"qty": float(p.qty), "market_value": float(p.market_value), "side": p.side.upper()}
+        if alpaca:
+            try:
+                account = alpaca.get_account()
+                positions = alpaca.list_positions()
                 
+                # Creiamo un dizionario delle posizioni aperte formattato per il frontend
+                for p in positions:
+                    if p.symbol in bot_state.target_symbols:
+                        # Includiamo il side (long o short) per il frontend
+                        pos_dict[p.symbol] = {"qty": float(p.qty), "market_value": float(p.market_value), "side": p.side.upper()}
+                        
+                # Calcoliamo il portfolio_value virtuale per lo status (market_value dello short è già negativo)
+                pos_market_value = sum(float(p.market_value) for p in positions if p.symbol in bot_state.target_symbols)
+                virtual_portfolio_value = bot_state.virtual_cash + pos_market_value
+            except Exception:
+                # Silenzioso se Alpaca non è autorizzato o crasha
+                pass
+
         # Per i simboli che non abbiamo, segniamo "LIQUID"
         for sym in bot_state.target_symbols:
             if sym not in pos_dict:
@@ -234,16 +244,19 @@ def get_status():
                 "sentiment": bot_state.ai_sentiment.get(sym, "NEUTRAL")
             })
 
-        # Calcoliamo il portfolio_value virtuale per lo status (market_value dello short è già negativo)
-        pos_market_value = sum(float(p.market_value) for p in positions if p.symbol in bot_state.target_symbols)
-        virtual_portfolio_value = bot_state.virtual_cash + pos_market_value
-
         win_rate = 0.0
         if bot_state.trade_history:
             wins = sum(1 for t in bot_state.trade_history if t.get("profit_usd", 0) > 0)
             win_rate = round((wins / len(bot_state.trade_history)) * 100, 1)
 
-        clock = alpaca.get_clock()
+        market_open = False
+        try:
+            if alpaca:
+                clock = alpaca.get_clock()
+                market_open = clock.is_open
+        except Exception:
+            pass
+
         return {
             "is_running": bot_state.is_running,
             "portfolio_value": round(virtual_portfolio_value, 2),
@@ -254,7 +267,7 @@ def get_status():
             "cash": round(bot_state.virtual_cash, 2),
             "symbols": bot_state.target_symbols,
             "logs": bot_state.logs,
-            "market_open": clock.is_open,
+            "market_open": market_open,
             "aggressiveness": bot_state.aggressiveness,
             "trade_history": bot_state.trade_history,
             "win_rate": win_rate,

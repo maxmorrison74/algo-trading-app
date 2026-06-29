@@ -42,7 +42,10 @@ class AlpacaEngine:
                 self.alpaca_rest = tradeapi.REST(self.alpaca_key, self.alpaca_secret, self.alpaca_base, api_version='v2')
                 self.sync_portfolio()
             except Exception as e:
-                self._log(f"Errore connessione Alpaca REST: {e}")
+                self._log(f"❌ ERRORE: Chiavi Alpaca rifiutate. Le API Keys correnti in memoria non funzionano: {e}")
+                self.alpaca_rest = None
+                self.running = False
+                self.bot_state.modules["trading"] = False
                 
         # Init Gemini
         gemini_key = keys.get("GEMINI_KEY", os.getenv("GEMINI_API_KEY", ""))
@@ -59,7 +62,8 @@ class AlpacaEngine:
             self.bot_state.virtual_cash = float(account.portfolio_value)
             # Potremmo anche listare le posizioni reali qui se servisse aggiornare UI
         except Exception as e:
-            self._log(f"Errore sync portfolio: {e}")
+            self._log(f"❌ ERRORE: Chiavi Alpaca non valide o account non autorizzato. {e}")
+            raise e
 
     def _log(self, message):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
@@ -201,8 +205,17 @@ class AlpacaEngine:
         try:
             self._log("📡 WebSocket Connesso: in attesa di stream tick-by-tick...")
             self.alpaca_stream.run()
+        except ValueError as ve:
+            self.running = False
+            self.bot_state.modules["trading"] = False
+            if "auth failed" in str(ve).lower():
+                self._log("❌ ERRORE: Chiavi Alpaca rifiutate dal server. Controlla le impostazioni!")
+            else:
+                self._log(f"❌ WebSocket errore: {ve}")
         except Exception as e:
             if self.running:
+                self.running = False
+                self.bot_state.modules["trading"] = False
                 self._log(f"❌ WebSocket disconnesso: {e}")
 
     def loop(self):
