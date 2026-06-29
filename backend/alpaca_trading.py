@@ -41,6 +41,12 @@ class AlpacaEngine:
         if self.alpaca_key and self.alpaca_secret:
             try:
                 self.alpaca_rest = tradeapi.REST(self.alpaca_key, self.alpaca_secret, self.alpaca_base, api_version='v2')
+                
+                # Carica dinamicamente i simboli dal bot_state
+                if self.bot_state.target_symbols:
+                    self.symbols = self.bot_state.target_symbols
+                    self.history_buffers = {sym: pd.DataFrame() for sym in self.symbols}
+                    
                 self.sync_portfolio()
             except Exception as e:
                 self._log(f"❌ ERRORE: Chiavi Alpaca rifiutate. Le API Keys correnti in memoria non funzionano: {e}")
@@ -146,6 +152,8 @@ class AlpacaEngine:
                 bars = self.alpaca_rest.get_bars(sym, tradeapi.TimeFrame.Minute, limit=50).df
                 if not bars.empty:
                     self.history_buffers[sym] = bars
+                    # Calcola subito la predizione iniziale ad ogni avvio!
+                    self.evaluate_strategy(sym, bars)
             except Exception as e:
                 self._log(f"Errore history {sym}: {e}")
 
@@ -291,11 +299,16 @@ class AlpacaEngine:
             self._log(f"❌ ERRORE INVIO ORDINE: {e}")
 
     def _stream_runner(self):
+        stock_symbols = [s for s in self.symbols if "/" not in s]
         self.alpaca_stream = Stream(self.alpaca_key, self.alpaca_secret, base_url=self.alpaca_base, data_feed='iex')
-        self.alpaca_stream.subscribe_bars(self.on_bar, *self.symbols)
+        if stock_symbols:
+            self.alpaca_stream.subscribe_bars(self.on_bar, *stock_symbols)
         try:
             self._log("📡 WebSocket Connesso: in attesa di stream tick-by-tick...")
-            self.alpaca_stream.run()
+            if stock_symbols:
+                self.alpaca_stream.run()
+            else:
+                self._log("Avviso: Nessun asset azionario da ascoltare via WebSocket.")
         except ValueError as ve:
             self.running = False
             self.bot_state.modules["trading"] = False
@@ -329,6 +342,16 @@ class AlpacaEngine:
         while self.running and self.bot_state.modules.get("trading", False):
             time.sleep(60)
             self.sync_portfolio() # Sincronizza bilancio ogni minuto per aggiornare la UI
+            
+            # Polling REST per tenere aggiornati i segnali di tutti i simboli (Crypto inclusi)
+            for sym in self.symbols:
+                try:
+                    bars = self.alpaca_rest.get_bars(sym, tradeapi.TimeFrame.Minute, limit=50).df
+                    if not bars.empty:
+                        self.history_buffers[sym] = bars
+                        self.evaluate_strategy(sym, bars)
+                except Exception:
+                    pass
             
         # Chiusura
         self.running = False
