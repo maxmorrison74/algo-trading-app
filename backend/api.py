@@ -260,10 +260,9 @@ def get_status():
 
         # Fallback orario se l'API Alpaca fallisce
         try:
-            from datetime import datetime
-            import pytz
-            ny = pytz.timezone('America/New_York')
-            now = datetime.now(ny)
+            from datetime import datetime, timedelta
+            # NY time is roughly UTC-4 in summer
+            now = datetime.utcnow() - timedelta(hours=4)
             fallback_open = now.weekday() < 5 and (now.hour > 9 or (now.hour == 9 and now.minute >= 30)) and now.hour < 16
             if st["market_open"] == False:
                 st["market_open"] = fallback_open
@@ -562,7 +561,9 @@ def get_chart_data(symbol: str, timeframe: str = "1M"):
             time_format = "%d/%m"
 
         try:
-            df = fetch_historical_data(sym, interval=interval, period=period)
+            import yfinance as yf
+            ticker = yf.Ticker(sym)
+            df = ticker.history(interval=interval, period=period)
         except Exception as e:
             print(f"Errore in yfinance per {sym}: {e}")
             import pandas as pd
