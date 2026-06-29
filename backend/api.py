@@ -962,28 +962,43 @@ if os.path.exists(frontend_dist):
 @app.on_event("startup")
 def startup_event():
     # Avvia i motori che erano attivi prima del riavvio/spegnimento
-    if bot_state.modules.get("trading", False):
-        bot_state.is_running = True
-        bot_state.add_log("Autostart: Avvio automatico Alpaca Engine...")
-        threading.Thread(target=alpaca_engine.loop, daemon=True).start()
+    try:
+        if bot_state.modules.get("trading", False) and 'alpaca_engine' in globals() and alpaca_engine is not None:
+            bot_state.is_running = True
+            bot_state.add_log("Autostart: Avvio automatico Alpaca Engine...")
+            threading.Thread(target=alpaca_engine.loop, daemon=True).start()
+    except Exception as e:
+        print(f"Errore autostart trading: {e}")
         
-    if bot_state.modules.get("crypto_arb", False) or bot_state.modules.get("high_risk_crypto_arb", False):
-        bot_state.add_log("Autostart: Avvio automatico DeFi Arbitrage Engine...")
-        threading.Thread(target=arb_engine.loop, daemon=True).start()
+    try:
+        if (bot_state.modules.get("crypto_arb", False) or bot_state.modules.get("high_risk_crypto_arb", False)) and 'arb_engine' in globals() and arb_engine is not None:
+            bot_state.add_log("Autostart: Avvio automatico DeFi Arbitrage Engine...")
+            threading.Thread(target=arb_engine.loop, daemon=True).start()
+    except Exception as e:
+        print(f"Errore autostart crypto_arb: {e}")
         
-    if bot_state.modules.get("sports_arb", False):
-        bot_state.add_log("Autostart: Avvio automatico Sports Arbitrage Engine...")
-        t = threading.Thread(target=sports_engine.loop, daemon=True)
-        t.start()
+    try:
+        if bot_state.modules.get("sports_arb", False) and 'sports_engine' in globals() and sports_engine is not None:
+            bot_state.add_log("Autostart: Avvio automatico Sports Arbitrage Engine...")
+            t = threading.Thread(target=sports_engine.loop, daemon=True)
+            t.start()
+    except Exception as e:
+        print(f"Errore autostart sports_arb: {e}")
         
-    if bot_state.modules.get("ai_sports_sentiment", False):
-        bot_state.add_log("Autostart: Avvio automatico AI Sentiment Radar...")
-        t = threading.Thread(target=sentiment_engine.loop, daemon=True)
-        t.start()
+    try:
+        if bot_state.modules.get("ai_sports_sentiment", False) and 'sentiment_engine' in globals() and sentiment_engine is not None:
+            bot_state.add_log("Autostart: Avvio automatico AI Sentiment Radar...")
+            t = threading.Thread(target=sentiment_engine.loop, daemon=True)
+            t.start()
+    except Exception as e:
+        print(f"Errore autostart sentiment: {e}")
         
-    if bot_state.modules.get("ai_content", False):
-        bot_state.add_log("Autostart: Avvio automatico AI Content Creator...")
-        threading.Thread(target=ai_engine.loop, daemon=True).start()
+    try:
+        if bot_state.modules.get("ai_content", False) and 'ai_engine' in globals() and ai_engine is not None:
+            bot_state.add_log("Autostart: Avvio automatico AI Content Creator...")
+            threading.Thread(target=ai_engine.loop, daemon=True).start()
+    except Exception as e:
+        print(f"Errore autostart ai_content: {e}")
 
 
 if __name__ == "__main__":
