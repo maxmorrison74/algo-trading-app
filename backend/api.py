@@ -70,7 +70,7 @@ def load_db():
                     return json.load(f)
             except json.JSONDecodeError:
                 print("⚠️ bot_db.json corrotto (forse per un riavvio forzato). Ricarico default.")
-        return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "crypto_arb": False, "sports_arb": False, "ai_content": False}}
+        return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "crypto_arb": False, "high_risk_crypto_arb": False, "sports_arb": False, "ai_content": False}}
 
 def save_db(state_dict):
     with db_lock:
