@@ -14,7 +14,6 @@ cd ..
 echo "3) Aggiornamento dipendenze Python (potrebbe volerci qualche minuto)..."
 cd backend
 sudo ./venv/bin/python -m pip install --upgrade pip
-sudo ./venv/bin/python -m pip uninstall -y tensorflow tensorflow-cpu scikit-learn
 sudo ./venv/bin/python -m pip install -r requirements.txt
 cd ..
 

@@ -14,3 +14,6 @@ websockets
 groq
 google-cloud-aiplatform
 python-multipart
+tensorflow
+scikit-learn
+joblib
