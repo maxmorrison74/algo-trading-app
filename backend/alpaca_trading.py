@@ -336,14 +336,14 @@ class AlpacaEngine:
         # Sincronizza per sicurezza
         self.sync_portfolio()
         
-        # Position Sizing Dinamico basato su confidenza (Approccio Prudente per Micro-Conti)
+        # Position Sizing Dinamico basato su confidenza (Approccio MASSIMO GUADAGNO per Micro-Conti)
         if self.bot_state.virtual_cash < 500:
-            # Se il conto è piccolo (es. 100€), rischiamo max il 25% (25€)
-            size_multiplier = 0.15
+            # Rischio Aggressivo: Usiamo dal 50% al 100% del capitale per massimizzare i profitti su 100€
+            size_multiplier = 0.50
             if confidence == 4:
-                size_multiplier = 0.20
+                size_multiplier = 0.75
             elif confidence == 5:
-                size_multiplier = 0.25
+                size_multiplier = 0.98 # Quasi All-in per segnali fortissimi
         else:
             # Per conti grossi restiamo conservativi
             size_multiplier = 0.05
