@@ -336,23 +336,33 @@ class AlpacaEngine:
         # Sincronizza per sicurezza
         self.sync_portfolio()
         
-        # Position Sizing Dinamico basato su confidenza
-        size_multiplier = 0.05
-        if confidence == 4:
-            size_multiplier = 0.10
-        elif confidence == 5:
+        # Position Sizing Dinamico basato su confidenza (Approccio Prudente per Micro-Conti)
+        if self.bot_state.virtual_cash < 500:
+            # Se il conto è piccolo (es. 100€), rischiamo max il 25% (25€)
             size_multiplier = 0.15
+            if confidence == 4:
+                size_multiplier = 0.20
+            elif confidence == 5:
+                size_multiplier = 0.25
+        else:
+            # Per conti grossi restiamo conservativi
+            size_multiplier = 0.05
+            if confidence == 4:
+                size_multiplier = 0.10
+            elif confidence == 5:
+                size_multiplier = 0.15
             
         trade_amount = self.bot_state.virtual_cash * size_multiplier
-        if trade_amount < 100:
+        if trade_amount < 10: # Abbassato il blocco da 100$ a 10$
             return
             
-        qty = int(trade_amount // current_price)
-        if qty <= 0: return
+        # Azioni Frazionate: calcoliamo il valore con decimali invece di intero
+        qty = round(trade_amount / current_price, 4)
+        if qty <= 0.0001: return
         
-        # Trailing Stop dinamico basato sull'ATR
-        trail_percent = round((1.5 * atr) / current_price * 100, 2)
-        trail_percent = max(0.5, min(trail_percent, 5.0)) # Trailing Stop compreso tra 0.5% e 5.0%
+        # Trailing Stop stretto per scalping (Micro-Profitti veloci)
+        trail_percent = round((1.0 * atr) / current_price * 100, 2)
+        trail_percent = max(0.2, min(trail_percent, 1.5)) # Trailing Stop compreso tra 0.2% e 1.5% per scalpare
         
         alpaca_side = 'buy' if side == "LONG" else 'sell'
         exit_side = 'sell' if side == "LONG" else 'buy'
