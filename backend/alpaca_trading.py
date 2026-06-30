@@ -270,33 +270,28 @@ class AlpacaEngine:
         # Check Long (Mean Reversion O Breakout Momentum)
         # Strategia 1: Crollo Ipervenduto (Mean Reversion)
         is_mean_reversion_long = (current_price < bb_lower and rsi < 35)
-        # Strategia 2: Breakout al rialzo (Momentum)
-        is_momentum_long = (current_price > bb_upper and rsi > 60 and macro_rsi > 50)
+        # Strategia 2: Breakout al rialzo (Momentum Veloce)
+        is_momentum_long = (current_price > bb_upper and rsi > 55)
         
         if is_mean_reversion_long or is_momentum_long:
-            if macro_rsi < 35:
-                self._log(f"⚠️ MACRO VETO: Il trend a 5 minuti ({macro_rsi:.1f}) è troppo ipervenduto. Long annullato.")
-            elif lstm_prob > 0.65: # Richiedi almeno il 65% di probabilità UP dalla rete neurale
+            if lstm_prob > 0.60: # Scalping: basta il 60% di probabilità
                 pattern = self.predict_pattern_with_groq(symbol, close_prices)
                 if pattern == "UP":
-                    strategy_name = "MOMENTUM BREAKOUT" if is_momentum_long else "MEAN REVERSION"
-                    self._log(f"🔥 STRATEGIA {strategy_name} ATTIVATA su {symbol}")
+                    strategy_name = "MOMENTUM SCALPING" if is_momentum_long else "MEAN REVERSION"
+                    self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol}")
                     self.execute_trade(symbol, current_price, "LONG", atr)
                 else:
-                    self._log(f"🧠 AI VETO PREDICTIVE: Setup LONG su {symbol} confermato da LSTM, ma Groq NLP prevede DOWN. Annullato.")
+                    self._log(f"🧠 AI VETO: Groq non conferma UP. Scalp annullato.")
             else:
-                 self._log(f"🤖 LSTM VETO: Setup LONG su {symbol} (Prob={lstm_prob*100:.1f}%) non sufficiente (richiesto > 65%).")
+                 self._log(f"🤖 LSTM VETO: Setup LONG su {symbol} (Prob={lstm_prob*100:.1f}%) < 60%.")
             
-        # Check Short (Mean Reversion dall'alto + LSTM Confluence + Macro Trend)
-        elif current_price > bb_upper and rsi > 70 and lstm_prob < 0.35: # Probabilità UP bassa significa probabilità DOWN alta
-            if macro_rsi > 65:
-                self._log(f"⚠️ MACRO VETO: Il trend a 5 minuti ({macro_rsi:.1f}) è troppo forte al rialzo. Short annullato.")
+        # Check Short (Mean Reversion dall'alto)
+        elif current_price > bb_upper and rsi > 65 and lstm_prob < 0.40:
+            pattern = self.predict_pattern_with_groq(symbol, close_prices)
+            if pattern == "DOWN":
+                self.execute_trade(symbol, current_price, "SHORT", atr)
             else:
-                pattern = self.predict_pattern_with_groq(symbol, close_prices)
-                if pattern == "DOWN":
-                    self.execute_trade(symbol, current_price, "SHORT", atr)
-                else:
-                    self._log(f"🧠 AI VETO PREDICTIVE: Setup SHORT su {symbol} confermato da LSTM, ma Groq NLP prevede UP. Annullato.")
+                self._log(f"🧠 AI VETO: Groq non conferma DOWN. Scalp annullato.")
 
     def is_shortable(self, symbol):
         if not hasattr(self, "_shortable_cache"):
@@ -362,35 +357,39 @@ class AlpacaEngine:
         qty = round(trade_amount / current_price, 4)
         if qty <= 0.0001: return
         
-        # Trailing Stop Elastico (Più largo per assorbire volatilità e fare Max Profit)
-        trail_percent = round((2.5 * atr) / current_price * 100, 2)
-        trail_percent = max(0.5, min(trail_percent, 3.5)) # Trailing Stop compreso tra 0.5% e 3.5%
+        # Bracket Order Dinamico per Scalping Veloce (Setup C: Volatilità 1:2)
+        tp_percent = round((1.5 * atr) / current_price, 4)
+        tp_percent = max(0.005, min(tp_percent, 0.02)) # TP tra 0.5% e 2%
+        sl_percent = tp_percent / 2.0 # Stop Loss è la metà del Take Profit
         
         alpaca_side = 'buy' if side == "LONG" else 'sell'
-        exit_side = 'sell' if side == "LONG" else 'buy'
+        
+        if side == "LONG":
+            limit_price = round(current_price * (1 + tp_percent), 2)
+            stop_price = round(current_price * (1 - sl_percent), 2)
+        else:
+            limit_price = round(current_price * (1 - tp_percent), 2)
+            stop_price = round(current_price * (1 + sl_percent), 2)
         
         try:
-            # 1. Invia Ordine di Entrata (Market)
-            entry = self.alpaca_rest.submit_order(
+            # Invia Ordine Bracket (Entrata a Mercato + TP + SL automatici)
+            self.alpaca_rest.submit_order(
                 symbol=symbol,
                 qty=qty,
                 side=alpaca_side,
                 type='market',
-                time_in_force='day'
+                time_in_force='day',
+                order_class='bracket',
+                take_profit=dict(
+                    limit_price=limit_price,
+                ),
+                stop_loss=dict(
+                    stop_price=stop_price,
+                )
             )
-            
-            # 2. Invia Ordine Trailing Stop per l'Uscita (Lascia correre i profitti!)
-            self.alpaca_rest.submit_order(
-                symbol=symbol,
-                qty=qty,
-                side=exit_side,
-                type='trailing_stop',
-                trail_percent=trail_percent,
-                time_in_force='day'
-            )
-            self._log(f"🚀 ORDINE REALE {side} {qty} {symbol} INVIATO AD ALPACA (Trailing Stop: {trail_percent}% | Taglia: {size_multiplier*100:.0f}%)")
+            self._log(f"🚀 ORDINE SCALP BRACKET {side} {qty} {symbol} INVIATO (TP: {limit_price}$ | SL: {stop_price}$)")
         except Exception as e:
-            self._log(f"❌ ERRORE INVIO ORDINE: {e}")
+            self._log(f"❌ ERRORE INVIO BRACKET: {e}")
 
     def _stream_runner(self):
         stock_symbols = [s for s in self.symbols if "/" not in s]
