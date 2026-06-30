@@ -53,22 +53,27 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* 📱 HDPI/Retina Image Optimization */
-img {
-  image-rendering: -webkit-optimize-contrast; /* Safari crisp edges for downscaled images */
-  image-rendering: crisp-edges;
-  transform: translateZ(0); /* Force hardware acceleration */
-  backface-visibility: hidden;
-}
-
-body {
-  background-image: 
-    radial-gradient(circle at 10% 0%, rgba(212, 175, 55, 0.12) 0%, transparent 50%),
-    radial-gradient(circle at 90% 100%, rgba(6, 182, 212, 0.08) 0%, transparent 50%),
+  
+  /* Mesh Gradient Animato Premium */
+  background: 
+    radial-gradient(circle at var(--mouse-x, 10%) var(--mouse-y, 0%), rgba(212, 175, 55, 0.15) 0%, transparent 40%),
+    radial-gradient(circle at 90% 100%, rgba(6, 182, 212, 0.12) 0%, transparent 40%),
     radial-gradient(circle at 50% 50%, rgba(13, 18, 35, 1) 0%, var(--bg-base) 100%);
   background-attachment: fixed;
+  background-size: 200% 200%;
+  animation: meshGradient 15s ease infinite alternate;
+}
+
+@keyframes meshGradient {
+  0% {
+    background-position: 0% 0%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 100%;
+  }
 }
 
 .mono {
@@ -365,13 +370,16 @@ body {
 
 .card-title {
   color: var(--text-secondary);
-  font-size: 0.9rem;
-  font-weight: 700;
+  font-size: 0.95rem;
+  font-weight: 800;
   text-transform: uppercase;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.15em;
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  background: linear-gradient(to right, var(--accent-gold-light), #fff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .card-title-icon {
@@ -387,10 +395,15 @@ body {
   letter-spacing: -0.04em;
   color: #fff;
   line-height: 1.1;
-  text-shadow: 0 4px 15px rgba(0,0,0,0.3);
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.4), 0 4px 15px rgba(0,0,0,0.5);
   display: flex;
   align-items: baseline;
   gap: 0.5rem;
+  transition: var(--trans-smooth);
+}
+.portfolio-value:hover {
+  transform: scale(1.02);
+  text-shadow: 0 0 40px rgba(255, 255, 255, 0.6), 0 4px 15px rgba(0,0,0,0.5);
 }
 
 .value-currency {
