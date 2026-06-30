@@ -120,7 +120,7 @@ class BotState:
     def __init__(self):
         db_data = load_db()
         self.is_running = False
-        self.target_symbols = ["MRNA", "SOFI", "LCID", "F", "SNAP", "BTC/USD", "ETH/USD", "SOL/USD", "DOGE/USD"]
+        self.target_symbols = ["TSLA", "NVDA", "PLTR", "SOFI", "MARA", "AMD", "AAPL"]
         self.virtual_cash = db_data.get("virtual_cash", 100.0)
         self.portfolio_value = 0.0
         self.latest_predictions = {}
