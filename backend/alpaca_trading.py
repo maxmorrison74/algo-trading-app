@@ -267,13 +267,20 @@ class AlpacaEngine:
             
         self.bot_state.latest_predictions[symbol] = f"LSTM: {lstm_prob*100:.1f}% | RSI(1M): {rsi:.1f} | RSI(5M): {macro_rsi:.1f} | BB_L: {bb_lower:.2f}"
         
-        # Check Long (Mean Reversion + LSTM Confluence + Macro Trend)
-        if current_price < bb_lower and rsi < 35:
+        # Check Long (Mean Reversion O Breakout Momentum)
+        # Strategia 1: Crollo Ipervenduto (Mean Reversion)
+        is_mean_reversion_long = (current_price < bb_lower and rsi < 35)
+        # Strategia 2: Breakout al rialzo (Momentum)
+        is_momentum_long = (current_price > bb_upper and rsi > 60 and macro_rsi > 50)
+        
+        if is_mean_reversion_long or is_momentum_long:
             if macro_rsi < 35:
-                self._log(f"⚠️ MACRO VETO: Il trend a 5 minuti ({macro_rsi:.1f}) è troppo ipervenduto (coltello che cade). Long annullato.")
+                self._log(f"⚠️ MACRO VETO: Il trend a 5 minuti ({macro_rsi:.1f}) è troppo ipervenduto. Long annullato.")
             elif lstm_prob > 0.65: # Richiedi almeno il 65% di probabilità UP dalla rete neurale
                 pattern = self.predict_pattern_with_groq(symbol, close_prices)
                 if pattern == "UP":
+                    strategy_name = "MOMENTUM BREAKOUT" if is_momentum_long else "MEAN REVERSION"
+                    self._log(f"🔥 STRATEGIA {strategy_name} ATTIVATA su {symbol}")
                     self.execute_trade(symbol, current_price, "LONG", atr)
                 else:
                     self._log(f"🧠 AI VETO PREDICTIVE: Setup LONG su {symbol} confermato da LSTM, ma Groq NLP prevede DOWN. Annullato.")
@@ -281,17 +288,15 @@ class AlpacaEngine:
                  self._log(f"🤖 LSTM VETO: Setup LONG su {symbol} (Prob={lstm_prob*100:.1f}%) non sufficiente (richiesto > 65%).")
             
         # Check Short (Mean Reversion dall'alto + LSTM Confluence + Macro Trend)
-        elif current_price > bb_upper and rsi > 65:
+        elif current_price > bb_upper and rsi > 70 and lstm_prob < 0.35: # Probabilità UP bassa significa probabilità DOWN alta
             if macro_rsi > 65:
                 self._log(f"⚠️ MACRO VETO: Il trend a 5 minuti ({macro_rsi:.1f}) è troppo forte al rialzo. Short annullato.")
-            elif lstm_prob < 0.35: # Probabilità UP bassa significa probabilità DOWN alta
+            else:
                 pattern = self.predict_pattern_with_groq(symbol, close_prices)
                 if pattern == "DOWN":
                     self.execute_trade(symbol, current_price, "SHORT", atr)
                 else:
                     self._log(f"🧠 AI VETO PREDICTIVE: Setup SHORT su {symbol} confermato da LSTM, ma Groq NLP prevede UP. Annullato.")
-            else:
-                self._log(f"🤖 LSTM VETO: Setup SHORT su {symbol} (Prob={lstm_prob*100:.1f}%) non sufficiente (richiesta < 35%).")
 
     def is_shortable(self, symbol):
         if not hasattr(self, "_shortable_cache"):
@@ -333,17 +338,17 @@ class AlpacaEngine:
             
         self._log(f"🧠 AI CONFERMA: Sentiment = {sentiment} (Confidenza: {confidence}/5). Esecuzione Ordine!")
         
-        # Sincronizza per sicurezza
-        self.sync_portfolio()
-        
         # Position Sizing Dinamico basato su confidenza (Approccio MASSIMO GUADAGNO per Micro-Conti)
         if self.bot_state.virtual_cash < 500:
-            # Rischio Aggressivo: Usiamo dal 50% al 100% del capitale per massimizzare i profitti su 100€
-            size_multiplier = 0.50
+            # LEVA 2x: Moltiplichiamo il moltiplicatore base per 2 usando il Margin Power di Alpaca
+            leverage_multiplier = 2.0 
+            
+            # Rischio Aggressivo: Usiamo dal 50% al 98% del capitale * 2x di leva = fino al 200%
+            size_multiplier = 0.50 * leverage_multiplier
             if confidence == 4:
-                size_multiplier = 0.75
+                size_multiplier = 0.75 * leverage_multiplier
             elif confidence == 5:
-                size_multiplier = 0.98 # Quasi All-in per segnali fortissimi
+                size_multiplier = 0.98 * leverage_multiplier # 196% esposizione max
         else:
             # Per conti grossi restiamo conservativi
             size_multiplier = 0.05
@@ -360,9 +365,9 @@ class AlpacaEngine:
         qty = round(trade_amount / current_price, 4)
         if qty <= 0.0001: return
         
-        # Trailing Stop stretto per scalping (Micro-Profitti veloci)
-        trail_percent = round((1.0 * atr) / current_price * 100, 2)
-        trail_percent = max(0.2, min(trail_percent, 1.5)) # Trailing Stop compreso tra 0.2% e 1.5% per scalpare
+        # Trailing Stop Elastico (Più largo per assorbire volatilità e fare Max Profit)
+        trail_percent = round((2.5 * atr) / current_price * 100, 2)
+        trail_percent = max(0.5, min(trail_percent, 3.5)) # Trailing Stop compreso tra 0.5% e 3.5%
         
         alpaca_side = 'buy' if side == "LONG" else 'sell'
         exit_side = 'sell' if side == "LONG" else 'buy'
