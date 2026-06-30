@@ -338,17 +338,14 @@ class AlpacaEngine:
             
         self._log(f"🧠 AI CONFERMA: Sentiment = {sentiment} (Confidenza: {confidence}/5). Esecuzione Ordine!")
         
-        # Position Sizing Dinamico basato su confidenza (Approccio MASSIMO GUADAGNO per Micro-Conti)
+        # Position Sizing Dinamico basato su confidenza (Approccio PRUDENTE per Live Trading)
         if self.bot_state.virtual_cash < 500:
-            # LEVA 2x: Moltiplichiamo il moltiplicatore base per 2 usando il Margin Power di Alpaca
-            leverage_multiplier = 2.0 
-            
-            # Rischio Aggressivo: Usiamo dal 50% al 98% del capitale * 2x di leva = fino al 200%
-            size_multiplier = 0.50 * leverage_multiplier
+            # Rischio Sicuro: Max 25% del capitale (No Leva per Live Trading)
+            size_multiplier = 0.15
             if confidence == 4:
-                size_multiplier = 0.75 * leverage_multiplier
+                size_multiplier = 0.20
             elif confidence == 5:
-                size_multiplier = 0.98 * leverage_multiplier # 196% esposizione max
+                size_multiplier = 0.25
         else:
             # Per conti grossi restiamo conservativi
             size_multiplier = 0.05

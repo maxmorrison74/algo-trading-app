@@ -1307,7 +1307,7 @@ def test_connection(req: TestConnectionRequest):
             api_secret = keys.get("ALPACA_SECRET", "")
             if not api_key or not api_secret:
                 return {"status": "error", "message": "Chiavi Alpaca mancanti."}
-            api = tradeapi.REST(api_key, api_secret, base_url='https://paper-api.alpaca.markets')
+            api = tradeapi.REST(api_key, api_secret, base_url=BASE_URL)
             account = api.get_account()
             if account.status == 'ACTIVE':
                 return {"status": "success", "message": f"Connessione Alpaca stabilita! Status: {account.status}"}
