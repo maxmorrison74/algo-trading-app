@@ -7,6 +7,7 @@ import pandas as pd
 from groq import Groq
 import alpaca_trade_api as tradeapi
 from alpaca_trade_api.stream import Stream
+from lstm_model import LSTMTradingModel
 
 class AlpacaEngine:
     def __init__(self, bot_state):
@@ -16,7 +17,9 @@ class AlpacaEngine:
         self.alpaca_stream = None
         self.symbols = ["SPY", "QQQ", "AAPL", "MSFT", "TSLA", "NVDA"]
         self.llm_enabled = False
+        self.llm_enabled = False
         self.history_buffers = {sym: pd.DataFrame() for sym in self.symbols}
+        self.ml_models = {}
         
         # Start async loop thread for streaming
         self._stream_thread = None
@@ -61,7 +64,22 @@ class AlpacaEngine:
             self.llm_enabled = True
             self._log("Modulo AI Sentiment basato su notizie in tempo reale abilitato (Groq LLaMA3).")
         else:
-            self._log("Avviso: GROQ_KEY non trovata. Trading solo su Analisi Tecnica.")
+            self._log("Avviso: GROQ_KEY non trovata. Trading solo su Analisi Tecnica e LSTM.")
+            
+        # Carica modelli LSTM
+        models_dir = os.path.join(os.path.dirname(__file__), "models")
+        if os.path.exists(models_dir):
+            for sym in self.symbols:
+                model_path = os.path.join(models_dir, f"{sym}_model.keras")
+                fallback_path = os.path.join(models_dir, "SUPER_MODEL.keras")
+                target_path = model_path if os.path.exists(model_path) else fallback_path
+                if os.path.exists(target_path):
+                    try:
+                        self.ml_models[sym] = LSTMTradingModel()
+                        self.ml_models[sym].load(target_path)
+                        self._log(f"🧠 Modello LSTM caricato per {sym} da {os.path.basename(target_path)}")
+                    except Exception as e:
+                        self._log(f"⚠️ Errore caricamento LSTM per {sym}: {e}")
 
     def sync_portfolio(self):
         try:
@@ -156,7 +174,7 @@ class AlpacaEngine:
         for sym in self.symbols:
             try:
                 query_sym = self.clean_sym(sym)
-                bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=50).df
+                bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=150).df
                 if not bars.empty:
                     self.history_buffers[sym] = bars
                     # Calcola subito la predizione iniziale ad ogni avvio!
@@ -179,8 +197,8 @@ class AlpacaEngine:
         
         df = self.history_buffers[sym]
         df = pd.concat([df, new_row])
-        # Mantieni solo le ultime 50 candele per non ingolfare la memoria
-        df = df.tail(50)
+        # Mantieni solo le ultime 150 candele per non ingolfare la memoria ma garantire dati a sufficienza per MACD/LSTM
+        df = df.tail(150)
         self.history_buffers[sym] = df
         
         self.evaluate_strategy(sym, df)
@@ -220,24 +238,60 @@ class AlpacaEngine:
             atr = float(atr_series.iloc[-1])
         else:
             atr = current_price * 0.01
-
-        self.bot_state.latest_predictions[symbol] = f"RSI: {rsi:.1f} | BB_L: {bb_lower:.2f} | BB_U: {bb_upper:.2f} | ATR: {atr:.2f}"
-        
-        # Check Long (Mean Reversion dal basso)
-        if current_price < bb_lower and rsi < 30:
-            pattern = self.predict_pattern_with_groq(symbol, close_prices)
-            if pattern == "UP":
-                self.execute_trade(symbol, current_price, "LONG", atr)
-            else:
-                self._log(f"🧠 AI VETO PREDICTIVE: Setup LONG su {symbol}, ma Groq prevede DOWN. Annullato.")
             
-        # Check Short (Mean Reversion dall'alto)
-        elif current_price > bb_upper and rsi > 70:
-            pattern = self.predict_pattern_with_groq(symbol, close_prices)
-            if pattern == "DOWN":
-                self.execute_trade(symbol, current_price, "SHORT", atr)
+        # 🤖 Predizione LSTM Quantitativa
+        lstm_prob = 0.5
+        if symbol in self.ml_models:
+            try:
+                lstm_prob = self.ml_models[symbol].predict_realtime(df)
+            except Exception as e:
+                pass
+
+        # ⏱️ Multi-Timeframe Analysis (Macro Trend su 5 Minuti)
+        try:
+            # Assicuriamoci che l'indice sia datetime
+            if not isinstance(df.index, pd.DatetimeIndex):
+                df.index = pd.to_datetime(df.index)
+            
+            macro_close = df['close'].resample('5Min').last().dropna()
+            if len(macro_close) >= 14:
+                macro_delta = macro_close.diff()
+                macro_gain = (macro_delta.where(macro_delta > 0, 0)).rolling(window=14).mean()
+                macro_loss = (-macro_delta.where(macro_delta < 0, 0)).rolling(window=14).mean()
+                macro_rs = macro_gain / macro_loss
+                macro_rsi = float((100 - (100 / (1 + macro_rs))).iloc[-1])
             else:
-                self._log(f"🧠 AI VETO PREDICTIVE: Setup SHORT su {symbol}, ma Groq prevede UP. Annullato.")
+                macro_rsi = 50 # Default neutro se non ci sono abbastanza barre
+        except Exception as e:
+            macro_rsi = 50
+            
+        self.bot_state.latest_predictions[symbol] = f"LSTM: {lstm_prob*100:.1f}% | RSI(1M): {rsi:.1f} | RSI(5M): {macro_rsi:.1f} | BB_L: {bb_lower:.2f}"
+        
+        # Check Long (Mean Reversion + LSTM Confluence + Macro Trend)
+        if current_price < bb_lower and rsi < 35:
+            if macro_rsi < 35:
+                self._log(f"⚠️ MACRO VETO: Il trend a 5 minuti ({macro_rsi:.1f}) è troppo ipervenduto (coltello che cade). Long annullato.")
+            elif lstm_prob > 0.65: # Richiedi almeno il 65% di probabilità UP dalla rete neurale
+                pattern = self.predict_pattern_with_groq(symbol, close_prices)
+                if pattern == "UP":
+                    self.execute_trade(symbol, current_price, "LONG", atr)
+                else:
+                    self._log(f"🧠 AI VETO PREDICTIVE: Setup LONG su {symbol} confermato da LSTM, ma Groq NLP prevede DOWN. Annullato.")
+            else:
+                 self._log(f"🤖 LSTM VETO: Setup LONG su {symbol} (Prob={lstm_prob*100:.1f}%) non sufficiente (richiesto > 65%).")
+            
+        # Check Short (Mean Reversion dall'alto + LSTM Confluence + Macro Trend)
+        elif current_price > bb_upper and rsi > 65:
+            if macro_rsi > 65:
+                self._log(f"⚠️ MACRO VETO: Il trend a 5 minuti ({macro_rsi:.1f}) è troppo forte al rialzo. Short annullato.")
+            elif lstm_prob < 0.35: # Probabilità UP bassa significa probabilità DOWN alta
+                pattern = self.predict_pattern_with_groq(symbol, close_prices)
+                if pattern == "DOWN":
+                    self.execute_trade(symbol, current_price, "SHORT", atr)
+                else:
+                    self._log(f"🧠 AI VETO PREDICTIVE: Setup SHORT su {symbol} confermato da LSTM, ma Groq NLP prevede UP. Annullato.")
+            else:
+                self._log(f"🤖 LSTM VETO: Setup SHORT su {symbol} (Prob={lstm_prob*100:.1f}%) non sufficiente (richiesta < 35%).")
 
     def is_shortable(self, symbol):
         if not hasattr(self, "_shortable_cache"):
@@ -296,32 +350,33 @@ class AlpacaEngine:
         qty = int(trade_amount // current_price)
         if qty <= 0: return
         
-        # Bracket Order parameters dinamici con ATR
-        if side == "LONG":
-            take_profit_price = current_price + (3.0 * atr)
-            stop_loss_price = current_price - (1.5 * atr)
-        else:
-            take_profit_price = current_price - (3.0 * atr)
-            stop_loss_price = current_price + (1.5 * atr)
-        
-        # Clamp di sicurezza per evitare stop/profit impossibili
-        take_profit_price = max(0.01, take_profit_price)
-        stop_loss_price = max(0.01, stop_loss_price)
+        # Trailing Stop dinamico basato sull'ATR
+        trail_percent = round((1.5 * atr) / current_price * 100, 2)
+        trail_percent = max(0.5, min(trail_percent, 5.0)) # Trailing Stop compreso tra 0.5% e 5.0%
         
         alpaca_side = 'buy' if side == "LONG" else 'sell'
+        exit_side = 'sell' if side == "LONG" else 'buy'
         
         try:
-            self.alpaca_rest.submit_order(
+            # 1. Invia Ordine di Entrata (Market)
+            entry = self.alpaca_rest.submit_order(
                 symbol=symbol,
                 qty=qty,
                 side=alpaca_side,
                 type='market',
-                time_in_force='day',
-                order_class='bracket',
-                take_profit={'limit_price': round(take_profit_price, 2)},
-                stop_loss={'stop_price': round(stop_loss_price, 2), 'limit_price': round(stop_loss_price, 2)}
+                time_in_force='day'
             )
-            self._log(f"🚀 ORDINE REALE {side} {qty} {symbol} INVIATO AD ALPACA (TP: {take_profit_price:.2f}, SL: {stop_loss_price:.2f} | Taglia: {size_multiplier*100:.0f}%)")
+            
+            # 2. Invia Ordine Trailing Stop per l'Uscita (Lascia correre i profitti!)
+            self.alpaca_rest.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=exit_side,
+                type='trailing_stop',
+                trail_percent=trail_percent,
+                time_in_force='day'
+            )
+            self._log(f"🚀 ORDINE REALE {side} {qty} {symbol} INVIATO AD ALPACA (Trailing Stop: {trail_percent}% | Taglia: {size_multiplier*100:.0f}%)")
         except Exception as e:
             self._log(f"❌ ERRORE INVIO ORDINE: {e}")
 
@@ -374,7 +429,7 @@ class AlpacaEngine:
             for sym in self.symbols:
                 try:
                     query_sym = self.clean_sym(sym)
-                    bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=50).df
+                    bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=150).df
                     if not bars.empty:
                         self.history_buffers[sym] = bars
                         self.evaluate_strategy(sym, bars)

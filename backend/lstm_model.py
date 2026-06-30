@@ -111,3 +111,53 @@ class LSTMTradingModel:
         y_pred_prob = self.model.predict(X, verbose=0)
         # Ritorniamo la probabilità (0-1), api.py moltiplicherà per 100
         return float(y_pred_prob[-1][0])
+
+    def predict_realtime(self, df: pd.DataFrame):
+        """Prepara le feature per l'inferenza in real-time e ritorna la probabilità"""
+        data = df.copy()
+        
+        # Feature base (se non esistono, le calcoliamo)
+        if 'SMA_20' not in data.columns:
+            data['SMA_20'] = data['Close'].rolling(window=20).mean()
+        if 'SMA_50' not in data.columns:
+            data['SMA_50'] = data['Close'].rolling(window=50).mean()
+        if 'RSI' not in data.columns:
+            delta = data['Close'].diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=14).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+            rs = gain / loss
+            data['RSI'] = 100 - (100 / (1 + rs))
+            
+        # Feature calcolate internamente
+        exp1 = data['Close'].ewm(span=12, adjust=False).mean()
+        exp2 = data['Close'].ewm(span=26, adjust=False).mean()
+        data['MACD'] = exp1 - exp2
+        
+        data['BB_Middle'] = data['Close'].rolling(window=20).mean()
+        std_dev = data['Close'].rolling(window=20).std()
+        data['BB_Upper'] = data['BB_Middle'] + (std_dev * 2)
+        data['BB_Lower'] = data['BB_Middle'] - (std_dev * 2)
+        
+        # Fix: Capitalize le colonne O,H,L,C,V se arrivano minuscole da alpaca
+        mapping = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'}
+        data = data.rename(columns={k: v for k, v in mapping.items() if k in data.columns})
+        
+        features = ['Open', 'High', 'Low', 'Close', 'Volume', 'SMA_20', 'SMA_50', 'RSI', 'MACD', 'BB_Upper', 'BB_Lower']
+        data = data.dropna()
+        
+        if len(data) < self.sequence_length:
+            return 0.5 # Not enough data
+            
+        X_raw = data[features].values
+        
+        # Prende solo l'ultima sequenza disponibile
+        last_sequence = X_raw[-self.sequence_length:]
+        
+        # Trasforma con lo scaler (deve essere lo STESSO scaler del train)
+        X_scaled = self.scaler_X.transform(last_sequence)
+        
+        # Aggiunge la dimensione del batch (1, sequence_length, features)
+        X_input = np.array([X_scaled])
+        
+        return self.predict(X_input)
+
