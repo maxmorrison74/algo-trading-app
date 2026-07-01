@@ -264,7 +264,12 @@ class AlpacaEngine:
                 macro_rsi = 50 # Default neutro se non ci sono abbastanza barre
         except Exception as e:
             macro_rsi = 50
-            
+        
+        # Filtro "Anti-Noia" (Volatilità Estrema Richiesta)
+        atr_percent = atr / current_price
+        if atr_percent < 0.003: # Se il prezzo si muove meno dello 0.3% non entriamo
+             return
+
         self.bot_state.latest_predictions[symbol] = f"LSTM: {lstm_prob*100:.1f}% | RSI(1M): {rsi:.1f} | RSI(5M): {macro_rsi:.1f} | BB_L: {bb_lower:.2f}"
         
         # Check Long (Mean Reversion O Breakout Momentum)
@@ -333,21 +338,16 @@ class AlpacaEngine:
             
         self._log(f"🧠 AI CONFERMA: Sentiment = {sentiment} (Confidenza: {confidence}/5). Esecuzione Ordine!")
         
-        # Position Sizing Dinamico basato su confidenza (Approccio PRUDENTE per Live Trading)
-        if self.bot_state.virtual_cash < 500:
-            # Rischio Sicuro: Max 25% del capitale (No Leva per Live Trading)
-            size_multiplier = 0.15
-            if confidence == 4:
-                size_multiplier = 0.20
-            elif confidence == 5:
-                size_multiplier = 0.25
+        # Position Sizing Dinamico (MAX PROFIT MODE per Live Trading)
+        if lstm_prob is not None:
+            if (side == "LONG" and lstm_prob > 0.75) or (side == "SHORT" and lstm_prob < 0.25):
+                # MAX PROFIT: High Confidence All-In Frazionato
+                size_multiplier = 0.90
+            else:
+                # MAX PROFIT: Base Size
+                size_multiplier = 0.50
         else:
-            # Per conti grossi restiamo conservativi
-            size_multiplier = 0.05
-            if confidence == 4:
-                size_multiplier = 0.10
-            elif confidence == 5:
-                size_multiplier = 0.15
+            size_multiplier = 0.50
             
         trade_amount = self.bot_state.virtual_cash * size_multiplier
         if trade_amount < 10: # Abbassato il blocco da 100$ a 10$
@@ -357,10 +357,10 @@ class AlpacaEngine:
         qty = round(trade_amount / current_price, 4)
         if qty <= 0.0001: return
         
-        # Bracket Order Dinamico per Scalping Veloce (Setup C: Volatilità 1:2)
-        tp_percent = round((1.5 * atr) / current_price, 4)
-        tp_percent = max(0.005, min(tp_percent, 0.02)) # TP tra 0.5% e 2%
-        sl_percent = tp_percent / 2.0 # Stop Loss è la metà del Take Profit
+        # Bracket Order Dinamico per Scalping Aggressivo (Max Profit)
+        tp_percent = round((2.0 * atr) / current_price, 4) # Raddoppiato il target potenziale
+        tp_percent = max(0.01, min(tp_percent, 0.04)) # TP tra 1% e 4%
+        sl_percent = tp_percent / 2.0 # Stop Loss è la metà del Take Profit (1:2)
         
         alpaca_side = 'buy' if side == "LONG" else 'sell'
         
