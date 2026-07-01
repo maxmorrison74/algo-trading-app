@@ -13,8 +13,8 @@ cd ..
 
 echo "3) Aggiornamento dipendenze Python (potrebbe volerci qualche minuto)..."
 cd backend
-sudo ./venv/bin/python -m pip install --upgrade pip
-sudo ./venv/bin/python -m pip install -r requirements.txt
+./venv/bin/python -m pip install --upgrade pip
+./venv/bin/python -m pip install -r requirements.txt
 cd ..
 
 # Riavvio definitivo con sudo per la porta 80
