@@ -114,10 +114,13 @@ def health_check():
 
 app.include_router(routers_ai_invest.router)
 
-API_KEY = os.getenv("ALPACA_API_KEY")
-API_SECRET = os.getenv("ALPACA_SECRET_KEY")
-BASE_URL = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+keys_path = os.path.join(os.path.dirname(__file__), ".env.keys")
+if os.path.exists(keys_path):
+    load_dotenv(dotenv_path=keys_path)
 
+API_KEY = os.getenv("ALPACA_KEY", os.getenv("ALPACA_API_KEY"))
+API_SECRET = os.getenv("ALPACA_SECRET", os.getenv("ALPACA_SECRET_KEY"))
+BASE_URL = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
 try:
     alpaca = tradeapi.REST(API_KEY, API_SECRET, BASE_URL, api_version='v2')
 except Exception as e:
@@ -568,9 +571,31 @@ def get_status():
             })
 
         win_rate = 0.0
+        profit_factor = 0.0
+        sharpe_ratio = 0.0
+        max_drawdown = 0.0
         if bot_state.trade_history:
-            wins = sum(1 for t in bot_state.trade_history if t.get("profit_usd", 0) > 0)
-            win_rate = round((wins / len(bot_state.trade_history)) * 100, 1)
+            wins = [t for t in bot_state.trade_history if t.get("profit_usd", 0) > 0]
+            losses = [t for t in bot_state.trade_history if t.get("profit_usd", 0) <= 0]
+            win_rate = round((len(wins) / len(bot_state.trade_history)) * 100, 1)
+            
+            gross_profit = sum(t["profit_usd"] for t in wins)
+            gross_loss = abs(sum(t["profit_usd"] for t in losses))
+            profit_factor = round(gross_profit / gross_loss, 2) if gross_loss > 0 else (round(gross_profit, 2) if gross_profit > 0 else 0.0)
+            
+            # Approssimazione Sharpe Ratio basata sui trade
+            returns = [t.get("profit_usd", 0) for t in bot_state.trade_history]
+            if len(returns) > 2:
+                import numpy as np
+                mean_return = np.mean(returns)
+                std_return = np.std(returns)
+                sharpe_ratio = round((mean_return / std_return) * np.sqrt(252), 2) if std_return > 0 else 0.0
+                
+        # Drawdown da high watermarks
+        current_val = bot_state.virtual_cash
+        high_val = getattr(bot_state, 'high_watermarks', {}).get("daily", current_val)
+        if high_val > current_val:
+            max_drawdown = round(((high_val - current_val) / high_val) * 100, 2)
 
         st = {}
         st["market_open"] = False
@@ -603,6 +628,13 @@ def get_status():
             "is_running": bot_state.is_running,
             "portfolio_value": round(virtual_portfolio_value, 2),
             "profit": round(virtual_portfolio_value - 100.0, 2),
+            "profit_perc": round((virtual_portfolio_value - 100.0) / 100.0 * 100, 2),
+            "table_data": table_data,
+            "win_rate": win_rate,
+            "profit_factor": profit_factor,
+            "sharpe_ratio": sharpe_ratio,
+            "max_drawdown": max_drawdown,
+            "market_open": st["market_open"],
             "positions": pos_dict,
             "predictions": bot_state.latest_predictions,
             "last_trade": bot_state.last_trade,

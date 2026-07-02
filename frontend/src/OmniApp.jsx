@@ -679,6 +679,18 @@ function OmniApp() {
           <div className="card-title">Win Rate</div>
           <div className="portfolio-value" style={{ color: '#f59e0b' }}>{Number(status.win_rate || 0).toFixed(1)}%</div>
         </div>
+        <div className="card col-span-4">
+          <div className="card-title">Profit Factor</div>
+          <div className="portfolio-value" style={{ color: '#8b5cf6' }}>{Number(status.profit_factor || 0).toFixed(2)}</div>
+        </div>
+        <div className="card col-span-4">
+          <div className="card-title">Sharpe Ratio</div>
+          <div className="portfolio-value" style={{ color: '#00d4aa' }}>{Number(status.sharpe_ratio || 0).toFixed(2)}</div>
+        </div>
+        <div className="card col-span-4">
+          <div className="card-title">Max Drawdown</div>
+          <div className="portfolio-value" style={{ color: '#ef4444' }}>-{Number(status.max_drawdown || 0).toFixed(2)}%</div>
+        </div>
       </div>
 
       <div className="chart-controls" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between' }}>

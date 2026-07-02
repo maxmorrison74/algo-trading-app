@@ -7,7 +7,7 @@ import pandas as pd
 from groq import Groq
 import alpaca_trade_api as tradeapi
 from alpaca_trade_api.stream import Stream
-from lstm_model import LSTMTradingModel
+from ensemble_ml import EnsembleTradingModel
 
 class AlpacaEngine:
     def __init__(self, bot_state):
@@ -75,11 +75,11 @@ class AlpacaEngine:
                 target_path = model_path if os.path.exists(model_path) else fallback_path
                 if os.path.exists(target_path):
                     try:
-                        self.ml_models[sym] = LSTMTradingModel()
+                        self.ml_models[sym] = EnsembleTradingModel()
                         self.ml_models[sym].load(target_path)
-                        self._log(f"🧠 Modello LSTM caricato per {sym} da {os.path.basename(target_path)}")
+                        self._log(f"🧠 Ensemble ML (LSTM+RF) caricato per {sym} da {os.path.basename(target_path)}")
                     except Exception as e:
-                        self._log(f"⚠️ Errore caricamento LSTM per {sym}: {e}")
+                        self._log(f"⚠️ Errore caricamento Ensemble ML per {sym}: {e}")
 
     def sync_portfolio(self):
         try:
@@ -284,7 +284,7 @@ class AlpacaEngine:
                 if pattern == "UP":
                     strategy_name = "MOMENTUM SCALPING" if is_momentum_long else "MEAN REVERSION"
                     self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol}")
-                    self.execute_trade(symbol, current_price, "LONG", atr)
+                    self.execute_trade(symbol, current_price, "LONG", atr, lstm_prob)
                 else:
                     self._log(f"🧠 AI VETO: Groq non conferma UP. Scalp annullato.")
             else:
@@ -294,7 +294,7 @@ class AlpacaEngine:
         elif current_price > bb_upper and rsi > 65 and lstm_prob < 0.40:
             pattern = self.predict_pattern_with_groq(symbol, close_prices)
             if pattern == "DOWN":
-                self.execute_trade(symbol, current_price, "SHORT", atr)
+                self.execute_trade(symbol, current_price, "SHORT", atr, lstm_prob)
             else:
                 self._log(f"🧠 AI VETO: Groq non conferma DOWN. Scalp annullato.")
 
@@ -314,7 +314,59 @@ class AlpacaEngine:
             self._shortable_cache[symbol] = False
             return False
 
-    def execute_trade(self, symbol, current_price, side, atr):
+
+    def check_drawdown(self):
+        # Max drawdown giornaliero -3%, settimanale -5%
+        if not hasattr(self.bot_state, 'high_watermarks'):
+            return False
+            
+        current_value = self.bot_state.virtual_cash
+        daily_high = self.bot_state.high_watermarks.get("daily", current_value)
+        weekly_high = self.bot_state.high_watermarks.get("weekly", current_value)
+        
+        # Update watermarks
+        if current_value > daily_high:
+            self.bot_state.high_watermarks["daily"] = current_value
+            daily_high = current_value
+        if current_value > weekly_high:
+            self.bot_state.high_watermarks["weekly"] = current_value
+            weekly_high = current_value
+            
+        dd_daily = (daily_high - current_value) / daily_high
+        dd_weekly = (weekly_high - current_value) / weekly_high
+        
+        if dd_daily >= 0.03:
+            self._log(f"🚨 CIRCUIT BREAKER: Max Drawdown Giornaliero Superato (-{dd_daily*100:.1f}%). Trading Sospeso.")
+            return True
+        if dd_weekly >= 0.05:
+            self._log(f"🚨 CIRCUIT BREAKER: Max Drawdown Settimanale Superato (-{dd_weekly*100:.1f}%). Trading Sospeso.")
+            return True
+        return False
+
+    def get_kelly_size(self):
+        trades = self.bot_state.trade_history
+        if len(trades) < 5:
+            return 0.15  # Fixed 15% finché non abbiamo storico sufficiente
+            
+        wins = [t for t in trades if t.get('profit_usd', 0) > 0]
+        losses = [t for t in trades if t.get('profit_usd', 0) <= 0]
+        
+        win_rate = len(wins) / len(trades)
+        avg_win = sum(t['profit_usd'] for t in wins) / len(wins) if wins else 0
+        avg_loss = abs(sum(t['profit_usd'] for t in losses) / len(losses)) if losses else 0
+        
+        if avg_loss == 0 or avg_win == 0:
+            return 0.15
+            
+        b = avg_win / avg_loss
+        q = 1 - win_rate
+        kelly = (win_rate * b - q) / b
+        
+        # Half Kelly Criterion limitato tra 5% e 25% max
+        fraction = max(0.05, min(kelly * 0.5, 0.25))
+        return fraction
+
+    def execute_trade(self, symbol, current_price, side, atr, lstm_prob=0.5):
         self._log(f"⚡ SETUP {side} RILEVATO su {symbol}: Prezzo {current_price:.2f} (ATR: {atr:.2f})")
         
         if side == "SHORT" and not self.is_shortable(symbol):
@@ -338,16 +390,17 @@ class AlpacaEngine:
             
         self._log(f"🧠 AI CONFERMA: Sentiment = {sentiment} (Confidenza: {confidence}/5). Esecuzione Ordine!")
         
-        # Position Sizing Dinamico (MAX PROFIT MODE per Live Trading)
+        if self.check_drawdown():
+            return
+            
+        # Position Sizing con Half-Kelly Criterion
+        size_multiplier = self.get_kelly_size()
+        
+        # Boost aggressivo solo per setup eccellenti (+50% sul Kelly)
         if lstm_prob is not None:
             if (side == "LONG" and lstm_prob > 0.75) or (side == "SHORT" and lstm_prob < 0.25):
-                # MAX PROFIT: High Confidence All-In Frazionato
-                size_multiplier = 0.90
-            else:
-                # MAX PROFIT: Base Size
-                size_multiplier = 0.50
-        else:
-            size_multiplier = 0.50
+                size_multiplier = min(size_multiplier * 1.5, 0.40) # Cap a 40%
+        
             
         trade_amount = self.bot_state.virtual_cash * size_multiplier
         if trade_amount < 10: # Abbassato il blocco da 100$ a 10$
@@ -436,8 +489,10 @@ class AlpacaEngine:
             time.sleep(60)
             self.sync_portfolio() # Sincronizza bilancio ogni minuto per aggiornare la UI
             
-            # Polling REST per tenere aggiornati i segnali di tutti i simboli (Crypto inclusi)
+            # Polling REST solo per Crypto (Azioni passano via WebSocket HFT)
             for sym in self.symbols:
+                if "/" not in sym:
+                    continue # Gestito dal websocket
                 try:
                     query_sym = self.clean_sym(sym)
                     bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=150).df
