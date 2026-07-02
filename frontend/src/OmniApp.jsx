@@ -545,7 +545,7 @@ function OmniApp() {
 
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Alpaca (Stock Market) {savedKeys['ALPACA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.5rem', fontSize: '0.9rem' }}>🟢 Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.5rem', fontSize: '0.9rem' }}>🔴 Assente</span>}</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Alpaca (Stock Market) {savedKeys['ALPACA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
           <button onClick={() => testConnection('alpaca')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
@@ -557,7 +557,7 @@ function OmniApp() {
 
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Binance (Crypto Arb) {savedKeys['BINANCE_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.5rem', fontSize: '0.9rem' }}>🟢 Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.5rem', fontSize: '0.9rem' }}>🔴 Assente</span>}</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Binance (Crypto Arb) {savedKeys['BINANCE_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
           <button onClick={() => testConnection('binance')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
@@ -569,7 +569,7 @@ function OmniApp() {
 
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Kraken (Crypto Arb) {savedKeys['KRAKEN_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.5rem', fontSize: '0.9rem' }}>🟢 Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.5rem', fontSize: '0.9rem' }}>🔴 Assente</span>}</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Kraken (Crypto Arb) {savedKeys['KRAKEN_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
           <button onClick={() => testConnection('kraken')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
@@ -581,7 +581,7 @@ function OmniApp() {
 
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0' }}>Groq AI (Sentiment & Investments) {savedKeys['GROQ_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.5rem', fontSize: '0.9rem' }}>🟢 Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.5rem', fontSize: '0.9rem' }}>🔴 Assente</span>}</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Groq AI (Sentiment & Investments) {savedKeys['GROQ_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
           <button onClick={() => testConnection('groq')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
