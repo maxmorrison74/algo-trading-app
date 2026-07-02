@@ -211,6 +211,54 @@ function OmniApp() {
   const [tradeResult, setTradeResult] = useState(null);
   const [aiModal, setAiModal] = useState(null); // null | { symbol, price, volatility, change_24h, loading, result, error }
 
+  // Manual Stock Trading state
+  const [manualSymbol, setManualSymbol] = useState("");
+  const [manualAmount, setManualAmount] = useState(100);
+  const [manualQuote, setManualQuote] = useState(null);
+  const [manualLoading, setManualLoading] = useState(false);
+  const [manualMessage, setManualMessage] = useState("");
+
+  const handleQuote = async () => {
+    if (!manualSymbol) return;
+    setManualLoading(true);
+    setManualMessage("");
+    try {
+      const res = await authFetch(`/api/stock/quote/${manualSymbol}`);
+      const data = await res.json();
+      if (data.error) {
+        setManualMessage(data.error);
+        setManualQuote(null);
+      } else {
+        setManualQuote(data);
+      }
+    } catch(err) {
+      setManualMessage("Errore di connessione");
+    }
+    setManualLoading(false);
+  };
+
+  const handleManualTrade = async (side) => {
+    if (!manualSymbol || manualAmount <= 0) return;
+    setManualLoading(true);
+    try {
+      const res = await authFetch('/api/stock/trade/manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ symbol: manualSymbol, side, amount: manualAmount })
+      });
+      const data = await res.json();
+      if (data.error) {
+        setManualMessage(`Errore: ${data.error}`);
+      } else {
+        setManualMessage(data.message);
+        if (side === 'buy') setManualQuote(null);
+      }
+    } catch(err) {
+      setManualMessage("Errore esecuzione ordine");
+    }
+    setManualLoading(false);
+  };
+
   const openAiSignal = async (asset) => {
     setAiModal({ symbol: asset.symbol, price: asset.price, volatility: asset.volatility, change_24h: asset.change_24h, loading: true, result: null, error: null });
     try {
@@ -715,6 +763,53 @@ function OmniApp() {
               RESET SIMULAZIONE
             </button>
         </div>
+      </div>
+
+
+      {/* MANUAL TRADING TERMINAL */}
+      <div className="card" style={{ marginTop: '2rem', marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+        <h3 style={{ margin: '0 0 1rem 0', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span>🎯</span> Terminale Azionario Manuale
+        </h3>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <input 
+            type="text" 
+            placeholder="Ticker (es. AAPL)"
+            value={manualSymbol} 
+            onChange={(e) => setManualSymbol(e.target.value.toUpperCase())} 
+            style={{ width: '150px', padding: '0.8rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff', fontSize: '1.1rem' }} 
+          />
+          <button className="btn" onClick={handleQuote} disabled={manualLoading || !manualSymbol} style={{ padding: '0.8rem 1.5rem', background: 'rgba(255,255,255,0.1)' }}>
+            {manualLoading ? '⏳' : 'Cerca Prezzo'}
+          </button>
+          
+          {manualQuote && (
+            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(16, 185, 129, 0.1)', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+              <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '1.2rem' }}>${manualQuote.price.toFixed(2)}</span>
+              
+              <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.2)' }}></div>
+              
+              <span style={{ color: 'var(--text-secondary)' }}>Importo ($)</span>
+              <input 
+                type="number" 
+                value={manualAmount} 
+                onChange={(e) => setManualAmount(Number(e.target.value))} 
+                style={{ width: '100px', padding: '0.6rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff' }} 
+              />
+              <button className="btn btn-start" onClick={() => handleManualTrade('buy')} disabled={manualLoading || manualAmount <= 0} style={{ padding: '0.6rem 1.5rem' }}>
+                COMPRA
+              </button>
+              <button className="btn btn-stop" onClick={() => handleManualTrade('sell')} disabled={manualLoading} style={{ padding: '0.6rem 1.5rem' }}>
+                VENDI
+              </button>
+            </div>
+          )}
+        </div>
+        {manualMessage && (
+          <div style={{ marginTop: '1rem', padding: '0.8rem', background: 'rgba(0,0,0,0.4)', borderRadius: '8px', color: manualMessage.includes('Errore') ? '#ef4444' : '#10b981' }}>
+            {manualMessage}
+          </div>
+        )}
       </div>
 
       {/* AI INVESTMENT HUB */}

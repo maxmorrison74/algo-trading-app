@@ -1027,6 +1027,98 @@ async def toggle_module(payload: dict, _: str = Depends(require_admin)):
             "ai_logs": getattr(bot_state, "ai_logs", []),
             "ai_videos": getattr(bot_state, "ai_videos", [])}
     return {"error": "Modulo non trovato"}
+@app.get("/api/stock/quote/{symbol}")
+def get_stock_quote(symbol: str):
+    """Restituisce la quotazione in tempo reale tramite Alpaca (o yfinance come fallback)."""
+    symbol = symbol.upper().strip()
+    try:
+        import alpaca_trade_api as tradeapi
+        # Prova con Alpaca prima se configurata
+        global alpaca
+        if alpaca:
+            bar = alpaca.get_latest_trade(symbol)
+            if bar:
+                return {"symbol": symbol, "price": float(bar.price)}
+    except Exception as e:
+        pass
+        
+    # Fallback su yfinance
+    try:
+        import yfinance as yf
+        ticker = yf.Ticker(symbol)
+        data = ticker.history(period="1d")
+        if not data.empty:
+            price = data['Close'].iloc[-1]
+            return {"symbol": symbol, "price": float(price)}
+    except Exception as e:
+        pass
+        
+    return {"error": f"Impossibile recuperare la quotazione per {symbol}"}
+
+@app.post("/api/stock/trade/manual")
+def manual_stock_trade(payload: dict, _: str = Depends(require_admin)):
+    """Esegue un trade azionario manuale in paper trading."""
+    symbol = payload.get("symbol", "").upper().strip()
+    side = payload.get("side", "buy").lower()
+    amount = float(payload.get("amount", 0))
+    
+    if not symbol or side not in ["buy", "sell"] or amount <= 0:
+        return {"error": "Parametri non validi"}
+        
+    # Ottieni prezzo
+    quote = get_stock_quote(symbol)
+    if "error" in quote:
+        return quote
+        
+    price = quote["price"]
+    qty = amount / price
+    
+    # Esegui in Paper Mode (virtual_cash)
+    if side == "buy":
+        if bot_state.virtual_cash < amount:
+            return {"error": "Fondi virtuali insufficienti"}
+        bot_state.virtual_cash -= amount
+        
+        # Aggiungi a monitored positions se l'utente vuole che il bot gestisca l'uscita
+        bot_state.monitored_positions.append({
+            "symbol": symbol,
+            "buy_price": price,
+            "qty": qty,
+            "amount": amount,
+            "peak_price": price,
+            "timestamp": datetime.now().strftime("%H:%M:%S")
+        })
+        
+        _send_telegram_trade(
+            event="BUY", symbol=symbol, qty=qty, price=price,
+            reason="Trade Azionario Manuale", virtual_cash=bot_state.virtual_cash
+        )
+        return {"status": "ok", "message": f"Acquistate {qty:.4f} {symbol} a ${price:.2f}"}
+    else:
+        # SELL manuale
+        # Trova la posizione in monitored_positions
+        pos_idx = -1
+        for i, p in enumerate(bot_state.monitored_positions):
+            if p["symbol"].upper() == symbol:
+                pos_idx = i
+                break
+                
+        if pos_idx == -1:
+            return {"error": f"Nessuna posizione aperta trovata per {symbol}"}
+            
+        pos = bot_state.monitored_positions.pop(pos_idx)
+        revenue = pos["qty"] * price
+        profit = revenue - pos["amount"]
+        
+        bot_state.virtual_cash += revenue
+        bot_state.profit += profit
+        
+        _send_telegram_trade(
+            event="SELL", symbol=symbol, qty=pos["qty"], price=price,
+            reason=f"Chiusura Manuale Azionario", virtual_cash=bot_state.virtual_cash
+        )
+        
+        return {"status": "ok", "message": f"Vendute {pos['qty']:.4f} {symbol} a ${price:.2f}. Profitto: ${profit:.2f}"}
 
 
 @app.post("/api/high-risk/trade")
