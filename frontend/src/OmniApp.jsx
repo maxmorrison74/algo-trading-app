@@ -693,6 +693,12 @@ function OmniApp() {
         </div>
       </div>
 
+
+      <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
+        <RiskStatus />
+        <CapitalPhase />
+      </div>
+
       <div className="chart-controls" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between' }}>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           {status.symbols?.map(sym => (

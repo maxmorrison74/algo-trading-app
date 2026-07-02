@@ -1,4 +1,9 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Response, UploadFile, File, Form
+from fastapi import FastAPI
+
+from risk_manager import get_risk_manager, RiskLimits
+from capital_manager import get_capital_manager
+from dataclasses import asdict
+, HTTPException, BackgroundTasks, Request, Response, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -107,6 +112,56 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/api/risk/status")
+def risk_status():
+    """Stato del risk manager"""
+    risk = get_risk_manager(initial_capital=bot_state.virtual_cash)
+    return risk.get_status()
+
+@app.post("/api/risk/limits")
+def update_risk_limits(limits: dict):
+    """Aggiorna i limiti di risk (solo admin)"""
+    risk = get_risk_manager()
+    risk.limits = RiskLimits(**limits)
+    return {"status": "ok", "limits": asdict(risk.limits)}
+
+@app.post("/api/risk/emergency-stop")
+def emergency_stop():
+    """Kill switch manuale"""
+    risk = get_risk_manager()
+    risk._trigger_circuit_breaker("STOP MANUALE dall'utente")
+    
+    # Chiudi tutte le posizioni Alpaca (se presente)
+    try:
+        if alpaca:
+            positions = alpaca.list_positions()
+            for p in positions:
+                alpaca.submit_order(
+                    symbol=p.symbol,
+                    qty=p.qty,
+                    side='sell' if p.side == 'long' else 'buy',
+                    type='market',
+                    time_in_force='day'
+                )
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+        
+    return {"status": "ok", "message": "🛑 EMERGENCY STOP eseguito"}
+
+@app.get("/api/capital/status")
+def capital_status():
+    """Stato gestione capitale"""
+    cap = get_capital_manager()
+    return cap.get_status()
+
+@app.post("/api/capital/advance")
+def advance_phase():
+    """Prova ad avanzare alla fase successiva"""
+    cap = get_capital_manager()
+    success, msg = cap.advance_phase()
+    return {"success": success, "message": msg}
 
 @app.get("/health")
 def health_check():
@@ -399,6 +454,12 @@ def _auto_exit_loop():
                     )
 
                     # Trade history
+                    
+                    risk = get_risk_manager(initial_capital=bot_state.virtual_cash)
+                    cap = get_capital_manager()
+                    risk.record_trade(symbol, "AUTO-EXIT", qty=amount, price=current_price, pnl=realized_profit)
+                    cap.record_trade_result(realized_profit)
+                    
                     bot_state.trade_history.append({
                         "symbol": symbol, "side": "AUTO-EXIT",
                         "profit_usd": round(realized_profit, 4),
