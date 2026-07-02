@@ -933,6 +933,60 @@ function OmniApp() {
               style={{ width: '100%', accentColor: '#06b6d4' }}
             />
           </div>
+          <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.75rem' }}>
+              <div>
+                <div style={{ fontSize: '0.9rem', color: '#e2e8f0', fontWeight: 'bold' }}>Selezione dinamica titoli</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  Ranking su momentum, liquidità e volatilità
+                </div>
+              </div>
+              <button
+                className="btn"
+                onClick={async () => {
+                  const res = await authFetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ refresh_symbols: true, symbol_count: 7 })
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    setStatus(prev => ({ ...prev, symbols: data.symbols, symbol_selection: data.symbol_selection }));
+                  }
+                }}
+              >
+                AGGIORNA WATCHLIST
+              </button>
+            </div>
+            <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
+              {status.symbols?.join(' • ') || 'Nessun simbolo disponibile'}
+            </div>
+            {status.symbol_selection?.ranked?.length > 0 && (
+              <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
+                {status.symbol_selection.ranked.map((row) => (
+                  <div
+                    key={row.symbol}
+                    style={{
+                      padding: '0.65rem 0.75rem',
+                      borderRadius: '8px',
+                      background: 'rgba(255,255,255,0.04)',
+                      border: '1px solid rgba(255,255,255,0.05)'
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                      <div style={{ color: '#e2e8f0', fontWeight: 'bold' }}>{row.symbol}</div>
+                      <div style={{ color: '#06b6d4', fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                        score {Number(row.score || 0).toFixed(3)}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.25rem' }}>
+                      {row.selection_reason || 'Selezione dinamica attiva'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         <div className="card col-span-6">

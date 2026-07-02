@@ -205,6 +205,209 @@ POOL_TICKERS = [
     "BTC/USD", "ETH/USD", "SOL/USD", "DOGE/USD"
 ]
 
+DEFAULT_TARGET_SYMBOLS = ["TSLA", "NVDA", "PLTR", "SOFI", "MARA", "AMD", "AAPL"]
+STOCK_UNIVERSE = [ticker for ticker in POOL_TICKERS if "/" not in ticker] + [
+    "AAPL", "AMD", "AMZN", "AVGO", "META", "MSFT", "MARA", "MU", "NFLX",
+    "NVDA", "QQQ", "SMCI", "SPY", "TSLA", "UBER"
+]
+STOCK_UNIVERSE = list(dict.fromkeys(STOCK_UNIVERSE))
+MEME_OR_HIGH_NOISE_TICKERS = {"AMC", "GME", "WBD", "PARA", "SNAP", "LCID"}
+SYMBOL_GROUPS = {
+    "mega_cap_tech": {"AAPL", "MSFT", "NVDA", "META", "AMZN", "AVGO"},
+    "semis": {"NVDA", "AMD", "AVGO", "MU", "SMCI"},
+    "consumer_ev": {"TSLA", "RIVN", "LCID", "NIO"},
+    "fintech": {"SOFI", "HOOD", "BAC"},
+    "travel_leisure": {"CCL", "AAL", "DKNG", "LYFT", "UBER"},
+}
+
+
+def _safe_metric(series, default=0.0):
+    try:
+        value = float(series)
+        if math.isnan(value) or math.isinf(value):
+            return default
+        return value
+    except Exception:
+        return default
+
+
+def _normalize_metric(value, minimum, maximum):
+    if maximum <= minimum:
+        return 0.5
+    return max(0.0, min(1.0, (value - minimum) / (maximum - minimum)))
+
+
+def rank_stock_universe(max_symbols: int = 7):
+    tickers = STOCK_UNIVERSE[:]
+    if not tickers:
+        return [], []
+
+    try:
+        data = yf.download(
+            tickers=tickers,
+            period="1mo",
+            interval="1d",
+            group_by="ticker",
+            auto_adjust=True,
+            progress=False,
+            threads=True,
+        )
+    except Exception as e:
+        print(f"Errore download ranking tickers: {e}")
+        return DEFAULT_TARGET_SYMBOLS[:max_symbols], []
+
+    ranked_rows = []
+    for ticker in tickers:
+        try:
+            df = data[ticker] if len(tickers) > 1 else data
+            if df is None or df.empty or len(df) < 15:
+                continue
+            if ticker in MEME_OR_HIGH_NOISE_TICKERS:
+                continue
+
+            close = df["Close"].dropna()
+            volume = df["Volume"].dropna()
+            high = df["High"].dropna() if "High" in df else close
+            low = df["Low"].dropna() if "Low" in df else close
+            open_price = df["Open"].dropna() if "Open" in df else close
+            if close.empty or volume.empty or len(close) < 15:
+                continue
+
+            last_price = _safe_metric(close.iloc[-1])
+            if last_price < 5.0:
+                continue
+
+            daily_returns = close.pct_change().dropna()
+            if daily_returns.empty:
+                continue
+
+            momentum_5d = _safe_metric((close.iloc[-1] / close.iloc[-6]) - 1, 0.0) if len(close) >= 6 else 0.0
+            momentum_20d = _safe_metric((close.iloc[-1] / close.iloc[0]) - 1, 0.0)
+            volatility_20d = _safe_metric(daily_returns.tail(20).std(), 0.0)
+            avg_dollar_volume = _safe_metric((close.tail(20) * volume.tail(20)).mean(), 0.0)
+            ma20 = _safe_metric(close.tail(20).mean(), last_price)
+            trend_strength = _safe_metric((last_price / ma20) - 1, 0.0) if ma20 > 0 else 0.0
+            rolling_high_20d = _safe_metric(high.tail(20).max(), last_price)
+            distance_to_breakout = _safe_metric(last_price / rolling_high_20d, 1.0) if rolling_high_20d > 0 else 1.0
+            positive_days_ratio = _safe_metric((daily_returns.tail(20) > 0).mean(), 0.5)
+            prev_close = close.shift(1)
+            gap_series = ((open_price - prev_close).abs() / prev_close).dropna()
+            avg_gap_20d = _safe_metric(gap_series.tail(20).mean(), 0.0)
+            true_range = pd.concat([
+                (high - low),
+                (high - prev_close).abs(),
+                (low - prev_close).abs()
+            ], axis=1).max(axis=1).dropna()
+            atr_14 = _safe_metric(true_range.tail(14).mean(), 0.0)
+            atr_percent = _safe_metric(atr_14 / last_price, 0.0) if last_price > 0 else 0.0
+
+            if momentum_20d <= -0.12:
+                continue
+            if avg_dollar_volume < 15_000_000:
+                continue
+            if avg_gap_20d > 0.04:
+                continue
+            if positive_days_ratio < 0.45:
+                continue
+
+            ranked_rows.append({
+                "symbol": ticker,
+                "price": round(last_price, 2),
+                "momentum_5d": momentum_5d,
+                "momentum_20d": momentum_20d,
+                "volatility_20d": volatility_20d,
+                "avg_dollar_volume": avg_dollar_volume,
+                "trend_strength": trend_strength,
+                "distance_to_breakout": distance_to_breakout,
+                "positive_days_ratio": positive_days_ratio,
+                "avg_gap_20d": avg_gap_20d,
+                "atr_percent": atr_percent,
+            })
+        except Exception:
+            continue
+
+    if not ranked_rows:
+        return DEFAULT_TARGET_SYMBOLS[:max_symbols], []
+
+    metric_ranges = {}
+    for key in [
+        "momentum_5d",
+        "momentum_20d",
+        "volatility_20d",
+        "avg_dollar_volume",
+        "trend_strength",
+        "distance_to_breakout",
+        "positive_days_ratio",
+        "avg_gap_20d",
+        "atr_percent",
+    ]:
+        values = [row[key] for row in ranked_rows]
+        metric_ranges[key] = (min(values), max(values))
+
+    for row in ranked_rows:
+        breakout_score = _normalize_metric(row["distance_to_breakout"], *metric_ranges["distance_to_breakout"])
+        consistency_score = _normalize_metric(row["positive_days_ratio"], *metric_ranges["positive_days_ratio"])
+        gap_penalty = 1 - _normalize_metric(row["avg_gap_20d"], *metric_ranges["avg_gap_20d"])
+        atr_quality = _normalize_metric(row["atr_percent"], *metric_ranges["atr_percent"])
+        row["score"] = round(
+            0.24 * _normalize_metric(row["momentum_5d"], *metric_ranges["momentum_5d"]) +
+            0.18 * _normalize_metric(row["momentum_20d"], *metric_ranges["momentum_20d"]) +
+            0.16 * _normalize_metric(row["avg_dollar_volume"], *metric_ranges["avg_dollar_volume"]) +
+            0.10 * _normalize_metric(row["volatility_20d"], *metric_ranges["volatility_20d"]) +
+            0.10 * _normalize_metric(row["trend_strength"], *metric_ranges["trend_strength"]) +
+            0.10 * breakout_score +
+            0.06 * consistency_score +
+            0.03 * atr_quality +
+            0.03 * gap_penalty,
+            4
+        )
+        row["selection_reason"] = (
+            f"mom5={row['momentum_5d']*100:.1f}% | "
+            f"mom20={row['momentum_20d']*100:.1f}% | "
+            f"breakout={row['distance_to_breakout']*100:.1f}% 20d high | "
+            f"gap={row['avg_gap_20d']*100:.1f}%"
+        )
+
+    ranked_rows.sort(key=lambda row: row["score"], reverse=True)
+
+    selected_rows = []
+    used_groups = set()
+    for row in ranked_rows:
+        ticker = row["symbol"]
+        ticker_groups = {group for group, members in SYMBOL_GROUPS.items() if ticker in members}
+        is_diversified_pick = not ticker_groups or len(used_groups.intersection(ticker_groups)) < len(ticker_groups)
+
+        # Prima passata: privilegia diversificazione tra gruppi simili
+        if is_diversified_pick:
+            selected_rows.append(row)
+            used_groups.update(ticker_groups)
+        if len(selected_rows) >= max_symbols:
+            break
+
+    if len(selected_rows) < max_symbols:
+        selected_symbols_set = {row["symbol"] for row in selected_rows}
+        for row in ranked_rows:
+            if row["symbol"] in selected_symbols_set:
+                continue
+            selected_rows.append(row)
+            if len(selected_rows) >= max_symbols:
+                break
+
+    selected_symbols = [row["symbol"] for row in selected_rows]
+    return selected_symbols, selected_rows[:max_symbols]
+
+
+def refresh_target_symbols(max_symbols: int = 7):
+    selected_symbols, ranked_rows = rank_stock_universe(max_symbols=max_symbols)
+    bot_state.target_symbols = selected_symbols or DEFAULT_TARGET_SYMBOLS[:max_symbols]
+    bot_state.symbol_selection = {
+        "updated_at": datetime.now().isoformat(),
+        "method": "momentum_liquidity_volatility",
+        "ranked": ranked_rows,
+    }
+    bot_state.save_state()
+    return bot_state.target_symbols
+
 def get_yf_symbol(symbol):
     """Converte simboli Alpaca in simboli Yahoo Finance."""
     return symbol.replace("/", "-")
@@ -215,7 +418,7 @@ class BotState:
     def __init__(self):
         db_data = load_db()
         self.is_running = False
-        self.target_symbols = ["TSLA", "NVDA", "PLTR", "SOFI", "MARA", "AMD", "AAPL"]
+        self.target_symbols = db_data.get("target_symbols", DEFAULT_TARGET_SYMBOLS[:])
         self.virtual_cash = db_data.get("virtual_cash", 100.0)
         self.portfolio_value = 0.0
         self.latest_predictions = {}
@@ -234,6 +437,7 @@ class BotState:
         self.aggressiveness = db_data.get("aggressiveness", 55.0)
         self.auto_bet_enabled = db_data.get("auto_bet_enabled", False)
         self.auto_bet_threshold = db_data.get("auto_bet_threshold", 10.0)
+        self.symbol_selection = db_data.get("symbol_selection", {"method": "static_default", "ranked": []})
         default_modules = {
             "trading": False,
             "crypto_arb": False,
@@ -271,7 +475,9 @@ class BotState:
             "trade_history": self.trade_history,
             "ai_investments": self.ai_investments,
             "high_watermarks": self.high_watermarks,
-            "modules": self.modules
+            "modules": self.modules,
+            "target_symbols": self.target_symbols,
+            "symbol_selection": self.symbol_selection,
         })
 
     def close_trade(self, symbol: str, side: str, profit_usd: float, profit_pct: float):
@@ -302,6 +508,8 @@ class BotState:
                 print(f"Errore caricamento storico Alpaca: {e}")
 
 bot_state = BotState()
+if not bot_state.target_symbols:
+    bot_state.target_symbols = DEFAULT_TARGET_SYMBOLS[:]
 # Inizializza moduli background
 arb_engine = CryptoArbitrage(bot_state)
 sports_engine = SportsArbitrage(bot_state)
@@ -716,6 +924,7 @@ def get_status():
             "last_trade": bot_state.last_trade,
             "cash": round(bot_state.virtual_cash, 2),
             "symbols": bot_state.target_symbols,
+            "symbol_selection": getattr(bot_state, "symbol_selection", {}),
             "logs": bot_state.logs,
             "market_open": st["market_open"],
             "alpaca_info": alpaca_info,
@@ -1125,6 +1334,11 @@ async def place_bet(payload: dict, _: str = Depends(require_admin)):
 def start_bot(_: str = Depends(require_admin)):
     if not alpaca_engine: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     if not bot_state.is_running:
+        try:
+            selected = refresh_target_symbols(max_symbols=7)
+            bot_state.add_log(f"🎯 Watchlist aggiornata: {', '.join(selected)}")
+        except Exception as e:
+            bot_state.add_log(f"⚠️ Ranking watchlist fallito, uso fallback: {e}")
         bot_state.is_running = True
         bot_state.add_log("Avvio scanner Multi-Asset (Alpaca Quant Engine)...")
         global_executor.submit(alpaca_engine.loop)
@@ -1137,6 +1351,16 @@ async def update_config(config: dict, _: str = Depends(require_admin)):
         bot_state.save_state()
         bot_state.add_log(f"Aggressività IA impostata al {bot_state.aggressiveness}%")
         return {"message": "Configurazione aggiornata", "aggressiveness": bot_state.aggressiveness}
+    if config.get("refresh_symbols"):
+        symbol_count = int(config.get("symbol_count", 7))
+        symbol_count = max(3, min(symbol_count, 12))
+        selected = refresh_target_symbols(max_symbols=symbol_count)
+        bot_state.add_log(f"🎯 Nuova selezione titoli: {', '.join(selected)}")
+        return {
+            "message": "Watchlist aggiornata",
+            "symbols": selected,
+            "symbol_selection": bot_state.symbol_selection,
+        }
     return {"error": "Parametri non validi"}
 
 @app.post("/api/stop")
