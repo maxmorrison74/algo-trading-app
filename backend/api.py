@@ -35,7 +35,16 @@ import yfinance as yf
 import pandas as pd
 import sys
 import routers_ai_invest
-from auth import create_admin_session, is_admin_configured, require_admin, verify_admin_password
+from auth import (
+    assert_login_allowed,
+    clear_login_failures,
+    create_admin_session,
+    is_admin_configured,
+    record_login_failure,
+    require_admin,
+    revoke_admin_session,
+    verify_admin_password,
+)
 sys.path.append('/usr/local/lib/python3.13/dist-packages')
 
 try:
@@ -98,18 +107,25 @@ def save_db(state_dict):
         with open(DB_FILE, "w") as f:
             json.dump(state_dict, f)
 
+def _parse_allowed_origins():
+    raw = os.getenv("ALLOWED_ORIGINS", "")
+    if raw.strip():
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return [
+        "http://localhost:5173",
+        "http://localhost:3000",
+        "https://tuodominio.com",
+    ]
+
+
 app = FastAPI(title="AlgoTrading Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173", 
-        "http://localhost:3000",
-        "https://tuodominio.com"
-    ],
+    allow_origins=_parse_allowed_origins(),
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -1295,16 +1311,26 @@ class LoginRequest(BaseModel):
     password: str
 
 @app.post("/api/login")
-def login(req: LoginRequest):
+def login(req: LoginRequest, request: Request):
     if not is_admin_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="ADMIN_PASSWORD_HASH non configurato sul server",
         )
+    client_id = request.client.host if request.client else "unknown"
+    assert_login_allowed(client_id)
     if verify_admin_password(req.password):
+        clear_login_failures(client_id)
         token = create_admin_session()
         return {"status": "success", "token": token, "expires_in": 86400}
+    record_login_failure(client_id)
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Accesso negato")
+
+
+@app.post("/api/logout")
+def logout(admin_token: str = Depends(require_admin)):
+    revoke_admin_session(admin_token)
+    return {"status": "success"}
 
 class KeysRequest(BaseModel):
     alpaca_key: str = ""

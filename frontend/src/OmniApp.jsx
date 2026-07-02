@@ -17,7 +17,14 @@ const authFetch = async (input, init = {}) => {
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
-  return fetch(input, { ...init, headers });
+  const response = await fetch(input, { ...init, headers });
+  if (response.status === 401) {
+    clearAuthSession();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('omni-auth-expired'));
+    }
+  }
+  return response;
 };
 
 const HighRiskPnLSparkline = ({ history = [] }) => {
@@ -267,6 +274,15 @@ function OmniApp() {
   const [activeTab, setActiveTab] = useState('home');
 
   useEffect(() => {
+    const handleExpired = () => {
+      setIsAuthenticated(false);
+      setLoginError('Sessione scaduta. Fai di nuovo login');
+    };
+    window.addEventListener('omni-auth-expired', handleExpired);
+    return () => window.removeEventListener('omni-auth-expired', handleExpired);
+  }, []);
+
+  useEffect(() => {
     const fetchStatus = async () => {
       try {
         const res = await fetch('/api/status?t=' + Date.now());
@@ -328,6 +344,19 @@ function OmniApp() {
       clearAuthSession();
       setIsAuthenticated(false);
       setLoginError('Errore di connessione al server');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await authFetch('/api/logout', { method: 'POST' });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      clearAuthSession();
+      setIsAuthenticated(false);
+      setPassword('');
+      setLoginError('');
     }
   };
 
@@ -2052,6 +2081,13 @@ function OmniApp() {
         <div className="sidebar-footer">
           <div>Connesso a server sicuro</div>
           <div style={{ color: '#10b981', marginTop: '0.2rem' }}>All Systems Nominal</div>
+          <button
+            onClick={handleLogout}
+            className="btn"
+            style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
+          >
+            LOGOUT
+          </button>
         </div>
       </div>
       
