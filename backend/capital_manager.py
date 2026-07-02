@@ -136,7 +136,7 @@ class CapitalManager:
                       f"Win rate: {win_rate:.1f}%/{criteria.min_win_rate}%"))
         
         profit_factor = abs(self.config.total_profit / self.config.total_loss) \
-                        if self.config.total_loss > 0 else float('inf')
+                        if self.config.total_loss > 0 else 999.0
         checks.append((profit_factor >= criteria.min_profit_factor,
                       f"Profit factor: {profit_factor:.2f}/{criteria.min_profit_factor}"))
         
@@ -232,7 +232,7 @@ class CapitalManager:
         win_rate = (self.config.winning_trades / self.config.total_trades * 100) \
                    if self.config.total_trades > 0 else 0
         profit_factor = abs(self.config.total_profit / self.config.total_loss) \
-                        if self.config.total_loss > 0 else float('inf')
+                        if self.config.total_loss > 0 else 999.0
                         
         return {
             "days": {"current": days, "required": criteria.min_days, "ok": days >= criteria.min_days},
