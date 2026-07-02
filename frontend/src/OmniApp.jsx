@@ -1,6 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 
+const AUTH_TOKEN_KEY = 'omni_auth_token';
+const AUTH_TIME_KEY = 'omni_auth_time';
+
+const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || '';
+
+const clearAuthSession = () => {
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  localStorage.removeItem(AUTH_TIME_KEY);
+};
+
+const authFetch = async (input, init = {}) => {
+  const headers = new Headers(init.headers || {});
+  const token = getAuthToken();
+  if (token) {
+    headers.set('Authorization', `Bearer ${token}`);
+  }
+  return fetch(input, { ...init, headers });
+};
 
 const HighRiskPnLSparkline = ({ history = [] }) => {
   const data = Array.isArray(history)
@@ -103,7 +121,7 @@ const RiskStatus = () => {
       </div>
       {risk.status === 'black' && (
         <button 
-          onClick={() => fetch('/api/risk/emergency-stop', {method: 'POST'})}
+          onClick={() => authFetch('/api/risk/emergency-stop', {method: 'POST'})}
           style={{ background: '#EF4444', color: 'white', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', width: '100%', cursor: 'pointer' }}
         >
           🛑 EMERGENCY STOP
@@ -150,7 +168,7 @@ const CapitalPhase = () => {
       
       {capital.can_advance && (
         <button 
-          onClick={() => fetch('/api/capital/advance', {method: 'POST'})}
+          onClick={() => authFetch('/api/capital/advance', {method: 'POST'})}
           style={{ background: '#10B981', color: 'white', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', width: '100%', cursor: 'pointer' }}
         >
           🚀 AVANZA FASE
@@ -189,7 +207,7 @@ function OmniApp() {
   const openAiSignal = async (asset) => {
     setAiModal({ symbol: asset.symbol, price: asset.price, volatility: asset.volatility, change_24h: asset.change_24h, loading: true, result: null, error: null });
     try {
-      const res = await fetch('/api/high-risk/ai-signal', {
+      const res = await authFetch('/api/high-risk/ai-signal', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol: asset.symbol, price: asset.price, volatility: asset.volatility, change_24h: asset.change_24h })
@@ -208,7 +226,7 @@ function OmniApp() {
   const quickTrade = async (symbol, side, amount) => {
     setTradeResult(null);
     try {
-      const res = await fetch('/api/high-risk/trade', {
+      const res = await authFetch('/api/high-risk/trade', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ symbol, side, amount })
@@ -227,13 +245,19 @@ function OmniApp() {
   };
 
   const checkAuthMemory = () => {
-    const authTime = localStorage.getItem('omni_auth_time');
+    const authTime = localStorage.getItem(AUTH_TIME_KEY);
+    const authToken = getAuthToken();
+    if (!authToken) {
+      clearAuthSession();
+      return false;
+    }
     if (authTime) {
       const elapsed = Date.now() - parseInt(authTime, 10);
       if (elapsed < 24 * 60 * 60 * 1000) {
         return true;
       }
     }
+    clearAuthSession();
     return false;
   };
   const [isAuthenticated, setIsAuthenticated] = useState(checkAuthMemory());
@@ -292,12 +316,17 @@ function OmniApp() {
       const data = await res.json();
       if (res.ok && data.status === 'success') {
         setIsAuthenticated(true);
-        localStorage.setItem('omni_auth_time', Date.now().toString());
+        localStorage.setItem(AUTH_TOKEN_KEY, data.token);
+        localStorage.setItem(AUTH_TIME_KEY, Date.now().toString());
         setLoginError('');
       } else {
-        setLoginError('Accesso Negato: Password Errata');
+        clearAuthSession();
+        setIsAuthenticated(false);
+        setLoginError(data.detail || data.message || 'Accesso negato');
       }
     } catch (err) {
+      clearAuthSession();
+      setIsAuthenticated(false);
       setLoginError('Errore di connessione al server');
     }
   };
@@ -308,7 +337,7 @@ function OmniApp() {
       modules: { ...(prev.modules || {}), [mod_id]: !isActive }
     }));
     try {
-      await fetch('/api/modules', {
+      await authFetch('/api/modules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ module: mod_id, active: !isActive })
@@ -345,7 +374,7 @@ function OmniApp() {
   const executeAiProposal = async (proposal) => {
     setExecutionMessage(`Esecuzione in corso per ${proposal.symbol}...`);
     try {
-      const res = await fetch('/api/ai-invest/execute', {
+      const res = await authFetch('/api/ai-invest/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -371,7 +400,7 @@ function OmniApp() {
     if (placedBets[sb.id]) return; // già piazzata
     setPlacedBets(prev => ({ ...prev, [sb.id]: 'loading' }));
     try {
-      const res = await fetch('/api/place-bet', {
+      const res = await authFetch('/api/place-bet', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -398,7 +427,7 @@ function OmniApp() {
   const handleReset = async () => {
     if (window.confirm("Sei sicuro di voler resettare la simulazione a $100.0 e cancellare la cronologia?")) {
       try {
-        const res = await fetch('/api/reset', { method: 'POST' });
+        const res = await authFetch('/api/reset', { method: 'POST' });
         const data = await res.json();
         if (!data.error) setStatus(data.state);
       } catch (err) {
@@ -413,7 +442,7 @@ function OmniApp() {
   const testConnection = async (service) => {
     setTestResults(prev => ({...prev, [service]: 'Test in corso...'}));
     try {
-      const res = await fetch('/api/test-connection', {
+      const res = await authFetch('/api/test-connection', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({service, ...apiKeys})
       });
@@ -426,7 +455,7 @@ function OmniApp() {
 
   const saveKeys = async () => {
     try {
-      const res = await fetch('/api/keys', {
+      const res = await authFetch('/api/keys', {
         method: 'POST', headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(apiKeys)
       });
@@ -436,7 +465,7 @@ function OmniApp() {
       }
       alert('Chiavi salvate con successo nel Vault Sicuro!');
       // Refetch keys immediately so dots appear
-      const refetchRes = await fetch('/api/keys');
+      const refetchRes = await authFetch('/api/keys');
       const data = await refetchRes.json();
       setSavedKeys(data);
     } catch(err) {
@@ -449,7 +478,7 @@ function OmniApp() {
     if (activeTab === 'settings') {
       const fetchKeys = async () => {
         try {
-          const res = await fetch('/api/keys?t=' + Date.now());
+          const res = await authFetch('/api/keys?t=' + Date.now());
           const data = await res.json();
           if (data.ERROR) {
             alert("Errore critico dal backend nel leggere le chiavi: " + data.ERROR);
@@ -867,7 +896,7 @@ function OmniApp() {
               onChange={async (e) => {
                 const val = e.target.value;
                 setStatus(prev => ({ ...prev, aggressiveness: val }));
-                await fetch('/api/config', {
+                await authFetch('/api/config', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ aggressiveness: val })
                 });
@@ -963,7 +992,7 @@ function OmniApp() {
               className={`btn ${status.auto_bet_enabled ? 'btn-stop' : 'btn-start'}`}
               style={{ background: status.auto_bet_enabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.8)', border: '1px solid #10b981', color: '#fff' }}
               onClick={() => {
-                fetch('/api/auto-bet-settings', {
+                authFetch('/api/auto-bet-settings', {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ enabled: !status.auto_bet_enabled })
@@ -1213,7 +1242,7 @@ function OmniApp() {
                             onClick={() => {
                               const t = prompt(`Inserisci Target Price per ${pos.symbol}:`, pos.target_price || '');
                               if (t !== null) {
-                                fetch('/api/high-risk/set-target', {
+                                authFetch('/api/high-risk/set-target', {
                                   method: 'POST',
                                   headers: { 'Content-Type': 'application/json' },
                                   body: JSON.stringify({ symbol: pos.symbol, target_price: t ? parseFloat(t) : null })
@@ -1278,7 +1307,7 @@ function OmniApp() {
                         <td style={{ padding: '0.8rem 1rem' }}>
                           <button
                             onClick={() => {
-                              fetch('/api/high-risk/cancel-reentry', {
+                              authFetch('/api/high-risk/cancel-reentry', {
                                 method: 'POST',
                                 headers: { 'Content-Type': 'application/json' },
                                 body: JSON.stringify({ symbol: pos.symbol })
@@ -1366,7 +1395,7 @@ function OmniApp() {
             onClick={async () => {
               const newVal = !status.auto_bet_enabled;
               setStatus(prev => ({ ...prev, auto_bet_enabled: newVal }));
-              await fetch('/api/auto-bet-settings', {
+              await authFetch('/api/auto-bet-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ enabled: newVal })
@@ -1417,7 +1446,7 @@ function OmniApp() {
             }}
             onMouseUp={async (e) => {
               const val = parseFloat(e.target.value);
-              await fetch('/api/auto-bet-settings', {
+              await authFetch('/api/auto-bet-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ threshold: val })
@@ -1425,7 +1454,7 @@ function OmniApp() {
             }}
             onTouchEnd={async (e) => {
               const val = parseFloat(e.target.value);
-              await fetch('/api/auto-bet-settings', {
+              await authFetch('/api/auto-bet-settings', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ threshold: val })
@@ -1773,7 +1802,7 @@ function OmniApp() {
     formData.append('hashtags', aiIdea.hashtags || "");
     
     try {
-      const res = await fetch('/api/ai/upload-video', {
+      const res = await authFetch('/api/ai/upload-video', {
         method: 'POST', body: formData
       });
       const data = await res.json();

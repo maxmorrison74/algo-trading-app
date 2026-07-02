@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Response, UploadFile, File, Form
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request, Response, UploadFile, File, Form, Depends, status
 from risk_manager import get_risk_manager, RiskLimits
 from capital_manager import get_capital_manager
 from dataclasses import asdict
@@ -35,6 +35,7 @@ import yfinance as yf
 import pandas as pd
 import sys
 import routers_ai_invest
+from auth import create_admin_session, is_admin_configured, require_admin, verify_admin_password
 sys.path.append('/usr/local/lib/python3.13/dist-packages')
 
 try:
@@ -119,14 +120,14 @@ def risk_status():
     return risk.get_status()
 
 @app.post("/api/risk/limits")
-def update_risk_limits(limits: dict):
+def update_risk_limits(limits: dict, _: str = Depends(require_admin)):
     """Aggiorna i limiti di risk (solo admin)"""
     risk = get_risk_manager()
     risk.limits = RiskLimits(**limits)
     return {"status": "ok", "limits": asdict(risk.limits)}
 
 @app.post("/api/risk/emergency-stop")
-def emergency_stop():
+def emergency_stop(_: str = Depends(require_admin)):
     """Kill switch manuale"""
     risk = get_risk_manager()
     risk._trigger_circuit_breaker("STOP MANUALE dall'utente")
@@ -155,7 +156,7 @@ def capital_status():
     return cap.get_status()
 
 @app.post("/api/capital/advance")
-def advance_phase():
+def advance_phase(_: str = Depends(require_admin)):
     """Prova ad avanzare alla fase successiva"""
     cap = get_capital_manager()
     success, msg = cap.advance_phase()
@@ -288,7 +289,7 @@ bot_state = BotState()
 # Inizializza moduli background
 arb_engine = CryptoArbitrage(bot_state)
 sports_engine = SportsArbitrage(bot_state)
-# sentiment_engine = AISentimentRadar(bot_state) # Disabilitato temporaneamente
+sentiment_engine = None
 ai_engine = AIContentCreator(bot_state)
 
 engines = {
@@ -739,7 +740,7 @@ def api_status(response: Response):
 
 
 @app.post("/api/modules")
-async def toggle_module(payload: dict):
+async def toggle_module(payload: dict, _: str = Depends(require_admin)):
     mod_id = payload.get("module")
     active = payload.get("active")
     if mod_id in bot_state.modules:
@@ -756,9 +757,14 @@ async def toggle_module(payload: dict):
             elif module_name == "sports_arb" and not sports_engine.running:
                 global_executor.submit(sports_engine.loop)
                 bot_state.add_log("⚽ Modulo Sports Arbitrage avviato.")
-            elif module_name == "ai_sports_sentiment" and not getattr(sentiment_engine, "running", False):
-                global_executor.submit(sentiment_engine.loop)
-                bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
+            elif module_name == "ai_sports_sentiment":
+                if sentiment_engine is None:
+                    bot_state.modules[mod_id] = False
+                    bot_state.save_state()
+                    return {"error": "Modulo AI Sentiment Radar non disponibile in questa build"}
+                if not getattr(sentiment_engine, "running", False):
+                    global_executor.submit(sentiment_engine.loop)
+                    bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
             elif (module_name == "crypto_arb" or module_name == "high_risk_crypto_arb") and not arb_engine.running:
                 global_executor.submit(arb_engine.loop)
                 
@@ -774,8 +780,9 @@ async def toggle_module(payload: dict):
                 sports_engine.stop()
                 bot_state.add_log("⚽ Modulo Sports Arbitrage fermato.")
             elif module_name == "ai_sports_sentiment":
-                sentiment_engine.stop()
-                bot_state.add_log("📡 Modulo AI Sentiment Radar fermato.")
+                if sentiment_engine is not None:
+                    sentiment_engine.stop()
+                    bot_state.add_log("📡 Modulo AI Sentiment Radar fermato.")
             elif module_name == "trading":
                 bot_state.is_running = False
             elif module_name == "high_risk_crypto_arb":
@@ -798,7 +805,7 @@ async def toggle_module(payload: dict):
 
 
 @app.post("/api/high-risk/trade")
-async def high_risk_trade(payload: dict):
+async def high_risk_trade(payload: dict, _: str = Depends(require_admin)):
     """
     Endpoint per trading manuale rapido nella sezione HIGH RISK.
     Accetta: symbol (es. "DOGEUSDT"), side ("buy"/"sell"), amount (USD)
@@ -879,7 +886,7 @@ async def high_risk_trade(payload: dict):
 
 
 @app.post("/api/high-risk/set-target")
-async def high_risk_set_target(payload: dict):
+async def high_risk_set_target(payload: dict, _: str = Depends(require_admin)):
     """Imposta o aggiorna il target price su una posizione monitorata."""
     symbol       = payload.get("symbol", "").upper()
     target_price = payload.get("target_price", None)
@@ -904,7 +911,7 @@ async def high_risk_set_target(payload: dict):
 
 
 @app.post("/api/high-risk/cancel-reentry")
-async def high_risk_cancel_reentry(payload: dict):
+async def high_risk_cancel_reentry(payload: dict, _: str = Depends(require_admin)):
     """Rimuove un simbolo dalla re-entry watchlist."""
     symbol = payload.get("symbol", "").upper()
     if not symbol:
@@ -921,7 +928,7 @@ async def high_risk_cancel_reentry(payload: dict):
 
 
 @app.post("/api/high-risk/ai-signal")
-async def high_risk_ai_signal(payload: dict):
+async def high_risk_ai_signal(payload: dict, _: str = Depends(require_admin)):
     """
     Chiede a Groq LLaMA un'analisi tecnica e sentiment su un crypto token.
     Restituisce: signal (BUY/SELL/HOLD), confidence, reasoning, target_price, stop_loss
@@ -1006,7 +1013,7 @@ Rispondi SOLO in questo formato JSON (nessun altro testo):
 
 
 @app.post("/api/auto-bet-settings")
-async def update_auto_bet_settings(payload: dict):
+async def update_auto_bet_settings(payload: dict, _: str = Depends(require_admin)):
     """Aggiorna le impostazioni dell'auto-bet (abilitato + soglia %)"""
     try:
         changed = False
@@ -1038,7 +1045,7 @@ async def update_auto_bet_settings(payload: dict):
 
 
 @app.post("/api/place-bet")
-async def place_bet(payload: dict):
+async def place_bet(payload: dict, _: str = Depends(require_admin)):
     """
     Registra una scommessa virtuale su una surebet identificata dal radar.
     Deduce lo stake dal portafoglio virtuale e traccia la bet in attesa del risultato.
@@ -1099,7 +1106,7 @@ async def place_bet(payload: dict):
 
 
 @app.post("/api/start")
-def start_bot():
+def start_bot(_: str = Depends(require_admin)):
     if not alpaca_engine: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     if not bot_state.is_running:
         bot_state.is_running = True
@@ -1108,7 +1115,7 @@ def start_bot():
     return {"message": "Bot avviato", "state": get_status()}
 
 @app.post("/api/config")
-async def update_config(config: dict):
+async def update_config(config: dict, _: str = Depends(require_admin)):
     if "aggressiveness" in config:
         bot_state.aggressiveness = float(config["aggressiveness"])
         bot_state.save_state()
@@ -1117,7 +1124,7 @@ async def update_config(config: dict):
     return {"error": "Parametri non validi"}
 
 @app.post("/api/stop")
-def stop_bot():
+def stop_bot(_: str = Depends(require_admin)):
     if not alpaca: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     
     bot_state.is_running = False
@@ -1145,7 +1152,7 @@ def stop_bot():
     return {"message": "Bot fermato", "state": get_status()}
 
 @app.post("/api/reset")
-def reset_simulation():
+def reset_simulation(_: str = Depends(require_admin)):
     if not alpaca: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     
     bot_state.is_running = False
@@ -1269,13 +1276,7 @@ def get_chart_data(symbol: str, timeframe: str = "1M"):
 from pydantic import BaseModel
 import os
 
-import hashlib
-import secrets
-
 # --- SECURITY & API KEYS ---
-# Hash SHA256 della password di default o protetta da .env
-ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", hashlib.sha256("impero2026".encode()).hexdigest())
-
 API_KEYS_FILE = os.path.join(os.path.dirname(__file__), ".env.keys")
 
 # Se il file non esiste, creiamolo vuoto
@@ -1295,11 +1296,15 @@ class LoginRequest(BaseModel):
 
 @app.post("/api/login")
 def login(req: LoginRequest):
-    req_hash = hashlib.sha256(req.password.encode()).hexdigest()
-    if req_hash == ADMIN_PASSWORD_HASH:
-        token = secrets.token_urlsafe(32)
-        return {"status": "success", "token": token}
-    return {"status": "error", "message": "Accesso Negato"}, 401
+    if not is_admin_configured():
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="ADMIN_PASSWORD_HASH non configurato sul server",
+        )
+    if verify_admin_password(req.password):
+        token = create_admin_session()
+        return {"status": "success", "token": token, "expires_in": 86400}
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Accesso negato")
 
 class KeysRequest(BaseModel):
     alpaca_key: str = ""
@@ -1316,7 +1321,7 @@ class KeysRequest(BaseModel):
 
 
 @app.get("/api/keys")
-def get_keys():
+def get_keys(_: str = Depends(require_admin)):
     # Return masked keys
     keys = {}
     try:
@@ -1334,7 +1339,7 @@ def get_keys():
     return keys
 
 @app.post("/api/keys")
-def save_keys(req: KeysRequest):
+def save_keys(req: KeysRequest, _: str = Depends(require_admin)):
     try:
         # Read existing
         existing = {}
@@ -1398,7 +1403,7 @@ class TestConnectionRequest(BaseModel):
     groq_key: str = ""
 
 @app.post("/api/test-connection")
-def test_connection(req: TestConnectionRequest):
+def test_connection(req: TestConnectionRequest, _: str = Depends(require_admin)):
     keys = {}
     if os.path.exists(API_KEYS_FILE):
         with open(API_KEYS_FILE, "r") as f:
@@ -1550,7 +1555,7 @@ def generate_idea(req: GenerateIdeaRequest = None):
     return {"topic": topic, "script": script_part, "prompt": veo_prompt, "description": description, "hashtags": hashtags}
 
 @app.post("/api/ai/upload-video")
-async def upload_video(topic: str = Form(...), prompt: str = Form(...), description: str = Form(""), hashtags: str = Form(""), file: UploadFile = File(...)):
+async def upload_video(topic: str = Form(...), prompt: str = Form(...), description: str = Form(""), hashtags: str = Form(""), file: UploadFile = File(...), _: str = Depends(require_admin)):
     import uuid
     import shutil
     

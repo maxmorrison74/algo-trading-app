@@ -6,6 +6,8 @@ from groq import Groq
 import ccxt
 import alpaca_trade_api as tradeapi
 import yfinance as yf
+from auth import require_admin
+from fastapi import Depends
 
 # Usa le chiavi condivise da api.py (in produzione andrebbero unificate)
 API_KEYS_FILE = os.path.join(os.path.dirname(__file__), ".env.keys")
@@ -67,41 +69,29 @@ def get_ai_proposals(req: ProposalsRequest):
             market_data_context += "========================================\n\nAnalizza i dati qui sopra e individua i 6 asset con il miglior slancio rialzista (Momentum) per le tue proposte."
 
         prompt = f"""
-Sei un gestore di un Hedge Fund Quantitativo.
+Sei un gestore di un hedge fund quantitativo.
 Il cliente vuole investire esattamente {budget}$.
-Il mercato attuale include Azioni Americane (es. MSFT, TSLA, PLTR) e Criptovalute (es. BTC, SOL).
+Il mercato attuale include azioni americane e criptovalute.
 {market_data_context}
 
-Devi generare ESATTAMENTE 6 proposte di investimento esclusive per lui:
-1. Due proposte 'Safe' (Stock blue-chip o ETF)
-2. Due proposte 'Moderate' (Stock Tech in crescita o Mid-cap)
-3. Due proposte 'Aggressive' (Crypto ad alta volatilità)
+Genera esattamente 6 proposte:
+1. Due conservative
+2. Due bilanciate
+3. Due aggressive
 
-Rispondi SOLTANTO con un array JSON in questo esatto formato, senza Markdown o backticks o spiegazioni extra:
-[
-  {{
-    "id": 1,
-    "risk": "Conservativo",
-    "symbol": "AAPL",
-    "asset_type": "stock",
-    "title": "Apple Inc - Porto Sicuro",
-    "rationale": "Breve spiegazione del perché è sicura oggi."
-  }},
-  {{
-    "id": 2,
-    "risk": "Conservativo",
-{
+Rispondi solo con un oggetto JSON valido, senza markdown, con questa forma:
+{{
   "proposals": [
-    {
+    {{
       "id": 1,
       "risk": "Conservativo",
       "symbol": "AAPL",
       "asset_type": "stock",
       "title": "Apple Inc - Porto Sicuro",
       "rationale": "Breve spiegazione del perché è sicura oggi."
-    }
+    }}
   ]
-}
+}}
 """
         response = model.chat.completions.create(
             messages=[{"role": "user", "content": prompt}],
@@ -140,7 +130,7 @@ Rispondi SOLTANTO con un array JSON in questo esatto formato, senza Markdown o b
         ]}
 
 @router.post("/execute")
-def execute_investment(req: InvestRequest):
+def execute_investment(req: InvestRequest, _: str = Depends(require_admin)):
     from api import bot_state
     from datetime import datetime
     keys = get_api_keys()
