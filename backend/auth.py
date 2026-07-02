@@ -72,7 +72,9 @@ def clear_login_failures(client_id: str) -> None:
     _login_attempts.pop(client_id, None)
 
 
-def require_admin(authorization: str | None = Header(default=None)) -> str:
+from typing import Optional
+
+def require_admin(authorization: Optional[str] = Header(default=None)) -> str:
     if not is_admin_configured():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
