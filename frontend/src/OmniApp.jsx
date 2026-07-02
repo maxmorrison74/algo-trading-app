@@ -533,9 +533,26 @@ function OmniApp() {
       <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2>ALGO-TRADING ENGINE</h2>
-          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: status.market_open ? '#10b981' : '#f59e0b' }}></div>
-            Market {status.market_open ? 'Open' : 'Closed'}
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: status.market_open ? '#10b981' : '#f59e0b' }}></div>
+              Market {status.market_open ? 'Open' : 'Closed'}
+            </span>
+            {status.alpaca_info && (
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderLeft: '1px solid var(--border)', paddingLeft: '1rem' }}>
+                <span style={{ 
+                  padding: '2px 8px', 
+                  borderRadius: '4px', 
+                  fontSize: '0.8rem',
+                  fontWeight: 'bold',
+                  background: status.alpaca_info.type === 'LIVE' ? 'rgba(16, 185, 129, 0.2)' : 'rgba(139, 92, 246, 0.2)',
+                  color: status.alpaca_info.type === 'LIVE' ? '#10b981' : '#8b5cf6' 
+                }}>
+                  {status.alpaca_info.type}
+                </span>
+                <span>{status.alpaca_info.account_number} ({status.alpaca_info.status})</span>
+              </span>
+            )}
           </div>
         </div>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>

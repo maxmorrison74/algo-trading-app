@@ -574,10 +574,17 @@ def get_status():
 
         st = {}
         st["market_open"] = False
+        alpaca_info = {"status": "Scollegato", "account_number": "N/A", "type": "N/A"}
         try:
             if alpaca:
                 clock = alpaca.get_clock()
                 st["market_open"] = clock.is_open
+                
+                account = alpaca.get_account()
+                alpaca_info["account_number"] = account.account_number
+                alpaca_info["status"] = account.status
+                is_paper = "paper" in os.getenv("ALPACA_BASE_URL", "").lower()
+                alpaca_info["type"] = "PAPER" if is_paper else "LIVE"
         except Exception:
             pass
 
@@ -603,6 +610,7 @@ def get_status():
             "symbols": bot_state.target_symbols,
             "logs": bot_state.logs,
             "market_open": st["market_open"],
+            "alpaca_info": alpaca_info,
             "aggressiveness": bot_state.aggressiveness,
             "trade_history": bot_state.trade_history,
             "win_rate": win_rate,
