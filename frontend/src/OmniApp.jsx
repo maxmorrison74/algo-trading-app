@@ -98,7 +98,7 @@ const RiskStatus = () => {
   const [risk, setRisk] = useState(null);
   
   useEffect(() => {
-    const fetchRisk = () => fetch('/api/risk/status').then(r => r.json()).then(setRisk).catch(e => console.error(e));
+    const fetchRisk = () => authFetch('/api/risk/status').then(r => r.json()).then(setRisk).catch(e => console.error(e));
     fetchRisk();
     const interval = setInterval(fetchRisk, 5000);
     return () => clearInterval(interval);
@@ -142,7 +142,7 @@ const CapitalPhase = () => {
   const [capital, setCapital] = useState(null);
   
   useEffect(() => {
-    const fetchCap = () => fetch('/api/capital/status').then(r => r.json()).then(setCapital).catch(e => console.error(e));
+    const fetchCap = () => authFetch('/api/capital/status').then(r => r.json()).then(setCapital).catch(e => console.error(e));
     fetchCap();
     const interval = setInterval(fetchCap, 5000);
     return () => clearInterval(interval);
