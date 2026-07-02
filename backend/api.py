@@ -12,6 +12,13 @@ import math
 import json
 import requests
 import threading
+import atexit
+from concurrent.futures import ThreadPoolExecutor
+
+# Thread Pool Globale per limitare le risorse
+global_executor = ThreadPoolExecutor(max_workers=10)
+atexit.register(lambda: global_executor.shutdown(wait=False))
+
 from crypto_arbitrage import CryptoArbitrage
 from sports_arbitrage import SportsArbitrage
 from ai_sports_sentiment import AISentimentRadar
@@ -60,6 +67,13 @@ from data_loader import fetch_historical_data
 
 DB_FILE = "bot_db.json"
 import threading
+import atexit
+from concurrent.futures import ThreadPoolExecutor
+
+# Thread Pool Globale per limitare le risorse
+global_executor = ThreadPoolExecutor(max_workers=10)
+atexit.register(lambda: global_executor.shutdown(wait=False))
+
 db_lock = threading.Lock()
 
 def load_db():
@@ -84,11 +98,19 @@ app = FastAPI(title="AlgoTrading Backend")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173", 
+        "http://localhost:3000",
+        "https://tuodominio.com"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "timestamp": datetime.now().isoformat()}
 
 app.include_router(routers_ai_invest.router)
 
@@ -503,10 +525,10 @@ def _reentry_loop():
 
 
 # Avvia i loop in background
-_auto_exit_thread = threading.Thread(target=_auto_exit_loop, daemon=True)
-_auto_exit_thread.start()
-_reentry_thread = threading.Thread(target=_reentry_loop, daemon=True)
-_reentry_thread.start()
+# thread sostituito da executor
+global_executor.submit(_auto_exit_loop)
+# thread sostituito da executor
+global_executor.submit(_reentry_loop)
 def get_status():
     if not alpaca: return {"error": "Alpaca API non configurata."}
     pos_dict = {}
@@ -631,17 +653,15 @@ async def toggle_module(payload: dict):
         module_name = mod_id
         if active:
             if module_name == "ai_content" and not ai_engine.running:
-                threading.Thread(target=ai_engine.loop, daemon=True).start()
+                global_executor.submit(ai_engine.loop)
             elif module_name == "sports_arb" and not sports_engine.running:
-                t = threading.Thread(target=sports_engine.loop, daemon=True)
-                t.start()
+                global_executor.submit(sports_engine.loop)
                 bot_state.add_log("⚽ Modulo Sports Arbitrage avviato.")
             elif module_name == "ai_sports_sentiment" and not getattr(sentiment_engine, "running", False):
-                t = threading.Thread(target=sentiment_engine.loop, daemon=True)
-                t.start()
+                global_executor.submit(sentiment_engine.loop)
                 bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
             elif (module_name == "crypto_arb" or module_name == "high_risk_crypto_arb") and not arb_engine.running:
-                threading.Thread(target=arb_engine.loop, daemon=True).start()
+                global_executor.submit(arb_engine.loop)
                 
             if module_name == "high_risk_crypto_arb":
                 bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 Motore Alto Rischio Avviato (Ricerca memecoin volatili...)")
@@ -649,7 +669,7 @@ async def toggle_module(payload: dict):
                     bot_state.high_risk_arb_logs.pop()
             elif module_name == "trading" and not alpaca_engine.running:
                 bot_state.is_running = True
-                threading.Thread(target=alpaca_engine.loop, daemon=True).start()
+                global_executor.submit(alpaca_engine.loop)
         else:
             if module_name == "sports_arb":
                 sports_engine.stop()
@@ -985,7 +1005,7 @@ def start_bot():
     if not bot_state.is_running:
         bot_state.is_running = True
         bot_state.add_log("Avvio scanner Multi-Asset (Alpaca Quant Engine)...")
-        threading.Thread(target=alpaca_engine.loop, daemon=True).start()
+        global_executor.submit(alpaca_engine.loop)
     return {"message": "Bot avviato", "state": get_status()}
 
 @app.post("/api/config")
@@ -1150,33 +1170,36 @@ def get_chart_data(symbol: str, timeframe: str = "1M"):
 from pydantic import BaseModel
 import os
 
+import hashlib
+import secrets
+
 # --- SECURITY & API KEYS ---
-# In produzione password dovrebbe essere hashata. Per ora plain text (protetto in .env)
-ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "impero2026")
-import os
+# Hash SHA256 della password di default o protetta da .env
+ADMIN_PASSWORD_HASH = os.getenv("ADMIN_PASSWORD_HASH", hashlib.sha256("impero2026".encode()).hexdigest())
+
 API_KEYS_FILE = os.path.join(os.path.dirname(__file__), ".env.keys")
 
-# Se il file non esiste, creiamolo vuoto o con un seed base
+# Se il file non esiste, creiamolo vuoto
 if not os.path.exists(API_KEYS_FILE):
     with open(API_KEYS_FILE, "w") as f:
-        f.write("ALPACA_KEY=PKS3UEZSKP65JV6BKPJLWSIS75\n")
-        f.write("ALPACA_SECRET=oY4vQX8SEaLE6JJM9FpD7mMNZ1kknwGmQDMrhow8qjk\n")
-        f.write("BINANCE_KEY=7SZAMU47R3dIffolzEpVGNfofSHKkgjvXiiEhMzwUN5rPy1sv6WBt5nrIFKQbFDw\n")
-        f.write("BINANCE_SECRET=vjeCiMl7MnJ7NhG46iAMzmPXjJ0EMbqQ65D6GH54wMjBydpCAzZ0Tvm1xlc3rZPV\n")
-        f.write("THEODDS_KEY=7aaa30fc512aa2fbf0e180d1431f1f73\n")
+        f.write("ALPACA_KEY=\n")
+        f.write("ALPACA_SECRET=\n")
+        f.write("BINANCE_KEY=\n")
+        f.write("BINANCE_SECRET=\n")
+        f.write("THEODDS_KEY=\n")
         f.write("KRAKEN_KEY=\n")
         f.write("KRAKEN_SECRET=\n")
         f.write("ELEVENLABS_KEY=\n")
-
-
 
 class LoginRequest(BaseModel):
     password: str
 
 @app.post("/api/login")
 def login(req: LoginRequest):
-    if req.password == ADMIN_PASSWORD:
-        return {"status": "success", "token": "temp_auth_token_123"}
+    req_hash = hashlib.sha256(req.password.encode()).hexdigest()
+    if req_hash == ADMIN_PASSWORD_HASH:
+        token = secrets.token_urlsafe(32)
+        return {"status": "success", "token": token}
     return {"status": "error", "message": "Accesso Negato"}, 401
 
 class KeysRequest(BaseModel):
@@ -1487,37 +1510,35 @@ def startup_event():
         if bot_state.modules.get("trading", False) and 'alpaca_engine' in globals() and alpaca_engine is not None:
             bot_state.is_running = True
             bot_state.add_log("Autostart: Avvio automatico Alpaca Engine...")
-            threading.Thread(target=alpaca_engine.loop, daemon=True).start()
+            global_executor.submit(alpaca_engine.loop)
     except Exception as e:
         print(f"Errore autostart trading: {e}")
         
     try:
         if (bot_state.modules.get("crypto_arb", False) or bot_state.modules.get("high_risk_crypto_arb", False)) and 'arb_engine' in globals() and arb_engine is not None:
             bot_state.add_log("Autostart: Avvio automatico DeFi Arbitrage Engine...")
-            threading.Thread(target=arb_engine.loop, daemon=True).start()
+            global_executor.submit(arb_engine.loop)
     except Exception as e:
         print(f"Errore autostart crypto_arb: {e}")
         
     try:
         if bot_state.modules.get("sports_arb", False) and 'sports_engine' in globals() and sports_engine is not None:
             bot_state.add_log("Autostart: Avvio automatico Sports Arbitrage Engine...")
-            t = threading.Thread(target=sports_engine.loop, daemon=True)
-            t.start()
+            global_executor.submit(sports_engine.loop)
     except Exception as e:
         print(f"Errore autostart sports_arb: {e}")
         
     try:
         if bot_state.modules.get("ai_sports_sentiment", False) and 'sentiment_engine' in globals() and sentiment_engine is not None:
             bot_state.add_log("Autostart: Avvio automatico AI Sentiment Radar...")
-            t = threading.Thread(target=sentiment_engine.loop, daemon=True)
-            t.start()
+            global_executor.submit(sentiment_engine.loop)
     except Exception as e:
         print(f"Errore autostart sentiment: {e}")
         
     try:
         if bot_state.modules.get("ai_content", False) and 'ai_engine' in globals() and ai_engine is not None:
             bot_state.add_log("Autostart: Avvio automatico AI Content Creator...")
-            threading.Thread(target=ai_engine.loop, daemon=True).start()
+            global_executor.submit(ai_engine.loop)
     except Exception as e:
         print(f"Errore autostart ai_content: {e}")
 

@@ -6,11 +6,11 @@ echo "Inizializzazione del Bot di Trading IA su GCP..."
 sudo apt-get update && sudo apt-get upgrade -y
 
 # 2. Installazione dipendenze Python e strumenti
-sudo apt-get install -y python3-pip python3-venv tmux unzip
+sudo apt-get install -y python3.11 python3.11-venv python3-pip tmux unzip
 
 # 3. Creazione Virtual Environment
 cd backend
-python3 -m venv venv
+python3.11 -m venv venv
 source venv/bin/activate
 
 # 4. Installazione librerie Python

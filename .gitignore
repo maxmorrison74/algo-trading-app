@@ -1,24 +1,15 @@
-# Node
-node_modules/
-
-# Python
-__pycache__/
+# Ambienti Virtuali
 venv/
-*.pyc
-bot_db.json
-.env
-
-# Modelli IA pesanti (opzionale, ma consigliato per GitHub gratuito)
-# *.keras
-# *.h5
-
-# OS
-.DS_Store
-.npm-cache
-frontend/dist
-
-backend/.env.keys
-backend/*.log
-*.log
+env/
 __pycache__/
+
+# Dati Locali e Secrets (CRITICI)
 .env
+.env.keys
+bot_db.json
+bot_state.json
+
+# Log e Cache
+*.log
+.DS_Store
+.pytest_cache/
