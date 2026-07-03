@@ -1838,10 +1838,11 @@ class BillingCustomerStatusRequest(BaseModel):
     status: str
 
 @app.post("/api/register")
-def register_user(req: RegisterRequest):
-    import uuid
-    user_id = str(uuid.uuid4())
-    success = db.create_user(user_id, req.email, req.password)
+def register(req: LoginRequest):
+    # Genera user_id
+    user_id = f"usr_{int(time.time())}"
+    email = req.email.lower().strip() if req.email else ""
+    success = db.create_user(user_id, email, req.password, role="user")
     if not success:
         raise HTTPException(status_code=400, detail="L'email è già registrata.")
     return {"status": "success", "message": "Registrazione completata con successo! Ora puoi fare il login."}
@@ -1859,7 +1860,8 @@ def login(req: LoginRequest, request: Request):
             return {"status": "success", "token": token, "expires_in": 86400, "role": "admin"}
     else:
         # Se c'è l'email, prova a loggare come Cliente SaaS
-        user = db.verify_user_login(req.email, req.password)
+        email = req.email.lower().strip()
+        user = db.verify_user_login(email, req.password)
         if user:
             clear_login_failures(client_id)
             token = create_user_token(user["id"], user["email"], user["role"])
