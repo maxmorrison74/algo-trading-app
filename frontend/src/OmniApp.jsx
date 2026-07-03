@@ -412,6 +412,7 @@ function OmniApp() {
     return false;
   };
   const [isAuthenticated, setIsAuthenticated] = useState(checkAuthMemory());
+  const [showLanding, setShowLanding] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(isDemoSession());
 
   const [password, setPassword] = useState('');
@@ -2766,6 +2767,29 @@ function OmniApp() {
 
   
   if (!isAuthenticated) {
+    if (showLanding) {
+      return (
+        <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center', background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)' }}>
+          <div style={{ textAlign: 'center', maxWidth: '600px', padding: '2rem' }}>
+            <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '180px', marginBottom: '2rem', objectFit: 'contain', filter: 'drop-shadow(0 0 20px rgba(16, 185, 129, 0.2))' }} />
+            <h1 style={{ color: '#e2e8f0', fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+              AUREO OS
+            </h1>
+            <p style={{ color: '#94a3b8', fontSize: '1.2rem', marginBottom: '3rem', lineHeight: 1.6 }}>
+              L'intelligenza quantitativa al servizio del tuo capitale. Una piattaforma avanzata per investitori moderni.
+            </p>
+            <button 
+              className="btn btn-start" 
+              onClick={() => setShowLanding(false)} 
+              style={{ padding: '1.2rem 3rem', fontSize: '1.1rem', letterSpacing: '0.05em', boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)' }}
+            >
+              ACCEDI AL SISTEMA
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <div className="card" style={{ textAlign: 'center', width: '400px', padding: '3rem 2rem' }}>
