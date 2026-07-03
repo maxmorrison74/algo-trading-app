@@ -1926,11 +1926,6 @@ def passkeys_auth_verify(req: PasskeyAuthenticationRequest, request: Request):
     return finish_passkey_authentication(req.model_dump(), request)
 
 
-@app.get("/api/saas/overview")
-def get_saas_overview(_: str = Depends(require_admin)):
-    return build_billing_overview()
-
-
 @app.post("/api/saas/lead")
 def create_saas_lead(req: BillingLeadRequest, _: str = Depends(require_admin)):
     billing = load_billing_db()
@@ -2407,7 +2402,7 @@ def list_crypto_payments(admin_token: str = Depends(require_admin)):
     return db.get_all_payments()
 
 @app.get("/api/saas/overview")
-def get_saas_overview(admin_token: str = Depends(require_admin)):
+def get_saas_overview_db(admin_token: str = Depends(require_admin)):
     users = db.get_all_users()
     payments = db.get_all_payments()
     
