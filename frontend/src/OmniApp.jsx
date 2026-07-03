@@ -4,7 +4,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
 const DEMO_MODE_KEY = 'omni_demo_mode';
-const BILLING_ENABLED = false;
+const BILLING_ENABLED = true;
 const TAB_TITLES = {
   home: 'Dashboard',
   trading: 'Stock Market',
@@ -2975,7 +2975,7 @@ function OmniApp() {
             <span className="menu-icon">🔐</span>
             <span className="menu-label">Security</span>
           </div>
-          {BILLING_ENABLED && (
+          {BILLING_ENABLED && userRole === 'admin' && (
             <div className={`menu-item ${activeTab === 'saas' ? 'active' : ''}`} onClick={() => setActiveTab('saas')}>
               <span className="menu-icon">💳</span>
               <span className="menu-label">Billing</span>
