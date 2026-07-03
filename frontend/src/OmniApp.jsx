@@ -668,16 +668,16 @@ function OmniApp() {
     ].filter(item => item.value > 0);
 
     return (
-      <div className="module-content">
-        <div className="header" style={{ marginBottom: '2rem' }}>
+      <div className="module-content module-content--home">
+        <div className="header module-page-header" style={{ marginBottom: '2rem' }}>
           <h2>Dashboard 📊</h2>
-          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Dashboard Aggregata delle Rendite Passive</div>
+          <div className="page-subtitle" style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Dashboard Aggregata delle Rendite Passive</div>
         </div>
 
         {/* Big Number */}
-        <div style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(0,0,0,0) 100%)', padding: '3rem', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.3)', textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', marginBottom: '1rem' }}>Net Worth Totale Stimato</div>
-          <div style={{ fontSize: '4.5rem', fontWeight: 'bold', color: '#10b981', textShadow: '0 0 20px rgba(16, 185, 129, 0.4)' }}>
+        <div className="hero-summary" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(0,0,0,0) 100%)', padding: '3rem', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.3)', textAlign: 'center', marginBottom: '2rem' }}>
+          <div className="hero-summary-label" style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', marginBottom: '1rem' }}>Net Worth Totale Stimato</div>
+          <div className="hero-summary-value" style={{ fontSize: '4.5rem', fontWeight: 'bold', color: '#10b981', textShadow: '0 0 20px rgba(16, 185, 129, 0.4)' }}>
             ${totalWorth.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
           </div>
         </div>
@@ -2208,14 +2208,17 @@ function OmniApp() {
         
         <div className="sidebar-menu">
           <div className={`menu-item ${activeTab === 'home' ? 'active' : ''}`} onClick={() => setActiveTab('home')}>
-            <span className="menu-icon">📊</span> Dashboard
+            <span className="menu-icon">📊</span>
+            <span className="menu-label">Dashboard</span>
           </div>
           <div className={`menu-item ${activeTab === 'trading' ? 'active' : ''}`} onClick={() => setActiveTab('trading')}>
-            <span className="menu-icon">📈</span> Stock Market
+            <span className="menu-icon">📈</span>
+            <span className="menu-label">Trading</span>
             {status.modules?.trading && <div className="active-dot"></div>}
           </div>
           <div className={`menu-item ${activeTab === 'crypto_arb' ? 'active' : ''}`} onClick={() => setActiveTab('crypto_arb')}>
-            <span className="menu-icon">⛓️</span> DeFi Arbitrage
+            <span className="menu-icon">⛓️</span>
+            <span className="menu-label">DeFi</span>
             {status.modules?.crypto_arb && <div className="active-dot"></div>}
           </div>
           {/* <div className={`menu-item ${activeTab === 'sports_arb' ? 'active' : ''}`} onClick={() => setActiveTab('sports_arb')}>
@@ -2231,10 +2234,12 @@ function OmniApp() {
             {status.modules?.ai_content && <div className="active-dot"></div>}
           </div> */}
           <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-            <span className="menu-icon">🔐</span> Security & API
+            <span className="menu-icon">🔐</span>
+            <span className="menu-label">Security</span>
           </div>
           <div className={`menu-item ${activeTab === 'saas' ? 'active' : ''}`} onClick={() => setActiveTab('saas')}>
-            <span className="menu-icon">💳</span> SaaS & Billing
+            <span className="menu-icon">💳</span>
+            <span className="menu-label">Billing</span>
           </div>
         </div>
         
