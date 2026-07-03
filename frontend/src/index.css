@@ -568,7 +568,7 @@ input:focus, textarea:focus, select:focus {
   .dashboard-grid { gap: 1.2rem; }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 768px), (max-height: 560px) and (orientation: landscape) {
   .omni-app { flex-direction: column; }
   
   .sidebar {
@@ -818,7 +818,7 @@ input:focus, textarea:focus, select:focus {
   input[type="text"], input[type="password"], textarea, select { font-size: 16px; }
 }
 
-@media (max-width: 560px) {
+@media (max-width: 560px), (max-height: 430px) and (orientation: landscape) {
   .main-content {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
@@ -920,7 +920,7 @@ input:focus, textarea:focus, select:focus {
   }
 }
 
-@media (max-width: 420px) {
+@media (max-width: 420px), (max-height: 380px) and (orientation: landscape) {
   .sidebar-menu {
     padding-left: 0.25rem;
     padding-right: 0.25rem;
