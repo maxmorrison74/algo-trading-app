@@ -2023,69 +2023,84 @@ class KeysRequest(BaseModel):
 
 
 @app.get("/api/keys")
-def get_keys(_: str = Depends(require_admin)):
-    # Return masked keys
+def get_keys(user: dict = Depends(require_user)):
     keys = {}
     try:
+        # Global AI keys (masked) per tutti, lette dal file .env
         if os.path.exists(API_KEYS_FILE):
             with open(API_KEYS_FILE, "r") as f:
                 for line in f:
                     if "=" in line:
                         k, v = line.strip().split("=", 1)
-                        if v:
+                        if v and k in ["ELEVENLABS_KEY", "THEODDS_KEY", "GROQ_KEY", "NEWSAPI_KEY"]:
                             keys[k] = v[:4] + "*" * 10 if len(v) > 4 else "***"
         if os.path.exists(".env.gcp.json"):
             keys["GOOGLE_APPLICATION_CREDENTIALS"] = "MASKED_JSON"
+            
+        # Per le chiavi di trading (Alpaca, Binance, Kraken), le leggiamo dal DB per l'utente specifico
+        user_keys = db.get_api_keys(user["sub"])
+        if user_keys:
+            if user_keys.get("alpaca_key"): keys["ALPACA_KEY"] = user_keys["alpaca_key"][:4] + "***"
+            if user_keys.get("alpaca_secret"): keys["ALPACA_SECRET"] = user_keys["alpaca_secret"][:4] + "***"
+            if user_keys.get("binance_key"): keys["BINANCE_KEY"] = user_keys["binance_key"][:4] + "***"
+            if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = user_keys["binance_secret"][:4] + "***"
     except Exception as e:
         keys["ERROR"] = str(e)
     return keys
 
 @app.post("/api/keys")
-def save_keys(req: KeysRequest, _: str = Depends(require_admin)):
+def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
     try:
-        # Read existing
-        existing = {}
-        if os.path.exists(API_KEYS_FILE):
-            with open(API_KEYS_FILE, "r") as f:
-                for line in f:
-                    if "=" in line:
-                        k, v = line.strip().split("=", 1)
-                        existing[k] = v
-
-        # Merge logic: if incoming is empty or '***' (masked), keep existing
-        def merge(key_name, incoming_val):
+        # 1. Salva chiavi di trading nel database per l'utente
+        user_keys = db.get_api_keys(user["sub"]) or {}
+        
+        def merge_user_key(incoming_val, db_val):
             if not incoming_val or "***" in incoming_val:
-                return existing.get(key_name, "")
+                return db_val or ""
             return incoming_val
 
-        new_alpaca_key = merge("ALPACA_KEY", req.alpaca_key)
-        new_alpaca_secret = merge("ALPACA_SECRET", req.alpaca_secret)
-        new_binance_key = merge("BINANCE_KEY", req.binance_key)
-        new_binance_secret = merge("BINANCE_SECRET", req.binance_secret)
-        new_kraken_key = merge("KRAKEN_KEY", req.kraken_key)
-        new_kraken_secret = merge("KRAKEN_SECRET", req.kraken_secret)
-        new_elevenlabs_key = merge("ELEVENLABS_KEY", req.elevenlabs_key)
-        new_theodds_key = merge("THEODDS_KEY", req.theodds_key)
-        new_groq_key = merge("GROQ_KEY", req.groq_key)
-        new_newsapi_key = merge("NEWSAPI_KEY", req.newsapi_key)
+        db.save_api_keys(
+            user_id=user["sub"],
+            alpaca_key=merge_user_key(req.alpaca_key, user_keys.get("alpaca_key")),
+            alpaca_secret=merge_user_key(req.alpaca_secret, user_keys.get("alpaca_secret")),
+            binance_key=merge_user_key(req.binance_key, user_keys.get("binance_key")),
+            binance_secret=merge_user_key(req.binance_secret, user_keys.get("binance_secret"))
+        )
 
-        with open(API_KEYS_FILE, "w") as f:
-            f.write(f"ALPACA_KEY={new_alpaca_key}\n")
-            f.write(f"ALPACA_SECRET={new_alpaca_secret}\n")
-            f.write(f"BINANCE_KEY={new_binance_key}\n")
-            f.write(f"BINANCE_SECRET={new_binance_secret}\n")
-            f.write(f"KRAKEN_KEY={new_kraken_key}\n")
-            f.write(f"KRAKEN_SECRET={new_kraken_secret}\n")
-            f.write(f"ELEVENLABS_KEY={new_elevenlabs_key}\n")
-            f.write(f"THEODDS_KEY={new_theodds_key}\n")
-            f.write(f"GROQ_KEY={new_groq_key}\n")
-            f.write(f"NEWSAPI_KEY={new_newsapi_key}\n")
+        # 2. Solo l'admin può salvare le chiavi globali AI in .env
+        if user.get("role") == "admin":
+            existing = {}
+            if os.path.exists(API_KEYS_FILE):
+                with open(API_KEYS_FILE, "r") as f:
+                    for line in f:
+                        if "=" in line:
+                            k, v = line.strip().split("=", 1)
+                            existing[k] = v
             
-        if req.google_cloud_json and "***" not in req.google_cloud_json:
-            with open(".env.gcp.json", "w") as f:
-                f.write(req.google_cloud_json)
-            os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ".env.gcp.json"
+            def merge_global(key_name, incoming_val):
+                if not incoming_val or "***" in incoming_val:
+                    return existing.get(key_name, "")
+                return incoming_val
+                
+            new_elevenlabs_key = merge_global("ELEVENLABS_KEY", req.elevenlabs_key)
+            new_theodds_key = merge_global("THEODDS_KEY", req.theodds_key)
+            new_groq_key = merge_global("GROQ_KEY", req.groq_key)
+            new_newsapi_key = merge_global("NEWSAPI_KEY", req.newsapi_key)
             
+            with open(API_KEYS_FILE, "w") as f:
+                for k, v in existing.items():
+                    if k not in ["ELEVENLABS_KEY", "THEODDS_KEY", "GROQ_KEY", "NEWSAPI_KEY"]:
+                        f.write(f"{k}={v}\n")
+                if new_elevenlabs_key: f.write(f"ELEVENLABS_KEY={new_elevenlabs_key}\n")
+                if new_theodds_key: f.write(f"THEODDS_KEY={new_theodds_key}\n")
+                if new_groq_key: f.write(f"GROQ_KEY={new_groq_key}\n")
+                if new_newsapi_key: f.write(f"NEWSAPI_KEY={new_newsapi_key}\n")
+                
+            if req.google_cloud_json and "***" not in req.google_cloud_json:
+                with open(".env.gcp.json", "w") as f:
+                    f.write(req.google_cloud_json)
+                os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = ".env.gcp.json"
+
         return {"status": "success", "message": "Chiavi salvate nel Vault"}
     except Exception as e:
         from fastapi import HTTPException
