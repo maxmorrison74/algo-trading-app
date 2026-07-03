@@ -38,7 +38,13 @@ def verify_admin_password(password: str) -> bool:
 
 
 def create_admin_session() -> str:
-    token = secrets.token_urlsafe(32)
+    payload = {
+        "sub": "admin",
+        "email": "admin",
+        "role": "admin",
+        "exp": datetime.utcnow() + timedelta(seconds=SESSION_TTL_SECONDS)
+    }
+    token = jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
     _active_sessions[token] = time.time() + SESSION_TTL_SECONDS
     return token
 
