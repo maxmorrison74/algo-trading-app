@@ -3003,6 +3003,13 @@ function OmniApp() {
           <div>Connesso a server sicuro</div>
           <div style={{ color: '#10b981', marginTop: '0.2rem' }}>All Systems Nominal</div>
           <div className={`sync-pill ${isBackendOnline ? 'online' : 'offline'}`}>{syncLabel}</div>
+          
+          {userRole === 'user' && userStatus === 'pending' && (
+            <button className="btn btn-start" onClick={() => setShowPaymentModal(true)} style={{ width: '100%', marginTop: '1rem', fontSize: '1rem', padding: '0.8rem', background: 'linear-gradient(90deg, #f59e0b, #d97706)', border: 'none', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)' }}>
+              🚀 Sblocca Pro / Paga
+            </button>
+          )}
+
           <button
             onClick={handleLogout}
             className="btn"
@@ -3012,14 +3019,7 @@ function OmniApp() {
           </button>
         </div>
         
-        {/* Bottone Paga Ora per utenti Pending */}
-        {userRole === 'user' && userStatus === 'pending' && (
-          <div style={{ position: 'absolute', bottom: '2rem', left: '1rem', right: '1rem' }}>
-            <button className="btn btn-start" onClick={() => setShowPaymentModal(true)} style={{ width: '100%', fontSize: '1rem', padding: '0.8rem', background: 'linear-gradient(90deg, #f59e0b, #d97706)', border: 'none', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)' }}>
-              🚀 Sblocca Pro / Paga
-            </button>
-          </div>
-        )}
+
       </div>
       
       <div className="main-content">
