@@ -2278,76 +2278,6 @@ async def upload_video(topic: str = Form(...), prompt: str = Form(...), descript
     })
     return {"status": "success", "message": "Video aggiunto alla coda di distribuzione"}
 
-# --- SERVING FRONTEND (React) in Produzione ---
-# Questa sezione serve i file statici di React costruiti nella cartella 'dist'
-frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
-
-if os.path.exists(frontend_dist):
-    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
-    
-    @app.get("/{catchall:path}")
-    def serve_frontend(catchall: str):
-        # Evita conflitti con gli endpoint /api/
-        if catchall.startswith("api/"):
-            raise HTTPException(status_code=404, detail="API not found")
-            
-        file_path = os.path.join(frontend_dist, catchall)
-        if os.path.exists(file_path) and os.path.isfile(file_path):
-            headers = {}
-            if file_path.endswith(".html"):
-                headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-                headers["Pragma"] = "no-cache"
-                headers["Expires"] = "0"
-            return FileResponse(file_path, headers=headers)
-            
-        # Per React Router (SPA fallback)
-        headers = {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
-        }
-        return FileResponse(os.path.join(frontend_dist, "index.html"), headers=headers)
-
-# --- LIFECYCLE EVENT FOR AUTORESTART ON BOOT ---
-@app.on_event("startup")
-def startup_event():
-    # Avvia i motori che erano attivi prima del riavvio/spegnimento
-    try:
-        if bot_state.modules.get("trading", False) and 'alpaca_engine' in globals() and alpaca_engine is not None:
-            bot_state.is_running = True
-            bot_state.add_log("Autostart: Avvio automatico Alpaca Engine...")
-            global_executor.submit(alpaca_engine.loop)
-    except Exception as e:
-        print(f"Errore autostart trading: {e}")
-        
-    try:
-        if (bot_state.modules.get("crypto_arb", False) or bot_state.modules.get("high_risk_crypto_arb", False)) and 'arb_engine' in globals() and arb_engine is not None:
-            bot_state.add_log("Autostart: Avvio automatico DeFi Arbitrage Engine...")
-            global_executor.submit(arb_engine.loop)
-    except Exception as e:
-        print(f"Errore autostart crypto_arb: {e}")
-        
-    try:
-        if bot_state.modules.get("sports_arb", False) and 'sports_engine' in globals() and sports_engine is not None:
-            bot_state.add_log("Autostart: Avvio automatico Sports Arbitrage Engine...")
-            global_executor.submit(sports_engine.loop)
-    except Exception as e:
-        print(f"Errore autostart sports_arb: {e}")
-        
-    try:
-        if bot_state.modules.get("ai_sports_sentiment", False) and 'sentiment_engine' in globals() and sentiment_engine is not None:
-            bot_state.add_log("Autostart: Avvio automatico AI Sentiment Radar...")
-            global_executor.submit(sentiment_engine.loop)
-    except Exception as e:
-        print(f"Errore autostart sentiment: {e}")
-        
-    try:
-        if bot_state.modules.get("ai_content", False) and 'ai_engine' in globals() and ai_engine is not None:
-            bot_state.add_log("Autostart: Avvio automatico AI Content Creator...")
-            global_executor.submit(ai_engine.loop)
-    except Exception as e:
-        print(f"Errore autostart ai_content: {e}")
-
 class SubmitTxidRequest(BaseModel):
     txid: str
     amount: float
@@ -2431,6 +2361,79 @@ def get_saas_overview_db(admin_token: str = Depends(require_admin)):
         "customers": customers,
         "settings": {"currency": "USDT"}
     }
+
+
+# --- SERVING FRONTEND (React) in Produzione ---
+# Questa sezione serve i file statici di React costruiti nella cartella 'dist'
+frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
+
+if os.path.exists(frontend_dist):
+    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
+    
+    @app.get("/{catchall:path}")
+    def serve_frontend(catchall: str):
+        # Evita conflitti con gli endpoint /api/
+        if catchall.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API not found")
+            
+        file_path = os.path.join(frontend_dist, catchall)
+        if os.path.exists(file_path) and os.path.isfile(file_path):
+            headers = {}
+            if file_path.endswith(".html"):
+                headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                headers["Pragma"] = "no-cache"
+                headers["Expires"] = "0"
+            return FileResponse(file_path, headers=headers)
+            
+        # Per React Router (SPA fallback)
+        headers = {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0"
+        }
+        return FileResponse(os.path.join(frontend_dist, "index.html"), headers=headers)
+
+# --- LIFECYCLE EVENT FOR AUTORESTART ON BOOT ---
+@app.on_event("startup")
+def startup_event():
+    # Avvia i motori che erano attivi prima del riavvio/spegnimento
+    try:
+        if bot_state.modules.get("trading", False) and 'alpaca_engine' in globals() and alpaca_engine is not None:
+            bot_state.is_running = True
+            bot_state.add_log("Autostart: Avvio automatico Alpaca Engine...")
+            global_executor.submit(alpaca_engine.loop)
+    except Exception as e:
+        print(f"Errore autostart trading: {e}")
+        
+    try:
+        if (bot_state.modules.get("crypto_arb", False) or bot_state.modules.get("high_risk_crypto_arb", False)) and 'arb_engine' in globals() and arb_engine is not None:
+            bot_state.add_log("Autostart: Avvio automatico DeFi Arbitrage Engine...")
+            global_executor.submit(arb_engine.loop)
+    except Exception as e:
+        print(f"Errore autostart crypto_arb: {e}")
+        
+    try:
+        if bot_state.modules.get("sports_arb", False) and 'sports_engine' in globals() and sports_engine is not None:
+            bot_state.add_log("Autostart: Avvio automatico Sports Arbitrage Engine...")
+            global_executor.submit(sports_engine.loop)
+    except Exception as e:
+        print(f"Errore autostart sports_arb: {e}")
+        
+    try:
+        if bot_state.modules.get("ai_sports_sentiment", False) and 'sentiment_engine' in globals() and sentiment_engine is not None:
+            bot_state.add_log("Autostart: Avvio automatico AI Sentiment Radar...")
+            global_executor.submit(sentiment_engine.loop)
+    except Exception as e:
+        print(f"Errore autostart sentiment: {e}")
+        
+    try:
+        if bot_state.modules.get("ai_content", False) and 'ai_engine' in globals() and ai_engine is not None:
+            bot_state.add_log("Autostart: Avvio automatico AI Content Creator...")
+            global_executor.submit(ai_engine.loop)
+    except Exception as e:
+        print(f"Errore autostart ai_content: {e}")
+
+
 
 if __name__ == "__main__":
     import uvicorn
