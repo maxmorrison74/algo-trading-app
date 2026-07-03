@@ -79,15 +79,9 @@ def send_telegram_message(message: str):
 from data_loader import fetch_historical_data
 
 DB_FILE = "bot_db.json"
-import threading
-import atexit
-from concurrent.futures import ThreadPoolExecutor
-
-# Thread Pool Globale per limitare le risorse
-global_executor = ThreadPoolExecutor(max_workers=10)
-atexit.register(lambda: global_executor.shutdown(wait=False))
-
 db_lock = threading.Lock()
+SYMBOL_RANK_CACHE_TTL_SECONDS = 300
+symbol_rank_cache = {"expires_at": 0.0, "max_symbols": 0, "result": ([], [])}
 
 def load_db():
     with db_lock:
@@ -238,6 +232,14 @@ def _normalize_metric(value, minimum, maximum):
 
 
 def rank_stock_universe(max_symbols: int = 7):
+    now_ts = time.time()
+    if (
+        symbol_rank_cache["result"][0]
+        and symbol_rank_cache["max_symbols"] == max_symbols
+        and symbol_rank_cache["expires_at"] > now_ts
+    ):
+        return symbol_rank_cache["result"]
+
     tickers = STOCK_UNIVERSE[:]
     if not tickers:
         return [], []
@@ -254,7 +256,13 @@ def rank_stock_universe(max_symbols: int = 7):
         )
     except Exception as e:
         print(f"Errore download ranking tickers: {e}")
-        return DEFAULT_TARGET_SYMBOLS[:max_symbols], []
+        fallback_result = (DEFAULT_TARGET_SYMBOLS[:max_symbols], [])
+        symbol_rank_cache.update({
+            "expires_at": now_ts + 60,
+            "max_symbols": max_symbols,
+            "result": fallback_result,
+        })
+        return fallback_result
 
     ranked_rows = []
     for ticker in tickers:
@@ -327,7 +335,13 @@ def rank_stock_universe(max_symbols: int = 7):
             continue
 
     if not ranked_rows:
-        return DEFAULT_TARGET_SYMBOLS[:max_symbols], []
+        fallback_result = (DEFAULT_TARGET_SYMBOLS[:max_symbols], [])
+        symbol_rank_cache.update({
+            "expires_at": now_ts + 60,
+            "max_symbols": max_symbols,
+            "result": fallback_result,
+        })
+        return fallback_result
 
     metric_ranges = {}
     for key in [
@@ -394,7 +408,13 @@ def rank_stock_universe(max_symbols: int = 7):
                 break
 
     selected_symbols = [row["symbol"] for row in selected_rows]
-    return selected_symbols, selected_rows[:max_symbols]
+    result = (selected_symbols, selected_rows[:max_symbols])
+    symbol_rank_cache.update({
+        "expires_at": now_ts + SYMBOL_RANK_CACHE_TTL_SECONDS,
+        "max_symbols": max_symbols,
+        "result": result,
+    })
+    return result
 
 
 def refresh_target_symbols(max_symbols: int = 7):
@@ -843,16 +863,16 @@ def get_status():
         for sym in bot_state.target_symbols:
             if sym not in pos_dict:
                 pos_dict[sym] = "LIQUID"
-                
-        # Prepariamo i payload combinati per la tabella
-        table_data = []
-        for sym in bot_state.target_symbols:
-            table_data.append({
+
+        table_data = [
+            {
                 "symbol": sym,
                 "position": pos_dict[sym],
                 "prediction": bot_state.latest_predictions.get(sym, "In attesa"),
-                "sentiment": bot_state.ai_sentiment.get(sym, "NEUTRAL")
-            })
+                "sentiment": bot_state.ai_sentiment.get(sym, "NEUTRAL"),
+            }
+            for sym in bot_state.target_symbols
+        ]
 
         win_rate = 0.0
         profit_factor = 0.0
@@ -881,13 +901,12 @@ def get_status():
         if high_val > current_val:
             max_drawdown = round(((high_val - current_val) / high_val) * 100, 2)
 
-        st = {}
-        st["market_open"] = False
+        market_open = False
         alpaca_info = {"status": "Scollegato", "account_number": "N/A", "type": "N/A"}
         try:
             if alpaca:
                 clock = alpaca.get_clock()
-                st["market_open"] = clock.is_open
+                market_open = clock.is_open
                 
                 account = alpaca.get_account()
                 alpaca_info["account_number"] = account.account_number
@@ -903,8 +922,8 @@ def get_status():
             # NY time is roughly UTC-4 in summer
             now = datetime.utcnow() - timedelta(hours=4)
             fallback_open = now.weekday() < 5 and (now.hour > 9 or (now.hour == 9 and now.minute >= 30)) and now.hour < 16
-            if st["market_open"] == False:
-                st["market_open"] = fallback_open
+            if not market_open:
+                market_open = fallback_open
         except Exception:
             pass
 
@@ -918,7 +937,7 @@ def get_status():
             "profit_factor": profit_factor,
             "sharpe_ratio": sharpe_ratio,
             "max_drawdown": max_drawdown,
-            "market_open": st["market_open"],
+            "market_open": market_open,
             "positions": pos_dict,
             "predictions": bot_state.latest_predictions,
             "last_trade": bot_state.last_trade,
@@ -926,15 +945,12 @@ def get_status():
             "symbols": bot_state.target_symbols,
             "symbol_selection": getattr(bot_state, "symbol_selection", {}),
             "logs": bot_state.logs,
-            "market_open": st["market_open"],
             "alpaca_info": alpaca_info,
             "aggressiveness": bot_state.aggressiveness,
             "trade_history": bot_state.trade_history,
-            "win_rate": win_rate,
             "modules": bot_state.modules,
             "auto_bet_enabled": bot_state.auto_bet_enabled,
             "auto_bet_threshold": bot_state.auto_bet_threshold,
-            "table_data": table_data,
             "arb_logs": getattr(bot_state, "arb_logs", []),
             "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
             "high_risk_arb_logs": getattr(bot_state, "high_risk_arb_logs", []),
@@ -1015,12 +1031,13 @@ async def toggle_module(payload: dict, _: str = Depends(require_admin)):
                 if len(bot_state.high_risk_arb_logs) > 50:
                     bot_state.high_risk_arb_logs.pop()
                 
+        current_state = get_status()
         return {"message": "Modulo aggiornato", "modules": bot_state.modules,
             "arb_logs": getattr(bot_state, "arb_logs", []),
             "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
             "high_risk_arb_logs": getattr(bot_state, "high_risk_arb_logs", []),
             "high_risk_arb_prices": getattr(bot_state, "high_risk_arb_prices", {}),
-            "table_data": get_status().get("table_data", []) if not isinstance(get_status(), dict) or "error" not in get_status() else [],
+            "table_data": current_state.get("table_data", []) if "error" not in current_state else [],
             "sports_logs": getattr(bot_state, "sports_logs", []),
             "active_surebets": getattr(bot_state, "active_surebets", []),
             "value_bets": getattr(bot_state, "value_bets", []),
