@@ -631,6 +631,11 @@ input:focus, textarea:focus, select:focus {
   .module-content--defi .defi-section-header {
     display: none;
   }
+  .module-content--sports .sports-page-header,
+  .module-content--sentiment .sentiment-page-header,
+  .module-content--aicontent .ai-content-page-header {
+    display: none;
+  }
 
   .trading-header-actions,
   .trading-ai-header,
@@ -721,6 +726,27 @@ input:focus, textarea:focus, select:focus {
     min-width: 720px;
   }
 
+  .sports-auto-bet-panel,
+  .sentiment-header-controls {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    gap: 0.85rem !important;
+  }
+
+  .module-content--sports .terminal-window,
+  .module-content--aicontent .terminal-window {
+    height: 220px;
+  }
+
+  .module-content--sentiment .card,
+  .module-content--aicontent .card {
+    min-width: 0;
+  }
+
+  .sentiment-cards-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   .hero-summary {
     padding: 1.35rem !important;
     margin-bottom: 1rem !important;
@@ -809,6 +835,15 @@ input:focus, textarea:focus, select:focus {
   .module-content--defi .data-table,
   .module-content--defi table {
     min-width: 680px;
+  }
+
+  .sports-auto-bet-panel {
+    padding: 1rem !important;
+  }
+
+  .module-content--aicontent .dashboard-grid,
+  .module-content--sports .dashboard-grid {
+    gap: 0.9rem;
   }
 
   .menu-item {

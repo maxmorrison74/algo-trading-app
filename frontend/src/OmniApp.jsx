@@ -1549,8 +1549,8 @@ function OmniApp() {
       (a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)
     );
     return (
-    <div className="module-content">
-      <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+    <div className="module-content module-content--sports">
+      <div className="header module-page-header sports-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2>Sports SureBets ⚽🎾</h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Calcolatore Matematico di Scommesse Sicure</div>
@@ -1564,7 +1564,7 @@ function OmniApp() {
       </div>
 
       {/* --- Pannello Auto-Bet --- */}
-      <div style={{
+      <div className="sports-auto-bet-panel" style={{
         background: status.auto_bet_enabled
           ? 'rgba(212,175,55,0.08)'
           : 'rgba(255,255,255,0.03)',
@@ -1799,8 +1799,8 @@ function OmniApp() {
   };
 
   const renderValueBetsView = () => (
-    <div className="module-content">
-      <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="module-content module-content--sentiment">
+      <div className="header module-page-header sentiment-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             🤖 AI Sentiment Radar
@@ -1811,7 +1811,7 @@ function OmniApp() {
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Segnali di mercato dall'analisi del sentiment globale (Crypto & Stock)</div>
         </div>
         
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+        <div className="sentiment-header-controls" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
           <button 
             className={`toggle-btn ${status.modules?.ai_sports_sentiment ? 'active' : ''}`}
             onClick={() => toggleModule('ai_sports_sentiment')}
@@ -1834,7 +1834,7 @@ function OmniApp() {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
+      <div className="sentiment-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
         {status.value_bets && status.value_bets.length > 0 ? (
           status.value_bets.slice(0, numValueBets).map(vb => (
             <div key={vb.id} style={{
@@ -2035,8 +2035,8 @@ function OmniApp() {
   };
 
   const renderAIContentView = () => (
-    <div className="module-content">
-      <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+    <div className="module-content module-content--aicontent">
+      <div className="header module-page-header ai-content-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
         <div>
           <h2>AI Content Spammer 🤖🔥</h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Ti diamo l'idea, tu crei il video, Aureo lo spamma ovunque!</div>
