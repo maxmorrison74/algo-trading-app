@@ -65,8 +65,8 @@ const DEMO_BILLING_OVERVIEW = {
     { id: 'lead_demo_1', company: 'Omega Signals', contact_name: 'Luca Verdi', email: 'luca@omegasignals.io', plan_id: 'elite', status: 'lead', created_at: '2026-07-02' },
   ],
   recent_activity: [
-    { id: 'act_1', label: 'Beta Capital Lab ha avviato un trial Pro', created_at: '2026-07-01 10:20' },
-    { id: 'act_2', label: 'Nuovo lead acquisito da landing page', created_at: '2026-07-02 18:10' },
+    { id: 'act_1', user_email: 'marco@alphaquant.studio', amount: 99, currency: 'USDT', txid: 'T...X8Y9', status: 'verified' },
+    { id: 'act_2', user_email: 'giulia@betacapitallab.com', amount: 99, currency: 'USDT', txid: 'T...J3K4', status: 'pending' },
   ],
   settings: { trial_days: 7, currency: 'EUR' },
 };
@@ -2770,7 +2770,7 @@ function OmniApp() {
                             </button>
                           </div>
                         ) : (
-                          <span style={{color: payment.status === 'verified' ? '#10b981' : '#f43f5e'}}>{payment.status.toUpperCase()}</span>
+                          <span style={{color: payment.status === 'verified' ? '#10b981' : '#f43f5e'}}>{(payment.status || 'unknown').toUpperCase()}</span>
                         )}
                       </td>
                     </tr>
