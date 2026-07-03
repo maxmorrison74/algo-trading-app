@@ -2946,14 +2946,14 @@ function OmniApp() {
               placeholder={isRegistering ? "La tua Email" : "Email (Lascia vuoto se Admin)"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={{ marginBottom: '1rem' }}
+              style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
             />
             <input 
               type="password" 
               placeholder={isRegistering ? "Crea una Password" : "Password o Master Password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={{ marginBottom: '1rem' }}
+              style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
             />
             {loginError && <div style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
             <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>

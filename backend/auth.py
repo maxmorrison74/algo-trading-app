@@ -116,7 +116,9 @@ def require_admin(authorization: Optional[str] = Header(default=None)) -> str:
 
 import jwt
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
+load_dotenv()
 JWT_SECRET = os.getenv("JWT_SECRET")
 if not JWT_SECRET:
     JWT_SECRET = secrets.token_urlsafe(32)
