@@ -1115,8 +1115,8 @@ function OmniApp() {
   const renderArbitrageView = () => {
     const highRiskTokens = ["DOGE", "SHIB", "PEPE", "WIF", "LINK"];
     return (
-      <div className="module-content">
-        <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+      <div className="module-content module-content--defi">
+        <div className="header module-page-header defi-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
             <h2>DeFi Arbitrage <span className="badge badge-gold" style={{ marginLeft: '1rem', verticalAlign: 'middle' }}>MODALITÀ SIMULAZIONE ATTIVA</span></h2>
             <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Esecuzione automatica live (Paper Trading)</div>
@@ -1172,14 +1172,14 @@ function OmniApp() {
         <hr style={{ margin: '4rem 0 3rem 0', borderColor: 'rgba(255,255,255,0.1)' }} />
 
         {/* --- HIGH RISK ARBITRAGE SECTION --- */}
-        <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <div className="header defi-section-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
           <div>
             <h2 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: '#ef4444' }}>
               <span>⚠️</span> DeFi Arbitrage - HIGH RISK (Altcoins & Meme)
             </h2>
             <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Scansione e hedging automatico su asset ad alta volatilità (DOGE, SHIB, PEPE, WIF, LINK)</div>
           </div>
-          <div style={{ display: 'flex', gap: '1rem' }}>
+          <div className="defi-highrisk-actions" style={{ display: 'flex', gap: '1rem' }}>
             <button 
               className={`btn ${status.auto_bet_enabled ? 'btn-stop' : 'btn-start'}`}
               style={{ background: status.auto_bet_enabled ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.8)', border: '1px solid #10b981', color: '#fff' }}
@@ -1204,7 +1204,7 @@ function OmniApp() {
         </div>
 
         {/* Real-time prices grid for Altcoins */}
-        <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', padding: '1.5rem', marginBottom: '2rem' }}>
+        <div className="data-table-wrapper defi-table-wrapper" style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)', padding: '1.5rem', marginBottom: '2rem' }}>
           <table className="data-table">
             <thead>
               <tr style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
@@ -1255,7 +1255,7 @@ function OmniApp() {
         <hr style={{ margin: '3rem 0 2rem 0', borderColor: 'rgba(239, 68, 68, 0.15)' }} />
 
         {/* --- VOLATILITY RADAR + QUICK SCALPING --- */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
+        <div className="defi-volatility-header" style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
           <div style={{ fontSize: '1.5rem' }}>🌡️</div>
           <div>
             <h2 style={{ margin: 0, color: '#f59e0b' }}>Volatility Radar & Quick Scalping</h2>
@@ -1266,7 +1266,7 @@ function OmniApp() {
         </div>
 
         {/* Size selector */}
-        <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center' }}>
+        <div className="defi-size-selector" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', alignItems: 'center' }}>
           <span style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Size trade:</span>
           {[50, 100, 250, 500].map(s => (
             <button
@@ -1280,7 +1280,7 @@ function OmniApp() {
               }}
             >${s}</button>
           ))}
-          <span style={{ marginLeft: 'auto', color: '#10b981', fontWeight: 'bold' }}>
+          <span className="defi-balance-label" style={{ marginLeft: 'auto', color: '#10b981', fontWeight: 'bold' }}>
             💰 Saldo Virtuale: ${Number(status.cash || 0).toFixed(2)}
           </span>
         </div>
@@ -1291,7 +1291,7 @@ function OmniApp() {
             🌡️ Radar inattivo — Attiva il motore HIGH RISK per scoprire le top crypto più volatili del momento
           </div>
         ) : (
-          <div style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.15)', overflow: 'hidden' }}>
+          <div className="data-table-wrapper defi-table-wrapper" style={{ background: 'rgba(255,255,255,0.02)', borderRadius: '12px', border: '1px solid rgba(245, 158, 11, 0.15)', overflow: 'hidden' }}>
             <table className="data-table">
               <thead>
                 <tr style={{ background: 'rgba(245, 158, 11, 0.08)', color: 'var(--text-secondary)', fontSize: '0.85rem' }}>
@@ -1379,7 +1379,7 @@ function OmniApp() {
               {(status.monitored_positions || []).length} APERTE
             </span>
           </div>
-          <div style={{ background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
+          <div className="data-table-wrapper defi-table-wrapper" style={{ background: 'rgba(167,139,250,0.04)', border: '1px solid rgba(167,139,250,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'rgba(167,139,250,0.08)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
@@ -1467,7 +1467,7 @@ function OmniApp() {
               {(status.reentry_watchlist || []).length} IN ATTESA
             </span>
           </div>
-          <div style={{ background: 'rgba(252,211,77,0.04)', border: '1px solid rgba(252,211,77,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
+          <div className="data-table-wrapper defi-table-wrapper" style={{ background: 'rgba(252,211,77,0.04)', border: '1px solid rgba(252,211,77,0.2)', borderRadius: '12px', overflow: 'hidden' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: 'rgba(252,211,77,0.08)', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>

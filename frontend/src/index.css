@@ -627,6 +627,10 @@ input:focus, textarea:focus, select:focus {
   .module-content--trading .trading-page-header {
     display: none;
   }
+  .module-content--defi .defi-page-header,
+  .module-content--defi .defi-section-header {
+    display: none;
+  }
 
   .trading-header-actions,
   .trading-ai-header,
@@ -687,6 +691,34 @@ input:focus, textarea:focus, select:focus {
     white-space: nowrap;
     width: auto;
     min-width: max-content;
+  }
+
+  .defi-highrisk-actions,
+  .defi-volatility-header,
+  .defi-size-selector {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .defi-highrisk-actions,
+  .defi-size-selector {
+    gap: 0.75rem !important;
+  }
+
+  .defi-balance-label {
+    margin-left: 0 !important;
+    font-size: 0.9rem;
+  }
+
+  .defi-table-wrapper {
+    padding: 0.6rem !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .module-content--defi .data-table,
+  .module-content--defi table {
+    min-width: 720px;
   }
 
   .hero-summary {
@@ -768,6 +800,15 @@ input:focus, textarea:focus, select:focus {
   .trading-manual-input,
   .trading-amount-input {
     font-size: 1rem !important;
+  }
+
+  .defi-table-wrapper {
+    padding: 0.45rem !important;
+  }
+
+  .module-content--defi .data-table,
+  .module-content--defi table {
+    min-width: 680px;
   }
 
   .menu-item {
