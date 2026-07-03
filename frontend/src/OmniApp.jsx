@@ -330,7 +330,12 @@ function OmniApp() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
+  const [isBackendOnline, setIsBackendOnline] = useState(true);
+  const [lastStatusSync, setLastStatusSync] = useState(null);
   const activeTabLabel = TAB_TITLES[activeTab] || 'AUREO';
+  const syncLabel = isBackendOnline
+    ? (lastStatusSync ? `Live • ${lastStatusSync}` : 'Live')
+    : 'Offline';
 
   useEffect(() => {
     const handleExpired = () => {
@@ -348,11 +353,14 @@ function OmniApp() {
         const data = await res.json();
         if (!data.error) {
           setStatus(data);
+          setIsBackendOnline(true);
+          setLastStatusSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }));
           if (!selectedSymbol && data.symbols && data.symbols.length > 0) {
             setSelectedSymbol(data.symbols[0]);
           }
         }
       } catch (err) {
+        setIsBackendOnline(false);
         console.error("Backend offline");
       }
     };
@@ -2249,6 +2257,7 @@ function OmniApp() {
         <div className="sidebar-footer">
           <div>Connesso a server sicuro</div>
           <div style={{ color: '#10b981', marginTop: '0.2rem' }}>All Systems Nominal</div>
+          <div className={`sync-pill ${isBackendOnline ? 'online' : 'offline'}`}>{syncLabel}</div>
           <button
             onClick={handleLogout}
             className="btn"
@@ -2264,6 +2273,7 @@ function OmniApp() {
           <div>
             <div className="mobile-shell-kicker">AUREO OS</div>
             <div className="mobile-shell-title">{activeTabLabel}</div>
+            <div className={`sync-pill ${isBackendOnline ? 'online' : 'offline'}`}>{syncLabel}</div>
           </div>
           <button onClick={handleLogout} className="btn mobile-shell-action">
             Logout
