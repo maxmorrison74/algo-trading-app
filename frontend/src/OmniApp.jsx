@@ -15,6 +15,61 @@ const TAB_TITLES = {
   saas: 'SaaS & Billing',
 };
 
+const DEMO_BILLING_OVERVIEW = {
+  metrics: {
+    active_customers: 3,
+    trialing_customers: 2,
+    monthly_recurring_revenue: 777,
+    annual_run_rate: 9324,
+    leads_count: 6,
+    collection_rate: 75,
+  },
+  plans: [
+    {
+      id: 'starter',
+      name: 'Starter',
+      price_monthly: 79,
+      currency: 'EUR',
+      description: 'Per trader indipendenti che vogliono dashboard e demo operativa.',
+      features: ['Dashboard live', 'Demo mode', '1 workspace', 'Supporto email'],
+      modules: ['dashboard', 'trading'],
+      checkout_url: 'https://buy.stripe.com/test_starter',
+    },
+    {
+      id: 'pro',
+      name: 'Pro',
+      price_monthly: 199,
+      currency: 'EUR',
+      description: 'Per utenti che vogliono automazioni, segnali e moduli avanzati.',
+      features: ['Tutti i moduli core', 'Alert operativi', '3 workspace', 'Priority support'],
+      modules: ['dashboard', 'trading', 'defi', 'sentiment'],
+      checkout_url: 'https://buy.stripe.com/test_pro',
+    },
+    {
+      id: 'elite',
+      name: 'Elite',
+      price_monthly: 499,
+      currency: 'EUR',
+      description: 'Per desk, consulenti e clienti ad alto valore con onboarding guidato.',
+      features: ['White-glove onboarding', 'Utenti multipli', 'Billing priority', 'Canale dedicato'],
+      modules: ['dashboard', 'trading', 'defi', 'sentiment', 'ai_content', 'billing'],
+      checkout_url: 'https://buy.stripe.com/test_elite',
+    },
+  ],
+  customers: [
+    { id: 'cus_demo_alpha', company: 'Alpha Quant Studio', contact_name: 'Marco Rossi', email: 'marco@alphaquant.studio', plan_id: 'pro', status: 'active', seats: 3, monthly_amount: 199, next_billing_at: '2026-07-12' },
+    { id: 'cus_demo_beta', company: 'Beta Capital Lab', contact_name: 'Giulia Bianchi', email: 'giulia@betacapitallab.com', plan_id: 'starter', status: 'trialing', seats: 1, monthly_amount: 79, next_billing_at: '2026-07-08' },
+  ],
+  leads: [
+    { id: 'lead_demo_1', company: 'Omega Signals', contact_name: 'Luca Verdi', email: 'luca@omegasignals.io', plan_id: 'elite', status: 'lead', created_at: '2026-07-02' },
+  ],
+  recent_activity: [
+    { id: 'act_1', label: 'Beta Capital Lab ha avviato un trial Pro', created_at: '2026-07-01 10:20' },
+    { id: 'act_2', label: 'Nuovo lead acquisito da landing page', created_at: '2026-07-02 18:10' },
+  ],
+  settings: { trial_days: 7, currency: 'EUR' },
+};
+
 const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || '';
 const isDemoSession = () => localStorage.getItem(DEMO_MODE_KEY) === '1';
 
@@ -218,6 +273,10 @@ function OmniApp() {
   const [aiIdea, setAiIdea] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
+  const [billingOverview, setBillingOverview] = useState(null);
+  const [billingLoading, setBillingLoading] = useState(false);
+  const [billingMessage, setBillingMessage] = useState('');
+  const [billingLead, setBillingLead] = useState({ company: '', contact_name: '', email: '', plan_id: 'pro', seats: 1 });
   
   // AI Investment Hub state
   const [aiBudget, setAiBudget] = useState(500);
@@ -631,6 +690,91 @@ function OmniApp() {
       fetchKeys();
     }
   }, [activeTab, isDemoMode]);
+
+  useEffect(() => {
+    if (activeTab !== 'saas') return;
+    if (isDemoMode) {
+      setBillingOverview(DEMO_BILLING_OVERVIEW);
+      return;
+    }
+    const fetchBilling = async () => {
+      setBillingLoading(true);
+      try {
+        const res = await authFetch('/api/saas/overview?t=' + Date.now());
+        const data = await res.json();
+        if (res.ok) {
+          setBillingOverview(data);
+        } else {
+          setBillingMessage(data.detail || 'Errore caricamento billing');
+        }
+      } catch (err) {
+        setBillingMessage('Errore di connessione area billing');
+      }
+      setBillingLoading(false);
+    };
+    fetchBilling();
+  }, [activeTab, isDemoMode]);
+
+  const copyCheckoutLink = async (url) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setBillingMessage('Link checkout copiato negli appunti');
+    } catch {
+      setBillingMessage('Copia non riuscita, copia il link manualmente');
+    }
+  };
+
+  const createBillingLead = async () => {
+    if (isDemoMode) {
+      setBillingMessage('Demo mode: creazione lead disabilitata');
+      return;
+    }
+    setBillingMessage('');
+    setBillingLoading(true);
+    try {
+      const res = await authFetch('/api/saas/lead', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(billingLead),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBillingOverview(data.overview);
+        setBillingLead({ company: '', contact_name: '', email: '', plan_id: billingLead.plan_id, seats: 1 });
+        setBillingMessage('Lead creato con successo');
+      } else {
+        setBillingMessage(data.detail || 'Errore creazione lead');
+      }
+    } catch {
+      setBillingMessage('Errore di rete durante la creazione del lead');
+    }
+    setBillingLoading(false);
+  };
+
+  const updateBillingStatus = async (recordId, statusValue) => {
+    if (isDemoMode) {
+      setBillingMessage('Demo mode: aggiornamento stato disabilitato');
+      return;
+    }
+    setBillingLoading(true);
+    try {
+      const res = await authFetch(`/api/saas/customer/${recordId}/status`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: statusValue }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setBillingOverview(data.overview);
+        setBillingMessage(`Stato aggiornato a ${statusValue.toUpperCase()}`);
+      } else {
+        setBillingMessage(data.detail || 'Errore aggiornamento stato');
+      }
+    } catch {
+      setBillingMessage('Errore di rete durante l’aggiornamento');
+    }
+    setBillingLoading(false);
+  };
 
   const renderSettingsView = () => (
     <div className="module-content">
@@ -2215,6 +2359,158 @@ function OmniApp() {
     </div>
   );
 
+  const renderSaaSView = () => {
+    const overview = billingOverview || DEMO_BILLING_OVERVIEW;
+    const metrics = overview.metrics || {};
+    const plans = overview.plans || [];
+    const customers = overview.customers || [];
+    const leads = overview.leads || [];
+    const activity = overview.recent_activity || [];
+
+    return (
+      <div className="module-content module-content--billing">
+        <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+          <div>
+            <h2>💳 SaaS & Billing Control Room</h2>
+            <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.95rem' }}>
+              Gestisci piani, lead, clienti e monetizzazione dell’ecosistema Aureo.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center' }}>
+            {isDemoMode && <div className="demo-mode-pill">READ ONLY</div>}
+            <div className={`sync-pill ${billingLoading ? 'offline' : 'online'}`}>{billingLoading ? 'Sync…' : 'Billing Ready'}</div>
+          </div>
+        </div>
+
+        {billingMessage && (
+          <div className="card" style={{ marginBottom: '1rem', borderColor: 'rgba(245, 166, 35, 0.2)' }}>
+            <div style={{ color: '#f8e7bf' }}>{billingMessage}</div>
+          </div>
+        )}
+
+        <div className="dashboard-grid">
+          <div className="card col-span-3">
+            <div className="card-title">MRR</div>
+            <div className="portfolio-value" style={{ color: '#10b981' }}>€{Number(metrics.monthly_recurring_revenue || 0).toFixed(0)}</div>
+          </div>
+          <div className="card col-span-3">
+            <div className="card-title">ARR</div>
+            <div className="portfolio-value" style={{ color: '#38bdf8' }}>€{Number(metrics.annual_run_rate || 0).toFixed(0)}</div>
+          </div>
+          <div className="card col-span-3">
+            <div className="card-title">Clienti Attivi</div>
+            <div className="portfolio-value">{Number(metrics.active_customers || 0)}</div>
+          </div>
+          <div className="card col-span-3">
+            <div className="card-title">Trial / Lead</div>
+            <div className="portfolio-value" style={{ color: '#f59e0b' }}>
+              {Number(metrics.trialing_customers || 0)} / {Number(metrics.leads_count || 0)}
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
+          <div className="card col-span-8">
+            <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Piani Commerciali</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+              {plans.map((plan) => (
+                <div key={plan.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '1.2rem' }}>
+                  <div style={{ color: '#f5a623', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.3rem' }}>{plan.name}</div>
+                  <div style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '0.5rem' }}>€{plan.price_monthly}<span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>/mese</span></div>
+                  <div style={{ color: 'var(--text-secondary)', lineHeight: 1.45, minHeight: 64 }}>{plan.description}</div>
+                  <div style={{ marginTop: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                    {plan.features?.map((feature) => (
+                      <div key={feature} style={{ color: '#cbd5e1', fontSize: '0.88rem' }}>• {feature}</div>
+                    ))}
+                  </div>
+                  <button className="btn btn-outline" onClick={() => copyCheckoutLink(plan.checkout_url)} style={{ marginTop: '1rem', width: '100%' }}>
+                    Copia Checkout
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card col-span-4">
+            <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Nuovo Lead</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              <input type="text" placeholder="Azienda" value={billingLead.company} onChange={(e) => setBillingLead({ ...billingLead, company: e.target.value })} />
+              <input type="text" placeholder="Referente" value={billingLead.contact_name} onChange={(e) => setBillingLead({ ...billingLead, contact_name: e.target.value })} />
+              <input type="text" placeholder="Email" value={billingLead.email} onChange={(e) => setBillingLead({ ...billingLead, email: e.target.value })} />
+              <select value={billingLead.plan_id} onChange={(e) => setBillingLead({ ...billingLead, plan_id: e.target.value })}>
+                {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
+              </select>
+              <input type="number" min="1" placeholder="Seats" value={billingLead.seats} onChange={(e) => setBillingLead({ ...billingLead, seats: Number(e.target.value) || 1 })} />
+              <button className="btn btn-start" onClick={createBillingLead} disabled={billingLoading}>
+                {billingLoading ? 'Salvataggio…' : 'Crea Lead'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
+          <div className="card col-span-8">
+            <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Clienti & Pipeline</h3>
+            <div className="data-table-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Company</th>
+                    <th>Piano</th>
+                    <th>Status</th>
+                    <th>MRR</th>
+                    <th>Renewal</th>
+                    <th>Azione</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {[...customers, ...leads].map((record) => (
+                    <tr key={record.id}>
+                      <td>
+                        <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{record.company}</div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{record.email}</div>
+                      </td>
+                      <td>{String(record.plan_id || '').toUpperCase()}</td>
+                      <td><span className={`badge ${record.status === 'active' ? 'badge-active' : record.status === 'trialing' ? 'badge-gold' : 'badge-idle'}`}>{record.status}</span></td>
+                      <td>€{Number(record.monthly_amount || 0).toFixed(0)}</td>
+                      <td>{record.next_billing_at || record.created_at || '—'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          {record.status !== 'active' && (
+                            <button className="btn btn-outline" onClick={() => updateBillingStatus(record.id, 'active')} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
+                              Attiva
+                            </button>
+                          )}
+                          {record.status === 'lead' && (
+                            <button className="btn" onClick={() => updateBillingStatus(record.id, 'trialing')} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
+                              Trial
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="card col-span-4">
+            <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Attività Recenti</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
+              {activity.map((item) => (
+                <div key={item.id} style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '0.85rem 0.9rem' }}>
+                  <div style={{ color: '#e2e8f0', lineHeight: 1.35 }}>{item.label}</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.76rem', marginTop: '0.4rem' }}>{item.created_at}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   
   if (!isAuthenticated) {
     return (
@@ -2334,12 +2630,7 @@ function OmniApp() {
         {activeTab === 'sports_arb' && renderSportsArbitrageView()}
         {activeTab === 'value_bets' && renderValueBetsView()}
         {activeTab === 'ai_content' && renderAIContentView()}
-        {activeTab === 'saas' && (
-           <div className="module-content" style={{ padding: '2rem' }}>
-             <h2>Gestione SaaS & Clienti</h2>
-             <p style={{ color: 'var(--text-secondary)' }}>Da qui potrai generare i link Stripe e gestire gli utenti paganti che si iscrivono al tuo ecosistema.</p>
-           </div>
-        )}
+        {activeTab === 'saas' && renderSaaSView()}
       </div>
     </div>
 

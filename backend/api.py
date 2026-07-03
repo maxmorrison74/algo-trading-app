@@ -31,6 +31,7 @@ import concurrent.futures
 import gc
 import time
 from datetime import datetime
+from uuid import uuid4
 import yfinance as yf
 import pandas as pd
 import sys
@@ -1627,6 +1628,7 @@ import os
 
 # --- SECURITY & API KEYS ---
 API_KEYS_FILE = os.path.join(os.path.dirname(__file__), ".env.keys")
+BILLING_DB_FILE = os.path.join(os.path.dirname(__file__), "billing_db.json")
 
 # Se il file non esiste, creiamolo vuoto
 if not os.path.exists(API_KEYS_FILE):
@@ -1640,8 +1642,157 @@ if not os.path.exists(API_KEYS_FILE):
         f.write("KRAKEN_SECRET=\n")
         f.write("ELEVENLABS_KEY=\n")
 
+
+def _default_billing_plans():
+    return [
+        {
+            "id": "starter",
+            "name": "Starter",
+            "price_monthly": 79,
+            "currency": "EUR",
+            "description": "Per trader indipendenti che vogliono dashboard e demo operativa.",
+            "features": ["Dashboard live", "Demo mode", "1 workspace", "Supporto email"],
+            "modules": ["dashboard", "trading"],
+            "checkout_url": os.getenv("STRIPE_CHECKOUT_STARTER_URL", "https://buy.stripe.com/test_starter"),
+        },
+        {
+            "id": "pro",
+            "name": "Pro",
+            "price_monthly": 199,
+            "currency": "EUR",
+            "description": "Per utenti che vogliono automazioni, segnali e moduli avanzati.",
+            "features": ["Tutti i moduli core", "Alert operativi", "3 workspace", "Priority support"],
+            "modules": ["dashboard", "trading", "defi", "sentiment"],
+            "checkout_url": os.getenv("STRIPE_CHECKOUT_PRO_URL", "https://buy.stripe.com/test_pro"),
+        },
+        {
+            "id": "elite",
+            "name": "Elite",
+            "price_monthly": 499,
+            "currency": "EUR",
+            "description": "Per desk, consulenti e clienti ad alto valore con onboarding guidato.",
+            "features": ["White-glove onboarding", "Utenti multipli", "Billing priority", "Canale dedicato"],
+            "modules": ["dashboard", "trading", "defi", "sentiment", "ai_content", "billing"],
+            "checkout_url": os.getenv("STRIPE_CHECKOUT_ELITE_URL", "https://buy.stripe.com/test_elite"),
+        },
+    ]
+
+
+def load_billing_db():
+    default_data = {
+        "plans": _default_billing_plans(),
+        "customers": [
+            {
+                "id": "cus_demo_alpha",
+                "company": "Alpha Quant Studio",
+                "contact_name": "Marco Rossi",
+                "email": "marco@alphaquant.studio",
+                "plan_id": "pro",
+                "status": "active",
+                "seats": 3,
+                "monthly_amount": 199,
+                "started_at": "2026-06-12",
+                "next_billing_at": "2026-07-12",
+                "modules_enabled": ["dashboard", "trading", "defi", "sentiment"],
+                "source": "direct",
+            },
+            {
+                "id": "cus_demo_beta",
+                "company": "Beta Capital Lab",
+                "contact_name": "Giulia Bianchi",
+                "email": "giulia@betacapitallab.com",
+                "plan_id": "starter",
+                "status": "trialing",
+                "seats": 1,
+                "monthly_amount": 79,
+                "started_at": "2026-07-01",
+                "next_billing_at": "2026-07-08",
+                "modules_enabled": ["dashboard", "trading"],
+                "source": "demo",
+            },
+        ],
+        "leads": [
+            {
+                "id": "lead_demo_1",
+                "company": "Omega Signals",
+                "contact_name": "Luca Verdi",
+                "email": "luca@omegasignals.io",
+                "plan_id": "elite",
+                "status": "lead",
+                "created_at": "2026-07-02",
+                "source": "website",
+            }
+        ],
+        "recent_activity": [
+            {"id": "act_1", "type": "trial_started", "label": "Beta Capital Lab ha avviato un trial Pro", "created_at": "2026-07-01 10:20"},
+            {"id": "act_2", "type": "lead_captured", "label": "Nuovo lead acquisito da landing page", "created_at": "2026-07-02 18:10"},
+        ],
+        "settings": {"trial_days": 7, "currency": "EUR"},
+    }
+    if not os.path.exists(BILLING_DB_FILE):
+        return default_data
+    try:
+        with open(BILLING_DB_FILE, "r") as f:
+            data = json.load(f)
+            return {
+                "plans": data.get("plans", default_data["plans"]),
+                "customers": data.get("customers", default_data["customers"]),
+                "leads": data.get("leads", default_data["leads"]),
+                "recent_activity": data.get("recent_activity", default_data["recent_activity"]),
+                "settings": {**default_data["settings"], **data.get("settings", {})},
+            }
+    except Exception:
+        return default_data
+
+
+def save_billing_db(data):
+    with open(BILLING_DB_FILE, "w") as f:
+        json.dump(data, f)
+
+
+def build_billing_overview():
+    billing = load_billing_db()
+    plans = billing["plans"]
+    customers = billing["customers"]
+    leads = billing["leads"]
+    active_customers = [c for c in customers if c.get("status") == "active"]
+    trialing_customers = [c for c in customers if c.get("status") == "trialing"]
+    monthly_recurring_revenue = round(sum(float(c.get("monthly_amount", 0) or 0) for c in active_customers), 2)
+    annual_run_rate = round(monthly_recurring_revenue * 12, 2)
+    total_accounts = len(customers)
+    paid_accounts = len(active_customers)
+    collection_rate = round((paid_accounts / total_accounts) * 100, 1) if total_accounts else 0.0
+    return {
+        "metrics": {
+            "active_customers": len(active_customers),
+            "trialing_customers": len(trialing_customers),
+            "monthly_recurring_revenue": monthly_recurring_revenue,
+            "annual_run_rate": annual_run_rate,
+            "leads_count": len(leads),
+            "collection_rate": collection_rate,
+        },
+        "plans": plans,
+        "customers": customers,
+        "leads": leads,
+        "recent_activity": billing["recent_activity"][:8],
+        "settings": billing["settings"],
+    }
+
 class LoginRequest(BaseModel):
     password: str
+
+
+class BillingLeadRequest(BaseModel):
+    company: str
+    email: str
+    plan_id: str
+    contact_name: str = ""
+    seats: int = 1
+    source: str = "manual"
+
+
+class BillingCustomerStatusRequest(BaseModel):
+    status: str
 
 @app.post("/api/login")
 def login(req: LoginRequest, request: Request):
@@ -1664,6 +1815,94 @@ def login(req: LoginRequest, request: Request):
 def logout(admin_token: str = Depends(require_admin)):
     revoke_admin_session(admin_token)
     return {"status": "success"}
+
+
+@app.get("/api/saas/overview")
+def get_saas_overview(_: str = Depends(require_admin)):
+    return build_billing_overview()
+
+
+@app.post("/api/saas/lead")
+def create_saas_lead(req: BillingLeadRequest, _: str = Depends(require_admin)):
+    billing = load_billing_db()
+    plans = {plan["id"]: plan for plan in billing["plans"]}
+    selected_plan = plans.get(req.plan_id)
+    if not selected_plan:
+        raise HTTPException(status_code=404, detail="Piano non trovato")
+
+    lead = {
+        "id": f"lead_{uuid4().hex[:8]}",
+        "company": req.company.strip(),
+        "contact_name": req.contact_name.strip(),
+        "email": req.email.strip().lower(),
+        "plan_id": req.plan_id,
+        "status": "lead",
+        "created_at": datetime.now().strftime("%Y-%m-%d"),
+        "source": req.source,
+        "seats": max(1, int(req.seats or 1)),
+    }
+    billing["leads"].insert(0, lead)
+    billing["recent_activity"].insert(0, {
+        "id": f"act_{uuid4().hex[:8]}",
+        "type": "lead_created",
+        "label": f"Lead creato per {lead['company']} sul piano {selected_plan['name']}",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    })
+    billing["recent_activity"] = billing["recent_activity"][:20]
+    save_billing_db(billing)
+    return {"status": "success", "lead": lead, "overview": build_billing_overview()}
+
+
+@app.post("/api/saas/customer/{customer_id}/status")
+def update_saas_customer_status(customer_id: str, req: BillingCustomerStatusRequest, _: str = Depends(require_admin)):
+    billing = load_billing_db()
+    allowed_statuses = {"lead", "trialing", "active", "past_due", "canceled"}
+    if req.status not in allowed_statuses:
+        raise HTTPException(status_code=400, detail="Status non valido")
+
+    updated = None
+    for record_group in ("customers", "leads"):
+        for item in billing[record_group]:
+            if item.get("id") == customer_id:
+                item["status"] = req.status
+                if req.status in {"trialing", "active"} and record_group == "leads":
+                    plans = {plan["id"]: plan for plan in billing["plans"]}
+                    plan = plans.get(item["plan_id"], {})
+                    customer = {
+                        "id": f"cus_{uuid4().hex[:8]}",
+                        "company": item.get("company"),
+                        "contact_name": item.get("contact_name"),
+                        "email": item.get("email"),
+                        "plan_id": item.get("plan_id"),
+                        "status": req.status,
+                        "seats": item.get("seats", 1),
+                        "monthly_amount": plan.get("price_monthly", 0),
+                        "started_at": datetime.now().strftime("%Y-%m-%d"),
+                        "next_billing_at": datetime.now().strftime("%Y-%m-%d"),
+                        "modules_enabled": plan.get("modules", []),
+                        "source": item.get("source", "manual"),
+                    }
+                    billing["customers"].insert(0, customer)
+                    billing["leads"] = [lead for lead in billing["leads"] if lead.get("id") != customer_id]
+                    updated = customer
+                else:
+                    updated = item
+                break
+        if updated:
+            break
+
+    if not updated:
+        raise HTTPException(status_code=404, detail="Cliente o lead non trovato")
+
+    billing["recent_activity"].insert(0, {
+        "id": f"act_{uuid4().hex[:8]}",
+        "type": "status_updated",
+        "label": f"{updated.get('company', 'Record')} aggiornato a {req.status.upper()}",
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    })
+    billing["recent_activity"] = billing["recent_activity"][:20]
+    save_billing_db(billing)
+    return {"status": "success", "record": updated, "overview": build_billing_overview()}
 
 class KeysRequest(BaseModel):
     alpaca_key: str = ""

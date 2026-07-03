@@ -249,6 +249,10 @@ body {
   border-color: rgba(245, 166, 35, 0.22);
 }
 
+.module-content--billing .card {
+  min-width: 0;
+}
+
 /* MAIN CONTENT */
 .main-content {
   flex: 1;
@@ -701,7 +705,8 @@ input:focus, textarea:focus, select:focus {
   }
   .module-content--sports .sports-page-header,
   .module-content--sentiment .sentiment-page-header,
-  .module-content--aicontent .ai-content-page-header {
+  .module-content--aicontent .ai-content-page-header,
+  .module-content--billing .header {
     display: none;
   }
 
@@ -807,7 +812,8 @@ input:focus, textarea:focus, select:focus {
   }
 
   .module-content--sentiment .card,
-  .module-content--aicontent .card {
+  .module-content--aicontent .card,
+  .module-content--billing .card {
     min-width: 0;
   }
 
