@@ -635,20 +635,14 @@ function OmniApp() {
   });
 
   const fetchPasskeyStatus = async () => {
-    if (isDemoMode) {
-      return;
-    }
+    if (userRole !== 'admin') return;
     try {
       const res = await authFetch('/api/passkeys/status?t=' + Date.now());
       const data = await res.json();
       if (res.ok) {
-        setPasskeyStatus(data);
-      } else {
-        setPasskeyMessage(data.detail || 'Impossibile leggere lo stato biometrico');
+        setPasskeyStatus({ ...data, supported: passkeySupported });
       }
-    } catch {
-      setPasskeyMessage('Errore nel controllo della biometria');
-    }
+    } catch(e) {}
   };
 
   const handleLogin = async (e) => {
@@ -1110,29 +1104,32 @@ function OmniApp() {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <div>
-            <h3 style={{ margin: 0, color: '#e2e8f0' }}>Accesso biometrico</h3>
-            <div style={{ color: 'var(--text-secondary)', marginTop: '0.45rem', lineHeight: 1.5 }}>
-              Attiva Face ID, Touch ID o biometria del dispositivo come accesso rapido, mantenendo la password come backup.
+      {userRole === 'admin' && (
+        <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            <div>
+              <h3 style={{ margin: 0, color: '#e2e8f0' }}>Accesso biometrico</h3>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.45rem', lineHeight: 1.5 }}>
+                Attiva Face ID, Touch ID o biometria del dispositivo come accesso rapido, mantenendo la password come backup.
+              </div>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
+              <span style={{ color: passkeyStatus?.configured ? '#10b981' : 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 500 }}>
+                {passkeyStatus?.configured ? `✓ Attivo (${passkeyStatus.credentials_count} credenziali)` : 'Disattivato'}
+              </span>
+              <button className="btn btn-outline" onClick={handlePasskeyRegister} disabled={!passkeySupported || passkeyBusy || isDemoMode}>
+                {passkeyBusy ? 'Configurazione...' : 'Aggiungi dispositivo'}
+              </button>
             </div>
           </div>
-          <button
-            onClick={registerCurrentDevicePasskey}
-            className="btn btn-start"
-            disabled={!passkeySupported || passkeyBusy || isDemoMode}
-            style={{ minWidth: '220px' }}
-          >
-            {passkeyBusy ? 'Attivazione…' : 'Attiva su questo dispositivo'}
-          </button>
+          {passkeyMessage && (
+            <div style={{ padding: '0.75rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '4px', fontSize: '0.9rem', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+              {passkeyMessage}
+            </div>
+          )}
         </div>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: passkeyMessage ? '0.9rem' : 0 }}>
-          <div className={`sync-pill ${passkeySupported ? 'online' : 'offline'}`}>{passkeySupported ? 'Browser compatibile' : 'Browser non compatibile'}</div>
-          <div className={`sync-pill ${passkeyStatus.configured ? 'online' : 'offline'}`}>{passkeyStatus.configured ? `${passkeyStatus.credentials_count} dispositivo/i attivi` : 'Nessun dispositivo attivo'}</div>
-        </div>
-        {passkeyMessage && <div style={{ color: '#f8e7bf', lineHeight: 1.5 }}>{passkeyMessage}</div>}
-      </div>
+      )}
 
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
