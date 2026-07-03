@@ -14,6 +14,7 @@ import asyncio
 import math
 import json
 import db
+from typing import Optional
 import requests
 import threading
 import atexit
