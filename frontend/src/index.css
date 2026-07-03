@@ -542,7 +542,7 @@ body {
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
 /* INPUTS */
-input[type="text"], input[type="password"], textarea, select {
+input[type="text"], input[type="password"], input[type="email"], textarea, select {
   background: rgba(0,0,0,0.2);
   border: 1px solid var(--border-subtle);
   color: var(--text-primary);
@@ -868,7 +868,7 @@ input:focus, textarea:focus, select:focus {
   .data-table { min-width: 620px; }
   .data-table th,
   .data-table td { padding: 0.8rem 0.9rem; }
-  input[type="text"], input[type="password"], textarea, select { font-size: 16px; }
+  input[type="text"], input[type="password"], input[type="email"], textarea, select { font-size: 16px; }
 }
 
 @media (max-width: 560px), (max-height: 430px) and (orientation: landscape) {
