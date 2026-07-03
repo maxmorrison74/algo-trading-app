@@ -114,6 +114,64 @@ def require_admin(authorization: Optional[str] = Header(default=None)) -> str:
     _active_sessions[token] = time.time() + SESSION_TTL_SECONDS
     return token
 
+import jwt
+from datetime import datetime, timedelta
+
+JWT_SECRET = os.getenv("JWT_SECRET")
+if not JWT_SECRET:
+    JWT_SECRET = secrets.token_urlsafe(32)
+    env_path = os.path.join(os.path.dirname(__file__), ".env")
+    if os.path.exists(env_path):
+        with open(env_path, "a") as f:
+            f.write(f"\nJWT_SECRET={JWT_SECRET}\n")
+    os.environ["JWT_SECRET"] = JWT_SECRET
+
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRATION_HOURS = 24
+
+def create_user_token(user_id: str, email: str, role: str) -> str:
+    payload = {
+        "sub": user_id,
+        "email": email,
+        "role": role,
+        "exp": datetime.utcnow() + timedelta(hours=JWT_EXPIRATION_HOURS)
+    }
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def require_user(authorization: Optional[str] = Header(default=None)) -> dict:
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Autenticazione richiesta",
+        )
+    
+    scheme, _, token = authorization.partition(" ")
+    if scheme.lower() != "bearer" or not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token malformato",
+        )
+        
+    try:
+        # Check if it's the admin master token
+        if token in _active_sessions:
+            _prune_sessions()
+            if _active_sessions.get(token):
+                _active_sessions[token] = time.time() + SESSION_TTL_SECONDS
+                return {"sub": "admin", "role": "admin"}
+                
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Sessione scaduta. Fai di nuovo login",
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token non valido",
+        )
 
 def _b64url_encode(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).rstrip(b"=").decode("ascii")

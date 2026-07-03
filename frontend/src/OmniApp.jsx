@@ -78,6 +78,8 @@ const clearAuthSession = () => {
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_TIME_KEY);
   localStorage.removeItem(DEMO_MODE_KEY);
+  localStorage.removeItem('USER_ROLE');
+  localStorage.removeItem('USER_STATUS');
 };
 
 const authFetch = async (input, init = {}) => {
@@ -416,6 +418,10 @@ function OmniApp() {
   const [isDemoMode, setIsDemoMode] = useState(isDemoSession());
 
   const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [userRole, setUserRole] = useState(localStorage.getItem('USER_ROLE') || 'admin');
+  const [userStatus, setUserStatus] = useState(localStorage.getItem('USER_STATUS') || 'active');
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
   const [isBackendOnline, setIsBackendOnline] = useState(true);
@@ -509,12 +515,16 @@ function OmniApp() {
     fetchChart();
   }, [selectedSymbol, timeframe]);
 
-  const completeAuthenticatedSession = (token) => {
+  const completeAuthenticatedSession = (token, role = 'admin', status = 'active') => {
     setIsAuthenticated(true);
     setIsDemoMode(false);
+    setUserRole(role);
+    setUserStatus(status);
     localStorage.removeItem(DEMO_MODE_KEY);
     localStorage.setItem(AUTH_TOKEN_KEY, token);
     localStorage.setItem(AUTH_TIME_KEY, Date.now().toString());
+    localStorage.setItem('USER_ROLE', role);
+    localStorage.setItem('USER_STATUS', status);
     setLoginError('');
     setPasskeyMessage('');
   };
@@ -560,18 +570,35 @@ function OmniApp() {
 
   const handleLogin = async (e) => {
     e.preventDefault();
+    setLoginError('');
     try {
-      const res = await fetch('/api/login', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
-      const data = await res.json();
-      if (res.ok && data.status === 'success') {
-        completeAuthenticatedSession(data.token);
+      if (isRegistering) {
+        const res = await fetch('/api/register', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+          setLoginError(data.message);
+          setIsRegistering(false); // Torna al login
+        } else {
+          setLoginError(data.detail || 'Errore durante la registrazione');
+        }
       } else {
-        clearAuthSession();
-        setIsAuthenticated(false);
-        setLoginError(data.detail || data.message || 'Accesso negato');
+        // Modalità Login (se email è vuoto entra come admin)
+        const payload = email ? { email, password } : { password };
+        const res = await fetch('/api/login', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (res.ok && data.status === 'success') {
+          completeAuthenticatedSession(data.token, data.role || 'admin', data.status || 'active');
+        } else {
+          clearAuthSession();
+          setIsAuthenticated(false);
+          setLoginError(data.detail || data.message || 'Accesso negato');
+        }
       }
     } catch (err) {
       clearAuthSession();
@@ -2664,86 +2691,91 @@ function OmniApp() {
         </div>
 
         <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
-          <div className="card col-span-8">
-            <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Piani Commerciali</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
-              {plans.map((plan) => (
-                <div key={plan.id} style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', padding: '1.2rem' }}>
-                  <div style={{ color: '#f5a623', fontWeight: 'bold', fontSize: '1.1rem', marginBottom: '0.3rem' }}>{plan.name}</div>
-                  <div style={{ fontSize: '2rem', fontWeight: '800', marginBottom: '0.5rem' }}>€{plan.price_monthly}<span style={{ fontSize: '0.9rem', color: 'var(--text-secondary)' }}>/mese</span></div>
-                  <div style={{ color: 'var(--text-secondary)', lineHeight: 1.45, minHeight: 64 }}>{plan.description}</div>
-                  <div style={{ marginTop: '0.9rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                    {plan.features?.map((feature) => (
-                      <div key={feature} style={{ color: '#cbd5e1', fontSize: '0.88rem' }}>• {feature}</div>
-                    ))}
-                  </div>
-                  <button className="btn btn-outline" onClick={() => copyCheckoutLink(plan.checkout_url)} style={{ marginTop: '1rem', width: '100%' }}>
-                    Copia Checkout
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="card col-span-4">
-            <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Nuovo Lead</h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-              <input type="text" placeholder="Azienda" value={billingLead.company} onChange={(e) => setBillingLead({ ...billingLead, company: e.target.value })} />
-              <input type="text" placeholder="Referente" value={billingLead.contact_name} onChange={(e) => setBillingLead({ ...billingLead, contact_name: e.target.value })} />
-              <input type="text" placeholder="Email" value={billingLead.email} onChange={(e) => setBillingLead({ ...billingLead, email: e.target.value })} />
-              <select value={billingLead.plan_id} onChange={(e) => setBillingLead({ ...billingLead, plan_id: e.target.value })}>
-                {plans.map((plan) => <option key={plan.id} value={plan.id}>{plan.name}</option>)}
-              </select>
-              <input type="number" min="1" placeholder="Seats" value={billingLead.seats} onChange={(e) => setBillingLead({ ...billingLead, seats: Number(e.target.value) || 1 })} />
-              <button className="btn btn-start" onClick={createBillingLead} disabled={billingLoading}>
-                {billingLoading ? 'Salvataggio…' : 'Crea Lead'}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
-          <div className="card col-span-8">
-            <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Clienti & Pipeline</h3>
+          <div className="card col-span-6">
+            <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Clienti Iscritti</h3>
             <div className="data-table-wrapper">
               <table className="data-table">
                 <thead>
                   <tr>
-                    <th>Company</th>
-                    <th>Piano</th>
+                    <th>Email</th>
                     <th>Status</th>
-                    <th>MRR</th>
-                    <th>Renewal</th>
+                    <th>Scadenza Abbonamento</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {customers?.map((user) => (
+                    <tr key={user.id}>
+                      <td>
+                        <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{user.email}</div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Role: {user.role}</div>
+                      </td>
+                      <td><span className={`badge ${user.status === 'active' ? 'badge-active' : 'badge-idle'}`}>{user.status}</span></td>
+                      <td>{user.next_billing_at}</td>
+                    </tr>
+                  ))}
+                  {!customers?.length && <tr><td colSpan="3" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="card col-span-6">
+            <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Verifica Pagamenti Crypto</h3>
+            <div className="data-table-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Cliente</th>
+                    <th>Importo</th>
+                    <th>TXID</th>
                     <th>Azione</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {[...customers, ...leads].map((record) => (
-                    <tr key={record.id}>
+                  {billingOverview?.recent_activity?.map((payment) => (
+                    <tr key={payment.id}>
+                      <td>{payment.user_email}</td>
+                      <td>{payment.amount} {payment.currency}</td>
+                      <td style={{fontFamily:'monospace', fontSize:'0.8rem', maxWidth:'150px', overflow:'hidden', textOverflow:'ellipsis'}} title={payment.txid}>{payment.txid}</td>
                       <td>
-                        <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{record.company}</div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>{record.email}</div>
-                      </td>
-                      <td>{String(record.plan_id || '').toUpperCase()}</td>
-                      <td><span className={`badge ${record.status === 'active' ? 'badge-active' : record.status === 'trialing' ? 'badge-gold' : 'badge-idle'}`}>{record.status}</span></td>
-                      <td>€{Number(record.monthly_amount || 0).toFixed(0)}</td>
-                      <td>{record.next_billing_at || record.created_at || '—'}</td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                          {record.status !== 'active' && (
-                            <button className="btn btn-outline" onClick={() => updateBillingStatus(record.id, 'active')} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
-                              Attiva
+                        {payment.status === 'pending' ? (
+                          <div style={{ display: 'flex', gap: '0.5rem' }}>
+                            <button className="btn btn-start" onClick={async () => {
+                              try {
+                                const res = await authFetch('/api/billing/verify-payment', {
+                                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                                  body: JSON.stringify({ payment_id: payment.id, action: 'approve', months: 1 })
+                                });
+                                const data = await res.json();
+                                setBillingMessage(data.message);
+                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                                setBillingOverview(await res2.json());
+                              } catch(e) {}
+                            }} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
+                              Verifica (1 Mese)
                             </button>
-                          )}
-                          {record.status === 'lead' && (
-                            <button className="btn" onClick={() => updateBillingStatus(record.id, 'trialing')} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
-                              Trial
+                            <button className="btn btn-outline" onClick={async () => {
+                              try {
+                                const res = await authFetch('/api/billing/verify-payment', {
+                                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                                  body: JSON.stringify({ payment_id: payment.id, action: 'reject' })
+                                });
+                                const data = await res.json();
+                                setBillingMessage(data.message);
+                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                                setBillingOverview(await res2.json());
+                              } catch(e) {}
+                            }} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
+                              Rifiuta
                             </button>
-                          )}
-                        </div>
+                          </div>
+                        ) : (
+                          <span style={{color: payment.status === 'verified' ? '#10b981' : '#f43f5e'}}>{payment.status.toUpperCase()}</span>
+                        )}
                       </td>
                     </tr>
                   ))}
+                  {!billingOverview?.recent_activity?.length && <tr><td colSpan="4" style={{textAlign:'center', color:'#888'}}>Nessun pagamento in coda</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2797,25 +2829,42 @@ function OmniApp() {
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>Ponte di Comando Autenticato</p>
           <form onSubmit={handleLogin}>
             <input 
+              type="email" 
+              placeholder={isRegistering ? "La tua Email" : "Email (Lascia vuoto se Admin)"}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{ marginBottom: '1rem' }}
+            />
+            <input 
               type="password" 
-              placeholder="Inserisci Master Password" 
+              placeholder={isRegistering ? "Crea una Password" : "Password o Master Password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{ marginBottom: '1rem' }}
             />
             {loginError && <div style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
-            <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>ACCEDI ALLA DASHBOARD</button>
+            <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>
+              {isRegistering ? 'CREA ACCOUNT' : 'ACCEDI'}
+            </button>
           </form>
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => setIsRegistering(!isRegistering)}
+            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
+          >
+            {isRegistering ? 'HAI GIÀ UN ACCOUNT? ACCEDI' : 'NON HAI UN ACCOUNT? REGISTRATI'}
+          </button>
           <button
             type="button"
             className="btn"
             onClick={handlePasskeyLogin}
-            disabled={!passkeySupported || passkeyBusy}
-            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: passkeySupported ? 1 : 0.6 }}
+            disabled={!passkeySupported || passkeyBusy || isRegistering}
+            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: (passkeySupported && !isRegistering) ? 1 : 0.3 }}
           >
             {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI CON FACE ID / TOUCH ID'}
           </button>
-          <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}>
+          <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: isRegistering ? 0.3 : 1 }}>
             ENTRA IN DEMO MODE
           </button>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
@@ -2827,6 +2876,60 @@ function OmniApp() {
     );
   }
 
+  // --- PAYWALL PER UTENTI SAAS IN ATTESA DI PAGAMENTO ---
+  if (userRole === 'user' && userStatus !== 'active') {
+    return (
+      <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
+        <div className="card" style={{ textAlign: 'center', width: '500px', padding: '3rem 2rem' }}>
+          <h2>💳 Attiva il tuo Abbonamento</h2>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
+            Il tuo account è in attesa di attivazione. Effettua il pagamento tramite Criptovaluta per sbloccare tutti gli algoritmi.
+          </p>
+          
+          <div style={{ background: 'var(--bg-card-dark)', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', textAlign: 'left' }}>
+            <h4 style={{ margin: '0 0 1rem 0' }}>1. Invia il Pagamento</h4>
+            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Invia esattamente <strong>99 USDT</strong> (Rete TRC20) a questo indirizzo:</p>
+            <div style={{ background: '#111', padding: '1rem', borderRadius: '8px', fontFamily: 'monospace', wordBreak: 'break-all', color: 'var(--accent-blue)', marginBottom: '1rem' }}>
+              TXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+            </div>
+            
+            <h4 style={{ margin: '0 0 1rem 0' }}>2. Conferma la Transazione</h4>
+            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Inserisci l'Hash della transazione (TXID) per la verifica:</p>
+            <input 
+              type="text" 
+              placeholder="Inserisci il TXID della tua transazione" 
+              id="crypto-txid"
+              style={{ marginBottom: '1rem' }}
+            />
+            <button 
+              className="btn btn-start" 
+              style={{ width: '100%' }}
+              onClick={async () => {
+                const txid = document.getElementById('crypto-txid').value;
+                if (!txid) return alert('Inserisci il TXID');
+                try {
+                  const res = await authFetch('/api/billing/submit-txid', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ txid, amount: 99, currency: 'USDT' })
+                  });
+                  const data = await res.json();
+                  alert(data.message);
+                } catch(e) {
+                  alert('Errore di rete');
+                }
+              }}
+            >
+              INVIA PER LA VERIFICA
+            </button>
+          </div>
+          
+          <button className="btn btn-outline" onClick={handleLogout} style={{ width: '100%' }}>Disconnettiti</button>
+        </div>
+      </div>
+    );
+  }
+
+  // --- INTERFACCIA AUTENTICATA (ADMIN O USER ATTIVO) ---
   return (
   <ErrorBoundary>
     <div className="omni-app">

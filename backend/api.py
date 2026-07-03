@@ -13,6 +13,7 @@ import random
 import asyncio
 import math
 import json
+import db
 import requests
 import threading
 import atexit
@@ -48,6 +49,8 @@ from auth import (
     is_admin_configured,
     record_login_failure,
     require_admin,
+    require_user,
+    create_user_token,
     revoke_admin_session,
     verify_admin_password,
 )
@@ -1784,6 +1787,11 @@ def build_billing_overview():
     }
 
 class LoginRequest(BaseModel):
+    email: Optional[str] = None
+    password: str
+
+class RegisterRequest(BaseModel):
+    email: str
     password: str
 
 
@@ -1828,21 +1836,42 @@ class BillingLeadRequest(BaseModel):
 class BillingCustomerStatusRequest(BaseModel):
     status: str
 
+@app.post("/api/register")
+def register_user(req: RegisterRequest):
+    import uuid
+    user_id = str(uuid.uuid4())
+    success = db.create_user(user_id, req.email, req.password)
+    if not success:
+        raise HTTPException(status_code=400, detail="L'email è già registrata.")
+    return {"status": "success", "message": "Registrazione completata con successo! Ora puoi fare il login."}
+
 @app.post("/api/login")
 def login(req: LoginRequest, request: Request):
-    if not is_admin_configured():
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="ADMIN_PASSWORD_HASH non configurato sul server",
-        )
     client_id = request.client.host if request.client else "unknown"
     assert_login_allowed(client_id)
-    if verify_admin_password(req.password):
-        clear_login_failures(client_id)
-        token = create_admin_session()
-        return {"status": "success", "token": token, "expires_in": 86400}
+    
+    # Se inserisce solo la password (no email), prova l'Admin Login
+    if not req.email:
+        if is_admin_configured() and verify_admin_password(req.password):
+            clear_login_failures(client_id)
+            token = create_admin_session()
+            return {"status": "success", "token": token, "expires_in": 86400, "role": "admin"}
+    else:
+        # Se c'è l'email, prova a loggare come Cliente SaaS
+        user = db.verify_user_login(req.email, req.password)
+        if user:
+            clear_login_failures(client_id)
+            token = create_user_token(user["id"], user["email"], user["role"])
+            return {
+                "status": "success", 
+                "token": token, 
+                "expires_in": 86400, 
+                "role": user["role"],
+                "status": user["status"]
+            }
+
     record_login_failure(client_id)
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Accesso negato")
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenziali non valide o accesso negato")
 
 
 @app.post("/api/logout")
@@ -2303,6 +2332,89 @@ def startup_event():
     except Exception as e:
         print(f"Errore autostart ai_content: {e}")
 
+class SubmitTxidRequest(BaseModel):
+    txid: str
+    amount: float
+    currency: str
+
+@app.post("/api/billing/submit-txid")
+def submit_crypto_payment(req: SubmitTxidRequest, user: dict = Depends(require_user)):
+    user_id = user["sub"]
+    import uuid
+    payment_id = str(uuid.uuid4())
+    success = db.create_payment(payment_id, user_id, req.txid, req.amount, req.currency)
+    if not success:
+        raise HTTPException(status_code=400, detail="Questo Transaction Hash è già stato inviato.")
+    return {"status": "success", "message": "Pagamento inviato! Sarà verificato a breve."}
+
+class VerifyPaymentRequest(BaseModel):
+    payment_id: str
+    action: str 
+    months: int = 1
+
+@app.post("/api/billing/verify-payment")
+def verify_crypto_payment(req: VerifyPaymentRequest, admin_token: str = Depends(require_admin)):
+    payments = db.get_all_payments()
+    payment = next((p for p in payments if p["id"] == req.payment_id), None)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Pagamento non trovato")
+        
+    if req.action == "approve":
+        db.update_payment_status(req.payment_id, "verified")
+        from datetime import datetime, timedelta
+        user = db.get_user_by_id(payment["user_id"])
+        
+        current_exp = user.get("subscription_expires_at")
+        base_date = datetime.utcnow()
+        if current_exp:
+            try:
+                parsed_exp = datetime.strptime(current_exp, "%Y-%m-%d %H:%M:%S")
+                if parsed_exp > base_date:
+                    base_date = parsed_exp
+            except Exception:
+                pass
+            
+        new_exp = base_date + timedelta(days=30 * req.months)
+        db.update_subscription(payment["user_id"], new_exp.strftime("%Y-%m-%d %H:%M:%S"))
+        return {"status": "success", "message": f"Pagamento approvato e abbonamento esteso fino a {new_exp.strftime('%Y-%m-%d')}"}
+    else:
+        db.update_payment_status(req.payment_id, "rejected")
+        return {"status": "success", "message": "Pagamento rifiutato"}
+
+@app.get("/api/billing/payments")
+def list_crypto_payments(admin_token: str = Depends(require_admin)):
+    return db.get_all_payments()
+
+@app.get("/api/saas/overview")
+def get_saas_overview(admin_token: str = Depends(require_admin)):
+    users = db.get_all_users()
+    payments = db.get_all_payments()
+    
+    # Calcolo metriche
+    active_customers = len([u for u in users if u["status"] == "active"])
+    # MRR stimato: clienti attivi * 99
+    mrr = active_customers * 99
+    
+    # Formattazione per il frontend
+    customers = []
+    for u in users:
+        customers.append({
+            "id": u["id"],
+            "email": u["email"],
+            "status": u["status"],
+            "role": u["role"],
+            "next_billing_at": u.get("subscription_expires_at", "N/A"),
+            "monthly_amount": 99,
+            "created_at": u.get("created_at")
+        })
+        
+    return {
+        "mrr": mrr,
+        "active_customers": active_customers,
+        "recent_activity": payments[:10], # Ultimi pagamenti
+        "customers": customers,
+        "settings": {"currency": "USDT"}
+    }
 
 if __name__ == "__main__":
     import uvicorn

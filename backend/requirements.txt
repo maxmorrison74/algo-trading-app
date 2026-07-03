@@ -17,3 +17,6 @@ python-multipart
 tensorflow
 scikit-learn
 joblib
+cryptography
+pyjwt
+bcrypt
