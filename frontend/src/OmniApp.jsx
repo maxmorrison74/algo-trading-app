@@ -2782,6 +2782,7 @@ function OmniApp() {
                     <th>Email</th>
                     <th>Status</th>
                     <th>Scadenza Abbonamento</th>
+                    <th>Azioni Manuali</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2793,9 +2794,41 @@ function OmniApp() {
                       </td>
                       <td><span className={`badge ${user.status === 'active' ? 'badge-active' : 'badge-idle'}`}>{user.status}</span></td>
                       <td>{user.next_billing_at || '-'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          {user.status !== 'active' && (
+                            <button className="btn btn-start" onClick={async () => {
+                              if(!window.confirm('Vuoi attivare manualmente questo utente?')) return;
+                              try {
+                                await authFetch('/api/saas/activate-user', {
+                                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                                  body: JSON.stringify({ user_id: user.id })
+                                });
+                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                                setBillingOverview(await res2.json());
+                              } catch(e) {}
+                            }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>
+                              Attiva
+                            </button>
+                          )}
+                          <button className="btn btn-outline" onClick={async () => {
+                            if(!window.confirm('Eliminare definitivamente questo utente?')) return;
+                            try {
+                              await authFetch('/api/saas/delete-user', {
+                                method: 'POST', headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ user_id: user.id })
+                              });
+                              const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                              setBillingOverview(await res2.json());
+                            } catch(e) {}
+                          }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444' }}>
+                            Elimina
+                          </button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
-                  {!customers?.length && <tr><td colSpan="3" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
+                  {!customers?.length && <tr><td colSpan="4" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
                 </tbody>
               </table>
             </div>

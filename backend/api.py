@@ -2327,6 +2327,33 @@ def verify_crypto_payment(req: VerifyPaymentRequest, admin_token: str = Depends(
         db.update_payment_status(req.payment_id, "rejected")
         return {"status": "success", "message": "Pagamento rifiutato"}
 
+class AdminUserActionRequest(BaseModel):
+    user_id: str
+
+@app.post("/api/saas/activate-user")
+def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
+    conn = db.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET status = 'active' WHERE id = ?", (req.user_id,))
+    
+    # Imposta scadenza a 30 giorni da oggi
+    from datetime import datetime, timedelta
+    new_exp = datetime.utcnow() + timedelta(days=30)
+    cursor.execute("UPDATE users SET subscription_expires_at = ? WHERE id = ?", (new_exp.strftime("%Y-%m-%d %H:%M:%S"), req.user_id))
+    
+    conn.commit()
+    conn.close()
+    return {"status": "success", "message": "Utente attivato manualmente."}
+
+@app.post("/api/saas/delete-user")
+def admin_delete_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
+    conn = db.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users WHERE id = ?", (req.user_id,))
+    conn.commit()
+    conn.close()
+    return {"status": "success", "message": "Utente eliminato."}
+
 @app.get("/api/billing/payments")
 def list_crypto_payments(admin_token: str = Depends(require_admin)):
     return db.get_all_payments()
