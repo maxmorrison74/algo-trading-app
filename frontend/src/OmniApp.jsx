@@ -3,6 +3,16 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
+const TAB_TITLES = {
+  home: 'Dashboard',
+  trading: 'Stock Market',
+  crypto_arb: 'DeFi Arbitrage',
+  sports_arb: 'Sports SureBets',
+  value_bets: 'AI Sentiment',
+  ai_content: 'AI Content',
+  settings: 'Security & API',
+  saas: 'SaaS & Billing',
+};
 
 const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || '';
 
@@ -320,6 +330,7 @@ function OmniApp() {
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
+  const activeTabLabel = TAB_TITLES[activeTab] || 'AUREO';
 
   useEffect(() => {
     const handleExpired = () => {
@@ -2241,6 +2252,15 @@ function OmniApp() {
       </div>
       
       <div className="main-content">
+        <div className="mobile-shell-header">
+          <div>
+            <div className="mobile-shell-kicker">AUREO OS</div>
+            <div className="mobile-shell-title">{activeTabLabel}</div>
+          </div>
+          <button onClick={handleLogout} className="btn mobile-shell-action">
+            Logout
+          </button>
+        </div>
         {activeTab === 'home' && renderHomeView()}
         {activeTab === 'settings' && renderSettingsView()}
         {activeTab === 'trading' && renderTradingView()}
