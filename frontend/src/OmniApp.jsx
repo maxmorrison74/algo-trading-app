@@ -3035,9 +3035,9 @@ function OmniApp() {
           <div style={{ color: '#10b981', marginTop: '0.2rem' }}>All Systems Nominal</div>
           <div className={`sync-pill ${isBackendOnline ? 'online' : 'offline'}`}>{syncLabel}</div>
           
-          {userRole === 'user' && userStatus === 'pending' && (
+          {userRole === 'user' && (
             <button className="btn btn-start" onClick={() => setShowPaymentModal(true)} style={{ width: '100%', marginTop: '1rem', fontSize: '1rem', padding: '0.8rem', background: 'linear-gradient(90deg, #f59e0b, #d97706)', border: 'none', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)' }}>
-              🚀 Sblocca Pro / Paga
+              💎 Sblocca Pro / Paga
             </button>
           )}
 
