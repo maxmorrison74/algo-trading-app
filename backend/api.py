@@ -38,8 +38,13 @@ import sys
 import routers_ai_invest
 from auth import (
     assert_login_allowed,
+    begin_passkey_authentication,
+    begin_passkey_registration,
     clear_login_failures,
     create_admin_session,
+    finish_passkey_authentication,
+    finish_passkey_registration,
+    get_passkey_status,
     is_admin_configured,
     record_login_failure,
     require_admin,
@@ -1782,6 +1787,35 @@ class LoginRequest(BaseModel):
     password: str
 
 
+class PasskeyCredentialAttestationRequest(BaseModel):
+    client_data_json: str
+    attestation_object: str
+
+
+class PasskeyCredentialAssertionRequest(BaseModel):
+    client_data_json: str
+    authenticator_data: str
+    signature: str
+    user_handle: str = ""
+
+
+class PasskeyRegistrationRequest(BaseModel):
+    request_id: str
+    id: str
+    raw_id: str
+    type: str
+    label: str = ""
+    response: PasskeyCredentialAttestationRequest
+
+
+class PasskeyAuthenticationRequest(BaseModel):
+    request_id: str
+    id: str
+    raw_id: str
+    type: str
+    response: PasskeyCredentialAssertionRequest
+
+
 class BillingLeadRequest(BaseModel):
     company: str
     email: str
@@ -1815,6 +1849,31 @@ def login(req: LoginRequest, request: Request):
 def logout(admin_token: str = Depends(require_admin)):
     revoke_admin_session(admin_token)
     return {"status": "success"}
+
+
+@app.get("/api/passkeys/status")
+def passkeys_status(_: str = Depends(require_admin)):
+    return get_passkey_status()
+
+
+@app.post("/api/passkeys/register/options")
+def passkeys_register_options(request: Request, admin_token: str = Depends(require_admin)):
+    return begin_passkey_registration(request, admin_token)
+
+
+@app.post("/api/passkeys/register/verify")
+def passkeys_register_verify(req: PasskeyRegistrationRequest, admin_token: str = Depends(require_admin)):
+    return finish_passkey_registration(req.model_dump(), admin_token)
+
+
+@app.post("/api/passkeys/auth/options")
+def passkeys_auth_options(request: Request):
+    return begin_passkey_authentication(request)
+
+
+@app.post("/api/passkeys/auth/verify")
+def passkeys_auth_verify(req: PasskeyAuthenticationRequest, request: Request):
+    return finish_passkey_authentication(req.model_dump(), request)
 
 
 @app.get("/api/saas/overview")

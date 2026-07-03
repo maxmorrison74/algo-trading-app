@@ -102,6 +102,23 @@ const authFetch = async (input, init = {}) => {
   return response;
 };
 
+const base64urlToBytes = (value) => {
+  const padded = value.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - (value.length % 4)) % 4);
+  const binary = window.atob(padded);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+};
+
+const base64urlToBuffer = (value) => base64urlToBytes(value).buffer;
+
+const bufferToBase64url = (value) => {
+  const bytes = value instanceof Uint8Array ? value : new Uint8Array(value);
+  let binary = '';
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window.btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '');
+};
+
 const HighRiskPnLSparkline = ({ history = [] }) => {
   const data = Array.isArray(history)
     ? history.map((x, i) => ({
@@ -402,6 +419,10 @@ function OmniApp() {
   const [activeTab, setActiveTab] = useState('home');
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [lastStatusSync, setLastStatusSync] = useState(null);
+  const [passkeySupported, setPasskeySupported] = useState(false);
+  const [passkeyBusy, setPasskeyBusy] = useState(false);
+  const [passkeyStatus, setPasskeyStatus] = useState({ supported: false, configured: false, credentials_count: 0, credentials: [] });
+  const [passkeyMessage, setPasskeyMessage] = useState('');
   const activeTabLabel = TAB_TITLES[activeTab] || 'AUREO';
   const syncLabel = isBackendOnline
     ? (lastStatusSync ? `Live • ${lastStatusSync}` : 'Live')
@@ -412,6 +433,11 @@ function OmniApp() {
       setActiveTab('home');
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    const supported = typeof window !== 'undefined' && !!window.PublicKeyCredential && !!navigator.credentials;
+    setPasskeySupported(supported);
+  }, []);
 
   const enterDemoMode = () => {
     localStorage.setItem(DEMO_MODE_KEY, '1');
@@ -476,7 +502,55 @@ function OmniApp() {
     fetchChart();
   }, [selectedSymbol, timeframe]);
 
-  
+  const completeAuthenticatedSession = (token) => {
+    setIsAuthenticated(true);
+    setIsDemoMode(false);
+    localStorage.removeItem(DEMO_MODE_KEY);
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    localStorage.setItem(AUTH_TIME_KEY, Date.now().toString());
+    setLoginError('');
+    setPasskeyMessage('');
+  };
+
+  const normalizeCreationOptions = (publicKey) => ({
+    ...publicKey,
+    challenge: base64urlToBuffer(publicKey.challenge),
+    user: {
+      ...publicKey.user,
+      id: base64urlToBuffer(publicKey.user.id),
+    },
+    excludeCredentials: (publicKey.excludeCredentials || []).map((item) => ({
+      ...item,
+      id: base64urlToBuffer(item.id),
+    })),
+  });
+
+  const normalizeRequestOptions = (publicKey) => ({
+    ...publicKey,
+    challenge: base64urlToBuffer(publicKey.challenge),
+    allowCredentials: (publicKey.allowCredentials || []).map((item) => ({
+      ...item,
+      id: base64urlToBuffer(item.id),
+    })),
+  });
+
+  const fetchPasskeyStatus = async () => {
+    if (isDemoMode) {
+      return;
+    }
+    try {
+      const res = await authFetch('/api/passkeys/status?t=' + Date.now());
+      const data = await res.json();
+      if (res.ok) {
+        setPasskeyStatus(data);
+      } else {
+        setPasskeyMessage(data.detail || 'Impossibile leggere lo stato biometrico');
+      }
+    } catch {
+      setPasskeyMessage('Errore nel controllo della biometria');
+    }
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
@@ -486,12 +560,7 @@ function OmniApp() {
       });
       const data = await res.json();
       if (res.ok && data.status === 'success') {
-        setIsAuthenticated(true);
-        setIsDemoMode(false);
-        localStorage.removeItem(DEMO_MODE_KEY);
-        localStorage.setItem(AUTH_TOKEN_KEY, data.token);
-        localStorage.setItem(AUTH_TIME_KEY, Date.now().toString());
-        setLoginError('');
+        completeAuthenticatedSession(data.token);
       } else {
         clearAuthSession();
         setIsAuthenticated(false);
@@ -502,6 +571,123 @@ function OmniApp() {
       setIsAuthenticated(false);
       setLoginError('Errore di connessione al server');
     }
+  };
+
+  const handlePasskeyLogin = async () => {
+    if (!passkeySupported) {
+      setLoginError('Questo dispositivo non supporta il login biometrico via browser');
+      return;
+    }
+    setPasskeyBusy(true);
+    setLoginError('');
+    try {
+      const optionsRes = await fetch('/api/passkeys/auth/options', { method: 'POST' });
+      const optionsData = await optionsRes.json();
+      if (!optionsRes.ok) {
+        setLoginError(optionsData.detail || 'Biometria non disponibile');
+        setPasskeyBusy(false);
+        return;
+      }
+
+      const credential = await navigator.credentials.get({
+        publicKey: normalizeRequestOptions(optionsData.publicKey),
+      });
+      if (!credential) {
+        setLoginError('Accesso biometrico annullato');
+        setPasskeyBusy(false);
+        return;
+      }
+
+      const verifyRes = await fetch('/api/passkeys/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request_id: optionsData.request_id,
+          id: credential.id,
+          raw_id: bufferToBase64url(credential.rawId),
+          type: credential.type,
+          response: {
+            client_data_json: bufferToBase64url(credential.response.clientDataJSON),
+            authenticator_data: bufferToBase64url(credential.response.authenticatorData),
+            signature: bufferToBase64url(credential.response.signature),
+            user_handle: credential.response.userHandle ? bufferToBase64url(credential.response.userHandle) : '',
+          },
+        }),
+      });
+      const verifyData = await verifyRes.json();
+      if (verifyRes.ok && verifyData.status === 'success') {
+        completeAuthenticatedSession(verifyData.token);
+      } else {
+        clearAuthSession();
+        setIsAuthenticated(false);
+        setLoginError(verifyData.detail || 'Accesso biometrico non riuscito');
+      }
+    } catch (err) {
+      setLoginError(err?.message || 'Errore di connessione al login biometrico');
+    }
+    setPasskeyBusy(false);
+  };
+
+  const registerCurrentDevicePasskey = async () => {
+    if (isDemoMode) {
+      setPasskeyMessage('Demo mode: registrazione biometrica disabilitata');
+      return;
+    }
+    if (!passkeySupported) {
+      setPasskeyMessage('Questo dispositivo non supporta Passkeys');
+      return;
+    }
+    setPasskeyBusy(true);
+    setPasskeyMessage('');
+    try {
+      const optionsRes = await authFetch('/api/passkeys/register/options', { method: 'POST' });
+      const optionsData = await optionsRes.json();
+      if (!optionsRes.ok) {
+        setPasskeyMessage(optionsData.detail || 'Impossibile avviare la registrazione biometrica');
+        setPasskeyBusy(false);
+        return;
+      }
+
+      const credential = await navigator.credentials.create({
+        publicKey: normalizeCreationOptions(optionsData.publicKey),
+      });
+      if (!credential) {
+        setPasskeyMessage('Registrazione biometrica annullata');
+        setPasskeyBusy(false);
+        return;
+      }
+
+      const verifyRes = await authFetch('/api/passkeys/register/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          request_id: optionsData.request_id,
+          id: credential.id,
+          raw_id: bufferToBase64url(credential.rawId),
+          type: credential.type,
+          label: navigator.userAgent.includes('iPhone') ? 'iPhone' : navigator.platform || 'Questo dispositivo',
+          response: {
+            client_data_json: bufferToBase64url(credential.response.clientDataJSON),
+            attestation_object: bufferToBase64url(credential.response.attestationObject),
+          },
+        }),
+      });
+      const verifyData = await verifyRes.json();
+      if (verifyRes.ok) {
+        setPasskeyMessage('Biometria attivata su questo dispositivo');
+        setPasskeyStatus((prev) => ({
+          ...prev,
+          configured: true,
+          credentials_count: verifyData.credentials_count || 1,
+          credentials: verifyData.credential ? [...(prev.credentials || []).filter((item) => item.id !== verifyData.credential.id), verifyData.credential] : prev.credentials,
+        }));
+      } else {
+        setPasskeyMessage(verifyData.detail || 'Registrazione biometrica non riuscita');
+      }
+    } catch (err) {
+      setPasskeyMessage(err?.message || 'Errore durante l’attivazione biometrica');
+    }
+    setPasskeyBusy(false);
   };
 
   const handleLogout = async () => {
@@ -722,6 +908,13 @@ function OmniApp() {
     fetchBilling();
   }, [activeTab, isDemoMode]);
 
+  useEffect(() => {
+    if (!isAuthenticated || isDemoMode || activeTab !== 'settings') {
+      return;
+    }
+    fetchPasskeyStatus();
+  }, [activeTab, isAuthenticated, isDemoMode]);
+
   const copyCheckoutLink = async (url) => {
     try {
       await navigator.clipboard.writeText(url);
@@ -799,6 +992,30 @@ function OmniApp() {
           </div>
         </div>
       )}
+
+      <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <h3 style={{ margin: 0, color: '#e2e8f0' }}>Accesso biometrico</h3>
+            <div style={{ color: 'var(--text-secondary)', marginTop: '0.45rem', lineHeight: 1.5 }}>
+              Attiva Face ID, Touch ID o biometria del dispositivo come accesso rapido, mantenendo la password come backup.
+            </div>
+          </div>
+          <button
+            onClick={registerCurrentDevicePasskey}
+            className="btn btn-start"
+            disabled={!passkeySupported || passkeyBusy || isDemoMode}
+            style={{ minWidth: '220px' }}
+          >
+            {passkeyBusy ? 'Attivazione…' : 'Attiva su questo dispositivo'}
+          </button>
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: passkeyMessage ? '0.9rem' : 0 }}>
+          <div className={`sync-pill ${passkeySupported ? 'online' : 'offline'}`}>{passkeySupported ? 'Browser compatibile' : 'Browser non compatibile'}</div>
+          <div className={`sync-pill ${passkeyStatus.configured ? 'online' : 'offline'}`}>{passkeyStatus.configured ? `${passkeyStatus.credentials_count} dispositivo/i attivi` : 'Nessun dispositivo attivo'}</div>
+        </div>
+        {passkeyMessage && <div style={{ color: '#f8e7bf', lineHeight: 1.5 }}>{passkeyMessage}</div>}
+      </div>
 
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -2536,6 +2753,15 @@ function OmniApp() {
             {loginError && <div style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
             <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>ACCEDI ALLA DASHBOARD</button>
           </form>
+          <button
+            type="button"
+            className="btn"
+            onClick={handlePasskeyLogin}
+            disabled={!passkeySupported || passkeyBusy}
+            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: passkeySupported ? 1 : 0.6 }}
+          >
+            {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI CON FACE ID / TOUCH ID'}
+          </button>
           <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}>
             ENTRA IN DEMO MODE
           </button>
