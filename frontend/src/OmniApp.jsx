@@ -424,6 +424,12 @@ function OmniApp() {
   const [passkeyStatus, setPasskeyStatus] = useState({ supported: false, configured: false, credentials_count: 0, credentials: [] });
   const [passkeyMessage, setPasskeyMessage] = useState('');
   const activeTabLabel = TAB_TITLES[activeTab] || 'AUREO';
+  const demoActionButtonProps = (disabled = false) => (
+    isDemoMode
+      ? { disabled: true, title: 'Non disponibile in demo mode' }
+      : { disabled }
+  );
+  const demoActionStyle = isDemoMode ? { opacity: 0.5, cursor: 'not-allowed' } : {};
   const syncLabel = isBackendOnline
     ? (lastStatusSync ? `Live • ${lastStatusSync}` : 'Live')
     : 'Offline';
@@ -1020,7 +1026,7 @@ function OmniApp() {
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Alpaca (Stock Market) {savedKeys['ALPACA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
-          <button onClick={() => testConnection('alpaca')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
+          <button onClick={() => testConnection('alpaca')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <input type="password" placeholder="API Key" value={apiKeys.alpaca_key} onChange={e => setApiKeys({...apiKeys, alpaca_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
@@ -1032,7 +1038,7 @@ function OmniApp() {
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Binance (Crypto Arb) {savedKeys['BINANCE_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
-          <button onClick={() => testConnection('binance')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
+          <button onClick={() => testConnection('binance')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <input type="password" placeholder="API Key" value={apiKeys.binance_key} onChange={e => setApiKeys({...apiKeys, binance_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
@@ -1044,7 +1050,7 @@ function OmniApp() {
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Kraken (Crypto Arb) {savedKeys['KRAKEN_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
-          <button onClick={() => testConnection('kraken')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
+          <button onClick={() => testConnection('kraken')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <input type="password" placeholder="API Key" value={apiKeys.kraken_key} onChange={e => setApiKeys({...apiKeys, kraken_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
@@ -1056,7 +1062,7 @@ function OmniApp() {
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Groq AI (Sentiment & Investments) {savedKeys['GROQ_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
-          <button onClick={() => testConnection('groq')} className="btn" style={{ padding: '0.5rem 1rem' }}>Test Connessione</button>
+          <button onClick={() => testConnection('groq')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <input type="password" placeholder="Groq API Key" value={apiKeys.groq_key} onChange={e => setApiKeys({...apiKeys, groq_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
@@ -1065,7 +1071,7 @@ function OmniApp() {
       </div>
 
       <div style={{ textAlign: 'right' }}>
-        <button onClick={saveKeys} className="btn btn-start" style={{ padding: '1rem 3rem', fontSize: '1.1rem' }}>Salva nel Vault Sicuro</button>
+        <button onClick={saveKeys} className="btn btn-start" {...demoActionButtonProps()} style={{ padding: '1rem 3rem', fontSize: '1.1rem', ...demoActionStyle }}>Salva nel Vault Sicuro</button>
       </div>
     </div>
   );
@@ -1182,10 +1188,12 @@ function OmniApp() {
             <button 
               className={`btn ${status.modules?.trading ? 'btn-stop' : 'btn-start'}`}
               onClick={() => toggleModule('trading', status.modules?.trading)}
+              {...demoActionButtonProps()}
+              style={demoActionStyle}
             >
               {status.modules?.trading ? 'FERMA SCANNER' : 'AVVIA SCANNER AUTOMATICO'}
             </button>
-            <button className="btn btn-stop" style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.5)' }} onClick={handleReset}>
+            <button className="btn btn-stop" style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.5)', ...demoActionStyle }} onClick={handleReset} {...demoActionButtonProps()}>
               RESET SIMULAZIONE
             </button>
         </div>
@@ -1206,7 +1214,7 @@ function OmniApp() {
             className="trading-manual-input"
             style={{ width: '150px', padding: '0.8rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff', fontSize: '1.1rem' }} 
           />
-          <button className="btn" onClick={handleQuote} disabled={manualLoading || !manualSymbol} style={{ padding: '0.8rem 1.5rem', background: 'rgba(255,255,255,0.1)' }}>
+          <button className="btn" onClick={handleQuote} {...demoActionButtonProps(manualLoading || !manualSymbol)} style={{ padding: '0.8rem 1.5rem', background: 'rgba(255,255,255,0.1)', ...demoActionStyle }}>
             {manualLoading ? '⏳' : 'Cerca Prezzo'}
           </button>
           
@@ -1224,10 +1232,10 @@ function OmniApp() {
                 className="trading-amount-input"
                 style={{ width: '100px', padding: '0.6rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff' }} 
               />
-              <button className="btn btn-start" onClick={() => handleManualTrade('buy')} disabled={manualLoading || manualAmount <= 0} style={{ padding: '0.6rem 1.5rem' }}>
+              <button className="btn btn-start" onClick={() => handleManualTrade('buy')} {...demoActionButtonProps(manualLoading || manualAmount <= 0)} style={{ padding: '0.6rem 1.5rem', ...demoActionStyle }}>
                 COMPRA
               </button>
-              <button className="btn btn-stop" onClick={() => handleManualTrade('sell')} disabled={manualLoading} style={{ padding: '0.6rem 1.5rem' }}>
+              <button className="btn btn-stop" onClick={() => handleManualTrade('sell')} {...demoActionButtonProps(manualLoading)} style={{ padding: '0.6rem 1.5rem', ...demoActionStyle }}>
                 VENDI
               </button>
             </div>
@@ -1258,10 +1266,10 @@ function OmniApp() {
               className="trading-ai-budget-input"
               style={{ width: '120px', padding: '0.8rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff', fontSize: '1.1rem' }} 
             />
-            <button className="btn btn-start trading-ai-action" onClick={() => generateAiProposals('balanced')} disabled={isAiLoading} style={{ padding: '0.8rem 1.5rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: '1px solid #38bdf8' }}>
+            <button className="btn btn-start trading-ai-action" onClick={() => generateAiProposals('balanced')} {...demoActionButtonProps(isAiLoading)} style={{ padding: '0.8rem 1.5rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: '1px solid #38bdf8', ...demoActionStyle }}>
               {isAiLoading ? 'Analisi...' : 'Diversificate'}
             </button>
-            <button className="btn btn-start trading-ai-action" onClick={() => generateAiProposals('momentum')} disabled={isAiLoading} style={{ padding: '0.8rem 1.5rem', background: '#10b981', color: '#000', border: '1px solid #10b981' }}>
+            <button className="btn btn-start trading-ai-action" onClick={() => generateAiProposals('momentum')} {...demoActionButtonProps(isAiLoading)} style={{ padding: '0.8rem 1.5rem', background: '#10b981', color: '#000', border: '1px solid #10b981', ...demoActionStyle }}>
               {isAiLoading ? 'Analisi...' : 'Trend / Momentum'}
             </button>
           </div>
@@ -1286,7 +1294,7 @@ function OmniApp() {
                 <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem', color: '#e2e8f0' }}>{prop.title}</h4>
                 <div style={{ fontFamily: 'var(--font-mono)', color: '#38bdf8', fontSize: '1.4rem', fontWeight: 'bold', marginBottom: '1rem' }}>{prop.symbol}</div>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.4', flex: 1 }}>{prop.rationale}</p>
-                <button className="btn" onClick={() => executeAiProposal(prop)} style={{ marginTop: '1rem', width: '100%', background: 'transparent', border: '1px solid #10b981', color: '#10b981' }}>
+                <button className="btn" onClick={() => executeAiProposal(prop)} {...demoActionButtonProps()} style={{ marginTop: '1rem', width: '100%', background: 'transparent', border: '1px solid #10b981', color: '#10b981', ...demoActionStyle }}>
                   Investi ${aiBudget} su {prop.symbol}
                 </button>
               </div>
@@ -1446,6 +1454,7 @@ function OmniApp() {
             <input 
               type="range" min="10" max="90" step="1"
               value={status.aggressiveness || 55}
+              disabled={isDemoMode}
               onChange={async (e) => {
                 const val = e.target.value;
                 setStatus(prev => ({ ...prev, aggressiveness: val }));
@@ -1454,7 +1463,7 @@ function OmniApp() {
                   body: JSON.stringify({ aggressiveness: val })
                 });
               }}
-              style={{ width: '100%', accentColor: '#06b6d4' }}
+              style={{ width: '100%', accentColor: '#06b6d4', ...demoActionStyle }}
             />
           </div>
           <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', marginTop: '1rem' }}>
@@ -1478,6 +1487,8 @@ function OmniApp() {
                     setStatus(prev => ({ ...prev, symbols: data.symbols, symbol_selection: data.symbol_selection }));
                   }
                 }}
+                {...demoActionButtonProps()}
+                style={demoActionStyle}
               >
                 AGGIORNA WATCHLIST
               </button>
@@ -1543,6 +1554,8 @@ function OmniApp() {
           <button 
             className={`btn ${status.modules?.crypto_arb ? 'btn-stop' : 'btn-start'}`}
             onClick={() => toggleModule('crypto_arb', status.modules?.crypto_arb)}
+            {...demoActionButtonProps()}
+            style={demoActionStyle}
           >
             {status.modules?.crypto_arb ? 'FERMA ARBITRAGGIO' : 'ATTIVA MOTORE ARBITRAGGIO'}
           </button>
@@ -1605,6 +1618,7 @@ function OmniApp() {
                   body: JSON.stringify({ enabled: !status.auto_bet_enabled })
                 });
               }}
+              {...demoActionButtonProps()}
             >
               ⚙️ AUTO-SCALPING AI {status.auto_bet_enabled ? '(ON)' : '(OFF)'}
             </button>
@@ -1612,6 +1626,7 @@ function OmniApp() {
               className={`btn ${status.modules?.high_risk_crypto_arb ? 'btn-stop' : 'btn-start'}`}
               style={{ background: status.modules?.high_risk_crypto_arb ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.6)', border: '1px solid #ef4444', color: '#fff' }}
               onClick={() => toggleModule('high_risk_crypto_arb', status.modules?.high_risk_crypto_arb)}
+              {...demoActionButtonProps()}
             >
               {status.modules?.high_risk_crypto_arb ? 'FERMA ALTO RISCHIO' : 'ATTIVA MOTORE ALTO RISCHIO'}
             </button>
@@ -1728,8 +1743,8 @@ function OmniApp() {
                       <td style={{ padding: '0.9rem 1rem', color: '#f59e0b', fontWeight: 'bold' }}>#{i + 1}</td>
                       <td style={{ padding: '0.9rem 1rem' }}>
                         <div
-                          onClick={() => openAiSignal(asset)}
-                          style={{ fontWeight: 'bold', color: '#f59e0b', fontSize: '1rem', cursor: 'pointer', textDecoration: 'underline dotted', display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                          onClick={isDemoMode ? undefined : () => openAiSignal(asset)}
+                          style={{ fontWeight: 'bold', color: '#f59e0b', fontSize: '1rem', cursor: isDemoMode ? 'not-allowed' : 'pointer', textDecoration: 'underline dotted', display: 'inline-flex', alignItems: 'center', gap: '0.3rem', opacity: isDemoMode ? 0.5 : 1 }}
                           title="Clicca per analisi AI"
                         >
                           🤖 {asset.symbol}
@@ -1754,12 +1769,14 @@ function OmniApp() {
                           <button
                             id={`buy-${asset.symbol}`}
                             onClick={() => quickTrade(asset.symbol, 'buy', tradeSize)}
-                            style={{ padding: '0.4rem 0.9rem', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.2)', border: '1px solid #10b981', color: '#10b981', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                            disabled={isDemoMode}
+                            style={{ padding: '0.4rem 0.9rem', borderRadius: '6px', background: 'rgba(16, 185, 129, 0.2)', border: '1px solid #10b981', color: '#10b981', cursor: isDemoMode ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem', opacity: isDemoMode ? 0.5 : 1 }}
                           >⬆ BUY</button>
                           <button
                             id={`sell-${asset.symbol}`}
                             onClick={() => quickTrade(asset.symbol, 'sell', tradeSize)}
-                            style={{ padding: '0.4rem 0.9rem', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                            disabled={isDemoMode}
+                            style={{ padding: '0.4rem 0.9rem', borderRadius: '6px', background: 'rgba(239, 68, 68, 0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: isDemoMode ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '0.85rem', opacity: isDemoMode ? 0.5 : 1 }}
                           >⬇ SELL</button>
                         </div>
                       </td>
@@ -1824,8 +1841,8 @@ function OmniApp() {
                       <tr key={`${pos.symbol}-${i}`} style={{ borderTop: '1px solid rgba(255,255,255,0.05)', fontFamily: 'monospace' }}>
                         <td style={{ padding: '0.8rem 1rem', fontWeight: 'bold', color: '#a78bfa' }}>
                           <span 
-                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: 'pointer' }}
-                            onClick={() => openAiSignal({ symbol: pos.symbol, price: currentPrice, volatility: 0, change_24h: 0 })}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', cursor: isDemoMode ? 'not-allowed' : 'pointer', opacity: isDemoMode ? 0.5 : 1 }}
+                            onClick={isDemoMode ? undefined : () => openAiSignal({ symbol: pos.symbol, price: currentPrice, volatility: 0, change_24h: 0 })}
                             title="Chiedi all'IA"
                           >
                             <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a78bfa', display: 'inline-block', animation: 'pulse 1.5s ease-in-out infinite' }}></span>
@@ -1856,11 +1873,13 @@ function OmniApp() {
                                 });
                               }
                             }}
+                            disabled={isDemoMode}
                             style={{ padding: '0.35rem 0.6rem', borderRadius: '6px', background: 'rgba(16,185,129,0.1)', border: '1px solid #10b981', color: '#10b981', cursor: 'pointer', fontSize: '0.8rem' }}
                             title="Set Target Price"
                           >🎯</button>
                           <button
                             onClick={() => quickTrade(pos.symbol, 'sell', pos.amount)}
+                            disabled={isDemoMode}
                             style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
                           >✕ Chiudi</button>
                         </td>
@@ -1920,6 +1939,7 @@ function OmniApp() {
                                 body: JSON.stringify({ symbol: pos.symbol })
                               });
                             }}
+                            disabled={isDemoMode}
                             style={{ padding: '0.35rem 0.8rem', borderRadius: '6px', background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.8rem' }}
                           >✕ Annulla</button>
                         </td>
@@ -1973,6 +1993,8 @@ function OmniApp() {
         <button 
           className={`btn ${status.modules?.sports_arb ? 'btn-stop' : 'btn-start'}`}
           onClick={() => toggleModule('sports_arb', status.modules?.sports_arb)}
+          {...demoActionButtonProps()}
+          style={demoActionStyle}
         >
           {status.modules?.sports_arb ? 'FERMA RADAR QUOTE' : 'ATTIVA RADAR QUOTE'}
         </button>
@@ -1999,7 +2021,7 @@ function OmniApp() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
           <span style={{ fontWeight: 'bold', color: '#e2e8f0', fontSize: '0.95rem' }}>🤖 Auto-Bet</span>
           <div
-            onClick={async () => {
+            onClick={isDemoMode ? undefined : async () => {
               const newVal = !status.auto_bet_enabled;
               setStatus(prev => ({ ...prev, auto_bet_enabled: newVal }));
               await authFetch('/api/auto-bet-settings', {
@@ -2014,10 +2036,11 @@ function OmniApp() {
                 ? 'linear-gradient(90deg, #d4af37, #f3e5ab)'
                 : 'rgba(255,255,255,0.15)',
               borderRadius: '14px',
-              cursor: 'pointer',
+              cursor: isDemoMode ? 'not-allowed' : 'pointer',
               position: 'relative',
               transition: 'background 0.3s',
-              flexShrink: 0
+              flexShrink: 0,
+              opacity: isDemoMode ? 0.5 : 1
             }}
           >
             <div style={{
@@ -2047,6 +2070,7 @@ function OmniApp() {
             id="auto-bet-slider"
             type="range" min="1" max="30" step="0.5"
             value={status.auto_bet_threshold ?? 10}
+            disabled={isDemoMode}
             onChange={(e) => {
               const val = parseFloat(e.target.value);
               setStatus(prev => ({ ...prev, auto_bet_threshold: val }));
@@ -2067,7 +2091,7 @@ function OmniApp() {
                 body: JSON.stringify({ threshold: val })
               });
             }}
-            style={{ flex: 1, accentColor: '#d4af37', cursor: 'pointer' }}
+            style={{ flex: 1, accentColor: '#d4af37', cursor: isDemoMode ? 'not-allowed' : 'pointer', opacity: isDemoMode ? 0.5 : 1 }}
           />
           <span style={{
             fontWeight: 'bold',
@@ -2177,7 +2201,7 @@ function OmniApp() {
                   return (
                     <button
                       onClick={() => placeBet(sb)}
-                      disabled={betState === 'loading'}
+                      {...demoActionButtonProps(betState === 'loading')}
                       style={{
                         width: '100%',
                         padding: '0.9rem',
@@ -2189,9 +2213,10 @@ function OmniApp() {
                         fontSize: '1rem',
                         border: 'none',
                         borderRadius: '8px',
-                        cursor: betState === 'loading' ? 'wait' : 'pointer',
+                        cursor: isDemoMode ? 'not-allowed' : (betState === 'loading' ? 'wait' : 'pointer'),
                         letterSpacing: '1px',
                         transition: 'all 0.2s',
+                        opacity: isDemoMode ? 0.5 : 1,
                       }}
                     >
                       {betState === 'loading' ? '⏳ Piazzando...' : '⚡ PIAZZA SCOMMESSA (€100)'}
@@ -2230,7 +2255,8 @@ function OmniApp() {
           <button 
             className={`toggle-btn ${status.modules?.ai_sports_sentiment ? 'active' : ''}`}
             onClick={() => toggleModule('ai_sports_sentiment')}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            {...demoActionButtonProps()}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', ...demoActionStyle }}
           >
             <div className="toggle-switch"></div>
             {status.modules?.ai_sports_sentiment ? 'Radar Attivo' : 'Radar Spento'}
@@ -2459,6 +2485,8 @@ function OmniApp() {
         <button 
           className={`btn ${status.modules?.ai_content ? 'btn-stop' : 'btn-start'}`}
           onClick={() => toggleModule('ai_content', status.modules?.ai_content)}
+          {...demoActionButtonProps()}
+          style={demoActionStyle}
         >
           {status.modules?.ai_content ? 'FERMA DISTRIBUZIONE (PAUSA CODA)' : 'AVVIA DISTRIBUZIONE (ELABORA CODA)'}
         </button>
@@ -2509,7 +2537,7 @@ function OmniApp() {
             <input type="file" id="video-upload" accept="video/mp4" style={{ display: 'none' }} onChange={handleVideoUpload} />
             <button 
               onClick={() => document.getElementById('video-upload').click()}
-              disabled={uploadingVideo}
+              {...demoActionButtonProps(uploadingVideo)}
               style={{ background: '#10b981', color: '#000', width: '100%', padding: '1rem', borderRadius: '8px', border: 'none', fontWeight: 'bold', cursor: 'pointer', opacity: uploadingVideo ? 0.7 : 1 }}
             >
               {uploadingVideo ? '⏳ Caricamento in coda...' : '📤 Carica MP4'}
@@ -2572,7 +2600,8 @@ function OmniApp() {
         <button 
           className={`btn ${status.modules?.[mod_id] ? 'btn-stop' : 'btn-start'}`}
           onClick={() => toggleModule(mod_id, status.modules?.[mod_id])}
-          style={{ fontSize: '1.2rem', padding: '1rem 3rem' }}
+          {...demoActionButtonProps()}
+          style={{ fontSize: '1.2rem', padding: '1rem 3rem', ...demoActionStyle }}
         >
           {status.modules?.[mod_id] ? 'DISATTIVA MOTORE' : 'ATTIVA MOTORE'}
         </button>
@@ -2982,11 +3011,13 @@ function OmniApp() {
                 <div style={{ display: 'flex', gap: '0.7rem' }}>
                   <button
                     onClick={() => { quickTrade(aiModal.symbol, 'buy', tradeSize); setAiModal(null); }}
-                    style={{ flex: 1, padding: '0.8rem', borderRadius: '10px', background: 'rgba(16,185,129,0.2)', border: '1px solid #10b981', color: '#10b981', cursor: 'pointer', fontWeight: 'bold' }}
+                    disabled={isDemoMode}
+                    style={{ flex: 1, padding: '0.8rem', borderRadius: '10px', background: 'rgba(16,185,129,0.2)', border: '1px solid #10b981', color: '#10b981', cursor: isDemoMode ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: isDemoMode ? 0.5 : 1 }}
                   >⬆ BUY ${tradeSize}</button>
                   <button
                     onClick={() => { quickTrade(aiModal.symbol, 'sell', tradeSize); setAiModal(null); }}
-                    style={{ flex: 1, padding: '0.8rem', borderRadius: '10px', background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: 'pointer', fontWeight: 'bold' }}
+                    disabled={isDemoMode}
+                    style={{ flex: 1, padding: '0.8rem', borderRadius: '10px', background: 'rgba(239,68,68,0.2)', border: '1px solid #ef4444', color: '#ef4444', cursor: isDemoMode ? 'not-allowed' : 'pointer', fontWeight: 'bold', opacity: isDemoMode ? 0.5 : 1 }}
                   >⬇ SELL ${tradeSize}</button>
                 </div>
               </>
