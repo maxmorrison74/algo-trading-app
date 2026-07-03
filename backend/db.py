@@ -102,7 +102,7 @@ def create_user(user_id: str, email: str, password: str, role: str = 'user'):
 def verify_user_login(email: str, password: str):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, password_hash, role, status FROM users WHERE email = ?", (email,))
+    cursor.execute("SELECT id, email, password_hash, role, status FROM users WHERE email = ?", (email,))
     row = cursor.fetchone()
     conn.close()
     
