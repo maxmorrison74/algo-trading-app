@@ -3041,10 +3041,14 @@ function OmniApp() {
             </button>
           )}
 
+          <div style={{ marginTop: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+            👤 {email}
+          </div>
+
           <button
             onClick={handleLogout}
             className="btn"
-            style={{ width: '100%', marginTop: '1rem', padding: '0.75rem' }}
+            style={{ width: '100%', marginTop: '0.5rem', padding: '0.75rem' }}
           >
             LOGOUT
           </button>
