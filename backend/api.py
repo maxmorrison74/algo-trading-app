@@ -2413,13 +2413,13 @@ if os.path.exists(frontend_dist):
     app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
     
     @app.get("/{catchall:path}")
-    def serve_frontend(catchall: str):
+    def serve_react_app(request: Request, catchall: str):
         # Evita conflitti con gli endpoint /api/
         if catchall.startswith("api/"):
             raise HTTPException(status_code=404, detail="API not found")
             
         file_path = os.path.join(frontend_dist, catchall)
-        if os.path.exists(file_path) and os.path.isfile(file_path):
+        if os.path.isfile(file_path):
             headers = {}
             if file_path.endswith(".html"):
                 headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
