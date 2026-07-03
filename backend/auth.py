@@ -105,14 +105,22 @@ def require_admin(authorization: Optional[str] = Header(default=None)) -> str:
 
     _prune_sessions()
     expires_at = _active_sessions.get(token)
-    if not expires_at:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Sessione scaduta o non valida",
-        )
-
-    _active_sessions[token] = time.time() + SESSION_TTL_SECONDS
-    return token
+    if expires_at:
+        _active_sessions[token] = time.time() + SESSION_TTL_SECONDS
+        return token
+        
+    # Check if it's a valid JWT with admin role
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if payload.get("role") == "admin":
+            return token
+    except Exception:
+        pass
+        
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Sessione scaduta o non valida",
+    )
 
 import jwt
 from datetime import datetime, timedelta
