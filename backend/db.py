@@ -44,7 +44,7 @@ def init_db():
             email TEXT UNIQUE NOT NULL,
             password_hash TEXT NOT NULL,
             role TEXT DEFAULT 'user',
-            status TEXT DEFAULT 'awaiting_approval',
+            status TEXT DEFAULT 'pending',
             subscription_expires_at DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
@@ -85,7 +85,7 @@ def get_db_connection():
     return conn
 
 # User Operations
-def create_user(user_id: str, email: str, password: str, role: str = 'user', status: str = 'awaiting_approval'):
+def create_user(user_id: str, email: str, password: str, role: str = 'user', status: str = 'pending'):
     conn = get_db_connection()
     cursor = conn.cursor()
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')

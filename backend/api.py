@@ -1860,10 +1860,10 @@ def register(req: LoginRequest):
         if domain in DISPOSABLE_DOMAINS:
             raise HTTPException(status_code=400, detail="L'utilizzo di email usa e getta non è consentito.")
             
-    success = db.create_user(user_id, email, req.password, role="user", status="awaiting_approval")
+    success = db.create_user(user_id, email, req.password, role="user", status="pending")
     if not success:
         raise HTTPException(status_code=400, detail="L'email è già registrata.")
-    return {"status": "success", "message": "Registrazione completata. Il tuo account è in revisione; attendi l'abilitazione manuale da parte dell'Admin."}
+    return {"status": "success", "message": "Registrazione completata! Ora puoi fare il login per accedere alla Demo."}
 
 @app.post("/api/login")
 def login(req: LoginRequest, request: Request):
@@ -1881,10 +1881,6 @@ def login(req: LoginRequest, request: Request):
         email = req.email.lower().strip()
         user = db.verify_user_login(email, req.password)
         if user:
-            if user["status"] == "awaiting_approval":
-                record_login_failure(client_id)
-                raise HTTPException(status_code=403, detail="Account in attesa di approvazione manuale da parte dell'Amministratore.")
-            
             clear_login_failures(client_id)
             token = create_user_token(user["id"], user["email"], user["role"])
             return {
@@ -2361,23 +2357,6 @@ class SubmitTxidRequest(BaseModel):
     txid: str
     amount: float
     currency: str
-
-class ApproveUserRequest(BaseModel):
-    user_id: str
-
-@app.post("/api/saas/approve-user")
-def approve_user(req: ApproveUserRequest, admin_token: str = Depends(require_admin)):
-    conn = db.get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET status = 'pending' WHERE id = ? AND status = 'awaiting_approval'", (req.user_id,))
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-    
-    if rows_affected == 0:
-        raise HTTPException(status_code=404, detail="Utente non trovato o non in attesa di approvazione")
-        
-    return {"status": "success", "message": "Account utente approvato e passato allo stato 'pending' per il pagamento."}
 
 @app.post("/api/billing/submit-txid")
 def submit_crypto_payment(req: SubmitTxidRequest, user: dict = Depends(require_user)):

@@ -281,7 +281,10 @@ const CapitalPhase = () => {
 
 function OmniApp() {
   const [status, setStatus] = useState({});
-
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [selectedCrypto, setSelectedCrypto] = useState('USDT');
+  const [txid, setTxid] = useState('');
+  
   const [numValueBets, setNumValueBets] = useState(9);
   const [placedBets, setPlacedBets] = useState({});
   const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', groq_key:'', newsapi_key:'', google_cloud_json:''});
@@ -315,6 +318,80 @@ function OmniApp() {
   const [manualQuote, setManualQuote] = useState(null);
   const [manualLoading, setManualLoading] = useState(false);
   const [manualMessage, setManualMessage] = useState("");
+
+  const handleCryptoSubmit = async () => {
+    if (!txid) return alert('Inserisci il TXID');
+    try {
+      const res = await authFetch('/api/billing/submit-txid', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txid, amount: 99, currency: selectedCrypto })
+      });
+      const data = await res.json();
+      setBillingMessage(data.message);
+    } catch(e) {
+      setBillingMessage('Errore di rete');
+    }
+  };
+
+  const renderCryptoPaywall = () => (
+    <div className="module-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', height: '100%', padding: '2rem' }}>
+        <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#e2e8f0' }}>🔐 Account in attesa di sblocco</h2>
+        <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '600px' }}>
+          Il tuo account è in modalità Demo. Per sbloccare tutte le funzionalità operative e il Live Trading, è necessario completare il pagamento.
+        </p>
+        
+        <div className="card" style={{ maxWidth: '500px', width: '100%', textAlign: 'left', padding: '2rem' }}>
+          <h3 style={{ marginBottom: '1rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span>💳</span> Effettua il Pagamento
+          </h3>
+          <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
+            Seleziona la criptovaluta, invia l'importo all'indirizzo indicato e inserisci qui il Transaction ID (TXID) per la verifica manuale.
+          </p>
+
+          <div className="form-group" style={{ marginBottom: '1rem' }}>
+            <label>Metodo di Pagamento</label>
+            <select value={selectedCrypto} onChange={(e) => setSelectedCrypto(e.target.value)} style={{ padding: '0.8rem', width: '100%' }}>
+              <option value="USDT">USDT (TRC20)</option>
+              <option value="USDC">USDC (ERC20)</option>
+              <option value="BTC">Bitcoin (BTC)</option>
+              <option value="ETH">Ethereum (ETH)</option>
+              <option value="SOL">Solana (SOL)</option>
+            </select>
+          </div>
+
+          <div style={{ background: '#111', padding: '1rem', borderRadius: '8px', border: '1px solid #333', marginBottom: '1.5rem', wordBreak: 'break-all', fontSize: '0.9rem' }}>
+            <div style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.8rem', textTransform: 'uppercase' }}>Indirizzo di Deposito {selectedCrypto}</div>
+            <strong style={{ color: '#e2e8f0', userSelect: 'all' }}>
+              {selectedCrypto === 'BTC' ? 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' : 
+               selectedCrypto === 'ETH' || selectedCrypto === 'USDC' ? '0x71C7656EC7ab88b098defB751B7401B5f6d8976F' :
+               selectedCrypto === 'SOL' ? 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH' :
+               'TX9bF1BWeYdG4N6N1eR6fB8B5L6M7P8Q9R'}
+            </strong>
+          </div>
+          
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
+            <label>Transaction ID (TXID)</label>
+            <input 
+              type="text" 
+              placeholder="Es. f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+              value={txid}
+              onChange={(e) => setTxid(e.target.value)}
+              style={{ width: '100%', padding: '0.8rem' }}
+            />
+          </div>
+
+          <button className="btn btn-start" onClick={handleCryptoSubmit} style={{ width: '100%', padding: '1rem' }}>
+            Invia per Verifica
+          </button>
+          
+          {billingMessage && (
+            <div style={{ marginTop: '1rem', padding: '0.8rem', background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '4px', textAlign: 'center', fontSize: '0.9rem' }}>
+              {billingMessage}
+            </div>
+          )}
+        </div>
+      </div>
+  );
 
   const handleQuote = async () => {
     if (!manualSymbol) return;
@@ -517,10 +594,15 @@ function OmniApp() {
 
   const completeAuthenticatedSession = (token, role = 'admin', status = 'active') => {
     setIsAuthenticated(true);
-    setIsDemoMode(false);
+    const demo = (status === 'pending');
+    setIsDemoMode(demo);
     setUserRole(role);
     setUserStatus(status);
-    localStorage.removeItem(DEMO_MODE_KEY);
+    if (demo) {
+      localStorage.setItem(DEMO_MODE_KEY, '1');
+    } else {
+      localStorage.removeItem(DEMO_MODE_KEY);
+    }
     localStorage.setItem(AUTH_TOKEN_KEY, token);
     localStorage.setItem(AUTH_TIME_KEY, Date.now().toString());
     localStorage.setItem('USER_ROLE', role);
@@ -2700,7 +2782,6 @@ function OmniApp() {
                     <th>Email</th>
                     <th>Status</th>
                     <th>Scadenza Abbonamento</th>
-                    <th>Azione</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2710,31 +2791,11 @@ function OmniApp() {
                         <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{user.email}</div>
                         <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Role: {user.role}</div>
                       </td>
-                      <td>
-                        <span className={`badge ${user.status === 'active' ? 'badge-active' : user.status === 'awaiting_approval' ? 'badge-idle' : 'badge-idle'}`}>
-                          {user.status === 'awaiting_approval' ? 'In Attesa' : user.status}
-                        </span>
-                      </td>
+                      <td><span className={`badge ${user.status === 'active' ? 'badge-active' : 'badge-idle'}`}>{user.status}</span></td>
                       <td>{user.next_billing_at || '-'}</td>
-                      <td>
-                        {user.status === 'awaiting_approval' && (
-                          <button className="btn btn-start" onClick={async () => {
-                            try {
-                              const res = await authFetch('/api/saas/approve-user', {
-                                method: 'POST', headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ user_id: user.id })
-                              });
-                              const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
-                              setBillingOverview(await res2.json());
-                            } catch(e) {}
-                          }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>
-                            Approva
-                          </button>
-                        )}
-                      </td>
                     </tr>
                   ))}
-                  {!customers?.length && <tr><td colSpan="4" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
+                  {!customers?.length && <tr><td colSpan="3" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -2890,61 +2951,7 @@ function OmniApp() {
           </button>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
             🔒 Protetto da Crittografia<br/>
-            {/* TODO: In futuro aggiungere supporto per Authenticator App (MFA) come richiesto dall'utente */}
           </div>
-        </div>
-      </div>
-    );
-  }
-
-  // --- PAYWALL PER UTENTI SAAS IN ATTESA DI PAGAMENTO ---
-  if (userRole === 'user' && userStatus !== 'active') {
-    return (
-      <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <div className="card" style={{ textAlign: 'center', width: '500px', padding: '3rem 2rem' }}>
-          <h2>💳 Attiva il tuo Abbonamento</h2>
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem' }}>
-            Il tuo account è in attesa di attivazione. Effettua il pagamento tramite Criptovaluta per sbloccare tutti gli algoritmi.
-          </p>
-          
-          <div style={{ background: 'var(--bg-card-dark)', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', textAlign: 'left' }}>
-            <h4 style={{ margin: '0 0 1rem 0' }}>1. Invia il Pagamento</h4>
-            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Invia esattamente <strong>99 USDT</strong> (Rete TRC20) a questo indirizzo:</p>
-            <div style={{ background: '#111', padding: '1rem', borderRadius: '8px', fontFamily: 'monospace', wordBreak: 'break-all', color: 'var(--accent-blue)', marginBottom: '1rem' }}>
-              TXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-            </div>
-            
-            <h4 style={{ margin: '0 0 1rem 0' }}>2. Conferma la Transazione</h4>
-            <p style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem' }}>Inserisci l'Hash della transazione (TXID) per la verifica:</p>
-            <input 
-              type="text" 
-              placeholder="Inserisci il TXID della tua transazione" 
-              id="crypto-txid"
-              style={{ marginBottom: '1rem' }}
-            />
-            <button 
-              className="btn btn-start" 
-              style={{ width: '100%' }}
-              onClick={async () => {
-                const txid = document.getElementById('crypto-txid').value;
-                if (!txid) return alert('Inserisci il TXID');
-                try {
-                  const res = await authFetch('/api/billing/submit-txid', {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ txid, amount: 99, currency: 'USDT' })
-                  });
-                  const data = await res.json();
-                  alert(data.message);
-                } catch(e) {
-                  alert('Errore di rete');
-                }
-              }}
-            >
-              INVIA PER LA VERIFICA
-            </button>
-          </div>
-          
-          <button className="btn btn-outline" onClick={handleLogout} style={{ width: '100%' }}>Disconnettiti</button>
         </div>
       </div>
     );
@@ -2980,18 +2987,6 @@ function OmniApp() {
             <span className="menu-label">DeFi</span>
             {status.modules?.crypto_arb && <div className="active-dot"></div>}
           </div>
-          {/* <div className={`menu-item ${activeTab === 'sports_arb' ? 'active' : ''}`} onClick={() => setActiveTab('sports_arb')}>
-            <span className="menu-icon">⚽</span> Sports SureBets
-            {status.modules?.sports_arb && <div className="active-dot"></div>}
-          </div> */}
-          {/* <div className={`menu-item ${activeTab === 'value_bets' ? 'active' : ''}`} onClick={() => setActiveTab('value_bets')}>
-            <span className="menu-icon">🤖</span> AI Sentiment Radar
-            {status.modules?.ai_sports_sentiment && <div className="active-dot"></div>}
-          </div> */}
-          {/* <div className={`menu-item ${activeTab === 'ai_content' ? 'active' : ''}`} onClick={() => setActiveTab('ai_content')}>
-            <span className="menu-icon">📱</span> AI Content Creator
-            {status.modules?.ai_content && <div className="active-dot"></div>}
-          </div> */}
           <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
             <span className="menu-icon">🔐</span>
             <span className="menu-label">Security</span>
@@ -3016,9 +3011,28 @@ function OmniApp() {
             LOGOUT
           </button>
         </div>
+        
+        {/* Bottone Paga Ora per utenti Pending */}
+        {userRole === 'user' && userStatus === 'pending' && (
+          <div style={{ position: 'absolute', bottom: '2rem', left: '1rem', right: '1rem' }}>
+            <button className="btn btn-start" onClick={() => setShowPaymentModal(true)} style={{ width: '100%', fontSize: '1rem', padding: '0.8rem', background: 'linear-gradient(90deg, #f59e0b, #d97706)', border: 'none', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)' }}>
+              🚀 Sblocca Pro / Paga
+            </button>
+          </div>
+        )}
       </div>
       
       <div className="main-content">
+        {/* Payment Modal */}
+        {showPaymentModal && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <div style={{ position: 'relative', width: '100%', maxWidth: '600px', background: 'var(--bg-dark)', borderRadius: '12px', border: '1px solid var(--border-color)', boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' }}>
+              <button onClick={() => setShowPaymentModal(false)} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'none', border: 'none', color: 'var(--text-secondary)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+              {renderCryptoPaywall()}
+            </div>
+          </div>
+        )}
+
         {isDemoMode && (
           <div className="demo-mode-banner">
             Demo mode attiva — puoi esplorare il prodotto, ma le azioni live sono bloccate.
