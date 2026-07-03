@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
+const DEMO_MODE_KEY = 'omni_demo_mode';
 const TAB_TITLES = {
   home: 'Dashboard',
   trading: 'Stock Market',
@@ -15,15 +16,23 @@ const TAB_TITLES = {
 };
 
 const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || '';
+const isDemoSession = () => localStorage.getItem(DEMO_MODE_KEY) === '1';
 
 const clearAuthSession = () => {
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_TIME_KEY);
+  localStorage.removeItem(DEMO_MODE_KEY);
 };
 
 const authFetch = async (input, init = {}) => {
   const headers = new Headers(init.headers || {});
   const token = getAuthToken();
+  if (!token && isDemoSession()) {
+    return new Response(JSON.stringify({ detail: 'Demo mode attiva: azione live non disponibile' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
   if (token) {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -326,6 +335,7 @@ function OmniApp() {
     return false;
   };
   const [isAuthenticated, setIsAuthenticated] = useState(checkAuthMemory());
+  const [isDemoMode, setIsDemoMode] = useState(isDemoSession());
 
   const [password, setPassword] = useState('');
   const [loginError, setLoginError] = useState('');
@@ -337,8 +347,20 @@ function OmniApp() {
     ? (lastStatusSync ? `Live • ${lastStatusSync}` : 'Live')
     : 'Offline';
 
+  const enterDemoMode = () => {
+    localStorage.setItem(DEMO_MODE_KEY, '1');
+    setIsDemoMode(true);
+    setIsAuthenticated(true);
+    setLoginError('');
+    setPassword('');
+    setActiveTab('home');
+  };
+
   useEffect(() => {
     const handleExpired = () => {
+      if (isDemoSession()) {
+        return;
+      }
       setIsAuthenticated(false);
       setLoginError('Sessione scaduta. Fai di nuovo login');
     };
@@ -399,6 +421,8 @@ function OmniApp() {
       const data = await res.json();
       if (res.ok && data.status === 'success') {
         setIsAuthenticated(true);
+        setIsDemoMode(false);
+        localStorage.removeItem(DEMO_MODE_KEY);
         localStorage.setItem(AUTH_TOKEN_KEY, data.token);
         localStorage.setItem(AUTH_TIME_KEY, Date.now().toString());
         setLoginError('');
@@ -421,6 +445,7 @@ function OmniApp() {
       console.error(err);
     } finally {
       clearAuthSession();
+      setIsDemoMode(false);
       setIsAuthenticated(false);
       setPassword('');
       setLoginError('');
@@ -572,6 +597,10 @@ function OmniApp() {
   
   useEffect(() => {
     if (activeTab === 'settings') {
+      if (isDemoMode) {
+        setSavedKeys({});
+        return;
+      }
       const fetchKeys = async () => {
         try {
           const res = await authFetch('/api/keys?t=' + Date.now());
@@ -601,7 +630,7 @@ function OmniApp() {
       };
       fetchKeys();
     }
-  }, [activeTab]);
+  }, [activeTab, isDemoMode]);
 
   const renderSettingsView = () => (
     <div className="module-content">
@@ -609,6 +638,16 @@ function OmniApp() {
         <h2>🔐 Security & API Vault</h2>
         <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Gestione chiavi crittografate per le connessioni ai mercati reali.</div>
       </div>
+
+      {isDemoMode && (
+        <div className="card demo-mode-card" style={{ marginBottom: '2rem' }}>
+          <div className="card-title">Demo Mode</div>
+          <div style={{ color: '#e2e8f0', fontWeight: 'bold', marginBottom: '0.6rem' }}>Vault in sola lettura</div>
+          <div style={{ color: 'var(--text-secondary)', lineHeight: 1.5 }}>
+            In demo puoi esplorare dashboard e moduli, ma test connessioni, chiavi API e azioni live restano bloccate.
+          </div>
+        </div>
+      )}
 
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -2194,6 +2233,9 @@ function OmniApp() {
             {loginError && <div style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
             <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>ACCEDI ALLA DASHBOARD</button>
           </form>
+          <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}>
+            ENTRA IN DEMO MODE
+          </button>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
             🔒 Protetto da Crittografia<br/>
             {/* TODO: In futuro aggiungere supporto per Authenticator App (MFA) come richiesto dall'utente */}
@@ -2269,10 +2311,16 @@ function OmniApp() {
       </div>
       
       <div className="main-content">
+        {isDemoMode && (
+          <div className="demo-mode-banner">
+            Demo mode attiva — puoi esplorare il prodotto, ma le azioni live sono bloccate.
+          </div>
+        )}
         <div className="mobile-shell-header">
           <div>
             <div className="mobile-shell-kicker">AUREO OS</div>
             <div className="mobile-shell-title">{activeTabLabel}</div>
+            {isDemoMode && <div className="demo-mode-pill">DEMO MODE</div>}
             <div className={`sync-pill ${isBackendOnline ? 'online' : 'offline'}`}>{syncLabel}</div>
           </div>
           <button onClick={handleLogout} className="btn mobile-shell-action">
