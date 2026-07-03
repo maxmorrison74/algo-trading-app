@@ -577,7 +577,7 @@ input:focus, textarea:focus, select:focus {
   .active-dot { top: 5px; right: 8px; width: 6px; height: 6px; }
 
   .main-content {
-    padding: max(env(safe-area-inset-top, 0px), 0.6rem) 0.9rem calc(env(safe-area-inset-bottom, 0px) + 5.2rem) 0.9rem;
+    padding: max(env(safe-area-inset-top, 0px), 0.75rem) 0.9rem calc(env(safe-area-inset-bottom, 0px) + 7.4rem) 0.9rem;
   }
 
   .mobile-shell-header {
@@ -624,6 +624,70 @@ input:focus, textarea:focus, select:focus {
   .header { flex-direction: column; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
   .header h2 { font-size: 1.45rem; line-height: 1.1; }
   .module-content--home .module-page-header { display: none; }
+  .module-content--trading .trading-page-header {
+    display: none;
+  }
+
+  .trading-header-actions,
+  .trading-ai-header,
+  .trading-ai-controls,
+  .trading-chart-controls,
+  .trading-symbol-tabs,
+  .trading-timeframe-tabs,
+  .trading-manual-row,
+  .trading-quote-box {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+
+  .trading-ai-header,
+  .trading-manual-row,
+  .trading-chart-controls {
+    gap: 0.9rem !important;
+  }
+
+  .trading-ai-title {
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  .trading-ai-subtitle {
+    font-size: 0.9rem !important;
+    line-height: 1.45;
+  }
+
+  .trading-ai-budget-label {
+    font-size: 0.85rem;
+  }
+
+  .trading-ai-budget-input,
+  .trading-manual-input,
+  .trading-amount-input {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
+  .trading-ai-action {
+    width: 100%;
+  }
+
+  .trading-quote-box > div[style*="width: 1px"] {
+    display: none;
+  }
+
+  .trading-symbol-tabs,
+  .trading-timeframe-tabs {
+    overflow-x: auto;
+    padding-bottom: 0.15rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .trading-symbol-tabs .tab-btn,
+  .trading-timeframe-tabs .tab-btn {
+    white-space: nowrap;
+    width: auto;
+    min-width: max-content;
+  }
 
   .hero-summary {
     padding: 1.35rem !important;
@@ -668,6 +732,7 @@ input:focus, textarea:focus, select:focus {
   .main-content {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 7.8rem);
   }
 
   .header {
@@ -689,6 +754,20 @@ input:focus, textarea:focus, select:focus {
 
   .portfolio-value {
     font-size: 1.72rem;
+  }
+
+  .trading-ai-title {
+    font-size: 0.92rem;
+  }
+
+  .trading-ai-subtitle {
+    font-size: 0.84rem !important;
+  }
+
+  .trading-ai-budget-input,
+  .trading-manual-input,
+  .trading-amount-input {
+    font-size: 1rem !important;
   }
 
   .menu-item {

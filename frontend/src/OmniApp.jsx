@@ -737,8 +737,8 @@ function OmniApp() {
   };
 
   const renderTradingView = () => (
-    <div className="module-content">
-      <div className="header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+    <div className="module-content module-content--trading">
+      <div className="header module-page-header trading-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2>ALGO-TRADING ENGINE</h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
@@ -763,7 +763,7 @@ function OmniApp() {
             )}
           </div>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+        <div className="trading-header-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <button 
               className={`btn ${status.modules?.trading ? 'btn-stop' : 'btn-start'}`}
               onClick={() => toggleModule('trading', status.modules?.trading)}
@@ -778,16 +778,17 @@ function OmniApp() {
 
 
       {/* MANUAL TRADING TERMINAL */}
-      <div className="card" style={{ marginTop: '2rem', marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+      <div className="card trading-manual-card" style={{ marginTop: '2rem', marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
         <h3 style={{ margin: '0 0 1rem 0', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <span>🎯</span> Terminale Azionario Manuale
         </h3>
-        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+        <div className="trading-manual-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <input 
             type="text" 
             placeholder="Ticker (es. AAPL)"
             value={manualSymbol} 
             onChange={(e) => setManualSymbol(e.target.value.toUpperCase())} 
+            className="trading-manual-input"
             style={{ width: '150px', padding: '0.8rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff', fontSize: '1.1rem' }} 
           />
           <button className="btn" onClick={handleQuote} disabled={manualLoading || !manualSymbol} style={{ padding: '0.8rem 1.5rem', background: 'rgba(255,255,255,0.1)' }}>
@@ -795,7 +796,7 @@ function OmniApp() {
           </button>
           
           {manualQuote && (
-            <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(16, 185, 129, 0.1)', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+            <div className="trading-quote-box" style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'rgba(16, 185, 129, 0.1)', padding: '0.5rem 1rem', borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
               <span style={{ color: '#10b981', fontWeight: 'bold', fontSize: '1.2rem' }}>${manualQuote.price.toFixed(2)}</span>
               
               <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.2)' }}></div>
@@ -805,6 +806,7 @@ function OmniApp() {
                 type="number" 
                 value={manualAmount} 
                 onChange={(e) => setManualAmount(Number(e.target.value))} 
+                className="trading-amount-input"
                 style={{ width: '100px', padding: '0.6rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff' }} 
               />
               <button className="btn btn-start" onClick={() => handleManualTrade('buy')} disabled={manualLoading || manualAmount <= 0} style={{ padding: '0.6rem 1.5rem' }}>
@@ -824,26 +826,27 @@ function OmniApp() {
       </div>
 
       {/* AI INVESTMENT HUB */}
-      <div className="card" style={{ marginTop: '2rem', marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(56, 189, 248, 0.1) 100%)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+      <div className="card trading-ai-card" style={{ marginTop: '2rem', marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(56, 189, 248, 0.1) 100%)', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+        <div className="trading-ai-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <div>
-            <h3 style={{ margin: 0, color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <h3 className="trading-ai-title" style={{ margin: 0, color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <span>🧠</span> AI Guided Investment (One-Click)
             </h3>
-            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Lascia che il nostro modello quantitativo scelga le opportunità migliori per il tuo budget.</div>
+            <div className="trading-ai-subtitle" style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', marginTop: '0.5rem' }}>Lascia che il nostro modello quantitativo scelga le opportunità migliori per il tuo budget.</div>
           </div>
-          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-            <span style={{ color: 'var(--text-secondary)' }}>Budget ($)</span>
+          <div className="trading-ai-controls" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <span className="trading-ai-budget-label" style={{ color: 'var(--text-secondary)' }}>Budget ($)</span>
             <input 
               type="number" 
               value={aiBudget} 
               onChange={(e) => setAiBudget(e.target.value)} 
+              className="trading-ai-budget-input"
               style={{ width: '120px', padding: '0.8rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff', fontSize: '1.1rem' }} 
             />
-            <button className="btn btn-start" onClick={() => generateAiProposals('balanced')} disabled={isAiLoading} style={{ padding: '0.8rem 1.5rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: '1px solid #38bdf8' }}>
+            <button className="btn btn-start trading-ai-action" onClick={() => generateAiProposals('balanced')} disabled={isAiLoading} style={{ padding: '0.8rem 1.5rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: '1px solid #38bdf8' }}>
               {isAiLoading ? 'Analisi...' : 'Diversificate'}
             </button>
-            <button className="btn btn-start" onClick={() => generateAiProposals('momentum')} disabled={isAiLoading} style={{ padding: '0.8rem 1.5rem', background: '#10b981', color: '#000', border: '1px solid #10b981' }}>
+            <button className="btn btn-start trading-ai-action" onClick={() => generateAiProposals('momentum')} disabled={isAiLoading} style={{ padding: '0.8rem 1.5rem', background: '#10b981', color: '#000', border: '1px solid #10b981' }}>
               {isAiLoading ? 'Analisi...' : 'Trend / Momentum'}
             </button>
           </div>
@@ -954,13 +957,13 @@ function OmniApp() {
         <CapitalPhase />
       </div>
 
-      <div className="chart-controls" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between' }}>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+      <div className="chart-controls trading-chart-controls" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between' }}>
+        <div className="trading-symbol-tabs" style={{ display: 'flex', gap: '0.5rem' }}>
           {status.symbols?.map(sym => (
             <button key={sym} className={`tab-btn ${selectedSymbol === sym ? 'active-tab' : ''}`} onClick={() => setSelectedSymbol(sym)}>{sym}</button>
           ))}
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div className="trading-timeframe-tabs" style={{ display: 'flex', gap: '0.5rem' }}>
           {['1D', '1W', '1M', '1Y', 'ALL'].map(tf => (
             <button key={tf} className={`tab-btn ${timeframe === tf ? 'active-tab' : ''}`} onClick={() => setTimeframe(tf)}>{tf}</button>
           ))}
