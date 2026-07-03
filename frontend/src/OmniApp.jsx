@@ -609,6 +609,7 @@ function OmniApp() {
     localStorage.setItem('USER_STATUS', status);
     setLoginError('');
     setPasskeyMessage('');
+    setActiveTab('home');
   };
 
   const normalizeCreationOptions = (publicKey) => ({
