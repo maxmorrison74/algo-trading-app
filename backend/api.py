@@ -1834,6 +1834,17 @@ class BillingLeadRequest(BaseModel):
     source: str = "manual"
 
 
+import requests
+
+DISPOSABLE_DOMAINS = set()
+try:
+    _res = requests.get("https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/master/disposable_email_blocklist.conf", timeout=5)
+    if _res.status_code == 200:
+        DISPOSABLE_DOMAINS = set(line.strip().lower() for line in _res.text.splitlines() if line.strip() and not line.startswith("//"))
+        print(f"Loaded {len(DISPOSABLE_DOMAINS)} disposable email domains.")
+except Exception as e:
+    print(f"Failed to load disposable domains: {e}")
+
 class BillingCustomerStatusRequest(BaseModel):
     status: str
 
@@ -1842,10 +1853,17 @@ def register(req: LoginRequest):
     # Genera user_id
     user_id = f"usr_{int(time.time())}"
     email = req.email.lower().strip() if req.email else ""
-    success = db.create_user(user_id, email, req.password, role="user")
+    
+    # Check disposable
+    if "@" in email:
+        domain = email.split("@")[1]
+        if domain in DISPOSABLE_DOMAINS:
+            raise HTTPException(status_code=400, detail="L'utilizzo di email usa e getta non è consentito.")
+            
+    success = db.create_user(user_id, email, req.password, role="user", status="awaiting_approval")
     if not success:
         raise HTTPException(status_code=400, detail="L'email è già registrata.")
-    return {"status": "success", "message": "Registrazione completata con successo! Ora puoi fare il login."}
+    return {"status": "success", "message": "Registrazione completata. Il tuo account è in revisione; attendi l'abilitazione manuale da parte dell'Admin."}
 
 @app.post("/api/login")
 def login(req: LoginRequest, request: Request):
@@ -1863,6 +1881,10 @@ def login(req: LoginRequest, request: Request):
         email = req.email.lower().strip()
         user = db.verify_user_login(email, req.password)
         if user:
+            if user["status"] == "awaiting_approval":
+                record_login_failure(client_id)
+                raise HTTPException(status_code=403, detail="Account in attesa di approvazione manuale da parte dell'Amministratore.")
+            
             clear_login_failures(client_id)
             token = create_user_token(user["id"], user["email"], user["role"])
             return {
@@ -1870,7 +1892,7 @@ def login(req: LoginRequest, request: Request):
                 "token": token, 
                 "expires_in": 86400, 
                 "role": user["role"],
-                "status": user["status"]
+                "user_status": user["status"]
             }
 
     record_login_failure(client_id)
@@ -2339,6 +2361,23 @@ class SubmitTxidRequest(BaseModel):
     txid: str
     amount: float
     currency: str
+
+class ApproveUserRequest(BaseModel):
+    user_id: str
+
+@app.post("/api/saas/approve-user")
+def approve_user(req: ApproveUserRequest, admin_token: str = Depends(require_admin)):
+    conn = db.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET status = 'pending' WHERE id = ? AND status = 'awaiting_approval'", (req.user_id,))
+    conn.commit()
+    rows_affected = cursor.rowcount
+    conn.close()
+    
+    if rows_affected == 0:
+        raise HTTPException(status_code=404, detail="Utente non trovato o non in attesa di approvazione")
+        
+    return {"status": "success", "message": "Account utente approvato e passato allo stato 'pending' per il pagamento."}
 
 @app.post("/api/billing/submit-txid")
 def submit_crypto_payment(req: SubmitTxidRequest, user: dict = Depends(require_user)):

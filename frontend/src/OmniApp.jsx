@@ -579,8 +579,8 @@ function OmniApp() {
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
+          // Successo registrazione, mostra il messaggio senza fare il login automatico.
           setLoginError(data.message);
-          setIsRegistering(false); // Torna al login
         } else {
           setLoginError(data.detail || 'Errore durante la registrazione');
         }
@@ -593,7 +593,7 @@ function OmniApp() {
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
-          completeAuthenticatedSession(data.token, data.role || 'admin', data.status || 'active');
+          completeAuthenticatedSession(data.token, data.role || 'admin', data.user_status || 'active');
         } else {
           clearAuthSession();
           setIsAuthenticated(false);
@@ -2700,6 +2700,7 @@ function OmniApp() {
                     <th>Email</th>
                     <th>Status</th>
                     <th>Scadenza Abbonamento</th>
+                    <th>Azione</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2709,11 +2710,31 @@ function OmniApp() {
                         <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{user.email}</div>
                         <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Role: {user.role}</div>
                       </td>
-                      <td><span className={`badge ${user.status === 'active' ? 'badge-active' : 'badge-idle'}`}>{user.status}</span></td>
-                      <td>{user.next_billing_at}</td>
+                      <td>
+                        <span className={`badge ${user.status === 'active' ? 'badge-active' : user.status === 'awaiting_approval' ? 'badge-idle' : 'badge-idle'}`}>
+                          {user.status === 'awaiting_approval' ? 'In Attesa' : user.status}
+                        </span>
+                      </td>
+                      <td>{user.next_billing_at || '-'}</td>
+                      <td>
+                        {user.status === 'awaiting_approval' && (
+                          <button className="btn btn-start" onClick={async () => {
+                            try {
+                              const res = await authFetch('/api/saas/approve-user', {
+                                method: 'POST', headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ user_id: user.id })
+                              });
+                              const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                              setBillingOverview(await res2.json());
+                            } catch(e) {}
+                          }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>
+                            Approva
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
-                  {!customers?.length && <tr><td colSpan="3" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
+                  {!customers?.length && <tr><td colSpan="4" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
                 </tbody>
               </table>
             </div>
