@@ -322,10 +322,11 @@ function OmniApp() {
 
   const handleCryptoSubmit = async () => {
     if (!txid) return alert('Inserisci il TXID');
+    const paymentAmount = 99;
     try {
       const res = await authFetch('/api/billing/submit-txid', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txid, amount: 99, currency: selectedCrypto })
+        body: JSON.stringify({ txid, amount: paymentAmount, currency: selectedCrypto })
       });
       const data = await res.json();
       setBillingMessage(data.message);
@@ -335,6 +336,9 @@ function OmniApp() {
   };
 
   const renderCryptoPaywall = () => (
+    (() => {
+      const paymentAmount = 99;
+      return (
     <div className="module-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', height: '100%', padding: '2rem' }}>
         <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#e2e8f0' }}>🔐 Account in attesa di sblocco</h2>
         <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '600px' }}>
@@ -348,6 +352,18 @@ function OmniApp() {
           <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
             Seleziona la criptovaluta, invia l'importo all'indirizzo indicato e inserisci qui il Transaction ID (TXID) per la verifica manuale.
           </p>
+
+          <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', padding: '1rem', marginBottom: '1.2rem' }}>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.45rem' }}>
+              Importo da inviare
+            </div>
+            <div style={{ color: '#10b981', fontSize: '1.8rem', fontWeight: 800, lineHeight: 1 }}>
+              {paymentAmount} {selectedCrypto}
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginTop: '0.45rem' }}>
+              Invia esattamente questo importo al wallet indicato qui sotto.
+            </div>
+          </div>
 
           <div className="form-group" style={{ marginBottom: '1rem' }}>
             <label>Metodo di Pagamento</label>
@@ -392,6 +408,8 @@ function OmniApp() {
           )}
         </div>
       </div>
+      );
+    })()
   );
 
   const handleQuote = async () => {
