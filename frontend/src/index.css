@@ -218,6 +218,7 @@ body {
 .landing-flow-grid,
 .landing-testimonial-grid,
 .landing-faq-grid,
+.landing-inline-onboarding,
 .landing-pricing-grid,
 .landing-bottom-actions {
   display: grid;
@@ -486,6 +487,51 @@ body {
 .landing-faq-card p {
   color: var(--text-secondary);
   line-height: 1.65;
+}
+
+.landing-inline-onboarding {
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: stretch;
+}
+
+.landing-inline-plan,
+.landing-inline-form {
+  padding: 1.35rem;
+  border-radius: 22px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.landing-inline-plan-label {
+  color: #f5a623;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.55rem;
+}
+
+.landing-inline-plan-name {
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+}
+
+.landing-inline-plan-description {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin-bottom: 1rem;
+}
+
+.landing-inline-plan-features {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.landing-inline-plan-feature {
+  color: #d7e4ef;
+  font-size: 0.94rem;
 }
 
 .landing-pricing-grid {
@@ -840,6 +886,7 @@ body {
   .landing-flow-grid,
   .landing-testimonial-grid,
   .landing-faq-grid,
+  .landing-inline-onboarding,
   .landing-pricing-grid {
     grid-template-columns: 1fr;
   }
