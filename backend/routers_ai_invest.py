@@ -23,6 +23,31 @@ class InvestRequest(BaseModel):
     asset_type: str # 'stock' o 'crypto'
     amount_usd: float
 
+def normalize_asset_type(asset_type: str) -> str:
+    value = (asset_type or "").strip().lower().replace("-", "_").replace(" ", "_")
+    if value in {"stock", "stocks", "equity", "equities", "azione", "azioni"}:
+        return "stock"
+    if value in {"crypto", "cryptocurrency", "cryptocurrencies", "coin", "coins", "token", "tokens", "cripto"}:
+        return "crypto"
+    return value
+
+def normalize_crypto_symbol(symbol: str) -> str:
+    value = (symbol or "").strip().upper()
+    if not value:
+        return value
+    value = value.replace("-USD", "/USD").replace("-USDT", "/USDT")
+    if "/" not in value:
+        if value.endswith("USDT"):
+            base = value[:-4]
+            return f"{base}/USDT"
+        if value.endswith("USD"):
+            base = value[:-3]
+            return f"{base}/USD"
+        return f"{value}/USDT"
+    if value.endswith("/USD"):
+        return value.replace("/USD", "/USDT")
+    return value
+
 def get_api_keys():
     keys = {}
     if os.path.exists(API_KEYS_FILE):
@@ -134,9 +159,10 @@ def execute_investment(req: InvestRequest, _: str = Depends(require_admin)):
     from api import bot_state
     from datetime import datetime
     keys = get_api_keys()
+    asset_type = normalize_asset_type(req.asset_type)
     
     # 1. LOGICA AZIONI (Alpaca)
-    if req.asset_type == 'stock':
+    if asset_type == 'stock':
         api_key = keys.get("ALPACA_KEY") or os.getenv("ALPACA_API_KEY")
         api_secret = keys.get("ALPACA_SECRET") or os.getenv("ALPACA_SECRET_KEY")
         base_url = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
@@ -160,7 +186,7 @@ def execute_investment(req: InvestRequest, _: str = Depends(require_admin)):
             
             bot_state.ai_investments.insert(0, {
                 "symbol": req.symbol,
-                "asset_type": req.asset_type,
+                "asset_type": asset_type,
                 "amount_usd": req.amount_usd,
                 "platform": "Alpaca",
                 "timestamp": datetime.now().strftime("%H:%M:%S")
@@ -172,7 +198,7 @@ def execute_investment(req: InvestRequest, _: str = Depends(require_admin)):
             raise HTTPException(status_code=400, detail=str(e))
             
     # 2. LOGICA CRYPTO (Binance tramite CCXT)
-    elif req.asset_type == 'crypto':
+    elif asset_type == 'crypto':
         api_key = keys.get("BINANCE_KEY")
         api_secret = keys.get("BINANCE_SECRET")
         if not api_key:
@@ -185,8 +211,7 @@ def execute_investment(req: InvestRequest, _: str = Depends(require_admin)):
                 'enableRateLimit': True,
             })
             
-            # Formato CCXT standard, es. BTC/USDT (sostituire USD con USDT per Binance)
-            symbol_ccxt = req.symbol.replace('/USD', '/USDT')
+            symbol_ccxt = normalize_crypto_symbol(req.symbol)
             
             # Recupera prezzo di mercato
             ticker = exchange.fetch_ticker(symbol_ccxt)
@@ -209,8 +234,8 @@ def execute_investment(req: InvestRequest, _: str = Depends(require_admin)):
                 bot_state.ai_investments = []
             
             bot_state.ai_investments.insert(0, {
-                "symbol": req.symbol,
-                "asset_type": req.asset_type,
+                "symbol": symbol_ccxt,
+                "asset_type": asset_type,
                 "amount_usd": req.amount_usd,
                 "platform": "Binance (Paper)",
                 "timestamp": datetime.now().strftime("%H:%M:%S")
