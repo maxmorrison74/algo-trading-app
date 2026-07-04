@@ -3045,11 +3045,6 @@ function OmniApp() {
         quote: 'Finalmente una presentazione che accompagna bene alla scelta, senza buttarti subito dentro un login freddo.',
       },
     ];
-    const landingTrustPillars = [
-      'Presenza visiva premium',
-      'Percorso lineare verso l’accesso',
-      'Coerenza piena tra presentazione e utilizzo',
-    ];
     if (showLanding) {
       return (
         <div className="sales-landing">
@@ -3299,25 +3294,6 @@ function OmniApp() {
                     <p>{item.quote}</p>
                   </article>
                 ))}
-              </div>
-            </section>
-
-            <section className="sales-cta">
-              <div className="sales-cta-box">
-                <div className="sales-cta-content">
-                  <img src="/aureo-logo.jpg" alt="Aureo OS" className="sales-cta-logo" />
-                  <h2>Porta l’utente dentro un’esperienza che si fa ricordare</h2>
-                  <p>Adesso la landing segue molto più fedelmente il layout originale, ma parla davvero il linguaggio di AUREO OS.</p>
-                  <div className="sales-trust-row">
-                    {landingTrustPillars.map((item) => (
-                      <div key={item} className="sales-trust-pill">{item}</div>
-                    ))}
-                  </div>
-                  <div className="sales-hero-buttons sales-hero-buttons--center">
-                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Vedi gli step</button>
-                    <button className="btn btn-outline btn-large" onClick={() => setShowLanding(false)}>Accedi ora</button>
-                  </div>
-                </div>
               </div>
             </section>
 
