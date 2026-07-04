@@ -1792,10 +1792,12 @@ input:focus, textarea:focus, select:focus {
 }
 
 .sales-nav-links a {
+  font-family: 'Outfit', var(--font-sans);
   color: var(--text-secondary);
   text-decoration: none;
-  font-weight: 500;
-  font-size: 0.95rem;
+  font-weight: 600;
+  font-size: 1rem;
+  letter-spacing: 0.02em;
   position: relative;
 }
 
