@@ -5,6 +5,8 @@ import heroAsset from './assets/hero.png';
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
 const DEMO_MODE_KEY = 'omni_demo_mode';
+const USER_LOGIN_PATH = '/access';
+const ADMIN_LOGIN_PATH = '/aureo-control-vault';
 const BILLING_ENABLED = true;
 const TAB_TITLES = {
   home: 'Dashboard',
@@ -74,6 +76,9 @@ const DEMO_BILLING_OVERVIEW = {
 
 const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || '';
 const isDemoSession = () => localStorage.getItem(DEMO_MODE_KEY) === '1';
+const getCurrentPath = () => (typeof window !== 'undefined' ? window.location.pathname : '/');
+const getAuthRouteMode = (path = getCurrentPath()) => (path === ADMIN_LOGIN_PATH ? 'admin' : 'user');
+const isKnownAuthPath = (path = getCurrentPath()) => path === USER_LOGIN_PATH || path === ADMIN_LOGIN_PATH;
 
 const clearAuthSession = () => {
   localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -546,7 +551,7 @@ function OmniApp() {
     return false;
   };
   const [isAuthenticated, setIsAuthenticated] = useState(checkAuthMemory());
-  const [showLanding, setShowLanding] = useState(true);
+  const [showLanding, setShowLanding] = useState(!isKnownAuthPath());
   const [showLandingPlans, setShowLandingPlans] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [isDemoMode, setIsDemoMode] = useState(isDemoSession());
@@ -554,7 +559,8 @@ function OmniApp() {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  const [userRole, setUserRole] = useState(localStorage.getItem('USER_ROLE') || 'admin');
+  const [authScreenMode, setAuthScreenMode] = useState(getAuthRouteMode());
+  const [userRole, setUserRole] = useState(localStorage.getItem('USER_ROLE') || 'user');
   const [userStatus, setUserStatus] = useState(localStorage.getItem('USER_STATUS') || 'active');
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
@@ -585,6 +591,49 @@ function OmniApp() {
     const supported = typeof window !== 'undefined' && !!window.PublicKeyCredential && !!navigator.credentials;
     setPasskeySupported(supported);
   }, []);
+
+  useEffect(() => {
+    const handleRouteChange = () => {
+      const path = getCurrentPath();
+      const mode = getAuthRouteMode(path);
+      setAuthScreenMode(mode);
+      setShowLanding(!isKnownAuthPath(path));
+      setIsRegistering(false);
+      setLoginError('');
+      setPassword('');
+      if (mode === 'admin') {
+        setEmail('');
+      }
+    };
+
+    window.addEventListener('popstate', handleRouteChange);
+    return () => window.removeEventListener('popstate', handleRouteChange);
+  }, []);
+
+  const navigateToPath = (path) => {
+    if (typeof window !== 'undefined' && window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+    }
+  };
+
+  const openUserLogin = () => {
+    navigateToPath(USER_LOGIN_PATH);
+    setAuthScreenMode('user');
+    setShowLanding(false);
+    setIsRegistering(false);
+    setLoginError('');
+    setPassword('');
+  };
+
+  const openAdminLogin = () => {
+    navigateToPath(ADMIN_LOGIN_PATH);
+    setAuthScreenMode('admin');
+    setShowLanding(false);
+    setIsRegistering(false);
+    setLoginError('');
+    setPassword('');
+    setEmail('');
+  };
 
   const enterDemoMode = () => {
     localStorage.setItem(DEMO_MODE_KEY, '1');
@@ -694,6 +743,7 @@ function OmniApp() {
     setLoginError('');
     setPasskeyMessage('');
     setActiveTab('home');
+    navigateToPath(role === 'admin' ? ADMIN_LOGIN_PATH : USER_LOGIN_PATH);
   };
 
   const normalizeCreationOptions = (publicKey) => ({
@@ -747,9 +797,9 @@ function OmniApp() {
           setLoginError(data.detail || 'Errore durante la registrazione');
         }
       } else {
-        // Modalità Login (se email è vuoto entra come admin)
-        const payload = email ? { email, password } : { password };
-        const res = await fetch('/api/login', {
+        const endpoint = authScreenMode === 'admin' ? '/api/admin/login' : '/api/login';
+        const payload = authScreenMode === 'admin' ? { password } : { email, password };
+        const res = await fetch(endpoint, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
@@ -896,7 +946,13 @@ function OmniApp() {
       setIsDemoMode(false);
       setIsAuthenticated(false);
       setPassword('');
+      setEmail('');
       setLoginError('');
+      if (userRole === 'admin') {
+        openAdminLogin();
+      } else {
+        openUserLogin();
+      }
     }
   };
 
@@ -3099,7 +3155,7 @@ function OmniApp() {
               <a href="#landing-proof">Impatto</a>
             </div>
             <div className="sales-nav-actions">
-              <button className="btn btn-outline" onClick={() => setShowLanding(false)}>Accedi</button>
+              <button className="btn btn-outline" onClick={openUserLogin}>Accedi</button>
               <button className="btn btn-start" onClick={openPricingSection}>Scopri Aureo</button>
             </div>
           </nav>
@@ -3354,7 +3410,7 @@ function OmniApp() {
                 </div>
                 <div className="sales-footer-links">
                   <h4>Accesso</h4>
-                  <button type="button" className="sales-footer-button" onClick={() => setShowLanding(false)}>Accedi</button>
+                  <button type="button" className="sales-footer-button" onClick={openUserLogin}>Accedi</button>
                   <button type="button" className="sales-footer-button" onClick={openPricingSection}>Scegli piano</button>
                 </div>
               </div>
@@ -3372,58 +3428,80 @@ function OmniApp() {
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <div className="card" style={{ textAlign: 'center', width: '440px', maxWidth: 'calc(100vw - 2rem)', padding: '3rem 2rem' }}>
           <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '0.6rem', fontSize: '0.9rem' }}>Ponte di Comando Autenticato</p>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '0.6rem', fontSize: '0.9rem' }}>
+            {authScreenMode === 'admin' ? 'Accesso amministrativo riservato' : 'Accesso clienti e area demo'}
+          </p>
           <form onSubmit={handleLogin}>
-            <input 
-              type="email" 
-              placeholder={isRegistering ? "La tua Email" : "Email (Lascia vuoto se Admin)"}
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
-            />
+            {authScreenMode !== 'admin' && (
+              <input 
+                type="email" 
+                placeholder="La tua Email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
+              />
+            )}
             <input 
               type="password" 
-              placeholder={isRegistering ? "Crea una Password" : "Password o Master Password"}
+              placeholder={authScreenMode === 'admin' ? "Password amministrativa" : (isRegistering ? "Crea una Password" : "Password")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
             />
             {loginError && <div style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
             <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>
-              {isRegistering ? (selectedPlan ? `CREA ACCOUNT E CONTINUA CON ${selectedPlan.name.toUpperCase()}` : 'CREA ACCOUNT') : 'ACCEDI'}
+              {authScreenMode === 'admin'
+                ? 'ACCEDI COME ADMIN'
+                : (isRegistering ? (selectedPlan ? `CREA ACCOUNT E CONTINUA CON ${selectedPlan.name.toUpperCase()}` : 'CREA ACCOUNT') : 'ACCEDI')}
             </button>
           </form>
-          <button
-            type="button"
-            className="btn btn-outline"
-            onClick={() => setIsRegistering(!isRegistering)}
-            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
-          >
-            {isRegistering ? 'HAI GIÀ UN ACCOUNT? ACCEDI' : 'NON HAI UN ACCOUNT? REGISTRATI'}
-          </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={handlePasskeyLogin}
-            disabled={!passkeySupported || passkeyBusy || isRegistering}
-            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: (passkeySupported && !isRegistering) ? 1 : 0.3 }}
-          >
-            {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI CON FACE ID / TOUCH ID'}
-          </button>
-          <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: isRegistering ? 0.3 : 1 }}>
-            ENTRA IN DEMO MODE
-          </button>
+          {authScreenMode === 'admin' && (
+            <button
+              type="button"
+              className="btn"
+              onClick={handlePasskeyLogin}
+              disabled={!passkeySupported || passkeyBusy}
+              style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: passkeySupported ? 1 : 0.3 }}
+            >
+              {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI COME ADMIN CON FACE ID / TOUCH ID'}
+            </button>
+          )}
+          {authScreenMode !== 'admin' && (
+            <>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => setIsRegistering(!isRegistering)}
+                style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
+              >
+                {isRegistering ? 'HAI GIÀ UN ACCOUNT? ACCEDI' : 'NON HAI UN ACCOUNT? REGISTRATI'}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                onClick={handlePasskeyLogin}
+                disabled={!passkeySupported || passkeyBusy || isRegistering}
+                style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: (passkeySupported && !isRegistering) ? 1 : 0.3 }}
+              >
+                {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI CON FACE ID / TOUCH ID'}
+              </button>
+              <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: isRegistering ? 0.3 : 1 }}>
+                ENTRA IN DEMO MODE
+              </button>
+            </>
+          )}
           <button
             type="button"
             className="btn"
             onClick={() => {
+              navigateToPath('/');
               setShowLanding(true);
               setIsRegistering(false);
               setLoginError('');
             }}
             style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
           >
-            TORNA ALLA PRESENTAZIONE
+            {authScreenMode === 'admin' ? 'TORNA AL SITO' : 'TORNA ALLA PRESENTAZIONE'}
           </button>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
             🔒 Protetto da Crittografia<br/>

@@ -1932,30 +1932,44 @@ def register(req: LoginRequest):
 def login(req: LoginRequest, request: Request):
     client_id = request.client.host if request.client else "unknown"
     assert_login_allowed(client_id)
-    
-    # Se inserisce solo la password (no email), prova l'Admin Login
+
     if not req.email:
-        if is_admin_configured() and verify_admin_password(req.password):
-            clear_login_failures(client_id)
-            token = create_admin_session()
-            return {"status": "success", "token": token, "expires_in": 86400, "role": "admin"}
-    else:
-        # Se c'è l'email, prova a loggare come Cliente SaaS
-        email = req.email.lower().strip()
-        user = db.verify_user_login(email, req.password)
-        if user:
-            clear_login_failures(client_id)
-            token = create_user_token(user["id"], user["email"], user["role"])
-            return {
-                "status": "success", 
-                "token": token, 
-                "expires_in": 86400, 
-                "role": user["role"],
-                "user_status": user["status"]
-            }
+        record_login_failure(client_id)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email richiesta per il login utente")
+
+    email = req.email.lower().strip()
+    user = db.verify_user_login(email, req.password)
+    if user:
+        clear_login_failures(client_id)
+        token = create_user_token(user["id"], user["email"], user["role"])
+        return {
+            "status": "success", 
+            "token": token, 
+            "expires_in": 86400, 
+            "role": user["role"],
+            "user_status": user["status"]
+        }
 
     record_login_failure(client_id)
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenziali non valide o accesso negato")
+
+
+@app.post("/api/admin/login")
+def admin_login(req: LoginRequest, request: Request):
+    client_id = f"admin:{request.client.host}" if request.client else "admin:unknown"
+    assert_login_allowed(client_id)
+
+    if not req.password:
+        record_login_failure(client_id)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Password admin richiesta")
+
+    if is_admin_configured() and verify_admin_password(req.password):
+        clear_login_failures(client_id)
+        token = create_admin_session()
+        return {"status": "success", "token": token, "expires_in": 86400, "role": "admin"}
+
+    record_login_failure(client_id)
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenziali admin non valide")
 
 
 @app.post("/api/logout")
