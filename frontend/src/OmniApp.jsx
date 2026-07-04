@@ -706,8 +706,8 @@ function OmniApp() {
       home: true,
       trading: hasPlanAccess('trading'),
       crypto_arb: hasPlanAccess('defi'),
-      value_bets: hasPlanAccess('sentiment'),
-      ai_content: hasPlanAccess('ai_content'),
+      value_bets: false,
+      ai_content: false,
       settings: true,
       saas: false,
     };
@@ -3756,18 +3756,6 @@ function OmniApp() {
               <span className="menu-icon">⛓️</span>
               <span className="menu-label">DeFi</span>
               {status.modules?.crypto_arb && <div className="active-dot"></div>}
-            </div>
-          )}
-          {hasPlanAccess('sentiment') && (
-            <div className={`menu-item ${activeTab === 'value_bets' ? 'active' : ''}`} onClick={() => setActiveTab('value_bets')}>
-              <span className="menu-icon">🧠</span>
-              <span className="menu-label">AI Sentiment</span>
-            </div>
-          )}
-          {hasPlanAccess('ai_content') && (
-            <div className={`menu-item ${activeTab === 'ai_content' ? 'active' : ''}`} onClick={() => setActiveTab('ai_content')}>
-              <span className="menu-icon">🎬</span>
-              <span className="menu-label">AI Content</span>
             </div>
           )}
           <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
