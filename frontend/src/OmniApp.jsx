@@ -3099,9 +3099,6 @@ function OmniApp() {
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
                     Scopri i percorsi
                   </button>
-                  <button className="btn btn-outline btn-large" onClick={() => setShowLanding(false)}>
-                    Guarda l’accesso
-                  </button>
                 </div>
                 <div className="sales-stats-row">
                   {landingStats.map((item) => (
