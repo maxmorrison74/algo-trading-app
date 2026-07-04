@@ -1047,6 +1047,19 @@ body {
   margin-top: 1rem;
 }
 
+.billing-customers-card {
+  width: 100%;
+}
+
+.billing-customers-table-wrapper {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.billing-customers-table {
+  min-width: 1320px;
+}
+
 .data-table {
   width: 100%;
   border-collapse: collapse;

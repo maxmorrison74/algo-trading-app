@@ -3142,10 +3142,10 @@ function OmniApp() {
         </div>
 
         <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
-          <div className="card col-span-6">
+          <div className="card col-span-12 billing-customers-card">
             <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Clienti Iscritti</h3>
-            <div className="data-table-wrapper">
-              <table className="data-table">
+            <div className="data-table-wrapper billing-customers-table-wrapper">
+              <table className="data-table billing-customers-table">
                 <thead>
                   <tr>
                     <th>Email</th>
@@ -3200,7 +3200,7 @@ function OmniApp() {
                         </div>
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', minWidth: '260px' }}>
                           {user.status !== 'active' && (
                             <button className="btn btn-start" onClick={async () => {
                               if(!window.confirm('Vuoi attivare manualmente questo utente?')) return;
