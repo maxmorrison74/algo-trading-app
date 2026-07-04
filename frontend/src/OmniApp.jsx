@@ -2937,6 +2937,7 @@ function OmniApp() {
   if (!isAuthenticated) {
     const landingPlans = DEMO_BILLING_OVERVIEW.plans || [];
     const selectedPlan = landingPlans.find((plan) => plan.id === selectedPlanId);
+    const isPlanOnboarding = Boolean(selectedPlan);
     const landingStats = [
       { value: '1 piattaforma', label: 'per dashboard, trading, AI e security' },
       { value: '3 piani', label: 'pronti da presentare e monetizzare' },
@@ -3237,7 +3238,9 @@ function OmniApp() {
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <div className="card" style={{ textAlign: 'center', width: '440px', maxWidth: 'calc(100vw - 2rem)', padding: '3rem 2rem' }}>
           <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '0.6rem', fontSize: '0.9rem' }}>Ponte di Comando Autenticato</p>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '0.6rem', fontSize: '0.9rem' }}>
+            {isPlanOnboarding ? 'Attivazione piano guidata' : 'Ponte di Comando Autenticato'}
+          </p>
           {selectedPlan && (
             <div style={{ marginBottom: '1.35rem', textAlign: 'left', padding: '0.95rem 1rem', borderRadius: '14px', background: 'rgba(245, 166, 35, 0.08)', border: '1px solid rgba(245, 166, 35, 0.18)' }}>
               <div style={{ color: '#f5a623', fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
@@ -3251,10 +3254,17 @@ function OmniApp() {
               </div>
             </div>
           )}
+          {isPlanOnboarding && (
+            <div style={{ marginBottom: '1rem', color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: 1.55 }}>
+              {isRegistering
+                ? 'Compila i dati qui sotto per attivare il piano scelto.'
+                : 'Accedi con il tuo account per proseguire direttamente con il piano selezionato.'}
+            </div>
+          )}
           <form onSubmit={handleLogin}>
             <input 
               type="email" 
-              placeholder={isRegistering ? "La tua Email" : "Email (Lascia vuoto se Admin)"}
+              placeholder={isRegistering ? "La tua Email" : (isPlanOnboarding ? "La tua Email" : "Email (Lascia vuoto se Admin)")}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
@@ -3279,25 +3289,33 @@ function OmniApp() {
           >
             {isRegistering ? 'HAI GIÀ UN ACCOUNT? ACCEDI' : (selectedPlan ? `NON HAI UN ACCOUNT? REGISTRATI PER ${selectedPlan.name.toUpperCase()}` : 'NON HAI UN ACCOUNT? REGISTRATI')}
           </button>
+          {!isPlanOnboarding && (
+            <button
+              type="button"
+              className="btn"
+              onClick={handlePasskeyLogin}
+              disabled={!passkeySupported || passkeyBusy || isRegistering}
+              style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: (passkeySupported && !isRegistering) ? 1 : 0.3 }}
+            >
+              {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI CON FACE ID / TOUCH ID'}
+            </button>
+          )}
+          {!isPlanOnboarding && (
+            <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: isRegistering ? 0.3 : 1 }}>
+              ENTRA IN DEMO MODE
+            </button>
+          )}
           <button
             type="button"
             className="btn"
-            onClick={handlePasskeyLogin}
-            disabled={!passkeySupported || passkeyBusy || isRegistering}
-            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: (passkeySupported && !isRegistering) ? 1 : 0.3 }}
-          >
-            {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI CON FACE ID / TOUCH ID'}
-          </button>
-          <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: isRegistering ? 0.3 : 1 }}>
-            ENTRA IN DEMO MODE
-          </button>
-          <button
-            type="button"
-            className="btn"
-            onClick={() => setShowLanding(true)}
+            onClick={() => {
+              setSelectedPlanId('');
+              setShowLanding(true);
+              setIsRegistering(false);
+            }}
             style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
           >
-            TORNA ALLA PRESENTAZIONE
+            {isPlanOnboarding ? 'TORNA AI PIANI' : 'TORNA ALLA PRESENTAZIONE'}
           </button>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
             🔒 Protetto da Crittografia<br/>
