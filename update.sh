@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 echo "🔄 Avviando aggiornamento del bot..."
 
@@ -17,7 +18,7 @@ cd backend
 ./venv/bin/python -m pip install -r requirements.txt
 cd ..
 
-# Riavvio definitivo con sudo per la porta 80
+# Riavvio PM2 come utente corrente
 echo "4) Controllo PM2..."
 if ! command -v pm2 &> /dev/null
 then
@@ -25,13 +26,12 @@ then
     sudo npm install -g pm2
 fi
 
-echo "🚀 Uccido vecchi processi..."
-sudo pm2 kill || true
-pm2 kill || true
+mkdir -p logs
 
-echo "🚀 Avvio/Riavvio del Server tramite PM2 come amministratore..."
-sudo pm2 start ecosystem.config.js
-sudo pm2 save
+echo "🚀 Riavvio del Server tramite PM2 come utente corrente..."
+pm2 delete algotrading-api || true
+pm2 start ecosystem.config.js --update-env
+pm2 save
 
 echo "✅ Update complete! Server gestito da PM2."
-echo "ℹ️  Usa 'sudo pm2 monit' per vedere i log e le risorse in tempo reale."
+echo "ℹ️  Usa 'pm2 monit' per vedere i log e le risorse in tempo reale."
