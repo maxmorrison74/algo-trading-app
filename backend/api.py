@@ -1082,6 +1082,69 @@ def get_stock_quote(symbol: str):
         
     return {"error": f"Impossibile recuperare la quotazione per {symbol}"}
 
+@app.get("/api/landing-ticker")
+def get_landing_ticker():
+    """Restituisce un piccolo set di quotazioni live per il ticker della landing page."""
+    instruments = [
+        {"market": "BTC/USD", "symbol": "BTC-USD"},
+        {"market": "ETH/USD", "symbol": "ETH-USD"},
+        {"market": "SOL/USD", "symbol": "SOL-USD"},
+        {"market": "GOLD", "symbol": "GC=F"},
+        {"market": "NASDAQ", "symbol": "^IXIC"},
+        {"market": "EUR/USD", "symbol": "EURUSD=X"},
+    ]
+
+    results = []
+    for item in instruments:
+        symbol = item["symbol"]
+        try:
+            ticker = yf.Ticker(symbol)
+            data = ticker.history(period="5d")
+            if data.empty or "Close" not in data:
+                raise ValueError("Nessun dato disponibile")
+
+            closes = data["Close"].dropna()
+            if closes.empty:
+                raise ValueError("Serie prezzi vuota")
+
+            current_price = float(closes.iloc[-1])
+            previous_price = float(closes.iloc[-2]) if len(closes) > 1 else current_price
+            change_pct = ((current_price - previous_price) / previous_price * 100) if previous_price else 0.0
+
+            if symbol.startswith("^"):
+                price_label = f"{current_price:,.0f}"
+            elif current_price >= 1000:
+                price_label = f"${current_price:,.0f}"
+            elif current_price >= 100:
+                price_label = f"${current_price:,.2f}"
+            elif current_price >= 1:
+                price_label = f"${current_price:,.2f}"
+            else:
+                price_label = f"{current_price:,.4f}"
+
+            results.append({
+                "market": item["market"],
+                "price": price_label,
+                "change": f"{change_pct:+.2f}%",
+                "direction": "up" if change_pct >= 0 else "down",
+            })
+        except Exception:
+            continue
+
+    if not results:
+        return {
+            "items": [
+                {"market": "BTC/USD", "price": "$118,420", "change": "+2.6%", "direction": "up"},
+                {"market": "ETH/USD", "price": "$6,180", "change": "+1.9%", "direction": "up"},
+                {"market": "SOL/USD", "price": "$242", "change": "+4.2%", "direction": "up"},
+                {"market": "GOLD", "price": "$2,612", "change": "-0.4%", "direction": "down"},
+                {"market": "NASDAQ", "price": "21,440", "change": "+0.8%", "direction": "up"},
+                {"market": "EUR/USD", "price": "1.11", "change": "+0.2%", "direction": "up"},
+            ]
+        }
+
+    return {"items": results}
+
 @app.post("/api/stock/trade/manual")
 def manual_stock_trade(payload: dict, _: str = Depends(require_admin)):
     """Esegue un trade azionario manuale in paper trading."""

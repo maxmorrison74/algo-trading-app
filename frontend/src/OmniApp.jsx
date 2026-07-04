@@ -319,6 +319,7 @@ function OmniApp() {
   const [manualQuote, setManualQuote] = useState(null);
   const [manualLoading, setManualLoading] = useState(false);
   const [manualMessage, setManualMessage] = useState("");
+  const [landingTickerItems, setLandingTickerItems] = useState([]);
 
   const handleCryptoSubmit = async () => {
     if (!txid) return alert('Inserisci il TXID');
@@ -411,6 +412,41 @@ function OmniApp() {
       );
     })()
   );
+
+  useEffect(() => {
+    const fallbackTicker = [
+      { market: 'BTC/USD', price: '$118,420', change: '+2.6%', direction: 'up' },
+      { market: 'ETH/USD', price: '$6,180', change: '+1.9%', direction: 'up' },
+      { market: 'SOL/USD', price: '$242', change: '+4.2%', direction: 'up' },
+      { market: 'GOLD', price: '$2,612', change: '-0.4%', direction: 'down' },
+      { market: 'NASDAQ', price: '21,440', change: '+0.8%', direction: 'up' },
+      { market: 'EUR/USD', price: '1.11', change: '+0.2%', direction: 'up' },
+    ];
+
+    let active = true;
+
+    const fetchLandingTicker = async () => {
+      try {
+        const res = await fetch('/api/landing-ticker');
+        const data = await res.json();
+        if (!active) return;
+        if (Array.isArray(data?.items) && data.items.length > 0) {
+          setLandingTickerItems(data.items);
+        } else {
+          setLandingTickerItems(fallbackTicker);
+        }
+      } catch (error) {
+        if (active) setLandingTickerItems(fallbackTicker);
+      }
+    };
+
+    fetchLandingTicker();
+    const interval = setInterval(fetchLandingTicker, 60000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, []);
 
   const handleQuote = async () => {
     if (!manualSymbol) return;
@@ -2963,7 +2999,7 @@ function OmniApp() {
   if (!isAuthenticated) {
     const landingPlans = DEMO_BILLING_OVERVIEW.plans || [];
     const selectedPlan = landingPlans.find((plan) => plan.id === selectedPlanId);
-    const landingTicker = [
+    const landingTicker = landingTickerItems.length > 0 ? landingTickerItems : [
       { market: 'BTC/USD', price: '$118,420', change: '+2.6%', direction: 'up' },
       { market: 'ETH/USD', price: '$6,180', change: '+1.9%', direction: 'up' },
       { market: 'SOL/USD', price: '$242', change: '+4.2%', direction: 'up' },
