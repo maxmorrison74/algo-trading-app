@@ -2401,6 +2401,134 @@ class SubmitTxidRequest(BaseModel):
     amount: float
     currency: str
 
+PAYMENT_WALLETS = {
+    "BTC": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
+    "ETH": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+    "USDC": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
+    "SOL": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH",
+    "USDT": "TX9bF1BWeYdG4N6N1eR6fB8B5L6M7P8Q9R",
+}
+
+def _approx_equal(value: float, target: float, tolerance: float = 0.02) -> bool:
+    return abs(value - target) <= tolerance
+
+def _check_btc_payment(txid: str, amount: float) -> tuple[str, str]:
+    import requests
+    res = requests.get(f"https://blockstream.info/api/tx/{txid}", timeout=8)
+    if res.status_code != 200:
+        return "not_found", "TX Bitcoin non trovata"
+    data = res.json()
+    outputs = data.get("vout", [])
+    target_address = PAYMENT_WALLETS["BTC"]
+    for out in outputs:
+        scriptpubkey_address = out.get("scriptpubkey_address")
+        value_btc = float(out.get("value", 0)) / 100_000_000
+        if scriptpubkey_address == target_address:
+            if _approx_equal(value_btc, amount):
+                return "matched", f"TX Bitcoin trovata: {value_btc:.8f} BTC verso wallet Aureo"
+            return "amount_mismatch", f"TX trovata verso wallet Aureo ma importo {value_btc:.8f} BTC non coincide"
+    return "address_mismatch", "TX Bitcoin trovata ma non verso il wallet Aureo"
+
+def _check_eth_family_payment(txid: str, amount: float, currency: str) -> tuple[str, str]:
+    import requests
+    res = requests.get(f"https://eth.blockscout.com/api/v2/transactions/{txid}", timeout=8)
+    if res.status_code != 200:
+        return "not_found", f"TX {currency} non trovata"
+    data = res.json()
+    target_address = PAYMENT_WALLETS[currency].lower()
+
+    if currency == "ETH":
+        to_hash = ((data.get("to") or {}).get("hash") or "").lower()
+        value_wei = data.get("value")
+        if to_hash != target_address:
+            return "address_mismatch", "TX Ethereum trovata ma non verso il wallet Aureo"
+        if value_wei is None:
+            return "pending_review", "TX Ethereum trovata, importo non leggibile automaticamente"
+        value_eth = float(value_wei) / 1e18
+        if _approx_equal(value_eth, amount):
+            return "matched", f"TX Ethereum trovata: {value_eth:.6f} ETH verso wallet Aureo"
+        return "amount_mismatch", f"TX Ethereum trovata verso wallet Aureo ma importo {value_eth:.6f} ETH non coincide"
+
+    transfers = data.get("token_transfers") or []
+    for transfer in transfers:
+        token_symbol = (transfer.get("token") or {}).get("symbol", "").upper()
+        to_hash = ((transfer.get("to") or {}).get("hash") or "").lower()
+        raw_value = transfer.get("total") or transfer.get("amount")
+        decimals = int(((transfer.get("token") or {}).get("decimals")) or 6)
+        if token_symbol == currency and to_hash == target_address and raw_value is not None:
+            amount_value = float(raw_value) / (10 ** decimals)
+            if _approx_equal(amount_value, amount):
+                return "matched", f"TX {currency} trovata: {amount_value:.2f} {currency} verso wallet Aureo"
+            return "amount_mismatch", f"TX {currency} trovata verso wallet Aureo ma importo {amount_value:.2f} {currency} non coincide"
+    return "address_mismatch", f"TX {currency} trovata ma non verso il wallet/token atteso"
+
+def _check_sol_payment(txid: str, amount: float) -> tuple[str, str]:
+    import requests
+    payload = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "getTransaction",
+        "params": [txid, {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0}],
+    }
+    res = requests.post("https://api.mainnet-beta.solana.com", json=payload, timeout=8)
+    if res.status_code != 200:
+        return "not_found", "TX Solana non trovata"
+    data = res.json().get("result")
+    if not data:
+        return "not_found", "TX Solana non trovata"
+    target_address = PAYMENT_WALLETS["SOL"]
+    balances_before = data.get("meta", {}).get("preBalances") or []
+    balances_after = data.get("meta", {}).get("postBalances") or []
+    account_keys = data.get("transaction", {}).get("message", {}).get("accountKeys") or []
+    for idx, account in enumerate(account_keys):
+        pubkey = account.get("pubkey") if isinstance(account, dict) else account
+        if pubkey == target_address and idx < len(balances_before) and idx < len(balances_after):
+            delta_sol = max(0.0, (balances_after[idx] - balances_before[idx]) / 1e9)
+            if _approx_equal(delta_sol, amount):
+                return "matched", f"TX Solana trovata: {delta_sol:.6f} SOL verso wallet Aureo"
+            return "amount_mismatch", f"TX Solana trovata verso wallet Aureo ma importo {delta_sol:.6f} SOL non coincide"
+    return "address_mismatch", "TX Solana trovata ma non verso il wallet Aureo"
+
+def _check_tron_usdt_payment(txid: str, amount: float) -> tuple[str, str]:
+    import requests
+    res = requests.get(f"https://api.trongrid.io/v1/transactions/{txid}/events", timeout=8)
+    if res.status_code != 200:
+        return "not_found", "TX USDT TRC20 non trovata"
+    items = res.json().get("data") or []
+    target_address = PAYMENT_WALLETS["USDT"]
+    for item in items:
+        if item.get("event_name") != "Transfer":
+            continue
+        result = item.get("result") or {}
+        to_address = result.get("to")
+        raw_value = result.get("value")
+        token_info = item.get("token_info") or {}
+        token_symbol = (token_info.get("symbol") or "").upper()
+        token_decimals = int(token_info.get("decimals") or 6)
+        if token_symbol == "USDT" and to_address == target_address and raw_value is not None:
+            value_amount = float(raw_value) / (10 ** token_decimals)
+            if _approx_equal(value_amount, amount):
+                return "matched", f"TX USDT trovata: {value_amount:.2f} USDT verso wallet Aureo"
+            return "amount_mismatch", f"TX USDT trovata verso wallet Aureo ma importo {value_amount:.2f} USDT non coincide"
+    return "address_mismatch", "TX USDT trovata ma non verso il wallet Aureo"
+
+def run_payment_check(payment: dict) -> tuple[str, str]:
+    currency = (payment.get("currency") or "").upper()
+    txid = payment.get("txid") or ""
+    amount = float(payment.get("amount") or 0)
+    try:
+        if currency == "BTC":
+            return _check_btc_payment(txid, amount)
+        if currency in {"ETH", "USDC"}:
+            return _check_eth_family_payment(txid, amount, currency)
+        if currency == "SOL":
+            return _check_sol_payment(txid, amount)
+        if currency == "USDT":
+            return _check_tron_usdt_payment(txid, amount)
+        return "pending_review", f"Verifica automatica non disponibile per {currency}"
+    except Exception as exc:
+        return "pending_review", f"Controllo automatico non conclusivo: {str(exc)}"
+
 @app.post("/api/billing/submit-txid")
 def submit_crypto_payment(req: SubmitTxidRequest, user: dict = Depends(require_user)):
     user_id = user["sub"]
@@ -2416,31 +2544,32 @@ class VerifyPaymentRequest(BaseModel):
     action: str 
     months: int = 1
 
+class CheckPaymentRequest(BaseModel):
+    payment_id: str
+
+@app.post("/api/billing/check-payment")
+def check_crypto_payment(req: CheckPaymentRequest, admin_token: str = Depends(require_admin)):
+    payment = db.get_payment_by_id(req.payment_id)
+    if not payment:
+        raise HTTPException(status_code=404, detail="Pagamento non trovato")
+
+    check_status, check_message = run_payment_check(payment)
+    db.update_payment_check(req.payment_id, check_status, check_message)
+    return {
+        "status": "success",
+        "check_status": check_status,
+        "message": check_message,
+    }
+
 @app.post("/api/billing/verify-payment")
 def verify_crypto_payment(req: VerifyPaymentRequest, admin_token: str = Depends(require_admin)):
-    payments = db.get_all_payments()
-    payment = next((p for p in payments if p["id"] == req.payment_id), None)
+    payment = db.get_payment_by_id(req.payment_id)
     if not payment:
         raise HTTPException(status_code=404, detail="Pagamento non trovato")
         
     if req.action == "approve":
         db.update_payment_status(req.payment_id, "verified")
-        from datetime import datetime, timedelta
-        user = db.get_user_by_id(payment["user_id"])
-        
-        current_exp = user.get("subscription_expires_at")
-        base_date = datetime.utcnow()
-        if current_exp:
-            try:
-                parsed_exp = datetime.strptime(current_exp, "%Y-%m-%d %H:%M:%S")
-                if parsed_exp > base_date:
-                    base_date = parsed_exp
-            except Exception:
-                pass
-            
-        new_exp = base_date + timedelta(days=30 * req.months)
-        db.update_subscription(payment["user_id"], new_exp.strftime("%Y-%m-%d %H:%M:%S"))
-        return {"status": "success", "message": f"Pagamento approvato e abbonamento esteso fino a {new_exp.strftime('%Y-%m-%d')}"}
+        return {"status": "success", "message": "Pagamento confermato. Ora puoi attivare manualmente il mese sull’utente."}
     else:
         db.update_payment_status(req.payment_id, "rejected")
         return {"status": "success", "message": "Pagamento rifiutato"}

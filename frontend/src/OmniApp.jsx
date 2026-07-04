@@ -2982,6 +2982,7 @@ function OmniApp() {
                     <th>Cliente</th>
                     <th>Importo</th>
                     <th>TXID</th>
+                    <th>Check Software</th>
                     <th>Azione</th>
                   </tr>
                 </thead>
@@ -2992,9 +2993,60 @@ function OmniApp() {
                       <td>{payment.amount} {payment.currency}</td>
                       <td style={{fontFamily:'monospace', fontSize:'0.8rem', maxWidth:'150px', overflow:'hidden', textOverflow:'ellipsis'}} title={payment.txid}>{payment.txid}</td>
                       <td>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                          <span
+                            style={{
+                              color:
+                                payment.check_status === 'matched' || payment.status === 'verified'
+                                  ? '#10b981'
+                                  : payment.check_status === 'amount_mismatch' || payment.check_status === 'address_mismatch'
+                                    ? '#f59e0b'
+                                    : payment.check_status === 'not_found' || payment.status === 'rejected'
+                                      ? '#f43f5e'
+                                      : '#94a3b8',
+                              fontWeight: 700,
+                              fontSize: '0.82rem',
+                            }}
+                          >
+                            {payment.status === 'verified'
+                              ? 'CONFERMATO DA ADMIN'
+                              : payment.check_status === 'matched'
+                                ? 'TX TROVATA'
+                                : payment.check_status === 'amount_mismatch'
+                                  ? 'IMPORTO DIVERSO'
+                                  : payment.check_status === 'address_mismatch'
+                                    ? 'WALLET DIVERSO'
+                                    : payment.check_status === 'not_found'
+                                      ? 'NON TROVATA'
+                                      : payment.check_status === 'pending_review'
+                                        ? 'DA RICONTROLLARE'
+                                        : 'NON CONTROLLATA'}
+                          </span>
+                          {payment.check_message && (
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.74rem', lineHeight: 1.35 }}>
+                              {payment.check_message}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
                         {payment.status === 'pending' ? (
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button className="btn btn-start" onClick={async () => {
+                              try {
+                                const res = await authFetch('/api/billing/check-payment', {
+                                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                                  body: JSON.stringify({ payment_id: payment.id })
+                                });
+                                const data = await res.json();
+                                setBillingMessage(data.message);
+                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                                setBillingOverview(await res2.json());
+                              } catch(e) {}
+                            }} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
+                              Controlla TX
+                            </button>
+                            <button className="btn btn-outline" onClick={async () => {
                               try {
                                 const res = await authFetch('/api/billing/verify-payment', {
                                   method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -3006,7 +3058,7 @@ function OmniApp() {
                                 setBillingOverview(await res2.json());
                               } catch(e) {}
                             }} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
-                              Verifica (1 Mese)
+                              Segna Ok
                             </button>
                             <button className="btn btn-outline" onClick={async () => {
                               try {
@@ -3029,7 +3081,7 @@ function OmniApp() {
                       </td>
                     </tr>
                   ))}
-                  {!billingOverview?.recent_activity?.length && <tr><td colSpan="4" style={{textAlign:'center', color:'#888'}}>Nessun pagamento in coda</td></tr>}
+                  {!billingOverview?.recent_activity?.length && <tr><td colSpan="5" style={{textAlign:'center', color:'#888'}}>Nessun pagamento in coda</td></tr>}
                 </tbody>
               </table>
             </div>

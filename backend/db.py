@@ -80,10 +80,22 @@ def init_db():
             amount REAL NOT NULL,
             currency TEXT NOT NULL,
             status TEXT DEFAULT 'pending',
+            check_status TEXT DEFAULT 'unchecked',
+            check_message TEXT,
+            checked_at DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )
     ''')
+
+    cursor.execute("PRAGMA table_info(crypto_payments)")
+    payment_columns = {row[1] for row in cursor.fetchall()}
+    if "check_status" not in payment_columns:
+        cursor.execute("ALTER TABLE crypto_payments ADD COLUMN check_status TEXT DEFAULT 'unchecked'")
+    if "check_message" not in payment_columns:
+        cursor.execute("ALTER TABLE crypto_payments ADD COLUMN check_message TEXT")
+    if "checked_at" not in payment_columns:
+        cursor.execute("ALTER TABLE crypto_payments ADD COLUMN checked_at DATETIME")
     
     conn.commit()
     conn.close()
@@ -230,6 +242,29 @@ def update_payment_status(payment_id: str, status: str):
     cursor.execute("UPDATE crypto_payments SET status = ? WHERE id = ?", (status, payment_id))
     conn.commit()
     conn.close()
+
+def update_payment_check(payment_id: str, check_status: str, check_message: str = ""):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE crypto_payments SET check_status = ?, check_message = ?, checked_at = CURRENT_TIMESTAMP WHERE id = ?",
+        (check_status, check_message, payment_id)
+    )
+    conn.commit()
+    conn.close()
+
+def get_payment_by_id(payment_id: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT p.*, u.email as user_email
+        FROM crypto_payments p
+        JOIN users u ON p.user_id = u.id
+        WHERE p.id = ?
+    """, (payment_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
 
 def get_all_payments():
     conn = get_db_connection()
