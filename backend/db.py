@@ -45,10 +45,16 @@ def init_db():
             password_hash TEXT NOT NULL,
             role TEXT DEFAULT 'user',
             status TEXT DEFAULT 'pending',
+            plan_id TEXT DEFAULT 'pro',
             subscription_expires_at DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+
+    cursor.execute("PRAGMA table_info(users)")
+    user_columns = {row[1] for row in cursor.fetchall()}
+    if "plan_id" not in user_columns:
+        cursor.execute("ALTER TABLE users ADD COLUMN plan_id TEXT DEFAULT 'pro'")
     
     # API Keys table (encrypted)
     cursor.execute('''
@@ -106,13 +112,13 @@ def get_db_connection():
     return conn
 
 # User Operations
-def create_user(user_id: str, email: str, password: str, role: str = 'user', status: str = 'pending'):
+def create_user(user_id: str, email: str, password: str, role: str = 'user', status: str = 'pending', plan_id: str = 'pro'):
     conn = get_db_connection()
     cursor = conn.cursor()
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     try:
-        cursor.execute("INSERT INTO users (id, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)",
-                       (user_id, email, password_hash, role, status))
+        cursor.execute("INSERT INTO users (id, email, password_hash, role, status, plan_id) VALUES (?, ?, ?, ?, ?, ?)",
+                       (user_id, email, password_hash, role, status, plan_id))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -123,7 +129,7 @@ def create_user(user_id: str, email: str, password: str, role: str = 'user', sta
 def verify_user_login(email: str, password: str):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, password_hash, role, status FROM users WHERE email = ?", (email,))
+    cursor.execute("SELECT id, email, password_hash, role, status, plan_id FROM users WHERE email = ?", (email,))
     row = cursor.fetchone()
     conn.close()
     
@@ -134,7 +140,7 @@ def verify_user_login(email: str, password: str):
 def get_user_by_id(user_id: str):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, role, status, subscription_expires_at FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT id, email, role, status, plan_id, subscription_expires_at FROM users WHERE id = ?", (user_id,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -142,7 +148,7 @@ def get_user_by_id(user_id: str):
 def get_all_users():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, role, status, subscription_expires_at, created_at FROM users ORDER BY created_at DESC")
+    cursor.execute("SELECT id, email, role, status, plan_id, subscription_expires_at, created_at FROM users ORDER BY created_at DESC")
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
@@ -158,6 +164,13 @@ def update_subscription(user_id: str, expires_at: str):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET subscription_expires_at = ?, status = 'active' WHERE id = ?", (expires_at, user_id))
+    conn.commit()
+    conn.close()
+
+def update_user_plan(user_id: str, plan_id: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET plan_id = ? WHERE id = ?", (plan_id, user_id))
     conn.commit()
     conn.close()
 

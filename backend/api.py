@@ -1857,6 +1857,7 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     email: str
     password: str
+    plan_id: Optional[str] = "pro"
 
 
 class PasskeyCredentialAttestationRequest(BaseModel):
@@ -1911,11 +1912,19 @@ except Exception as e:
 class BillingCustomerStatusRequest(BaseModel):
     status: str
 
+def get_plan_catalog() -> dict:
+    return {plan["id"]: plan for plan in _default_billing_plans()}
+
+def get_plan_for_user(plan_id: Optional[str]) -> dict:
+    plans = get_plan_catalog()
+    return plans.get(plan_id or "pro") or plans.get("pro") or next(iter(plans.values()))
+
 @app.post("/api/register")
-def register(req: LoginRequest):
+def register(req: RegisterRequest):
     # Genera user_id
     user_id = f"usr_{int(time.time())}"
     email = req.email.lower().strip() if req.email else ""
+    selected_plan = get_plan_for_user(req.plan_id)
     
     # Check disposable
     if "@" in email:
@@ -1923,10 +1932,10 @@ def register(req: LoginRequest):
         if domain in DISPOSABLE_DOMAINS:
             raise HTTPException(status_code=400, detail="L'utilizzo di email usa e getta non è consentito.")
             
-    success = db.create_user(user_id, email, req.password, role="user", status="pending")
+    success = db.create_user(user_id, email, req.password, role="user", status="pending", plan_id=selected_plan["id"])
     if not success:
         raise HTTPException(status_code=400, detail="L'email è già registrata.")
-    return {"status": "success", "message": "Registrazione completata! Ora puoi fare il login per accedere alla Demo."}
+    return {"status": "success", "message": f"Registrazione completata! Step {selected_plan['name']} associato al tuo account. Ora puoi fare il login per accedere alla Demo."}
 
 @app.post("/api/login")
 def login(req: LoginRequest, request: Request):
@@ -1941,13 +1950,16 @@ def login(req: LoginRequest, request: Request):
     user = db.verify_user_login(email, req.password)
     if user:
         clear_login_failures(client_id)
+        plan = get_plan_for_user(user.get("plan_id"))
         token = create_user_token(user["id"], user["email"], user["role"])
         return {
             "status": "success", 
             "token": token, 
             "expires_in": 86400, 
             "role": user["role"],
-            "user_status": user["status"]
+            "user_status": user["status"],
+            "plan_id": plan["id"],
+            "allowed_modules": plan.get("modules", []),
         }
 
     record_login_failure(client_id)
@@ -2401,25 +2413,31 @@ class SubmitTxidRequest(BaseModel):
     amount: float
     currency: str
 
-PAYMENT_WALLETS = {
-    "BTC": "bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh",
-    "ETH": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-    "USDC": "0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-    "SOL": "HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH",
-    "USDT": "TX9bF1BWeYdG4N6N1eR6fB8B5L6M7P8Q9R",
-}
+def get_payment_wallets() -> dict:
+    return {
+        "BTC": (os.getenv("PAYMENT_WALLET_BTC") or "").strip(),
+        "ETH": (os.getenv("PAYMENT_WALLET_ETH") or "").strip(),
+        "USDC": (os.getenv("PAYMENT_WALLET_USDC") or "").strip(),
+        "SOL": (os.getenv("PAYMENT_WALLET_SOL") or "").strip(),
+        "USDT": (os.getenv("PAYMENT_WALLET_USDT") or "").strip(),
+    }
+
+def get_payment_wallet(currency: str) -> str:
+    return get_payment_wallets().get(currency.upper(), "")
 
 def _approx_equal(value: float, target: float, tolerance: float = 0.02) -> bool:
     return abs(value - target) <= tolerance
 
 def _check_btc_payment(txid: str, amount: float) -> tuple[str, str]:
     import requests
+    target_address = get_payment_wallet("BTC")
+    if not target_address:
+        return "pending_review", "Wallet BTC non configurato sul server"
     res = requests.get(f"https://blockstream.info/api/tx/{txid}", timeout=8)
     if res.status_code != 200:
         return "not_found", "TX Bitcoin non trovata"
     data = res.json()
     outputs = data.get("vout", [])
-    target_address = PAYMENT_WALLETS["BTC"]
     for out in outputs:
         scriptpubkey_address = out.get("scriptpubkey_address")
         value_btc = float(out.get("value", 0)) / 100_000_000
@@ -2431,11 +2449,13 @@ def _check_btc_payment(txid: str, amount: float) -> tuple[str, str]:
 
 def _check_eth_family_payment(txid: str, amount: float, currency: str) -> tuple[str, str]:
     import requests
+    target_address = get_payment_wallet(currency).lower()
+    if not target_address:
+        return "pending_review", f"Wallet {currency} non configurato sul server"
     res = requests.get(f"https://eth.blockscout.com/api/v2/transactions/{txid}", timeout=8)
     if res.status_code != 200:
         return "not_found", f"TX {currency} non trovata"
     data = res.json()
-    target_address = PAYMENT_WALLETS[currency].lower()
 
     if currency == "ETH":
         to_hash = ((data.get("to") or {}).get("hash") or "").lower()
@@ -2464,6 +2484,9 @@ def _check_eth_family_payment(txid: str, amount: float, currency: str) -> tuple[
 
 def _check_sol_payment(txid: str, amount: float) -> tuple[str, str]:
     import requests
+    target_address = get_payment_wallet("SOL")
+    if not target_address:
+        return "pending_review", "Wallet SOL non configurato sul server"
     payload = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -2476,7 +2499,6 @@ def _check_sol_payment(txid: str, amount: float) -> tuple[str, str]:
     data = res.json().get("result")
     if not data:
         return "not_found", "TX Solana non trovata"
-    target_address = PAYMENT_WALLETS["SOL"]
     balances_before = data.get("meta", {}).get("preBalances") or []
     balances_after = data.get("meta", {}).get("postBalances") or []
     account_keys = data.get("transaction", {}).get("message", {}).get("accountKeys") or []
@@ -2491,11 +2513,13 @@ def _check_sol_payment(txid: str, amount: float) -> tuple[str, str]:
 
 def _check_tron_usdt_payment(txid: str, amount: float) -> tuple[str, str]:
     import requests
+    target_address = get_payment_wallet("USDT")
+    if not target_address:
+        return "pending_review", "Wallet USDT non configurato sul server"
     res = requests.get(f"https://api.trongrid.io/v1/transactions/{txid}/events", timeout=8)
     if res.status_code != 200:
         return "not_found", "TX USDT TRC20 non trovata"
     items = res.json().get("data") or []
-    target_address = PAYMENT_WALLETS["USDT"]
     for item in items:
         if item.get("event_name") != "Transfer":
             continue
@@ -2528,6 +2552,14 @@ def run_payment_check(payment: dict) -> tuple[str, str]:
         return "pending_review", f"Verifica automatica non disponibile per {currency}"
     except Exception as exc:
         return "pending_review", f"Controllo automatico non conclusivo: {str(exc)}"
+
+@app.get("/api/billing/wallets")
+def get_crypto_payment_wallets(user: dict = Depends(require_user)):
+    wallets = get_payment_wallets()
+    return {
+        "wallets": wallets,
+        "configured": {currency: bool(address) for currency, address in wallets.items()},
+    }
 
 @app.post("/api/billing/submit-txid")
 def submit_crypto_payment(req: SubmitTxidRequest, user: dict = Depends(require_user)):
@@ -2579,6 +2611,10 @@ class AdminUserActionRequest(BaseModel):
 
 @app.post("/api/saas/activate-user")
 def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
+    user = db.get_user_by_id(req.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Utente non trovato")
+    plan = get_plan_for_user(user.get("plan_id"))
     conn = db.get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET status = 'active' WHERE id = ?", (req.user_id,))
@@ -2590,7 +2626,7 @@ def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(
     
     conn.commit()
     conn.close()
-    return {"status": "success", "message": "Utente attivato manualmente."}
+    return {"status": "success", "message": f"Utente attivato manualmente con step {plan['name']}."}
 
 @app.post("/api/saas/delete-user")
 def admin_delete_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
@@ -2609,22 +2645,26 @@ def list_crypto_payments(admin_token: str = Depends(require_admin)):
 def get_saas_overview_db(admin_token: str = Depends(require_admin)):
     users = db.get_all_users()
     payments = db.get_all_payments()
+    plans = get_plan_catalog()
     
     # Calcolo metriche
     active_customers = len([u for u in users if u["status"] == "active"])
-    # MRR stimato: clienti attivi * 99
-    mrr = active_customers * 99
+    mrr = round(sum(float((plans.get((u.get("plan_id") or "pro")) or plans.get("pro") or {}).get("price_monthly", 0) or 0) for u in users if u["status"] == "active"), 2)
     
     # Formattazione per il frontend
     customers = []
     for u in users:
+        plan = get_plan_for_user(u.get("plan_id"))
         customers.append({
             "id": u["id"],
             "email": u["email"],
             "status": u["status"],
             "role": u["role"],
+            "plan_id": plan["id"],
+            "plan_name": plan["name"],
+            "modules_enabled": plan.get("modules", []),
             "next_billing_at": u.get("subscription_expires_at", "N/A"),
-            "monthly_amount": 99,
+            "monthly_amount": plan.get("price_monthly", 0),
             "created_at": u.get("created_at")
         })
         
@@ -2633,6 +2673,7 @@ def get_saas_overview_db(admin_token: str = Depends(require_admin)):
         "active_customers": active_customers,
         "recent_activity": payments[:10], # Ultimi pagamenti
         "customers": customers,
+        "plans": list(plans.values()),
         "settings": {"currency": "USDT"}
     }
 

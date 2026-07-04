@@ -5,6 +5,8 @@ import heroAsset from './assets/hero.png';
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
 const DEMO_MODE_KEY = 'omni_demo_mode';
+const USER_PLAN_KEY = 'omni_user_plan';
+const USER_ALLOWED_MODULES_KEY = 'omni_user_allowed_modules';
 const USER_LOGIN_PATH = '/access';
 const ADMIN_LOGIN_PATH = '/aureo-control-vault';
 const BILLING_ENABLED = true;
@@ -93,6 +95,8 @@ const clearAuthSession = () => {
   localStorage.removeItem(DEMO_MODE_KEY);
   localStorage.removeItem('USER_ROLE');
   localStorage.removeItem('USER_STATUS');
+  localStorage.removeItem(USER_PLAN_KEY);
+  localStorage.removeItem(USER_ALLOWED_MODULES_KEY);
 };
 
 const authFetch = async (input, init = {}) => {
@@ -332,9 +336,15 @@ function OmniApp() {
   const [manualLoading, setManualLoading] = useState(false);
   const [manualMessage, setManualMessage] = useState("");
   const [landingTickerItems, setLandingTickerItems] = useState([]);
+  const [paymentWallets, setPaymentWallets] = useState({});
 
   const handleCryptoSubmit = async () => {
     if (!txid) return alert('Inserisci il TXID');
+    const selectedWallet = paymentWallets[selectedCrypto];
+    if (!selectedWallet) {
+      setBillingMessage(`Wallet ${selectedCrypto} non ancora configurato. Contattaci prima di inviare il pagamento.`);
+      return;
+    }
     const paymentQuote = getCryptoPaymentQuote();
     try {
       const res = await authFetch('/api/billing/submit-txid', {
@@ -352,6 +362,7 @@ function OmniApp() {
     (() => {
       const paymentQuote = getCryptoPaymentQuote();
       const selectedPlan = paymentQuote.plan;
+      const selectedWallet = paymentWallets[selectedCrypto] || '';
       return (
     <div className="module-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', height: '100%', padding: '2rem' }}>
         <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#e2e8f0' }}>🔐 Account in attesa di sblocco</h2>
@@ -404,12 +415,15 @@ function OmniApp() {
           <div style={{ background: '#111', padding: '1rem', borderRadius: '8px', border: '1px solid #333', marginBottom: '1.5rem', wordBreak: 'break-all', fontSize: '0.9rem' }}>
             <div style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.8rem', textTransform: 'uppercase' }}>Indirizzo di Deposito {selectedCrypto}</div>
             <strong style={{ color: '#e2e8f0', userSelect: 'all' }}>
-              {selectedCrypto === 'BTC' ? 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' : 
-               selectedCrypto === 'ETH' || selectedCrypto === 'USDC' ? '0x71C7656EC7ab88b098defB751B7401B5f6d8976F' :
-               selectedCrypto === 'SOL' ? 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH' :
-               'TX9bF1BWeYdG4N6N1eR6fB8B5L6M7P8Q9R'}
+              {selectedWallet || 'Wallet non configurato'}
             </strong>
           </div>
+
+          {!selectedWallet && (
+            <div style={{ marginBottom: '1rem', padding: '0.8rem', background: 'rgba(239, 68, 68, 0.12)', color: '#fca5a5', borderRadius: '8px', textAlign: 'center', fontSize: '0.9rem', border: '1px solid rgba(239, 68, 68, 0.28)' }}>
+              Questo metodo di pagamento non è ancora disponibile. Seleziona una crypto configurata o contattaci.
+            </div>
+          )}
           
           <div className="form-group" style={{ marginBottom: '1.5rem' }}>
             <label>Transaction ID (TXID)</label>
@@ -422,7 +436,7 @@ function OmniApp() {
             />
           </div>
 
-          <button className="btn btn-start" onClick={handleCryptoSubmit} style={{ width: '100%', padding: '1rem' }}>
+          <button className="btn btn-start" onClick={handleCryptoSubmit} style={{ width: '100%', padding: '1rem' }} disabled={!selectedWallet}>
             Invia per Verifica
           </button>
           
@@ -581,6 +595,14 @@ function OmniApp() {
   const [authScreenMode, setAuthScreenMode] = useState(getAuthRouteMode());
   const [userRole, setUserRole] = useState(localStorage.getItem('USER_ROLE') || 'user');
   const [userStatus, setUserStatus] = useState(localStorage.getItem('USER_STATUS') || 'active');
+  const [userPlanId, setUserPlanId] = useState(localStorage.getItem(USER_PLAN_KEY) || 'pro');
+  const [userAllowedModules, setUserAllowedModules] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem(USER_ALLOWED_MODULES_KEY) || '[]');
+    } catch {
+      return [];
+    }
+  });
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
   const [isBackendOnline, setIsBackendOnline] = useState(true);
@@ -599,6 +621,11 @@ function OmniApp() {
   const syncLabel = isBackendOnline
     ? (lastStatusSync ? `Live • ${lastStatusSync}` : 'Live')
     : 'Offline';
+  const hasPlanAccess = (moduleId) => (
+    userRole === 'admin' ||
+    !moduleId ||
+    userAllowedModules.includes(moduleId)
+  );
 
   const getBillingPlansCatalog = () => (
     billingOverview?.plans?.length ? billingOverview.plans : DEMO_BILLING_OVERVIEW.plans
@@ -672,6 +699,22 @@ function OmniApp() {
       setActiveTab('home');
     }
   }, [activeTab]);
+
+  useEffect(() => {
+    if (userRole === 'admin') return;
+    const accessByTab = {
+      home: true,
+      trading: hasPlanAccess('trading'),
+      crypto_arb: hasPlanAccess('defi'),
+      value_bets: hasPlanAccess('sentiment'),
+      ai_content: hasPlanAccess('ai_content'),
+      settings: true,
+      saas: false,
+    };
+    if (accessByTab[activeTab] === false) {
+      setActiveTab('home');
+    }
+  }, [activeTab, userRole, userAllowedModules]);
 
   useEffect(() => {
     const supported = typeof window !== 'undefined' && !!window.PublicKeyCredential && !!navigator.credentials;
@@ -793,6 +836,25 @@ function OmniApp() {
   }, [selectedSymbol]);
 
   useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const fetchPaymentWallets = async () => {
+      try {
+        const res = await authFetch('/api/billing/wallets');
+        if (!res.ok) {
+          return;
+        }
+        const data = await res.json();
+        setPaymentWallets(data.wallets || {});
+      } catch (err) {}
+    };
+
+    fetchPaymentWallets();
+  }, [isAuthenticated]);
+
+  useEffect(() => {
     if (!selectedSymbol) return;
     const fetchChart = async () => {
       try {
@@ -811,12 +873,14 @@ function OmniApp() {
     fetchChart();
   }, [selectedSymbol, timeframe]);
 
-  const completeAuthenticatedSession = (token, role = 'admin', status = 'active') => {
+  const completeAuthenticatedSession = (token, role = 'admin', status = 'active', planId = 'pro', allowedModules = []) => {
     setIsAuthenticated(true);
     const demo = (status === 'pending');
     setIsDemoMode(demo);
     setUserRole(role);
     setUserStatus(status);
+    setUserPlanId(planId);
+    setUserAllowedModules(Array.isArray(allowedModules) ? allowedModules : []);
     if (demo) {
       localStorage.setItem(DEMO_MODE_KEY, '1');
     } else {
@@ -826,6 +890,8 @@ function OmniApp() {
     localStorage.setItem(AUTH_TIME_KEY, Date.now().toString());
     localStorage.setItem('USER_ROLE', role);
     localStorage.setItem('USER_STATUS', status);
+    localStorage.setItem(USER_PLAN_KEY, planId || 'pro');
+    localStorage.setItem(USER_ALLOWED_MODULES_KEY, JSON.stringify(Array.isArray(allowedModules) ? allowedModules : []));
     setLoginError('');
     setPasskeyMessage('');
     setActiveTab('home');
@@ -872,7 +938,7 @@ function OmniApp() {
       if (isRegistering) {
         const res = await fetch('/api/register', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password })
+          body: JSON.stringify({ email, password, plan_id: selectedPlanId || billingLead.plan_id || 'pro' })
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
@@ -891,7 +957,13 @@ function OmniApp() {
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
-          completeAuthenticatedSession(data.token, data.role || 'admin', data.user_status || 'active');
+          completeAuthenticatedSession(
+            data.token,
+            data.role || 'admin',
+            data.user_status || 'active',
+            data.plan_id || selectedPlanId || billingLead.plan_id || 'pro',
+            data.allowed_modules || []
+          );
         } else {
           clearAuthSession();
           setIsAuthenticated(false);
@@ -3016,6 +3088,9 @@ function OmniApp() {
                       <td>
                         <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{user.email}</div>
                         <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Role: {user.role}</div>
+                        {user.plan_name && (
+                          <div style={{ color: '#d4af37', fontSize: '0.78rem' }}>Step: {user.plan_name}</div>
+                        )}
                       </td>
                       <td><span className={`badge ${user.status === 'active' ? 'badge-active' : 'badge-idle'}`}>{user.status}</span></td>
                       <td>{user.next_billing_at || '-'}</td>
@@ -3669,16 +3744,32 @@ function OmniApp() {
             <span className="menu-icon">📊</span>
             <span className="menu-label">Dashboard</span>
           </div>
-          <div className={`menu-item ${activeTab === 'trading' ? 'active' : ''}`} onClick={() => setActiveTab('trading')}>
-            <span className="menu-icon">📈</span>
-            <span className="menu-label">Trading</span>
-            {status.modules?.trading && <div className="active-dot"></div>}
-          </div>
-          <div className={`menu-item ${activeTab === 'crypto_arb' ? 'active' : ''}`} onClick={() => setActiveTab('crypto_arb')}>
-            <span className="menu-icon">⛓️</span>
-            <span className="menu-label">DeFi</span>
-            {status.modules?.crypto_arb && <div className="active-dot"></div>}
-          </div>
+          {hasPlanAccess('trading') && (
+            <div className={`menu-item ${activeTab === 'trading' ? 'active' : ''}`} onClick={() => setActiveTab('trading')}>
+              <span className="menu-icon">📈</span>
+              <span className="menu-label">Trading</span>
+              {status.modules?.trading && <div className="active-dot"></div>}
+            </div>
+          )}
+          {hasPlanAccess('defi') && (
+            <div className={`menu-item ${activeTab === 'crypto_arb' ? 'active' : ''}`} onClick={() => setActiveTab('crypto_arb')}>
+              <span className="menu-icon">⛓️</span>
+              <span className="menu-label">DeFi</span>
+              {status.modules?.crypto_arb && <div className="active-dot"></div>}
+            </div>
+          )}
+          {hasPlanAccess('sentiment') && (
+            <div className={`menu-item ${activeTab === 'value_bets' ? 'active' : ''}`} onClick={() => setActiveTab('value_bets')}>
+              <span className="menu-icon">🧠</span>
+              <span className="menu-label">AI Sentiment</span>
+            </div>
+          )}
+          {hasPlanAccess('ai_content') && (
+            <div className={`menu-item ${activeTab === 'ai_content' ? 'active' : ''}`} onClick={() => setActiveTab('ai_content')}>
+              <span className="menu-icon">🎬</span>
+              <span className="menu-label">AI Content</span>
+            </div>
+          )}
           <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
             <span className="menu-icon">🔐</span>
             <span className="menu-label">Security</span>
