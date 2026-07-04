@@ -3152,7 +3152,6 @@ function OmniApp() {
                     <th>Status</th>
                     <th>Step / MRR</th>
                     <th>Scadenza</th>
-                    <th>Accesso</th>
                     <th>Azioni Manuali</th>
                   </tr>
                 </thead>
@@ -3165,6 +3164,13 @@ function OmniApp() {
                         {user.plan_name && (
                           <div style={{ color: '#d4af37', fontSize: '0.78rem' }}>Step: {user.plan_name}</div>
                         )}
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', maxWidth: '280px', marginTop: '0.55rem' }}>
+                          {(user.modules_enabled || []).map((moduleName) => (
+                            <span key={moduleName} style={{ padding: '0.2rem 0.45rem', borderRadius: '999px', background: 'rgba(212,175,55,0.12)', color: '#d4af37', fontSize: '0.7rem', border: '1px solid rgba(212,175,55,0.22)' }}>
+                              {moduleName}
+                            </span>
+                          ))}
+                        </div>
                       </td>
                       <td><span className={`badge ${user.status === 'active' ? 'badge-active' : 'badge-idle'}`}>{user.status}</span></td>
                       <td>
@@ -3188,19 +3194,7 @@ function OmniApp() {
                         )}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', maxWidth: '220px' }}>
-                          {(user.modules_enabled || []).map((moduleName) => (
-                            <span key={moduleName} style={{ padding: '0.2rem 0.45rem', borderRadius: '999px', background: 'rgba(212,175,55,0.12)', color: '#d4af37', fontSize: '0.72rem', border: '1px solid rgba(212,175,55,0.22)' }}>
-                              {moduleName}
-                            </span>
-                          ))}
-                          {!user.modules_enabled?.length && (
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Nessun modulo</span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
-                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', minWidth: '260px' }}>
+                        <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', minWidth: '240px' }}>
                           {user.status !== 'active' && (
                             <button className="btn btn-start" onClick={async () => {
                               if(!window.confirm('Vuoi attivare manualmente questo utente?')) return;
@@ -3237,7 +3231,7 @@ function OmniApp() {
                       </td>
                     </tr>
                   ))}
-                  {!customers?.length && <tr><td colSpan="6" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
+                  {!customers?.length && <tr><td colSpan="5" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
                 </tbody>
               </table>
             </div>
