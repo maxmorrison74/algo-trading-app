@@ -1701,9 +1701,14 @@ input:focus, textarea:focus, select:focus {
 }
 
 .sales-landing {
+  height: 100vh;
   min-height: 100vh;
+  height: 100dvh;
   min-height: 100dvh;
   overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   position: relative;
   background: linear-gradient(180deg, #0b0f19 0%, #080d15 100%);
 }
