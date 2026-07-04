@@ -492,6 +492,8 @@ function OmniApp() {
   };
   const [isAuthenticated, setIsAuthenticated] = useState(checkAuthMemory());
   const [showLanding, setShowLanding] = useState(true);
+  const [showLandingPlans, setShowLandingPlans] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState('');
   const [isDemoMode, setIsDemoMode] = useState(isDemoSession());
 
   const [password, setPassword] = useState('');
@@ -536,6 +538,23 @@ function OmniApp() {
     setLoginError('');
     setPassword('');
     setActiveTab('home');
+  };
+
+  const openPricingSection = () => {
+    setShowLandingPlans(true);
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        const element = document.getElementById('landing-pricing');
+        element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+    }
+  };
+
+  const continueWithPlan = (planId) => {
+    setSelectedPlanId(planId);
+    setBillingLead((prev) => ({ ...prev, plan_id: planId }));
+    setIsRegistering(true);
+    setShowLanding(false);
   };
 
   useEffect(() => {
@@ -2912,24 +2931,143 @@ function OmniApp() {
 
   
   if (!isAuthenticated) {
+    const landingPlans = DEMO_BILLING_OVERVIEW.plans || [];
+    const selectedPlan = landingPlans.find((plan) => plan.id === selectedPlanId);
     if (showLanding) {
       return (
-        <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center', background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)' }}>
-          <div style={{ textAlign: 'center', maxWidth: '600px', padding: '2rem' }}>
-            <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '180px', marginBottom: '2rem', objectFit: 'contain', filter: 'drop-shadow(0 0 20px rgba(16, 185, 129, 0.2))' }} />
-            <h1 style={{ color: '#e2e8f0', fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-              AUREO OS
-            </h1>
-            <p style={{ color: '#94a3b8', fontSize: '1.2rem', marginBottom: '3rem', lineHeight: 1.6 }}>
-              L'intelligenza quantitativa al servizio del tuo capitale. Una piattaforma avanzata per investitori moderni.
-            </p>
-            <button 
-              className="btn btn-start" 
-              onClick={() => setShowLanding(false)} 
-              style={{ padding: '1.2rem 3rem', fontSize: '1.1rem', letterSpacing: '0.05em', boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)' }}
-            >
-              ACCEDI AL SISTEMA
-            </button>
+        <div className="landing-shell">
+          <div className="landing-page">
+            <section className="landing-hero">
+              <div className="landing-badge">AUREO OS · Trading intelligence che vende risultati</div>
+              <div className="landing-hero-grid">
+                <div className="landing-copy">
+                  <img src="/aureo-logo.jpg" alt="AUREO" className="landing-logo" />
+                  <h1 className="landing-title">
+                    Trasforma il capitale in una macchina operativa con <span>AUREO OS</span>
+                  </h1>
+                  <p className="landing-subtitle">
+                    Un ecosistema premium che unisce dashboard, trading quantitativo, radar AI, DeFi monitoring e sicurezza avanzata in un’unica esperienza pronta da vendere.
+                  </p>
+                  <div className="landing-cta-row">
+                    <button className="btn btn-start landing-primary-cta" onClick={openPricingSection}>
+                      SCOPRI LE OPZIONI ACQUISTABILI
+                    </button>
+                    <button className="btn btn-outline landing-secondary-cta" onClick={() => setShowLanding(false)}>
+                      ACCEDI / REGISTRATI
+                    </button>
+                  </div>
+                  <div className="landing-proof-row">
+                    <div className="landing-proof-card">
+                      <strong>Multi-modulo</strong>
+                      <span>Trading, AI, DeFi, Security</span>
+                    </div>
+                    <div className="landing-proof-card">
+                      <strong>Esperienza premium</strong>
+                      <span>Desktop, tablet e mobile ready</span>
+                    </div>
+                    <div className="landing-proof-card">
+                      <strong>Conversion-focused</strong>
+                      <span>Demo, piani e onboarding integrabili</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="landing-hero-panel">
+                  <div className="landing-metric-card">
+                    <div className="landing-metric-label">Perché convince</div>
+                    <div className="landing-metric-value">All-in-one</div>
+                    <p>Mostra una control room immediatamente percepita come avanzata, solida e monetizzabile.</p>
+                  </div>
+                  <div className="landing-mini-grid">
+                    <div className="landing-mini-card">
+                      <strong>AI Guidance</strong>
+                      <span>Proposte operative assistite</span>
+                    </div>
+                    <div className="landing-mini-card">
+                      <strong>Security Vault</strong>
+                      <span>Chiavi e accesso biometrico</span>
+                    </div>
+                    <div className="landing-mini-card">
+                      <strong>Demo pronta</strong>
+                      <span>Perfetta per vendita e presentazioni</span>
+                    </div>
+                    <div className="landing-mini-card">
+                      <strong>SaaS mindset</strong>
+                      <span>Base ideale per piani ricorrenti</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <section className="landing-section">
+              <div className="landing-section-head">
+                <div className="landing-kicker">Punti di forza</div>
+                <h2>Una piattaforma che si presenta come un prodotto già pronto per il mercato</h2>
+              </div>
+              <div className="landing-feature-grid">
+                <article className="landing-feature-card">
+                  <h3>Impatto immediato</h3>
+                  <p>Interfaccia premium, dati chiari e narrativa visiva forte: il cliente capisce subito che sta entrando in un sistema di livello.</p>
+                </article>
+                <article className="landing-feature-card">
+                  <h3>Più motori, un solo brand</h3>
+                  <p>Dashboard, stock trading, arbitraggio, sentiment e sicurezza convivono in un unico ambiente coerente e vendibile.</p>
+                </article>
+                <article className="landing-feature-card">
+                  <h3>Facile da monetizzare</h3>
+                  <p>La struttura a piani permette di trasformare il prodotto in offerta commerciale, demo guidata o accesso premium.</p>
+                </article>
+                <article className="landing-feature-card">
+                  <h3>Adatto a investitori moderni</h3>
+                  <p>Parla il linguaggio giusto: AI, automazione, controllo del rischio, accesso biometrico e compatibilità multi-dispositivo.</p>
+                </article>
+              </div>
+            </section>
+
+            {showLandingPlans && (
+              <section className="landing-section" id="landing-pricing">
+                <div className="landing-section-head">
+                  <div className="landing-kicker">Opzioni acquistabili</div>
+                  <h2>Scegli il piano giusto e porta il cliente al passo successivo</h2>
+                  <p>Ogni opzione è pensata per valorizzare il prodotto e accompagnare l’utente verso l’accesso.</p>
+                </div>
+                <div className="landing-pricing-grid">
+                  {landingPlans.map((plan) => (
+                    <article key={plan.id} className={`landing-plan-card ${plan.id === 'pro' ? 'landing-plan-card--featured' : ''}`}>
+                      <div className="landing-plan-top">
+                        <div>
+                          <div className="landing-plan-name">{plan.name}</div>
+                          <div className="landing-plan-price">€{plan.price_monthly}<span>/mese</span></div>
+                        </div>
+                        {plan.id === 'pro' && <div className="landing-plan-badge">Più richiesto</div>}
+                      </div>
+                      <p className="landing-plan-description">{plan.description}</p>
+                      <div className="landing-plan-features">
+                        {plan.features.map((feature) => (
+                          <div key={feature} className="landing-plan-feature">✓ {feature}</div>
+                        ))}
+                      </div>
+                      <button className="btn btn-start landing-plan-button" onClick={() => continueWithPlan(plan.id)}>
+                        SCEGLI {plan.name.toUpperCase()}
+                      </button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            <section className="landing-bottom-cta">
+              <div>
+                <div className="landing-kicker">Call to action finale</div>
+                <h2>Fai percepire valore prima ancora del login</h2>
+                <p>Presenta il prodotto, fai scegliere un’offerta e poi accompagna l’utente all’accesso o alla registrazione.</p>
+              </div>
+              <div className="landing-bottom-actions">
+                <button className="btn btn-start" onClick={openPricingSection}>VEDI I PIANI</button>
+                <button className="btn btn-outline" onClick={() => setShowLanding(false)}>ENTRA ORA</button>
+              </div>
+            </section>
           </div>
         </div>
       );
@@ -2939,7 +3077,12 @@ function OmniApp() {
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <div className="card" style={{ textAlign: 'center', width: '400px', padding: '3rem 2rem' }}>
           <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>Ponte di Comando Autenticato</p>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '0.6rem', fontSize: '0.9rem' }}>Ponte di Comando Autenticato</p>
+          {selectedPlan && (
+            <div style={{ color: '#f5a623', marginBottom: '1.35rem', fontSize: '0.85rem', fontWeight: 700 }}>
+              Piano selezionato: {selectedPlan.name}
+            </div>
+          )}
           <form onSubmit={handleLogin}>
             <input 
               type="email" 
@@ -2979,6 +3122,14 @@ function OmniApp() {
           </button>
           <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: isRegistering ? 0.3 : 1 }}>
             ENTRA IN DEMO MODE
+          </button>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setShowLanding(true)}
+            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
+          >
+            TORNA ALLA PRESENTAZIONE
           </button>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
             🔒 Protetto da Crittografia<br/>
