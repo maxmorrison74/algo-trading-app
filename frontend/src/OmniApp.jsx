@@ -377,6 +377,9 @@ function OmniApp() {
           <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
             Seleziona la criptovaluta, invia l'importo all'indirizzo indicato e inserisci qui il Transaction ID (TXID) per la verifica manuale.
           </p>
+          <div style={{ marginBottom: '1rem', padding: '0.85rem 1rem', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '12px', color: '#bae6fd', fontSize: '0.88rem', lineHeight: 1.45 }}>
+            Dopo l’invio, il pagamento entra in verifica e l’account viene sbloccato dall’admin con lo step scelto. Ideale per onboarding guidato e attivazioni controllate.
+          </div>
 
           {selectedPlan && (
             <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '0.9rem 1rem', marginBottom: '1rem' }}>
@@ -1318,6 +1321,16 @@ function OmniApp() {
     fetchBilling();
   }, [activeTab, isDemoMode]);
 
+  const refreshBillingOverview = async () => {
+    const res = await authFetch('/api/saas/overview?t=' + Date.now());
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Errore aggiornamento billing');
+    }
+    setBillingOverview(data);
+    return data;
+  };
+
   useEffect(() => {
     if (!isAuthenticated || isDemoMode || activeTab !== 'settings') {
       return;
@@ -1382,6 +1395,56 @@ function OmniApp() {
       }
     } catch {
       setBillingMessage('Errore di rete durante l’aggiornamento');
+    }
+    setBillingLoading(false);
+  };
+
+  const updateUserPlan = async (userId, planId) => {
+    if (isDemoMode) {
+      setBillingMessage('Demo mode: aggiornamento step disabilitato');
+      return;
+    }
+    setBillingLoading(true);
+    try {
+      const res = await authFetch('/api/saas/update-user-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, plan_id: planId }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await refreshBillingOverview();
+        setBillingMessage(data.message || 'Step aggiornato');
+      } else {
+        setBillingMessage(data.detail || 'Errore aggiornamento step');
+      }
+    } catch {
+      setBillingMessage('Errore di rete durante l’aggiornamento step');
+    }
+    setBillingLoading(false);
+  };
+
+  const extendUserSubscription = async (userId, months) => {
+    if (isDemoMode) {
+      setBillingMessage('Demo mode: rinnovo disabilitato');
+      return;
+    }
+    setBillingLoading(true);
+    try {
+      const res = await authFetch('/api/saas/extend-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, months }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await refreshBillingOverview();
+        setBillingMessage(data.message || 'Abbonamento aggiornato');
+      } else {
+        setBillingMessage(data.detail || 'Errore rinnovo abbonamento');
+      }
+    } catch {
+      setBillingMessage('Errore di rete durante il rinnovo');
     }
     setBillingLoading(false);
   };
@@ -3025,7 +3088,8 @@ function OmniApp() {
     const plans = overview.plans || [];
     const customers = overview.customers || [];
     const leads = overview.leads || [];
-    const activity = overview.recent_activity || [];
+    const activity = overview.activity_feed || [];
+    const paymentQueue = overview.payment_queue || overview.recent_activity || [];
 
     return (
       <div className="module-content module-content--billing">
@@ -3067,6 +3131,14 @@ function OmniApp() {
               {Number(metrics.trialing_customers || 0)} / {Number(metrics.leads_count || 0)}
             </div>
           </div>
+          <div className="card col-span-3">
+            <div className="card-title">In Scadenza</div>
+            <div className="portfolio-value" style={{ color: '#f59e0b' }}>{Number(metrics.expiring_soon || 0)}</div>
+          </div>
+          <div className="card col-span-3">
+            <div className="card-title">Da Recuperare</div>
+            <div className="portfolio-value" style={{ color: '#f43f5e' }}>{Number(metrics.past_due || 0)}</div>
+          </div>
         </div>
 
         <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
@@ -3078,7 +3150,9 @@ function OmniApp() {
                   <tr>
                     <th>Email</th>
                     <th>Status</th>
-                    <th>Scadenza Abbonamento</th>
+                    <th>Step / MRR</th>
+                    <th>Scadenza</th>
+                    <th>Accesso</th>
                     <th>Azioni Manuali</th>
                   </tr>
                 </thead>
@@ -3093,9 +3167,40 @@ function OmniApp() {
                         )}
                       </td>
                       <td><span className={`badge ${user.status === 'active' ? 'badge-active' : 'badge-idle'}`}>{user.status}</span></td>
-                      <td>{user.next_billing_at || '-'}</td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                        <div style={{ color: '#e2e8f0', fontWeight: 700 }}>€{Number(user.monthly_amount || 0).toFixed(0)}/mese</div>
+                        <select
+                          value={user.plan_id || 'pro'}
+                          onChange={(e) => updateUserPlan(user.id, e.target.value)}
+                          style={{ marginTop: '0.55rem', padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px' }}
+                        >
+                          {plans.map((plan) => (
+                            <option key={plan.id} value={plan.id}>{plan.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td>
+                        <div>{user.next_billing_at || '-'}</div>
+                        {typeof user.days_left === 'number' && (
+                          <div style={{ color: user.days_left < 0 ? '#f43f5e' : user.days_left <= 7 ? '#f59e0b' : 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '0.35rem' }}>
+                            {user.days_left < 0 ? `Scaduto da ${Math.abs(user.days_left)}g` : `${user.days_left} giorni residui`}
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', maxWidth: '220px' }}>
+                          {(user.modules_enabled || []).map((moduleName) => (
+                            <span key={moduleName} style={{ padding: '0.2rem 0.45rem', borderRadius: '999px', background: 'rgba(212,175,55,0.12)', color: '#d4af37', fontSize: '0.72rem', border: '1px solid rgba(212,175,55,0.22)' }}>
+                              {moduleName}
+                            </span>
+                          ))}
+                          {!user.modules_enabled?.length && (
+                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Nessun modulo</span>
+                          )}
+                        </div>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                           {user.status !== 'active' && (
                             <button className="btn btn-start" onClick={async () => {
                               if(!window.confirm('Vuoi attivare manualmente questo utente?')) return;
@@ -3104,22 +3209,26 @@ function OmniApp() {
                                   method: 'POST', headers: {'Content-Type': 'application/json'},
                                   body: JSON.stringify({ user_id: user.id })
                                 });
-                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
-                                setBillingOverview(await res2.json());
+                                await refreshBillingOverview();
                               } catch(e) {}
                             }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>
                               Attiva
                             </button>
                           )}
+                          <button className="btn btn-outline" onClick={() => extendUserSubscription(user.id, 1)} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>
+                            +30g
+                          </button>
+                          <button className="btn btn-outline" onClick={() => extendUserSubscription(user.id, 3)} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>
+                            +90g
+                          </button>
                           <button className="btn btn-outline" onClick={async () => {
                             if(!window.confirm('Eliminare definitivamente questo utente?')) return;
                             try {
                               await authFetch('/api/saas/delete-user', {
                                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ user_id: user.id })
+                                  body: JSON.stringify({ user_id: user.id })
                               });
-                              const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
-                              setBillingOverview(await res2.json());
+                              await refreshBillingOverview();
                             } catch(e) {}
                           }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444' }}>
                             Elimina
@@ -3128,7 +3237,7 @@ function OmniApp() {
                       </td>
                     </tr>
                   ))}
-                  {!customers?.length && <tr><td colSpan="4" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
+                  {!customers?.length && <tr><td colSpan="6" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -3148,7 +3257,7 @@ function OmniApp() {
                   </tr>
                 </thead>
                 <tbody>
-                  {billingOverview?.recent_activity?.map((payment) => (
+                  {paymentQueue?.map((payment) => (
                     <tr key={payment.id}>
                       <td>{payment.user_email}</td>
                       <td>{payment.amount} {payment.currency}</td>
@@ -3242,7 +3351,7 @@ function OmniApp() {
                       </td>
                     </tr>
                   ))}
-                  {!billingOverview?.recent_activity?.length && <tr><td colSpan="5" style={{textAlign:'center', color:'#888'}}>Nessun pagamento in coda</td></tr>}
+                  {!paymentQueue?.length && <tr><td colSpan="5" style={{textAlign:'center', color:'#888'}}>Nessun pagamento in coda</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -3257,6 +3366,11 @@ function OmniApp() {
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.76rem', marginTop: '0.4rem' }}>{item.created_at}</div>
                 </div>
               ))}
+              {!activity.length && (
+                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '0.85rem 0.9rem', color: 'var(--text-secondary)' }}>
+                  Nessuna attività registrata per ora.
+                </div>
+              )}
             </div>
           </div>
         </div>

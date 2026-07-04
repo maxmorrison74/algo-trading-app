@@ -1850,6 +1850,17 @@ def build_billing_overview():
         "settings": billing["settings"],
     }
 
+def append_billing_activity(label: str, activity_type: str = "admin_update"):
+    billing = load_billing_db()
+    billing["recent_activity"].insert(0, {
+        "id": f"act_{uuid4().hex[:8]}",
+        "type": activity_type,
+        "label": label,
+        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
+    })
+    billing["recent_activity"] = billing["recent_activity"][:20]
+    save_billing_db(billing)
+
 class LoginRequest(BaseModel):
     email: Optional[str] = None
     password: str
@@ -2609,6 +2620,14 @@ def verify_crypto_payment(req: VerifyPaymentRequest, admin_token: str = Depends(
 class AdminUserActionRequest(BaseModel):
     user_id: str
 
+class AdminUserExtendRequest(BaseModel):
+    user_id: str
+    months: int = 1
+
+class AdminUserPlanRequest(BaseModel):
+    user_id: str
+    plan_id: str
+
 @app.post("/api/saas/activate-user")
 def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
     user = db.get_user_by_id(req.user_id)
@@ -2626,7 +2645,54 @@ def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(
     
     conn.commit()
     conn.close()
+    append_billing_activity(f"Utente {user['email']} attivato sullo step {plan['name']}", "user_activated")
     return {"status": "success", "message": f"Utente attivato manualmente con step {plan['name']}."}
+
+@app.post("/api/saas/extend-user")
+def admin_extend_user(req: AdminUserExtendRequest, admin_token: str = Depends(require_admin)):
+    user = db.get_user_by_id(req.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Utente non trovato")
+    months = max(1, min(int(req.months or 1), 24))
+    now = datetime.utcnow()
+    current_exp = None
+    raw_exp = user.get("subscription_expires_at")
+    if raw_exp:
+        try:
+            current_exp = datetime.strptime(raw_exp, "%Y-%m-%d %H:%M:%S")
+        except Exception:
+            current_exp = None
+    start_from = current_exp if current_exp and current_exp > now else now
+    new_exp = start_from + timedelta(days=30 * months)
+
+    conn = db.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET status = 'active', subscription_expires_at = ? WHERE id = ?",
+        (new_exp.strftime("%Y-%m-%d %H:%M:%S"), req.user_id)
+    )
+    conn.commit()
+    conn.close()
+    append_billing_activity(f"Abbonamento esteso di {months} mese/i per {user['email']}", "subscription_extended")
+    return {
+        "status": "success",
+        "message": f"Abbonamento esteso di {months} mese/i. Nuova scadenza: {new_exp.strftime('%Y-%m-%d')}.",
+    }
+
+@app.post("/api/saas/update-user-plan")
+def admin_update_user_plan(req: AdminUserPlanRequest, admin_token: str = Depends(require_admin)):
+    user = db.get_user_by_id(req.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Utente non trovato")
+    plan = get_plan_for_user(req.plan_id)
+    db.update_user_plan(req.user_id, plan["id"])
+    append_billing_activity(f"Step aggiornato a {plan['name']} per {user['email']}", "plan_updated")
+    return {
+        "status": "success",
+        "message": f"Step utente aggiornato a {plan['name']}.",
+        "plan_id": plan["id"],
+        "plan_name": plan["name"],
+    }
 
 @app.post("/api/saas/delete-user")
 def admin_delete_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
@@ -2650,11 +2716,26 @@ def get_saas_overview_db(admin_token: str = Depends(require_admin)):
     # Calcolo metriche
     active_customers = len([u for u in users if u["status"] == "active"])
     mrr = round(sum(float((plans.get((u.get("plan_id") or "pro")) or plans.get("pro") or {}).get("price_monthly", 0) or 0) for u in users if u["status"] == "active"), 2)
+    now = datetime.utcnow()
+    expiring_soon = 0
+    past_due = 0
     
     # Formattazione per il frontend
     customers = []
     for u in users:
         plan = get_plan_for_user(u.get("plan_id"))
+        expiry_label = u.get("subscription_expires_at", "N/A")
+        days_left = None
+        if u.get("subscription_expires_at"):
+          try:
+              expiry_dt = datetime.strptime(u["subscription_expires_at"], "%Y-%m-%d %H:%M:%S")
+              days_left = (expiry_dt - now).days
+              if u["status"] == "active" and days_left < 0:
+                  past_due += 1
+              elif u["status"] == "active" and days_left <= 7:
+                  expiring_soon += 1
+          except Exception:
+              days_left = None
         customers.append({
             "id": u["id"],
             "email": u["email"],
@@ -2663,7 +2744,8 @@ def get_saas_overview_db(admin_token: str = Depends(require_admin)):
             "plan_id": plan["id"],
             "plan_name": plan["name"],
             "modules_enabled": plan.get("modules", []),
-            "next_billing_at": u.get("subscription_expires_at", "N/A"),
+            "next_billing_at": expiry_label,
+            "days_left": days_left,
             "monthly_amount": plan.get("price_monthly", 0),
             "created_at": u.get("created_at")
         })
@@ -2671,7 +2753,19 @@ def get_saas_overview_db(admin_token: str = Depends(require_admin)):
     return {
         "mrr": mrr,
         "active_customers": active_customers,
-        "recent_activity": payments[:10], # Ultimi pagamenti
+        "metrics": {
+            "monthly_recurring_revenue": mrr,
+            "annual_run_rate": round(mrr * 12, 2),
+            "active_customers": active_customers,
+            "trialing_customers": len([u for u in users if u["status"] == "pending"]),
+            "leads_count": 0,
+            "collection_rate": round((active_customers / len(users)) * 100, 1) if users else 0,
+            "expiring_soon": expiring_soon,
+            "past_due": past_due,
+        },
+        "payment_queue": payments[:10],
+        "activity_feed": load_billing_db().get("recent_activity", [])[:8],
+        "recent_activity": payments[:10],
         "customers": customers,
         "plans": list(plans.values()),
         "settings": {"currency": "USDT"}
