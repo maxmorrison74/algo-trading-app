@@ -553,6 +553,9 @@ function OmniApp() {
   const continueWithPlan = (planId) => {
     setSelectedPlanId(planId);
     setBillingLead((prev) => ({ ...prev, plan_id: planId }));
+    setLoginError('');
+    setPassword('');
+    setEmail('');
     setIsRegistering(true);
     setShowLanding(false);
   };
@@ -3231,12 +3234,20 @@ function OmniApp() {
 
     return (
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <div className="card" style={{ textAlign: 'center', width: '400px', padding: '3rem 2rem' }}>
+        <div className="card" style={{ textAlign: 'center', width: '440px', maxWidth: 'calc(100vw - 2rem)', padding: '3rem 2rem' }}>
           <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
           <p style={{ color: 'var(--text-secondary)', marginBottom: '0.6rem', fontSize: '0.9rem' }}>Ponte di Comando Autenticato</p>
           {selectedPlan && (
-            <div style={{ color: '#f5a623', marginBottom: '1.35rem', fontSize: '0.85rem', fontWeight: 700 }}>
-              Piano selezionato: {selectedPlan.name}
+            <div style={{ marginBottom: '1.35rem', textAlign: 'left', padding: '0.95rem 1rem', borderRadius: '14px', background: 'rgba(245, 166, 35, 0.08)', border: '1px solid rgba(245, 166, 35, 0.18)' }}>
+              <div style={{ color: '#f5a623', fontSize: '0.78rem', fontWeight: 800, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+                Piano selezionato
+              </div>
+              <div style={{ color: '#fff', fontSize: '1.05rem', fontWeight: 700, marginBottom: '0.25rem' }}>
+                {selectedPlan.name} · €{selectedPlan.price_monthly}/mese
+              </div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.5 }}>
+                {isRegistering ? 'Crea il tuo account per continuare con questo piano.' : 'Hai già un account? Accedi per continuare con questo piano.'}
+              </div>
             </div>
           )}
           <form onSubmit={handleLogin}>
@@ -3256,7 +3267,7 @@ function OmniApp() {
             />
             {loginError && <div style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
             <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>
-              {isRegistering ? 'CREA ACCOUNT' : 'ACCEDI'}
+              {isRegistering ? (selectedPlan ? `CREA ACCOUNT E CONTINUA CON ${selectedPlan.name.toUpperCase()}` : 'CREA ACCOUNT') : 'ACCEDI'}
             </button>
           </form>
           <button
@@ -3265,7 +3276,7 @@ function OmniApp() {
             onClick={() => setIsRegistering(!isRegistering)}
             style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
           >
-            {isRegistering ? 'HAI GIÀ UN ACCOUNT? ACCEDI' : 'NON HAI UN ACCOUNT? REGISTRATI'}
+            {isRegistering ? 'HAI GIÀ UN ACCOUNT? ACCEDI' : (selectedPlan ? `NON HAI UN ACCOUNT? REGISTRATI PER ${selectedPlan.name.toUpperCase()}` : 'NON HAI UN ACCOUNT? REGISTRATI')}
           </button>
           <button
             type="button"
