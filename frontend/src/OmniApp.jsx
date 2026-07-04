@@ -678,8 +678,9 @@ function OmniApp() {
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
-          // Successo registrazione, mostra il messaggio senza fare il login automatico.
-          setLoginError(data.message);
+          setIsRegistering(false);
+          setPassword('');
+          setLoginError(data.message || 'Account creato con successo. Ora puoi accedere.');
         } else {
           setLoginError(data.detail || 'Errore durante la registrazione');
         }
