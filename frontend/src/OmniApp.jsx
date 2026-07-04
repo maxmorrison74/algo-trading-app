@@ -74,6 +74,13 @@ const DEMO_BILLING_OVERVIEW = {
   settings: { trial_days: 7, currency: 'EUR' },
 };
 
+const FALLBACK_PAYMENT_RATES = {
+  EURUSD: 1.11,
+  BTCUSD: 118420,
+  ETHUSD: 6180,
+  SOLUSD: 242,
+};
+
 const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || '';
 const isDemoSession = () => localStorage.getItem(DEMO_MODE_KEY) === '1';
 const getCurrentPath = () => (typeof window !== 'undefined' ? window.location.pathname : '/');
@@ -328,11 +335,11 @@ function OmniApp() {
 
   const handleCryptoSubmit = async () => {
     if (!txid) return alert('Inserisci il TXID');
-    const paymentAmount = 99;
+    const paymentQuote = getCryptoPaymentQuote();
     try {
       const res = await authFetch('/api/billing/submit-txid', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txid, amount: paymentAmount, currency: selectedCrypto })
+        body: JSON.stringify({ txid, amount: paymentQuote.convertedAmount, currency: selectedCrypto })
       });
       const data = await res.json();
       setBillingMessage(data.message);
@@ -343,7 +350,8 @@ function OmniApp() {
 
   const renderCryptoPaywall = () => (
     (() => {
-      const paymentAmount = 99;
+      const paymentQuote = getCryptoPaymentQuote();
+      const selectedPlan = paymentQuote.plan;
       return (
     <div className="module-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', height: '100%', padding: '2rem' }}>
         <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#e2e8f0' }}>🔐 Account in attesa di sblocco</h2>
@@ -359,15 +367,26 @@ function OmniApp() {
             Seleziona la criptovaluta, invia l'importo all'indirizzo indicato e inserisci qui il Transaction ID (TXID) per la verifica manuale.
           </p>
 
+          {selectedPlan && (
+            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '0.9rem 1rem', marginBottom: '1rem' }}>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>
+                Step selezionato
+              </div>
+              <div style={{ color: '#e2e8f0', fontSize: '1.15rem', fontWeight: 700 }}>
+                {selectedPlan.name} · €{paymentQuote.eurAmount}/mese
+              </div>
+            </div>
+          )}
+
           <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', padding: '1rem', marginBottom: '1.2rem' }}>
             <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.45rem' }}>
               Importo da inviare
             </div>
             <div style={{ color: '#10b981', fontSize: '1.8rem', fontWeight: 800, lineHeight: 1 }}>
-              {paymentAmount} {selectedCrypto}
+              {paymentQuote.displayAmount} {selectedCrypto}
             </div>
             <div style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginTop: '0.45rem' }}>
-              Invia esattamente questo importo al wallet indicato qui sotto.
+              Equivalente a €{paymentQuote.eurAmount} per il piano {selectedPlan?.name || 'selezionato'}. Invia esattamente questo importo al wallet indicato qui sotto.
             </div>
           </div>
 
@@ -580,6 +599,73 @@ function OmniApp() {
   const syncLabel = isBackendOnline
     ? (lastStatusSync ? `Live • ${lastStatusSync}` : 'Live')
     : 'Offline';
+
+  const getBillingPlansCatalog = () => (
+    billingOverview?.plans?.length ? billingOverview.plans : DEMO_BILLING_OVERVIEW.plans
+  );
+
+  const getActiveBillingPlan = () => {
+    const plans = getBillingPlansCatalog();
+    const preferredPlanId = selectedPlanId || billingLead.plan_id || 'pro';
+    return plans.find((plan) => plan.id === preferredPlanId) || plans.find((plan) => plan.id === 'pro') || plans[0] || null;
+  };
+
+  const getPaymentRates = () => {
+    const rates = { ...FALLBACK_PAYMENT_RATES };
+    const sourceItems = landingTickerItems.length > 0 ? landingTickerItems : [
+      { market: 'BTC/USD', price: '$118,420' },
+      { market: 'ETH/USD', price: '$6,180' },
+      { market: 'SOL/USD', price: '$242' },
+      { market: 'EUR/USD', price: '1.11' },
+    ];
+
+    sourceItems.forEach((item) => {
+      const rawPrice = Number(String(item.price || '').replace(/[^0-9.]/g, ''));
+      if (!Number.isFinite(rawPrice) || rawPrice <= 0) return;
+      if (item.market === 'BTC/USD') rates.BTCUSD = rawPrice;
+      if (item.market === 'ETH/USD') rates.ETHUSD = rawPrice;
+      if (item.market === 'SOL/USD') rates.SOLUSD = rawPrice;
+      if (item.market === 'EUR/USD') rates.EURUSD = rawPrice;
+    });
+
+    return rates;
+  };
+
+  const getCryptoPaymentQuote = (plan = getActiveBillingPlan(), currency = selectedCrypto) => {
+    if (!plan) {
+      return {
+        plan: null,
+        eurAmount: 0,
+        convertedAmount: 0,
+        displayAmount: '0.00',
+      };
+    }
+
+    const rates = getPaymentRates();
+    const eurAmount = Number(plan.price_monthly || 0);
+    const amountInUsd = eurAmount * (rates.EURUSD || FALLBACK_PAYMENT_RATES.EURUSD);
+
+    let convertedAmount = amountInUsd;
+    let precision = 2;
+
+    if (currency === 'BTC') {
+      convertedAmount = amountInUsd / (rates.BTCUSD || FALLBACK_PAYMENT_RATES.BTCUSD);
+      precision = 8;
+    } else if (currency === 'ETH') {
+      convertedAmount = amountInUsd / (rates.ETHUSD || FALLBACK_PAYMENT_RATES.ETHUSD);
+      precision = 6;
+    } else if (currency === 'SOL') {
+      convertedAmount = amountInUsd / (rates.SOLUSD || FALLBACK_PAYMENT_RATES.SOLUSD);
+      precision = 4;
+    }
+
+    return {
+      plan,
+      eurAmount,
+      convertedAmount: Number(convertedAmount.toFixed(precision)),
+      displayAmount: convertedAmount.toFixed(precision),
+    };
+  };
 
   useEffect(() => {
     if (!BILLING_ENABLED && activeTab === 'saas') {
@@ -3612,7 +3698,7 @@ function OmniApp() {
           
           {userRole === 'user' && (
             <button className="btn btn-start" onClick={() => setShowPaymentModal(true)} style={{ width: '100%', marginTop: '1rem', fontSize: '1rem', padding: '0.8rem', background: 'linear-gradient(90deg, #f59e0b, #d97706)', border: 'none', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)' }}>
-              💎 Sblocca Pro / Paga
+              💎 Sblocca {getActiveBillingPlan()?.name || 'Piano'} / Paga
             </button>
           )}
 
