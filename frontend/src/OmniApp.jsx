@@ -1118,7 +1118,7 @@ function OmniApp() {
               <span style={{ color: passkeyStatus?.configured ? '#10b981' : 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 500 }}>
                 {passkeyStatus?.configured ? `✓ Attivo (${passkeyStatus.credentials_count} credenziali)` : 'Disattivato'}
               </span>
-              <button className="btn btn-outline" onClick={handlePasskeyRegister} disabled={!passkeySupported || passkeyBusy || isDemoMode}>
+              <button className="btn btn-outline" onClick={registerCurrentDevicePasskey} disabled={!passkeySupported || passkeyBusy || isDemoMode}>
                 {passkeyBusy ? 'Configurazione...' : 'Aggiungi dispositivo'}
               </button>
             </div>
