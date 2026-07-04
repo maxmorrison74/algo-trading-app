@@ -2026,24 +2026,48 @@ class KeysRequest(BaseModel):
 def get_keys(user: dict = Depends(require_user)):
     keys = {}
     try:
+        def mask_value(value: str) -> str:
+            if not value:
+                return ""
+            return value[:4] + "*" * 10 if len(value) > 4 else "***"
+
+        env_keys = {}
         # Global AI keys (masked) per tutti, lette dal file .env
         if os.path.exists(API_KEYS_FILE):
             with open(API_KEYS_FILE, "r") as f:
                 for line in f:
                     if "=" in line:
                         k, v = line.strip().split("=", 1)
+                        env_keys[k] = v
                         if v and k in ["ELEVENLABS_KEY", "THEODDS_KEY", "GROQ_KEY", "NEWSAPI_KEY"]:
-                            keys[k] = v[:4] + "*" * 10 if len(v) > 4 else "***"
+                            keys[k] = mask_value(v)
         if os.path.exists(".env.gcp.json"):
             keys["GOOGLE_APPLICATION_CREDENTIALS"] = "MASKED_JSON"
             
-        # Per le chiavi di trading (Alpaca, Binance, Kraken), le leggiamo dal DB per l'utente specifico
+        # Per le chiavi di trading leggiamo prima il DB utente
         user_keys = db.get_api_keys(user["sub"])
         if user_keys:
-            if user_keys.get("alpaca_key"): keys["ALPACA_KEY"] = user_keys["alpaca_key"][:4] + "***"
-            if user_keys.get("alpaca_secret"): keys["ALPACA_SECRET"] = user_keys["alpaca_secret"][:4] + "***"
-            if user_keys.get("binance_key"): keys["BINANCE_KEY"] = user_keys["binance_key"][:4] + "***"
-            if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = user_keys["binance_secret"][:4] + "***"
+            if user_keys.get("alpaca_key"): keys["ALPACA_KEY"] = mask_value(user_keys["alpaca_key"])
+            if user_keys.get("alpaca_secret"): keys["ALPACA_SECRET"] = mask_value(user_keys["alpaca_secret"])
+            if user_keys.get("binance_key"): keys["BINANCE_KEY"] = mask_value(user_keys["binance_key"])
+            if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = mask_value(user_keys["binance_secret"])
+            if user_keys.get("kraken_key"): keys["KRAKEN_KEY"] = mask_value(user_keys["kraken_key"])
+            if user_keys.get("kraken_secret"): keys["KRAKEN_SECRET"] = mask_value(user_keys["kraken_secret"])
+
+        # Per l'admin facciamo fallback alle chiavi legacy in .env,
+        # così la UI mostra "Presente" anche se il test legge ancora da lì.
+        if user.get("role") == "admin":
+            legacy_pairs = [
+                ("ALPACA_KEY", "ALPACA_KEY"),
+                ("ALPACA_SECRET", "ALPACA_SECRET"),
+                ("BINANCE_KEY", "BINANCE_KEY"),
+                ("BINANCE_SECRET", "BINANCE_SECRET"),
+                ("KRAKEN_KEY", "KRAKEN_KEY"),
+                ("KRAKEN_SECRET", "KRAKEN_SECRET"),
+            ]
+            for output_key, env_key in legacy_pairs:
+                if not keys.get(output_key) and env_keys.get(env_key):
+                    keys[output_key] = mask_value(env_keys[env_key])
     except Exception as e:
         keys["ERROR"] = str(e)
     return keys
@@ -2064,7 +2088,9 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
             alpaca_key=merge_user_key(req.alpaca_key, user_keys.get("alpaca_key")),
             alpaca_secret=merge_user_key(req.alpaca_secret, user_keys.get("alpaca_secret")),
             binance_key=merge_user_key(req.binance_key, user_keys.get("binance_key")),
-            binance_secret=merge_user_key(req.binance_secret, user_keys.get("binance_secret"))
+            binance_secret=merge_user_key(req.binance_secret, user_keys.get("binance_secret")),
+            kraken_key=merge_user_key(req.kraken_key, user_keys.get("kraken_key")),
+            kraken_secret=merge_user_key(req.kraken_secret, user_keys.get("kraken_secret")),
         )
 
         # 2. Solo l'admin può salvare le chiavi globali AI in .env

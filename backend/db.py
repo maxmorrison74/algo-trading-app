@@ -58,9 +58,18 @@ def init_db():
             alpaca_secret TEXT,
             binance_key TEXT,
             binance_secret TEXT,
+            kraken_key TEXT,
+            kraken_secret TEXT,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )
     ''')
+
+    cursor.execute("PRAGMA table_info(api_keys)")
+    existing_columns = {row[1] for row in cursor.fetchall()}
+    if "kraken_key" not in existing_columns:
+        cursor.execute("ALTER TABLE api_keys ADD COLUMN kraken_key TEXT")
+    if "kraken_secret" not in existing_columns:
+        cursor.execute("ALTER TABLE api_keys ADD COLUMN kraken_secret TEXT")
     
     # Crypto Payments table
     cursor.execute('''
@@ -141,7 +150,15 @@ def update_subscription(user_id: str, expires_at: str):
     conn.close()
 
 # API Keys Operations
-def save_api_keys(user_id: str, alpaca_key: str = "", alpaca_secret: str = "", binance_key: str = "", binance_secret: str = ""):
+def save_api_keys(
+    user_id: str,
+    alpaca_key: str = "",
+    alpaca_secret: str = "",
+    binance_key: str = "",
+    binance_secret: str = "",
+    kraken_key: str = "",
+    kraken_secret: str = "",
+):
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -150,21 +167,23 @@ def save_api_keys(user_id: str, alpaca_key: str = "", alpaca_secret: str = "", b
     if cursor.fetchone():
         cursor.execute("""
             UPDATE api_keys 
-            SET alpaca_key = ?, alpaca_secret = ?, binance_key = ?, binance_secret = ? 
+            SET alpaca_key = ?, alpaca_secret = ?, binance_key = ?, binance_secret = ?, kraken_key = ?, kraken_secret = ?
             WHERE user_id = ?
         """, (
             encrypt_value(alpaca_key), encrypt_value(alpaca_secret),
             encrypt_value(binance_key), encrypt_value(binance_secret),
+            encrypt_value(kraken_key), encrypt_value(kraken_secret),
             user_id
         ))
     else:
         cursor.execute("""
-            INSERT INTO api_keys (user_id, alpaca_key, alpaca_secret, binance_key, binance_secret)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO api_keys (user_id, alpaca_key, alpaca_secret, binance_key, binance_secret, kraken_key, kraken_secret)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (
             user_id,
             encrypt_value(alpaca_key), encrypt_value(alpaca_secret),
-            encrypt_value(binance_key), encrypt_value(binance_secret)
+            encrypt_value(binance_key), encrypt_value(binance_secret),
+            encrypt_value(kraken_key), encrypt_value(kraken_secret)
         ))
         
     conn.commit()
@@ -184,7 +203,9 @@ def get_api_keys(user_id: str):
         "alpaca_key": decrypt_value(row['alpaca_key']),
         "alpaca_secret": decrypt_value(row['alpaca_secret']),
         "binance_key": decrypt_value(row['binance_key']),
-        "binance_secret": decrypt_value(row['binance_secret'])
+        "binance_secret": decrypt_value(row['binance_secret']),
+        "kraken_key": decrypt_value(row['kraken_key']),
+        "kraken_secret": decrypt_value(row['kraken_secret']),
     }
 
 # Crypto Payments Operations
