@@ -2974,7 +2974,7 @@ function OmniApp() {
     const landingStats = [
       { value: '24/7', label: 'visibilità costante su capitale, segnali e rischio' },
       { value: 'Multi-device', label: 'esperienza fluida su iPhone, Android, tablet e desktop' },
-      { value: '3 percorsi', label: 'accessi pensati per livelli operativi diversi' },
+      { value: '3 step', label: 'accessi pensati per livelli operativi diversi' },
     ];
     const landingFeatures = [
       {
@@ -3016,7 +3016,7 @@ function OmniApp() {
       },
       {
         number: '2',
-        title: 'Scegli il percorso',
+        title: 'Scegli lo step',
         text: 'L’utente capisce con chiarezza quale accesso è più adatto al suo profilo, senza confusione.',
       },
       {
@@ -3064,7 +3064,7 @@ function OmniApp() {
             <div className="sales-nav-links">
               <a href="#landing-features">Funzionalità</a>
               <a href="#landing-flow">Percorso</a>
-              <a href="#landing-pricing">Percorsi</a>
+              <a href="#landing-pricing">Step</a>
               <a href="#landing-proof">Impatto</a>
             </div>
             <div className="sales-nav-actions">
@@ -3097,7 +3097,7 @@ function OmniApp() {
                 </p>
                 <div className="sales-hero-buttons">
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
-                    Scopri i percorsi
+                    Scopri gli step
                   </button>
                 </div>
                 <div className="sales-stats-row">
@@ -3189,7 +3189,7 @@ function OmniApp() {
 
             <section className="sales-section" id="landing-pricing">
               <div className="sales-section-header">
-                <h2>Scegli il percorso perfetto per te</h2>
+                <h2>Scegli lo step perfetto per te</h2>
                 <p>Una sezione piani più vicina alla pagina originale, ma con contenuti Aureo e onboarding già collegato.</p>
               </div>
               <div className="sales-pricing-grid">
@@ -3235,7 +3235,7 @@ function OmniApp() {
                     <p>
                       {isRegistering
                         ? 'Completa qui la registrazione e continua senza uscire dalla pagina.'
-                        : 'Se hai già un account, entra qui sotto e prosegui direttamente con il percorso scelto.'}
+                        : 'Se hai già un account, entra qui sotto e prosegui direttamente con lo step scelto.'}
                     </p>
                   </div>
                   <input
@@ -3274,7 +3274,7 @@ function OmniApp() {
                       setEmail('');
                     }}
                   >
-                    Cambia percorso
+                    Cambia step
                   </button>
                 </form>
               </section>
@@ -3314,7 +3314,7 @@ function OmniApp() {
                     ))}
                   </div>
                   <div className="sales-hero-buttons sales-hero-buttons--center">
-                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Vedi i percorsi</button>
+                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Vedi gli step</button>
                     <button className="btn btn-outline btn-large" onClick={() => setShowLanding(false)}>Accedi ora</button>
                   </div>
                 </div>
@@ -3333,7 +3333,7 @@ function OmniApp() {
                 <div className="sales-footer-links">
                   <h4>Prodotto</h4>
                   <a href="#landing-features">Funzionalità</a>
-                  <a href="#landing-pricing">Percorsi</a>
+                  <a href="#landing-pricing">Step</a>
                 </div>
                 <div className="sales-footer-links">
                   <h4>Esperienza</h4>
