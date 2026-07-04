@@ -2933,6 +2933,73 @@ function OmniApp() {
   if (!isAuthenticated) {
     const landingPlans = DEMO_BILLING_OVERVIEW.plans || [];
     const selectedPlan = landingPlans.find((plan) => plan.id === selectedPlanId);
+    const landingStats = [
+      { value: '1 piattaforma', label: 'per dashboard, trading, AI e security' },
+      { value: '3 piani', label: 'pronti da presentare e monetizzare' },
+      { value: '24/7', label: 'impressione di controllo operativo continuo' },
+      { value: 'Mobile first', label: 'esperienza pronta su iPhone, Android, tablet e desktop' },
+    ];
+    const landingAudiences = [
+      {
+        title: 'Per consulenti e trader',
+        text: 'Presenti un ecosistema premium che alza subito la percezione di autorevolezza e competenza.',
+      },
+      {
+        title: 'Per club deal e desk',
+        text: 'Offri accessi differenziati, demo guidata e narrativa di prodotto adatta a clienti ad alto valore.',
+      },
+      {
+        title: 'Per vendita SaaS',
+        text: 'Usi la piattaforma come base commerciale per onboarding, trial, upgrade e canone ricorrente.',
+      },
+    ];
+    const landingFlow = [
+      'L’utente arriva su una pagina che comunica valore e posizionamento premium.',
+      'Scopre moduli, vantaggi e casi d’uso senza essere subito mandato al login.',
+      'Sceglie un piano e viene accompagnato verso registrazione, demo o accesso.',
+    ];
+    const landingTestimonials = [
+      {
+        quote: 'Sembra una control room da private desk, non la solita dashboard improvvisata.',
+        author: 'Impressione tipica del cliente premium',
+      },
+      {
+        quote: 'La demo fa capire subito il potenziale commerciale del prodotto.',
+        author: 'Valore percepito in fase di presentazione',
+      },
+      {
+        quote: 'L’interfaccia comunica solidità, ordine e un posizionamento alto di gamma.',
+        author: 'Effetto desiderato per vendita e conversione',
+      },
+    ];
+    const landingFaqs = [
+      {
+        question: 'È adatta solo a trader professionisti?',
+        answer: 'No. La struttura è abbastanza premium per clienti evoluti, ma abbastanza chiara da guidare anche utenti che vogliono un accesso più semplice e assistito.',
+      },
+      {
+        question: 'Si può mostrare prima di far fare login?',
+        answer: 'Sì, ed è proprio il punto forte di questa impostazione: prima fai percepire valore, poi inviti alla scelta del piano o all’accesso.',
+      },
+      {
+        question: 'Può diventare un prodotto vendibile a canone?',
+        answer: 'Sì. L’architettura dei piani, la demo e il posizionamento premium sono già pensati per una logica SaaS o membership.',
+      },
+      {
+        question: 'Funziona bene anche su mobile?',
+        answer: 'Sì. La landing è stata rifinita per rendere bene su smartphone, tablet e desktop, così puoi venderla su qualsiasi dispositivo.',
+      },
+    ];
+    const landingTrustPillars = [
+      'Presentazione premium prima del login',
+      'Percorso chiaro verso piani e acquisto',
+      'Esperienza coerente tra vendita, demo e accesso',
+    ];
+    const landingHeroHighlights = [
+      'Esperienza visiva da control room premium',
+      'Struttura perfetta per demo, lead e vendita',
+      'Messaggio forte già dal primo scroll',
+    ];
     if (showLanding) {
       return (
         <div className="landing-shell">
@@ -2941,13 +3008,26 @@ function OmniApp() {
               <div className="landing-badge">AUREO OS · Trading intelligence che vende risultati</div>
               <div className="landing-hero-grid">
                 <div className="landing-copy">
-                  <img src="/aureo-logo.jpg" alt="AUREO" className="landing-logo" />
+                  <div className="landing-brand-lockup">
+                    <div className="landing-logo-frame">
+                      <img src="/aureo-icon.png" alt="AUREO" className="landing-logo" />
+                    </div>
+                    <div className="landing-brand-copy">
+                      <div className="landing-brand-name">AUREO OS</div>
+                      <div className="landing-brand-tag">Crypto, investing intelligence & premium execution layer</div>
+                    </div>
+                  </div>
                   <h1 className="landing-title">
                     Trasforma il capitale in una macchina operativa con <span>AUREO OS</span>
                   </h1>
                   <p className="landing-subtitle">
                     Un ecosistema premium che unisce dashboard, trading quantitativo, radar AI, DeFi monitoring e sicurezza avanzata in un’unica esperienza pronta da vendere.
                   </p>
+                  <div className="landing-hero-highlights">
+                    {landingHeroHighlights.map((item) => (
+                      <div key={item} className="landing-hero-highlight">✓ {item}</div>
+                    ))}
+                  </div>
                   <div className="landing-cta-row">
                     <button className="btn btn-start landing-primary-cta" onClick={openPricingSection}>
                       SCOPRI LE OPZIONI ACQUISTABILI
@@ -3000,6 +3080,17 @@ function OmniApp() {
               </div>
             </section>
 
+            <section className="landing-section landing-section--stats">
+              <div className="landing-stats-grid">
+                {landingStats.map((item) => (
+                  <div key={item.value} className="landing-stat-card">
+                    <div className="landing-stat-value">{item.value}</div>
+                    <div className="landing-stat-label">{item.label}</div>
+                  </div>
+                ))}
+              </div>
+            </section>
+
             <section className="landing-section">
               <div className="landing-section-head">
                 <div className="landing-kicker">Punti di forza</div>
@@ -3022,6 +3113,66 @@ function OmniApp() {
                   <h3>Adatto a investitori moderni</h3>
                   <p>Parla il linguaggio giusto: AI, automazione, controllo del rischio, accesso biometrico e compatibilità multi-dispositivo.</p>
                 </article>
+              </div>
+            </section>
+
+            <section className="landing-section">
+              <div className="landing-section-head">
+                <div className="landing-kicker">Per chi è perfetta</div>
+                <h2>Costruita per essere desiderabile, credibile e facile da proporre</h2>
+              </div>
+              <div className="landing-audience-grid">
+                {landingAudiences.map((item) => (
+                  <article key={item.title} className="landing-audience-card">
+                    <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="landing-section">
+              <div className="landing-section-head">
+                <div className="landing-kicker">Come converte</div>
+                <h2>Un percorso semplice che porta dalla curiosità alla scelta del piano</h2>
+              </div>
+              <div className="landing-flow-grid">
+                {landingFlow.map((step, index) => (
+                  <article key={step} className="landing-flow-card">
+                    <div className="landing-flow-index">0{index + 1}</div>
+                    <p>{step}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="landing-section">
+              <div className="landing-section-head">
+                <div className="landing-kicker">Impatto percepito</div>
+                <h2>Messaggi che rafforzano la fiducia prima ancora del primo click operativo</h2>
+              </div>
+              <div className="landing-testimonial-grid">
+                {landingTestimonials.map((item) => (
+                  <article key={item.quote} className="landing-testimonial-card">
+                    <div className="landing-testimonial-quote">“{item.quote}”</div>
+                    <div className="landing-testimonial-author">{item.author}</div>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="landing-section">
+              <div className="landing-section-head">
+                <div className="landing-kicker">Obiezioni comuni</div>
+                <h2>Risposte semplici alle domande che frenano la conversione</h2>
+              </div>
+              <div className="landing-faq-grid">
+                {landingFaqs.map((item) => (
+                  <article key={item.question} className="landing-faq-card">
+                    <h3>{item.question}</h3>
+                    <p>{item.answer}</p>
+                  </article>
+                ))}
               </div>
             </section>
 
@@ -3062,6 +3213,11 @@ function OmniApp() {
                 <div className="landing-kicker">Call to action finale</div>
                 <h2>Fai percepire valore prima ancora del login</h2>
                 <p>Presenta il prodotto, fai scegliere un’offerta e poi accompagna l’utente all’accesso o alla registrazione.</p>
+                <div className="landing-trust-row">
+                  {landingTrustPillars.map((item) => (
+                    <div key={item} className="landing-trust-pill">{item}</div>
+                  ))}
+                </div>
               </div>
               <div className="landing-bottom-actions">
                 <button className="btn btn-start" onClick={openPricingSection}>VEDI I PIANI</button>

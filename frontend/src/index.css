@@ -132,12 +132,49 @@ body {
   min-width: 0;
 }
 
+.landing-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.35rem;
+}
+
+.landing-logo-frame {
+  width: 108px;
+  height: 108px;
+  border-radius: 24px;
+  background: linear-gradient(160deg, rgba(245, 166, 35, 0.12), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(245, 166, 35, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04), 0 14px 30px rgba(0,0,0,0.18);
+  flex-shrink: 0;
+}
+
 .landing-logo {
-  width: min(100%, 300px);
-  max-height: 160px;
+  width: 68px;
+  height: 68px;
   object-fit: contain;
-  margin-bottom: 1.3rem;
-  filter: drop-shadow(0 0 24px rgba(16, 185, 129, 0.14));
+  filter: drop-shadow(0 0 20px rgba(245, 166, 35, 0.16));
+}
+
+.landing-brand-copy {
+  min-width: 0;
+}
+
+.landing-brand-name {
+  font-size: clamp(1.3rem, 2vw, 1.9rem);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  color: #f4d58d;
+  margin-bottom: 0.35rem;
+}
+
+.landing-brand-tag {
+  color: var(--text-secondary);
+  font-size: 0.92rem;
+  line-height: 1.5;
 }
 
 .landing-title {
@@ -159,10 +196,28 @@ body {
   max-width: 720px;
 }
 
+.landing-hero-highlights {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 1.15rem;
+  margin-bottom: 0.2rem;
+}
+
+.landing-hero-highlight {
+  color: #d9e9f3;
+  font-size: 0.94rem;
+  line-height: 1.5;
+}
+
 .landing-cta-row,
 .landing-proof-row,
 .landing-mini-grid,
 .landing-feature-grid,
+.landing-stats-grid,
+.landing-audience-grid,
+.landing-flow-grid,
+.landing-testimonial-grid,
+.landing-faq-grid,
 .landing-pricing-grid,
 .landing-bottom-actions {
   display: grid;
@@ -191,9 +246,41 @@ body {
 .landing-proof-card,
 .landing-mini-card,
 .landing-feature-card,
+.landing-stat-card,
+.landing-audience-card,
+.landing-flow-card,
+.landing-testimonial-card,
+.landing-faq-card,
 .landing-plan-card {
   border: 1px solid rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
+}
+
+.landing-section--stats {
+  padding: 1.15rem;
+}
+
+.landing-stats-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.landing-stat-card {
+  padding: 1.15rem;
+  border-radius: 20px;
+  text-align: left;
+}
+
+.landing-stat-value {
+  font-size: clamp(1.35rem, 2.4vw, 2.1rem);
+  font-weight: 800;
+  color: var(--text-primary);
+  margin-bottom: 0.35rem;
+}
+
+.landing-stat-label {
+  color: var(--text-secondary);
+  line-height: 1.55;
+  font-size: 0.92rem;
 }
 
 .landing-proof-card {
@@ -306,6 +393,101 @@ body {
   font-size: 1.08rem;
 }
 
+.landing-audience-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.landing-audience-card {
+  padding: 1.35rem;
+  border-radius: 22px;
+}
+
+.landing-audience-card h3,
+.landing-flow-card p,
+.landing-testimonial-quote {
+  color: var(--text-primary);
+}
+
+.landing-audience-card h3 {
+  margin-bottom: 0.7rem;
+  font-size: 1.05rem;
+}
+
+.landing-audience-card p {
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
+.landing-flow-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.landing-flow-card {
+  padding: 1.3rem;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.landing-flow-index {
+  width: fit-content;
+  padding: 0.32rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(0, 212, 170, 0.12);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  color: #7dddc8;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.landing-flow-card p {
+  line-height: 1.65;
+}
+
+.landing-testimonial-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.landing-testimonial-card {
+  padding: 1.35rem;
+  border-radius: 22px;
+}
+
+.landing-testimonial-quote {
+  font-size: 1.05rem;
+  line-height: 1.65;
+  margin-bottom: 0.9rem;
+}
+
+.landing-testimonial-author {
+  color: var(--accent-gold-light);
+  font-size: 0.84rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.landing-faq-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.landing-faq-card {
+  padding: 1.35rem;
+  border-radius: 22px;
+}
+
+.landing-faq-card h3 {
+  color: var(--text-primary);
+  margin-bottom: 0.7rem;
+  font-size: 1.02rem;
+}
+
+.landing-faq-card p {
+  color: var(--text-secondary);
+  line-height: 1.65;
+}
+
 .landing-pricing-grid {
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
@@ -390,6 +572,23 @@ body {
 .landing-bottom-cta p {
   color: var(--text-secondary);
   line-height: 1.6;
+}
+
+.landing-trust-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.landing-trust-pill {
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  color: #dbe8f3;
+  font-size: 0.84rem;
+  line-height: 1.3;
 }
 
 .landing-bottom-actions {
@@ -636,6 +835,11 @@ body {
   .col-span-8 { grid-column: span 12; }
 
   .landing-hero-grid,
+  .landing-stats-grid,
+  .landing-audience-grid,
+  .landing-flow-grid,
+  .landing-testimonial-grid,
+  .landing-faq-grid,
   .landing-pricing-grid {
     grid-template-columns: 1fr;
   }
@@ -655,6 +859,11 @@ body {
   .landing-proof-row,
   .landing-feature-grid,
   .landing-mini-grid,
+  .landing-stats-grid,
+  .landing-audience-grid,
+  .landing-flow-grid,
+  .landing-testimonial-grid,
+  .landing-faq-grid,
   .landing-bottom-cta,
   .landing-bottom-actions {
     grid-template-columns: 1fr;
@@ -1233,6 +1442,31 @@ input:focus, textarea:focus, select:focus {
     padding: 0.75rem 0 2rem;
   }
 
+  .landing-brand-lockup {
+    align-items: flex-start;
+  }
+
+  .landing-logo-frame {
+    width: 84px;
+    height: 84px;
+    border-radius: 20px;
+  }
+
+  .landing-logo {
+    width: 54px;
+    height: 54px;
+  }
+
+  .landing-brand-name {
+    font-size: 1.1rem;
+    letter-spacing: 0.12em;
+  }
+
+  .landing-brand-tag,
+  .landing-hero-highlight {
+    font-size: 0.88rem;
+  }
+
   .landing-hero,
   .landing-section,
   .landing-bottom-cta {
@@ -1271,8 +1505,17 @@ input:focus, textarea:focus, select:focus {
   .landing-proof-card,
   .landing-mini-card,
   .landing-feature-card,
+  .landing-stat-card,
+  .landing-audience-card,
+  .landing-flow-card,
+  .landing-testimonial-card,
+  .landing-faq-card,
   .landing-plan-card {
     padding: 0.95rem;
+  }
+
+  .landing-testimonial-quote {
+    font-size: 0.96rem;
   }
 
   .main-content {
