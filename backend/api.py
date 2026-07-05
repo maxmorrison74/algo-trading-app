@@ -2421,6 +2421,7 @@ def admin_activate_demo(req: AdminUserActionRequest, admin_token: str = Depends(
     conn.close()
     return {"status": "success", "message": "Demo full temporanea di 2 ore attivata."}
 
+
 @app.post("/api/saas/delete-user")
 def admin_delete_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
     conn = db.get_db_connection()
