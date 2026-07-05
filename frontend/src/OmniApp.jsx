@@ -657,6 +657,25 @@ function OmniApp() {
     } catch(e) {}
   };
 
+
+  const openPricingSection = () => {
+    setShowLandingPlans(true);
+    if (typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        const element = document.getElementById('landing-pricing');
+        element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 80);
+    }
+  };
+
+  const continueWithPlan = (planId) => {
+    setSelectedPlanId(planId);
+    setBillingLead((prev) => ({ ...prev, plan_id: planId }));
+    setLoginError('');
+    setPassword('');
+    setEmail('');
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
@@ -3131,6 +3150,9 @@ function OmniApp() {
 
   
   if (!isAuthenticated) {
+
+    const landingPlans = DEMO_BILLING_OVERVIEW.plans || [];
+    const selectedPlan = landingPlans.find((plan) => plan.id === selectedPlanId);
     const landingTicker = [
       { market: 'BTC/USD', price: '$118,420', change: '+2.6%', direction: 'up' },
       { market: 'ETH/USD', price: '$6,180', change: '+1.9%', direction: 'up' },
