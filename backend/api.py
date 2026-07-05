@@ -1054,9 +1054,9 @@ async def toggle_module(payload: dict, user: dict = Depends(require_user)):
     user_id = user.get("sub", "admin")
     u_bot_state = get_user_bot_state(user_id)
     u_alpaca_engine = get_user_alpaca_engine(user_id)
-    u_arb_engine = get_user_arb_engine(user_id)
-    u_sports_engine = get_user_sports_engine(user_id)
-    u_ai_engine = get_user_ai_engine(user_id)
+    u_arb_engine = arb_engine
+    u_sports_engine = sports_engine
+    u_ai_engine = ai_engine
     
     # Sentiment Engine (global or specific, let's assume it exists globally as fallback)
     u_sentiment_engine = sentiment_engine
