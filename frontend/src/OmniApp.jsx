@@ -3174,6 +3174,7 @@ function OmniApp() {
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           {user.status !== 'active' && (
+                            <>
                             <button className="btn btn-start" onClick={async () => {
                               if(!window.confirm('Vuoi attivare manualmente questo utente (GRATIS)?')) return;
                               try {
@@ -3185,8 +3186,22 @@ function OmniApp() {
                                 setBillingOverview(await res2.json());
                               } catch(e) {}
                             }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}>
-                              Attiva
+                              Attiva (Gratis)
                             </button>
+                            <button className="btn btn-start" onClick={async () => {
+                              if(!window.confirm('Vuoi attivare manualmente questo utente (PAGATO)?')) return;
+                              try {
+                                await authFetch('/api/saas/activate-paid', {
+                                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                                  body: JSON.stringify({ user_id: user.id })
+                                });
+                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                                setBillingOverview(await res2.json());
+                              } catch(e) {}
+                            }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem', background: '#d4af37', color: 'black' }}>
+                              Attiva (Pagato)
+                            </button>
+                            </>
                           )}
                           <button className="btn btn-outline" onClick={async () => {
                             if(!window.confirm('Eliminare definitivamente questo utente?')) return;

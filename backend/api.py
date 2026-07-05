@@ -2480,7 +2480,23 @@ def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(
     
     conn.commit()
     conn.close()
-    return {"status": "success", "message": "Utente attivato manualmente."}
+    return {"status": "success", "message": "Utente attivato manualmente (Gratis)."}
+
+@app.post("/api/saas/activate-paid")
+def admin_activate_paid(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
+    conn = db.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET status = 'active' WHERE id = ?", (req.user_id,))
+    
+    # Imposta scadenza a 30 giorni da oggi e segna come pagato
+    from datetime import datetime, timedelta
+    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    new_exp = datetime.utcnow() + timedelta(days=30)
+    cursor.execute("UPDATE users SET subscription_expires_at = ?, paid_at = COALESCE(paid_at, ?) WHERE id = ?", (new_exp.strftime("%Y-%m-%d %H:%M:%S"), now_str, req.user_id))
+    
+    conn.commit()
+    conn.close()
+    return {"status": "success", "message": "Utente attivato manualmente (PAGATO)."}
 
 @app.post("/api/saas/activate-demo")
 def admin_activate_demo(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
