@@ -560,13 +560,12 @@ function OmniApp() {
     setIsAuthenticated(false);
     setShowLanding(true);
   };
-
   const [isDemoMode, setIsDemoMode] = useState(isDemoSession());
 
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  const [userRole, setUserRole] = useState(localStorage.getItem('USER_ROLE') || 'admin');
+  const [userRole, setUserRole] = useState(localStorage.getItem('USER_ROLE') || 'user');
   const [userStatus, setUserStatus] = useState(localStorage.getItem('USER_STATUS') || 'active');
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
@@ -661,7 +660,7 @@ function OmniApp() {
     fetchChart();
   }, [selectedSymbol, timeframe]);
 
-  const completeAuthenticatedSession = (token, role = 'admin', status = 'active') => {
+  const completeAuthenticatedSession = (token, role = 'user', status = 'active') => {
     setIsAuthenticated(true);
     const demo = (status === 'pending');
     setIsDemoMode(demo);
@@ -768,7 +767,7 @@ function OmniApp() {
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
-          completeAuthenticatedSession(data.token, data.role || 'admin', data.user_status || 'active');
+          completeAuthenticatedSession(data.token, data.role || 'user', data.user_status || 'active');
         } else {
           clearAuthSession();
           setIsAuthenticated(false);
