@@ -721,11 +721,6 @@ function OmniApp() {
       } catch (err) {
         setIsBackendOnline(false);
         console.error("Backend offline", err);
-        // Force an alert just once to show the user the EXACT error so they can report it to me!
-        if (!window.hasAlertedOfflineError) {
-           window.hasAlertedOfflineError = true;
-           alert("Errore di Rete / API status (mandami questo!): " + err.toString());
-        }
       }
     };
     fetchStatus();

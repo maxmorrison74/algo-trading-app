@@ -1012,6 +1012,11 @@ def get_status(user_id="admin"):
 
 import math
 def sanitize_nans(obj):
+    if type(obj).__module__ == 'numpy':
+        try:
+            obj = obj.item()
+        except:
+            pass
     if isinstance(obj, float):
         if math.isnan(obj) or math.isinf(obj):
             return 0.0
