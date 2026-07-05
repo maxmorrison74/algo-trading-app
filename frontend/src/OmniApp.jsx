@@ -3131,24 +3131,394 @@ function OmniApp() {
 
   
   if (!isAuthenticated) {
+    const landingTicker = [
+      { market: 'BTC/USD', price: '$118,420', change: '+2.6%', direction: 'up' },
+      { market: 'ETH/USD', price: '$6,180', change: '+1.9%', direction: 'up' },
+      { market: 'SOL/USD', price: '$242', change: '+4.2%', direction: 'up' },
+      { market: 'GOLD', price: '$2,612', change: '-0.4%', direction: 'down' },
+      { market: 'NASDAQ', price: '21,440', change: '+0.8%', direction: 'up' },
+      { market: 'EUR/USD', price: '1.11', change: '+0.2%', direction: 'up' },
+    ];
+    const landingStats = [
+      { value: '24/7', label: 'visibilità costante su capitale, segnali e rischio' },
+      { value: 'Multi-device', label: 'esperienza fluida su iPhone, Android, tablet e desktop' },
+      { value: '3 step', label: 'accessi pensati per livelli operativi diversi' },
+    ];
+    const landingFeatures = [
+      {
+        icon: '🧠',
+        title: 'AI Avanzata',
+        text: 'Algoritmi e letture assistite aiutano a interpretare contesto, opportunità e segnali in tempo reale con più lucidità.',
+      },
+      {
+        icon: '⚡',
+        title: 'Esecuzione più rapida',
+        text: 'Interfaccia, dati e moduli sono organizzati per ridurre attrito e trasformare più in fretta l’analisi in azione.',
+      },
+      {
+        icon: '🛡️',
+        title: 'Sicurezza premium',
+        text: 'Accesso biometrico, gestione chiavi e percorsi protetti rafforzano la percezione di solidità fin dal primo ingresso.',
+      },
+      {
+        icon: '📊',
+        title: 'Control room evoluta',
+        text: 'Dashboard, trading, DeFi e lettura di segnali convivono in un unico ambiente credibile e leggibile.',
+      },
+      {
+        icon: '📱',
+        title: 'Multi-device reale',
+        text: 'L’esperienza resta forte e pulita su iPhone, Android, tablet e desktop, senza perdere presenza visiva.',
+      },
+      {
+        icon: '🎧',
+        title: 'Percorso guidato',
+        text: 'Dalla prima impressione fino all’accesso, ogni passaggio accompagna l’utente senza spezzare fiducia e attenzione.',
+      },
+    ];
+    const landingFlow = [
+      {
+        number: '1',
+        title: 'Scopri il sistema',
+        text: 'La pagina iniziale mostra subito posizionamento, forza visiva e valore percepito del prodotto.',
+      },
+      {
+        number: '2',
+        title: 'Scegli lo step',
+        text: 'L’utente capisce con chiarezza quale accesso è più adatto al suo profilo, senza confusione.',
+      },
+      {
+        number: '3',
+        title: 'Entra senza attrito',
+        text: 'Registrazione o accesso avvengono nella stessa esperienza, mantenendo continuità e qualità percepita.',
+      },
+    ];
+    const landingTestimonials = [
+      {
+        initials: 'MQ',
+        name: 'Marco',
+        role: 'Private investor',
+        quote: 'La prima impressione è forte: sembra un ambiente serio, ordinato e costruito per chi vuole controllo vero.',
+      },
+      {
+        initials: 'GV',
+        name: 'Giulia',
+        role: 'Consulente indipendente',
+        quote: 'Non comunica solo funzionalità, comunica posizionamento. Questo cambia molto la percezione del prodotto.',
+      },
+      {
+        initials: 'LD',
+        name: 'Luca',
+        role: 'Trader attivo',
+        quote: 'Finalmente una presentazione che accompagna bene alla scelta, senza buttarti subito dentro un login freddo.',
+      },
+    ];
+    const landingTrustPillars = [
+      'Presenza visiva premium',
+      'Percorso lineare verso l’accesso',
+      'Coerenza piena tra presentazione e utilizzo',
+    ];
     if (showLanding) {
       return (
-        <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center', background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)' }}>
-          <div style={{ textAlign: 'center', maxWidth: '600px', padding: '2rem' }}>
-            <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '180px', marginBottom: '2rem', objectFit: 'contain', filter: 'drop-shadow(0 0 20px rgba(16, 185, 129, 0.2))' }} />
-            <h1 style={{ color: '#e2e8f0', fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
-              AUREO OS
-            </h1>
-            <p style={{ color: '#94a3b8', fontSize: '1.2rem', marginBottom: '3rem', lineHeight: 1.6 }}>
-              L'intelligenza quantitativa al servizio del tuo capitale. Una piattaforma avanzata per investitori moderni.
-            </p>
-            <button 
-              className="btn btn-start" 
-              onClick={() => setShowLanding(false)} 
-              style={{ padding: '1.2rem 3rem', fontSize: '1.1rem', letterSpacing: '0.05em', boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)' }}
-            >
-              ACCEDI AL SISTEMA
-            </button>
+        <div className="sales-landing">
+          <div className="sales-bg-animation" />
+          <div className="sales-bg-animation sales-bg-animation--second" />
+
+          <nav className="sales-nav">
+            <a href="#landing-top" className="sales-logo">
+              <img src="/aureo-icon.png" alt="Aureo" />
+              <span>AUREO OS</span>
+            </a>
+            <div className="sales-nav-links">
+              <a href="#landing-features">Funzionalità</a>
+              <a href="#landing-flow">Percorso</a>
+              <a href="#landing-pricing">Step</a>
+              <a href="#landing-proof">Impatto</a>
+            </div>
+            <div className="sales-nav-actions">
+              <button className="btn btn-outline" onClick={() => setShowLanding(false)}>Accedi</button>
+              <button className="btn btn-start" onClick={openPricingSection}>Scopri Aureo</button>
+            </div>
+          </nav>
+
+          <div className="sales-ticker">
+            <div className="sales-ticker-track">
+              {[...landingTicker, ...landingTicker].map((item, index) => (
+                <div key={`${item.market}-${index}`} className="sales-ticker-item">
+                  <span className="sales-ticker-market">{item.market}</span>
+                  <span className="sales-ticker-price">{item.price}</span>
+                  <span className={`sales-ticker-change sales-ticker-change--${item.direction}`}>{item.change}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="sales-page" id="landing-top">
+            <section className="sales-hero">
+              <div className="sales-hero-content">
+                <div className="sales-badge">⚡ Nuovo: AUREO OS Experience</div>
+                <h1>
+                  Il Futuro della <span>Control Room Operativa</span> è qui
+                </h1>
+                <p>
+                  AUREO OS è l’ambiente premium che unisce dashboard, AI, trading, DeFi e sicurezza in un’esperienza elegante, autorevole e pronta a valorizzare il prodotto fin dal primo sguardo.
+                </p>
+                <div className="sales-hero-buttons">
+                  <button className="btn btn-start btn-large" onClick={openPricingSection}>
+                    Scopri gli step
+                  </button>
+                </div>
+                <div className="sales-stats-row">
+                  {landingStats.map((item) => (
+                    <div key={item.value} className="sales-stat-item">
+                      <div className="sales-stat-value">{item.value}</div>
+                      <div className="sales-stat-label">{item.label}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="sales-hero-visual">
+                <div className="sales-phone-mockup">
+                  <div className="sales-phone-notch" />
+                  <div className="sales-phone-screen">
+                    <div className="sales-app-header">
+                      <div>
+                        <div className="sales-app-title">AUREO OS</div>
+                        <div className="sales-app-subtitle">Premium Control Room</div>
+                      </div>
+                      <div className="sales-app-balance">$100,900</div>
+                    </div>
+                    <div className="sales-balance-chart">
+                      <div className="sales-chart-line" />
+                    </div>
+                    <div className="sales-bot-status">
+                      <span className="sales-status-dot" />
+                      <span>Sistema attivo • dashboard, AI e security sincronizzati</span>
+                    </div>
+                    {[
+                      { label: 'AI Guided Investment', meta: 'Segnale live • Budget allocato', value: '+$1,240' },
+                      { label: 'DeFi Arbitrage', meta: 'Spread monitorato • 4 venue', value: '+$420' },
+                      { label: 'Security Vault', meta: 'Chiavi protette • accesso biometrico', value: 'SAFE' },
+                    ].map((item) => (
+                      <div key={item.label} className="sales-trade-card">
+                        <div className="sales-trade-info">
+                          <h4>{item.label}</h4>
+                          <span>{item.meta}</span>
+                        </div>
+                        <div className={`sales-trade-profit ${item.value === 'SAFE' ? 'sales-trade-profit--neutral' : ''}`}>{item.value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <div className="sales-float-card sales-float-card--top">
+                  <div className="sales-float-card-header">Signal confidence</div>
+                  <div className="sales-float-card-value">98.2%</div>
+                </div>
+                <div className="sales-float-card sales-float-card--bottom">
+                  <div className="sales-float-card-header">Passkey & secure access</div>
+                  <div className="sales-float-card-value sales-float-card-value--alt">Ready</div>
+                </div>
+                <img src={heroAsset} alt="" className="sales-hero-orb" />
+              </div>
+            </section>
+
+            <section className="sales-section" id="landing-features">
+              <div className="sales-section-header">
+                <h2>Tutto ciò che serve per dare peso al prodotto</h2>
+                <p>La struttura ora segue molto più da vicino la pagina originale: stessi blocchi, stesso ritmo, identità Aureo.</p>
+              </div>
+              <div className="sales-features-grid">
+                {landingFeatures.map((item) => (
+                  <article key={item.title} className="sales-feature-card">
+                    <div className="sales-feature-icon">{item.icon}</div>
+                    <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="sales-section sales-section--soft" id="landing-flow">
+              <div className="sales-section-header">
+                <h2>Inizia in 3 semplici passi</h2>
+                <p>Prima percezione, poi scelta, poi accesso: tutto nella stessa esperienza.</p>
+              </div>
+              <div className="sales-steps-container">
+                {landingFlow.map((step) => (
+                  <article key={step.number} className="sales-step">
+                    <div className="sales-step-number">{step.number}</div>
+                    <h3>{step.title}</h3>
+                    <p>{step.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="sales-section" id="landing-pricing">
+              <div className="sales-section-header">
+                <h2>Scegli lo step perfetto per te</h2>
+                <p>Una sezione piani più vicina alla pagina originale, ma con contenuti Aureo e onboarding già collegato.</p>
+              </div>
+              <div className="sales-pricing-grid">
+                {landingPlans.map((plan) => (
+                  <article key={plan.id} className={`sales-pricing-card ${plan.id === 'pro' ? 'sales-pricing-card--popular' : ''}`}>
+                    {plan.id === 'pro' && <div className="sales-popular-badge">Più richiesto</div>}
+                    <div className="sales-pricing-header">
+                      <h3>{plan.name}</h3>
+                      <div className="sales-price">€{plan.price_monthly}<span>/mese</span></div>
+                      <p>{plan.description}</p>
+                    </div>
+                    <div className="sales-pricing-features">
+                      {plan.features.map((feature) => (
+                        <div key={feature} className="sales-pricing-feature">✓ {feature}</div>
+                      ))}
+                    </div>
+                    <button className="btn btn-start sales-pricing-button" onClick={() => continueWithPlan(plan.id)}>
+                      Continua con {plan.name}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            {selectedPlan && (
+              <section className="sales-section sales-section--onboarding" id="landing-plan-onboarding">
+                <div className="sales-inline-plan">
+                  <div className="sales-inline-plan-badge">Percorso selezionato</div>
+                  <h3>{selectedPlan.name}</h3>
+                  <p>{selectedPlan.description}</p>
+                  <div className="sales-inline-plan-price">€{selectedPlan.price_monthly}<span>/mese</span></div>
+                  <div className="sales-inline-plan-features">
+                    {selectedPlan.features.map((feature) => (
+                      <div key={feature} className="sales-inline-plan-feature">✓ {feature}</div>
+                    ))}
+                  </div>
+                </div>
+
+                <form className="sales-inline-form" onSubmit={handleLogin}>
+                  <div className="sales-inline-form-head">
+                    <div className="sales-badge sales-badge--small">Attivazione guidata</div>
+                    <h3>{isRegistering ? `Crea il tuo accesso per ${selectedPlan.name}` : `Accedi per proseguire con ${selectedPlan.name}`}</h3>
+                    <p>
+                      {isRegistering
+                        ? 'Completa qui la registrazione e continua senza uscire dalla pagina.'
+                        : 'Se hai già un account, entra qui sotto e prosegui direttamente con lo step scelto.'}
+                    </p>
+                  </div>
+                  <input
+                    type="email"
+                    placeholder="La tua email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="sales-input"
+                  />
+                  <input
+                    type="password"
+                    placeholder={isRegistering ? 'Crea una password' : 'Inserisci la tua password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="sales-input"
+                  />
+                  {loginError && (
+                    <div className={`sales-form-message ${loginError.toLowerCase().includes('successo') || loginError.toLowerCase().includes('creato') ? 'sales-form-message--success' : ''}`}>
+                      {loginError}
+                    </div>
+                  )}
+                  <button type="submit" className="btn btn-start sales-submit-button">
+                    {isRegistering ? `Crea accesso e continua con ${selectedPlan.name}` : `Accedi e continua con ${selectedPlan.name}`}
+                  </button>
+                  <button type="button" className="btn btn-outline sales-alt-button" onClick={() => setIsRegistering(!isRegistering)}>
+                    {isRegistering ? 'Hai già un account? Accedi' : 'Non hai un account? Registrati'}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn sales-ghost-button"
+                    onClick={() => {
+                      setSelectedPlanId('');
+                      setIsRegistering(false);
+                      setLoginError('');
+                      setPassword('');
+                      setEmail('');
+                    }}
+                  >
+                    Cambia step
+                  </button>
+                </form>
+              </section>
+            )}
+
+            <section className="sales-section sales-section--proof" id="landing-proof">
+              <div className="sales-section-header">
+                <h2>Recensioni e impressioni</h2>
+                <p>Stessa logica della pagina che mi hai dato: prova sociale, autorevolezza e percezione premium.</p>
+              </div>
+              <div className="sales-testimonials-grid">
+                {landingTestimonials.map((item) => (
+                  <article key={item.name} className="sales-testimonial-card">
+                    <div className="sales-testimonial-header">
+                      <div className="sales-testimonial-avatar">{item.initials}</div>
+                      <div>
+                        <h4>{item.name}</h4>
+                        <span>{item.role}</span>
+                      </div>
+                    </div>
+                    <div className="sales-stars">★★★★★</div>
+                    <p>{item.quote}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="sales-cta">
+              <div className="sales-cta-box">
+                <div className="sales-cta-content">
+                  <img src="/aureo-logo.jpg" alt="Aureo OS" className="sales-cta-logo" />
+                  <h2>Porta l’utente dentro un’esperienza che si fa ricordare</h2>
+                  <p>Adesso la landing segue molto più fedelmente il layout originale, ma parla davvero il linguaggio di AUREO OS.</p>
+                  <div className="sales-trust-row">
+                    {landingTrustPillars.map((item) => (
+                      <div key={item} className="sales-trust-pill">{item}</div>
+                    ))}
+                  </div>
+                  <div className="sales-hero-buttons sales-hero-buttons--center">
+                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Vedi gli step</button>
+                    <button className="btn btn-outline btn-large" onClick={() => setShowLanding(false)}>Accedi ora</button>
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            <footer className="sales-footer">
+              <div className="sales-footer-grid">
+                <div className="sales-footer-brand">
+                  <a href="#landing-top" className="sales-logo">
+                    <img src="/aureo-icon.png" alt="Aureo" />
+                    <span>AUREO OS</span>
+                  </a>
+                  <p>Dashboard, AI, trading, DeFi e security in un’unica esperienza premium pensata per controllo, chiarezza e presenza.</p>
+                </div>
+                <div className="sales-footer-links">
+                  <h4>Prodotto</h4>
+                  <a href="#landing-features">Funzionalità</a>
+                  <a href="#landing-pricing">Step</a>
+                </div>
+                <div className="sales-footer-links">
+                  <h4>Esperienza</h4>
+                  <a href="#landing-flow">Percorso</a>
+                  <a href="#landing-proof">Impatto</a>
+                </div>
+                <div className="sales-footer-links">
+                  <h4>Accesso</h4>
+                  <button type="button" className="sales-footer-button" onClick={() => setShowLanding(false)}>Accedi</button>
+                  <button type="button" className="sales-footer-button" onClick={openPricingSection}>Scegli piano</button>
+                </div>
+              </div>
+              <div className="sales-footer-bottom">
+                <span>© 2026 AUREO OS</span>
+                <span>Premium crypto & investment experience</span>
+              </div>
+            </footer>
           </div>
         </div>
       );
@@ -3162,14 +3532,14 @@ function OmniApp() {
           <form onSubmit={handleLogin}>
             <input 
               type="email" 
-              placeholder={isRegistering ? "La tua Email" : "Email (Lascia vuoto se Admin)"}
+              placeholder={isRegistering ? "La tua Email" : "Email"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
             />
             <input 
               type="password" 
-              placeholder={isRegistering ? "Crea una Password" : "Password o Master Password"}
+              placeholder={isRegistering ? "Crea una Password" : "Password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
