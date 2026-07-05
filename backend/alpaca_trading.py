@@ -48,6 +48,12 @@ class AlpacaEngine:
             self.alpaca_secret = keys.get("ALPACA_SECRET", os.getenv("ALPACA_SECRET_KEY", ""))
             self.alpaca_base = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
             groq_key = keys.get("GROQ_KEY", os.getenv("GROQ_API_KEY", ""))
+            
+            # Leggi dal DB anche per l'admin se sono state salvate dalla UI
+            user_keys = get_api_keys("admin") or {}
+            self.alpaca_key = self.alpaca_key or user_keys.get("alpaca_key", "")
+            self.alpaca_secret = self.alpaca_secret or user_keys.get("alpaca_secret", "")
+            groq_key = groq_key or user_keys.get("groq_key", "")
         else:
             user_keys = get_api_keys(user_id) or {}
             self.alpaca_key = user_keys.get("alpaca_key", "")

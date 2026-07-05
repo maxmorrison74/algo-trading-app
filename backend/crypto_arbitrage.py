@@ -142,6 +142,18 @@ class CryptoArbitrage:
         k_key = keys.get("KRAKEN_KEY", os.getenv("KRAKEN_API_KEY", ""))
         k_secret = keys.get("KRAKEN_SECRET", os.getenv("KRAKEN_SECRET_KEY", ""))
         
+        # Fallback to DB for admin
+        try:
+            from db import get_api_keys
+            user_keys = get_api_keys("admin") or {}
+            b_key = b_key or user_keys.get("binance_key", "")
+            b_secret = b_secret or user_keys.get("binance_secret", "")
+            k_key = k_key or user_keys.get("kraken_key", "")
+            k_secret = k_secret or user_keys.get("kraken_secret", "")
+        except Exception:
+            pass
+
+        
         self.binance_client = ccxt.binance({
             'apiKey': b_key,
             'secret': b_secret,
