@@ -280,6 +280,22 @@ class AlpacaEngine:
             atr = float(atr_series.iloc[-1])
         else:
             atr = current_price * 0.01
+
+        # Calcolo MACD (12, 26, 9)
+        exp1 = close_prices.ewm(span=12, adjust=False).mean()
+        exp2 = close_prices.ewm(span=26, adjust=False).mean()
+        macd = exp1 - exp2
+        macd_signal = macd.ewm(span=9, adjust=False).mean()
+        macd_hist = macd - macd_signal
+        current_macd_hist = float(macd_hist.iloc[-1])
+        
+        # Calcolo VWAP Intraday semplificato sulle candele caricate
+        try:
+            volumes = df['volume']
+            typical_price = (highs + lows + closes) / 3
+            vwap = float((typical_price * volumes).sum() / volumes.sum())
+        except Exception:
+            vwap = current_price
             
         # 🤖 Predizione LSTM Quantitativa
         lstm_prob = 0.5
@@ -312,30 +328,39 @@ class AlpacaEngine:
         if atr_percent < 0.003: # Se il prezzo si muove meno dello 0.3% non entriamo
              return
 
-        self.bot_state.latest_predictions[symbol] = f"LSTM: {lstm_prob*100:.1f}% | RSI(1M): {rsi:.1f} | RSI(5M): {macro_rsi:.1f} | BB_L: {bb_lower:.2f}"
+        self.bot_state.latest_predictions[symbol] = f"LSTM: {lstm_prob*100:.1f}% | RSI(1M): {rsi:.1f} | MACD: {current_macd_hist:.2f} | VWAP: {vwap:.2f}"
         
-        # Check Long (Mean Reversion O Breakout Momentum)
+        # Check Long (Mean Reversion O Breakout Momentum O MACD Crossover)
         # Strategia 1: Crollo Ipervenduto (Mean Reversion)
         is_mean_reversion_long = (current_price < bb_lower and rsi < 35)
         # Strategia 2: Breakout al rialzo (Momentum Veloce)
         is_momentum_long = (current_price > bb_upper and rsi > 55)
+        # Strategia 3: MACD Crossover Long supportato da VWAP
+        is_macd_vwap_long = (current_macd_hist > 0 and rsi > 50 and current_price > vwap)
         
-        if is_mean_reversion_long or is_momentum_long:
-            if lstm_prob > 0.60: # Scalping: basta il 60% di probabilità
+        # Check Short (Mean Reversion dall'alto O MACD Crossover Ribassista)
+        is_mean_reversion_short = (current_price > bb_upper and rsi > 65)
+        is_macd_vwap_short = (current_macd_hist < 0 and rsi < 50 and current_price < vwap)
+        
+        if is_mean_reversion_long or is_momentum_long or is_macd_vwap_long:
+            if lstm_prob > 0.55: # Scalping: abbassato a 55%
                 pattern = self.predict_pattern_with_groq(symbol, close_prices)
                 if pattern == "UP":
-                    strategy_name = "MOMENTUM SCALPING" if is_momentum_long else "MEAN REVERSION"
+                    if is_macd_vwap_long: strategy_name = "MACD TREND"
+                    elif is_momentum_long: strategy_name = "MOMENTUM SCALPING"
+                    else: strategy_name = "MEAN REVERSION"
                     self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol}")
                     self.execute_trade(symbol, current_price, "LONG", atr, lstm_prob)
                 else:
                     self._log(f"🧠 AI VETO: Groq non conferma UP. Scalp annullato.")
             else:
-                 self._log(f"🤖 LSTM VETO: Setup LONG su {symbol} (Prob={lstm_prob*100:.1f}%) < 60%.")
+                 self._log(f"🤖 LSTM VETO: Setup LONG su {symbol} (Prob={lstm_prob*100:.1f}%) < 55%.")
             
-        # Check Short (Mean Reversion dall'alto)
-        elif current_price > bb_upper and rsi > 65 and lstm_prob < 0.40:
+        elif (is_mean_reversion_short or is_macd_vwap_short) and lstm_prob < 0.45:
             pattern = self.predict_pattern_with_groq(symbol, close_prices)
             if pattern == "DOWN":
+                strategy_name = "MACD TREND SHORT" if is_macd_vwap_short else "MEAN REVERSION SHORT"
+                self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol}")
                 self.execute_trade(symbol, current_price, "SHORT", atr, lstm_prob)
             else:
                 self._log(f"🧠 AI VETO: Groq non conferma DOWN. Scalp annullato.")
@@ -419,8 +444,10 @@ class AlpacaEngine:
         alpaca_side = 'buy' if side == "LONG" else 'sell'
         clean_symbol = self.clean_sym(symbol)
         
-        # Trailing Stop Dinamico (es. 1.5% di distanza dal picco)
-        trail_percent = 1.5
+        # Trailing Stop Dinamico (compreso tra 1.0% e 5.0% basato su volatilità ATR)
+        atr_percent = atr / current_price if current_price > 0 else 0.01
+        trail_percent = max(1.0, min(5.0, atr_percent * 100 * 2.5))
+        trail_percent = round(trail_percent, 2)
         
         try:
             # Ordine a Mercato con Trailing Stop agganciato
