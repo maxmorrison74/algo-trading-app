@@ -521,48 +521,44 @@ class AlpacaEngine:
 
     def loop(self):
         """Questo è il punto di ingresso chiamato dal main thread (api.py)"""
-        self.running = True
-        self.init_clients()
-        
-        if not self.alpaca_rest:
-            self._log("Mancano chiavi Alpaca valide. Il modulo si ferma.")
-            self.running = False
-            return
+        try:
+            self.running = True
+            uid = getattr(self, 'user_id', 'admin')
+            self.init_clients(uid)
             
-        self.prefill_history()
+            if not self.alpaca_rest:
+                self._log("Mancano chiavi Alpaca valide. Il modulo si ferma.")
+                self.running = False
+                return
+                
+            self.prefill_history()
 
-        risk = get_risk_manager(self.bot_state.virtual_cash)
-        can_trade, reason = risk.can_trade()
-        if not can_trade:
-            self._log(f"⛔ {reason}")
-            self.running = False
-            return
-
-        
-        # Avvia stream in un nuovo thread per non bloccare il loop
-        self._stream_thread = threading.Thread(target=self._stream_runner, daemon=True)
-        self._stream_thread.start()
-        
-        # Loop di keep-alive e sync
-        while self.running and self.bot_state.modules.get("trading", False):
-            time.sleep(60)
-            self.sync_portfolio() # Sincronizza bilancio ogni minuto per aggiornare la UI
+            risk = get_risk_manager(self.bot_state.virtual_cash)
+            can_trade, reason = risk.can_trade()
+            if not can_trade:
+                self._log(f"⛔ {reason}")
+                self.running = False
+                return
+                
+            # Avvia stream in un nuovo thread per non bloccare il loop
+            self._stream_thread = threading.Thread(target=self._stream_runner, daemon=True)
+            self._stream_thread.start()
             
-            # Polling REST solo per Crypto (Azioni passano via WebSocket HFT)
-            for sym in self.symbols:
-                if "/" not in sym:
-                    continue # Gestito dal websocket
+            # Loop di keep-alive e sync
+            while self.running and self.bot_state.modules.get("trading", False):
+                time.sleep(60)
                 try:
-                    query_sym = self.clean_sym(sym)
-                    bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=150).df
-                    if not bars.empty:
-                        self.history_buffers[sym] = bars
-                        self.evaluate_strategy(sym, bars)
+                    self.sync_portfolio()
                 except Exception:
-                    pass
-            
-        # Chiusura
-        self.running = False
-        if self.alpaca_stream:
-            self.alpaca_stream.stop()
-        self._log("Motore Alpaca Fermato.")
+                    self.running = False
+                    self.bot_state.modules["trading"] = False
+                    
+            # Chiusura
+            self.running = False
+            if self.alpaca_stream:
+                self.alpaca_stream.stop()
+            self._log("Motore Alpaca Fermato.")
+        except Exception as e:
+            self._log(f"💥 CRASH CRITICO nel motore Alpaca: {e}")
+            self.running = False
+            self.bot_state.modules["trading"] = False
