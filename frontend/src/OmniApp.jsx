@@ -840,8 +840,19 @@ function OmniApp() {
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
-          // Successo registrazione, mostra il messaggio senza fare il login automatico.
-          setLoginError(data.message);
+          // Auto-login after successful registration
+          const loginRes = await fetch('/api/login', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          const loginData = await loginRes.json();
+          if (loginRes.ok) {
+            completeAuthenticatedSession(loginData.token, loginData.role, loginData.user_status);
+            // Show paywall immediately to prompt payment
+            setShowPaymentModal(true);
+          } else {
+            setLoginError('Registrazione ok, ma login automatico fallito. Riprova.');
+          }
         } else {
           setLoginError(data.detail || 'Errore durante la registrazione');
         }
