@@ -2411,10 +2411,11 @@ def admin_activate_demo(req: AdminUserActionRequest, admin_token: str = Depends(
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET status = 'active' WHERE id = ?", (req.user_id,))
     
-    # Imposta scadenza a 2 ore da oggi
+    # Imposta scadenza a 2 ore da oggi e finge un pagamento per sbloccare tutto
     from datetime import datetime, timedelta
-    new_exp = datetime.utcnow() + timedelta(hours=2)
-    cursor.execute("UPDATE users SET subscription_expires_at = ? WHERE id = ?", (new_exp.strftime("%Y-%m-%d %H:%M:%S"), req.user_id))
+    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    new_exp = (datetime.utcnow() + timedelta(hours=2)).strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute("UPDATE users SET subscription_expires_at = ?, paid_at = COALESCE(paid_at, ?) WHERE id = ?", (new_exp, now_str, req.user_id))
     
     conn.commit()
     conn.close()
