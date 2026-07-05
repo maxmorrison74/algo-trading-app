@@ -1082,69 +1082,6 @@ def get_stock_quote(symbol: str):
         
     return {"error": f"Impossibile recuperare la quotazione per {symbol}"}
 
-@app.get("/api/landing-ticker")
-def get_landing_ticker():
-    """Restituisce un piccolo set di quotazioni live per il ticker della landing page."""
-    instruments = [
-        {"market": "BTC/USD", "symbol": "BTC-USD"},
-        {"market": "ETH/USD", "symbol": "ETH-USD"},
-        {"market": "SOL/USD", "symbol": "SOL-USD"},
-        {"market": "GOLD", "symbol": "GC=F"},
-        {"market": "NASDAQ", "symbol": "^IXIC"},
-        {"market": "EUR/USD", "symbol": "EURUSD=X"},
-    ]
-
-    results = []
-    for item in instruments:
-        symbol = item["symbol"]
-        try:
-            ticker = yf.Ticker(symbol)
-            data = ticker.history(period="5d")
-            if data.empty or "Close" not in data:
-                raise ValueError("Nessun dato disponibile")
-
-            closes = data["Close"].dropna()
-            if closes.empty:
-                raise ValueError("Serie prezzi vuota")
-
-            current_price = float(closes.iloc[-1])
-            previous_price = float(closes.iloc[-2]) if len(closes) > 1 else current_price
-            change_pct = ((current_price - previous_price) / previous_price * 100) if previous_price else 0.0
-
-            if symbol.startswith("^"):
-                price_label = f"{current_price:,.0f}"
-            elif current_price >= 1000:
-                price_label = f"${current_price:,.0f}"
-            elif current_price >= 100:
-                price_label = f"${current_price:,.2f}"
-            elif current_price >= 1:
-                price_label = f"${current_price:,.2f}"
-            else:
-                price_label = f"{current_price:,.4f}"
-
-            results.append({
-                "market": item["market"],
-                "price": price_label,
-                "change": f"{change_pct:+.2f}%",
-                "direction": "up" if change_pct >= 0 else "down",
-            })
-        except Exception:
-            continue
-
-    if not results:
-        return {
-            "items": [
-                {"market": "BTC/USD", "price": "$118,420", "change": "+2.6%", "direction": "up"},
-                {"market": "ETH/USD", "price": "$6,180", "change": "+1.9%", "direction": "up"},
-                {"market": "SOL/USD", "price": "$242", "change": "+4.2%", "direction": "up"},
-                {"market": "GOLD", "price": "$2,612", "change": "-0.4%", "direction": "down"},
-                {"market": "NASDAQ", "price": "21,440", "change": "+0.8%", "direction": "up"},
-                {"market": "EUR/USD", "price": "1.11", "change": "+0.2%", "direction": "up"},
-            ]
-        }
-
-    return {"items": results}
-
 @app.post("/api/stock/trade/manual")
 def manual_stock_trade(payload: dict, _: str = Depends(require_admin)):
     """Esegue un trade azionario manuale in paper trading."""
@@ -1850,17 +1787,6 @@ def build_billing_overview():
         "settings": billing["settings"],
     }
 
-def append_billing_activity(label: str, activity_type: str = "admin_update"):
-    billing = load_billing_db()
-    billing["recent_activity"].insert(0, {
-        "id": f"act_{uuid4().hex[:8]}",
-        "type": activity_type,
-        "label": label,
-        "created_at": datetime.now().strftime("%Y-%m-%d %H:%M"),
-    })
-    billing["recent_activity"] = billing["recent_activity"][:20]
-    save_billing_db(billing)
-
 class LoginRequest(BaseModel):
     email: Optional[str] = None
     password: str
@@ -1868,7 +1794,6 @@ class LoginRequest(BaseModel):
 class RegisterRequest(BaseModel):
     email: str
     password: str
-    plan_id: Optional[str] = "pro"
 
 
 class PasskeyCredentialAttestationRequest(BaseModel):
@@ -1923,19 +1848,11 @@ except Exception as e:
 class BillingCustomerStatusRequest(BaseModel):
     status: str
 
-def get_plan_catalog() -> dict:
-    return {plan["id"]: plan for plan in _default_billing_plans()}
-
-def get_plan_for_user(plan_id: Optional[str]) -> dict:
-    plans = get_plan_catalog()
-    return plans.get(plan_id or "pro") or plans.get("pro") or next(iter(plans.values()))
-
 @app.post("/api/register")
-def register(req: RegisterRequest):
+def register(req: LoginRequest):
     # Genera user_id
     user_id = f"usr_{int(time.time())}"
     email = req.email.lower().strip() if req.email else ""
-    selected_plan = get_plan_for_user(req.plan_id)
     
     # Check disposable
     if "@" in email:
@@ -1943,62 +1860,90 @@ def register(req: RegisterRequest):
         if domain in DISPOSABLE_DOMAINS:
             raise HTTPException(status_code=400, detail="L'utilizzo di email usa e getta non è consentito.")
             
-    success = db.create_user(user_id, email, req.password, role="user", status="pending", plan_id=selected_plan["id"])
+    success = db.create_user(user_id, email, req.password, role="user", status="pending")
     if not success:
         raise HTTPException(status_code=400, detail="L'email è già registrata.")
-    return {"status": "success", "message": f"Registrazione completata! Step {selected_plan['name']} associato al tuo account. Ora puoi fare il login per accedere alla Demo."}
+    return {"status": "success", "message": "Registrazione completata! Ora puoi fare il login per accedere alla Demo."}
 
 @app.post("/api/login")
 def login(req: LoginRequest, request: Request):
     client_id = request.client.host if request.client else "unknown"
     assert_login_allowed(client_id)
-
+    
+    # Se inserisce solo la password (no email), prova l'Admin Login
     if not req.email:
-        record_login_failure(client_id)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Email richiesta per il login utente")
-
-    email = req.email.lower().strip()
-    user = db.verify_user_login(email, req.password)
-    if user:
-        clear_login_failures(client_id)
-        plan = get_plan_for_user(user.get("plan_id"))
-        token = create_user_token(user["id"], user["email"], user["role"])
-        return {
-            "status": "success", 
-            "token": token, 
-            "expires_in": 86400, 
-            "role": user["role"],
-            "user_status": user["status"],
-            "plan_id": plan["id"],
-            "allowed_modules": plan.get("modules", []),
-        }
+        if is_admin_configured() and verify_admin_password(req.password):
+            clear_login_failures(client_id)
+            token = create_admin_session()
+            return {"status": "success", "token": token, "expires_in": 86400, "role": "admin"}
+    else:
+        # Se c'è l'email, prova a loggare come Cliente SaaS
+        email = req.email.lower().strip()
+        user = db.verify_user_login(email, req.password)
+        if user:
+            clear_login_failures(client_id)
+            token = create_user_token(user["id"], user["email"], user["role"])
+            return {
+                "status": "success", 
+                "token": token, 
+                "expires_in": 86400, 
+                "role": user["role"],
+                "user_status": user["status"]
+            }
 
     record_login_failure(client_id)
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenziali non valide o accesso negato")
-
-
-@app.post("/api/admin/login")
-def admin_login(req: LoginRequest, request: Request):
-    client_id = f"admin:{request.client.host}" if request.client else "admin:unknown"
-    assert_login_allowed(client_id)
-
-    if not req.password:
-        record_login_failure(client_id)
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Password admin richiesta")
-
-    if is_admin_configured() and verify_admin_password(req.password):
-        clear_login_failures(client_id)
-        token = create_admin_session()
-        return {"status": "success", "token": token, "expires_in": 86400, "role": "admin"}
-
-    record_login_failure(client_id)
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenziali admin non valide")
 
 
 @app.post("/api/logout")
 def logout(admin_token: str = Depends(require_admin)):
     revoke_admin_session(admin_token)
     return {"status": "success"}
+
+
+@app.get("/api/user/me")
+def get_current_user(user: dict = Depends(require_user)):
+    """Returns the current logged-in user's profile and payment status."""
+    user_id = user.get("sub")
+    if not user_id or user_id == "admin":
+        return {
+            "id": "admin",
+            "email": "admin",
+            "role": "admin",
+            "status": "active",
+            "is_paid": True,
+            "paid_at": None,
+            "subscription_expires_at": None,
+        }
+    user_data = db.get_user_by_id(user_id)
+    if not user_data:
+        raise HTTPException(status_code=404, detail="Utente non trovato")
+    
+    from datetime import datetime
+    paid_at = user_data.get("paid_at")
+    sub_expires = user_data.get("subscription_expires_at")
+    
+    # is_paid is true if they have paid_at set AND subscription not expired
+    is_paid = False
+    if paid_at:
+        if sub_expires:
+            try:
+                exp = datetime.strptime(sub_expires, "%Y-%m-%d %H:%M:%S")
+                is_paid = exp > datetime.utcnow()
+            except Exception:
+                is_paid = True
+        else:
+            is_paid = True
+    
+    return {
+        "id": user_data["id"],
+        "email": user_data["email"],
+        "role": user_data["role"],
+        "status": user_data["status"],
+        "is_paid": is_paid,
+        "paid_at": paid_at,
+        "subscription_expires_at": sub_expires,
+    }
 
 
 @app.get("/api/passkeys/status")
@@ -2126,48 +2071,24 @@ class KeysRequest(BaseModel):
 def get_keys(user: dict = Depends(require_user)):
     keys = {}
     try:
-        def mask_value(value: str) -> str:
-            if not value:
-                return ""
-            return value[:4] + "*" * 10 if len(value) > 4 else "***"
-
-        env_keys = {}
         # Global AI keys (masked) per tutti, lette dal file .env
         if os.path.exists(API_KEYS_FILE):
             with open(API_KEYS_FILE, "r") as f:
                 for line in f:
                     if "=" in line:
                         k, v = line.strip().split("=", 1)
-                        env_keys[k] = v
                         if v and k in ["ELEVENLABS_KEY", "THEODDS_KEY", "GROQ_KEY", "NEWSAPI_KEY"]:
-                            keys[k] = mask_value(v)
+                            keys[k] = v[:4] + "*" * 10 if len(v) > 4 else "***"
         if os.path.exists(".env.gcp.json"):
             keys["GOOGLE_APPLICATION_CREDENTIALS"] = "MASKED_JSON"
             
-        # Per le chiavi di trading leggiamo prima il DB utente
+        # Per le chiavi di trading (Alpaca, Binance, Kraken), le leggiamo dal DB per l'utente specifico
         user_keys = db.get_api_keys(user["sub"])
         if user_keys:
-            if user_keys.get("alpaca_key"): keys["ALPACA_KEY"] = mask_value(user_keys["alpaca_key"])
-            if user_keys.get("alpaca_secret"): keys["ALPACA_SECRET"] = mask_value(user_keys["alpaca_secret"])
-            if user_keys.get("binance_key"): keys["BINANCE_KEY"] = mask_value(user_keys["binance_key"])
-            if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = mask_value(user_keys["binance_secret"])
-            if user_keys.get("kraken_key"): keys["KRAKEN_KEY"] = mask_value(user_keys["kraken_key"])
-            if user_keys.get("kraken_secret"): keys["KRAKEN_SECRET"] = mask_value(user_keys["kraken_secret"])
-
-        # Per l'admin facciamo fallback alle chiavi legacy in .env,
-        # così la UI mostra "Presente" anche se il test legge ancora da lì.
-        if user.get("role") == "admin":
-            legacy_pairs = [
-                ("ALPACA_KEY", "ALPACA_KEY"),
-                ("ALPACA_SECRET", "ALPACA_SECRET"),
-                ("BINANCE_KEY", "BINANCE_KEY"),
-                ("BINANCE_SECRET", "BINANCE_SECRET"),
-                ("KRAKEN_KEY", "KRAKEN_KEY"),
-                ("KRAKEN_SECRET", "KRAKEN_SECRET"),
-            ]
-            for output_key, env_key in legacy_pairs:
-                if not keys.get(output_key) and env_keys.get(env_key):
-                    keys[output_key] = mask_value(env_keys[env_key])
+            if user_keys.get("alpaca_key"): keys["ALPACA_KEY"] = user_keys["alpaca_key"][:4] + "***"
+            if user_keys.get("alpaca_secret"): keys["ALPACA_SECRET"] = user_keys["alpaca_secret"][:4] + "***"
+            if user_keys.get("binance_key"): keys["BINANCE_KEY"] = user_keys["binance_key"][:4] + "***"
+            if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = user_keys["binance_secret"][:4] + "***"
     except Exception as e:
         keys["ERROR"] = str(e)
     return keys
@@ -2188,9 +2109,7 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
             alpaca_key=merge_user_key(req.alpaca_key, user_keys.get("alpaca_key")),
             alpaca_secret=merge_user_key(req.alpaca_secret, user_keys.get("alpaca_secret")),
             binance_key=merge_user_key(req.binance_key, user_keys.get("binance_key")),
-            binance_secret=merge_user_key(req.binance_secret, user_keys.get("binance_secret")),
-            kraken_key=merge_user_key(req.kraken_key, user_keys.get("kraken_key")),
-            kraken_secret=merge_user_key(req.kraken_secret, user_keys.get("kraken_secret")),
+            binance_secret=merge_user_key(req.binance_secret, user_keys.get("binance_secret"))
         )
 
         # 2. Solo l'admin può salvare le chiavi globali AI in .env
@@ -2424,154 +2343,6 @@ class SubmitTxidRequest(BaseModel):
     amount: float
     currency: str
 
-def get_payment_wallets() -> dict:
-    return {
-        "BTC": (os.getenv("PAYMENT_WALLET_BTC") or "").strip(),
-        "ETH": (os.getenv("PAYMENT_WALLET_ETH") or "").strip(),
-        "USDC": (os.getenv("PAYMENT_WALLET_USDC") or "").strip(),
-        "SOL": (os.getenv("PAYMENT_WALLET_SOL") or "").strip(),
-        "USDT": (os.getenv("PAYMENT_WALLET_USDT") or "").strip(),
-    }
-
-def get_payment_wallet(currency: str) -> str:
-    return get_payment_wallets().get(currency.upper(), "")
-
-def _approx_equal(value: float, target: float, tolerance: float = 0.02) -> bool:
-    return abs(value - target) <= tolerance
-
-def _check_btc_payment(txid: str, amount: float) -> tuple[str, str]:
-    import requests
-    target_address = get_payment_wallet("BTC")
-    if not target_address:
-        return "pending_review", "Wallet BTC non configurato sul server"
-    res = requests.get(f"https://blockstream.info/api/tx/{txid}", timeout=8)
-    if res.status_code != 200:
-        return "not_found", "TX Bitcoin non trovata"
-    data = res.json()
-    outputs = data.get("vout", [])
-    for out in outputs:
-        scriptpubkey_address = out.get("scriptpubkey_address")
-        value_btc = float(out.get("value", 0)) / 100_000_000
-        if scriptpubkey_address == target_address:
-            if _approx_equal(value_btc, amount):
-                return "matched", f"TX Bitcoin trovata: {value_btc:.8f} BTC verso wallet Aureo"
-            return "amount_mismatch", f"TX trovata verso wallet Aureo ma importo {value_btc:.8f} BTC non coincide"
-    return "address_mismatch", "TX Bitcoin trovata ma non verso il wallet Aureo"
-
-def _check_eth_family_payment(txid: str, amount: float, currency: str) -> tuple[str, str]:
-    import requests
-    target_address = get_payment_wallet(currency).lower()
-    if not target_address:
-        return "pending_review", f"Wallet {currency} non configurato sul server"
-    res = requests.get(f"https://eth.blockscout.com/api/v2/transactions/{txid}", timeout=8)
-    if res.status_code != 200:
-        return "not_found", f"TX {currency} non trovata"
-    data = res.json()
-
-    if currency == "ETH":
-        to_hash = ((data.get("to") or {}).get("hash") or "").lower()
-        value_wei = data.get("value")
-        if to_hash != target_address:
-            return "address_mismatch", "TX Ethereum trovata ma non verso il wallet Aureo"
-        if value_wei is None:
-            return "pending_review", "TX Ethereum trovata, importo non leggibile automaticamente"
-        value_eth = float(value_wei) / 1e18
-        if _approx_equal(value_eth, amount):
-            return "matched", f"TX Ethereum trovata: {value_eth:.6f} ETH verso wallet Aureo"
-        return "amount_mismatch", f"TX Ethereum trovata verso wallet Aureo ma importo {value_eth:.6f} ETH non coincide"
-
-    transfers = data.get("token_transfers") or []
-    for transfer in transfers:
-        token_symbol = (transfer.get("token") or {}).get("symbol", "").upper()
-        to_hash = ((transfer.get("to") or {}).get("hash") or "").lower()
-        raw_value = transfer.get("total") or transfer.get("amount")
-        decimals = int(((transfer.get("token") or {}).get("decimals")) or 6)
-        if token_symbol == currency and to_hash == target_address and raw_value is not None:
-            amount_value = float(raw_value) / (10 ** decimals)
-            if _approx_equal(amount_value, amount):
-                return "matched", f"TX {currency} trovata: {amount_value:.2f} {currency} verso wallet Aureo"
-            return "amount_mismatch", f"TX {currency} trovata verso wallet Aureo ma importo {amount_value:.2f} {currency} non coincide"
-    return "address_mismatch", f"TX {currency} trovata ma non verso il wallet/token atteso"
-
-def _check_sol_payment(txid: str, amount: float) -> tuple[str, str]:
-    import requests
-    target_address = get_payment_wallet("SOL")
-    if not target_address:
-        return "pending_review", "Wallet SOL non configurato sul server"
-    payload = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "getTransaction",
-        "params": [txid, {"encoding": "jsonParsed", "maxSupportedTransactionVersion": 0}],
-    }
-    res = requests.post("https://api.mainnet-beta.solana.com", json=payload, timeout=8)
-    if res.status_code != 200:
-        return "not_found", "TX Solana non trovata"
-    data = res.json().get("result")
-    if not data:
-        return "not_found", "TX Solana non trovata"
-    balances_before = data.get("meta", {}).get("preBalances") or []
-    balances_after = data.get("meta", {}).get("postBalances") or []
-    account_keys = data.get("transaction", {}).get("message", {}).get("accountKeys") or []
-    for idx, account in enumerate(account_keys):
-        pubkey = account.get("pubkey") if isinstance(account, dict) else account
-        if pubkey == target_address and idx < len(balances_before) and idx < len(balances_after):
-            delta_sol = max(0.0, (balances_after[idx] - balances_before[idx]) / 1e9)
-            if _approx_equal(delta_sol, amount):
-                return "matched", f"TX Solana trovata: {delta_sol:.6f} SOL verso wallet Aureo"
-            return "amount_mismatch", f"TX Solana trovata verso wallet Aureo ma importo {delta_sol:.6f} SOL non coincide"
-    return "address_mismatch", "TX Solana trovata ma non verso il wallet Aureo"
-
-def _check_tron_usdt_payment(txid: str, amount: float) -> tuple[str, str]:
-    import requests
-    target_address = get_payment_wallet("USDT")
-    if not target_address:
-        return "pending_review", "Wallet USDT non configurato sul server"
-    res = requests.get(f"https://api.trongrid.io/v1/transactions/{txid}/events", timeout=8)
-    if res.status_code != 200:
-        return "not_found", "TX USDT TRC20 non trovata"
-    items = res.json().get("data") or []
-    for item in items:
-        if item.get("event_name") != "Transfer":
-            continue
-        result = item.get("result") or {}
-        to_address = result.get("to")
-        raw_value = result.get("value")
-        token_info = item.get("token_info") or {}
-        token_symbol = (token_info.get("symbol") or "").upper()
-        token_decimals = int(token_info.get("decimals") or 6)
-        if token_symbol == "USDT" and to_address == target_address and raw_value is not None:
-            value_amount = float(raw_value) / (10 ** token_decimals)
-            if _approx_equal(value_amount, amount):
-                return "matched", f"TX USDT trovata: {value_amount:.2f} USDT verso wallet Aureo"
-            return "amount_mismatch", f"TX USDT trovata verso wallet Aureo ma importo {value_amount:.2f} USDT non coincide"
-    return "address_mismatch", "TX USDT trovata ma non verso il wallet Aureo"
-
-def run_payment_check(payment: dict) -> tuple[str, str]:
-    currency = (payment.get("currency") or "").upper()
-    txid = payment.get("txid") or ""
-    amount = float(payment.get("amount") or 0)
-    try:
-        if currency == "BTC":
-            return _check_btc_payment(txid, amount)
-        if currency in {"ETH", "USDC"}:
-            return _check_eth_family_payment(txid, amount, currency)
-        if currency == "SOL":
-            return _check_sol_payment(txid, amount)
-        if currency == "USDT":
-            return _check_tron_usdt_payment(txid, amount)
-        return "pending_review", f"Verifica automatica non disponibile per {currency}"
-    except Exception as exc:
-        return "pending_review", f"Controllo automatico non conclusivo: {str(exc)}"
-
-@app.get("/api/billing/wallets")
-def get_crypto_payment_wallets(user: dict = Depends(require_user)):
-    wallets = get_payment_wallets()
-    return {
-        "wallets": wallets,
-        "configured": {currency: bool(address) for currency, address in wallets.items()},
-    }
-
 @app.post("/api/billing/submit-txid")
 def submit_crypto_payment(req: SubmitTxidRequest, user: dict = Depends(require_user)):
     user_id = user["sub"]
@@ -2587,32 +2358,31 @@ class VerifyPaymentRequest(BaseModel):
     action: str 
     months: int = 1
 
-class CheckPaymentRequest(BaseModel):
-    payment_id: str
-
-@app.post("/api/billing/check-payment")
-def check_crypto_payment(req: CheckPaymentRequest, admin_token: str = Depends(require_admin)):
-    payment = db.get_payment_by_id(req.payment_id)
-    if not payment:
-        raise HTTPException(status_code=404, detail="Pagamento non trovato")
-
-    check_status, check_message = run_payment_check(payment)
-    db.update_payment_check(req.payment_id, check_status, check_message)
-    return {
-        "status": "success",
-        "check_status": check_status,
-        "message": check_message,
-    }
-
 @app.post("/api/billing/verify-payment")
 def verify_crypto_payment(req: VerifyPaymentRequest, admin_token: str = Depends(require_admin)):
-    payment = db.get_payment_by_id(req.payment_id)
+    payments = db.get_all_payments()
+    payment = next((p for p in payments if p["id"] == req.payment_id), None)
     if not payment:
         raise HTTPException(status_code=404, detail="Pagamento non trovato")
         
     if req.action == "approve":
         db.update_payment_status(req.payment_id, "verified")
-        return {"status": "success", "message": "Pagamento confermato. Ora puoi attivare manualmente il mese sull’utente."}
+        from datetime import datetime, timedelta
+        user = db.get_user_by_id(payment["user_id"])
+        
+        current_exp = user.get("subscription_expires_at")
+        base_date = datetime.utcnow()
+        if current_exp:
+            try:
+                parsed_exp = datetime.strptime(current_exp, "%Y-%m-%d %H:%M:%S")
+                if parsed_exp > base_date:
+                    base_date = parsed_exp
+            except Exception:
+                pass
+            
+        new_exp = base_date + timedelta(days=30 * req.months)
+        db.update_subscription(payment["user_id"], new_exp.strftime("%Y-%m-%d %H:%M:%S"))
+        return {"status": "success", "message": f"Pagamento approvato e abbonamento esteso fino a {new_exp.strftime('%Y-%m-%d')}"}
     else:
         db.update_payment_status(req.payment_id, "rejected")
         return {"status": "success", "message": "Pagamento rifiutato"}
@@ -2620,20 +2390,8 @@ def verify_crypto_payment(req: VerifyPaymentRequest, admin_token: str = Depends(
 class AdminUserActionRequest(BaseModel):
     user_id: str
 
-class AdminUserExtendRequest(BaseModel):
-    user_id: str
-    months: int = 1
-
-class AdminUserPlanRequest(BaseModel):
-    user_id: str
-    plan_id: str
-
 @app.post("/api/saas/activate-user")
 def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
-    user = db.get_user_by_id(req.user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Utente non trovato")
-    plan = get_plan_for_user(user.get("plan_id"))
     conn = db.get_db_connection()
     cursor = conn.cursor()
     cursor.execute("UPDATE users SET status = 'active' WHERE id = ?", (req.user_id,))
@@ -2645,54 +2403,7 @@ def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(
     
     conn.commit()
     conn.close()
-    append_billing_activity(f"Utente {user['email']} attivato sullo step {plan['name']}", "user_activated")
-    return {"status": "success", "message": f"Utente attivato manualmente con step {plan['name']}."}
-
-@app.post("/api/saas/extend-user")
-def admin_extend_user(req: AdminUserExtendRequest, admin_token: str = Depends(require_admin)):
-    user = db.get_user_by_id(req.user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Utente non trovato")
-    months = max(1, min(int(req.months or 1), 24))
-    now = datetime.utcnow()
-    current_exp = None
-    raw_exp = user.get("subscription_expires_at")
-    if raw_exp:
-        try:
-            current_exp = datetime.strptime(raw_exp, "%Y-%m-%d %H:%M:%S")
-        except Exception:
-            current_exp = None
-    start_from = current_exp if current_exp and current_exp > now else now
-    new_exp = start_from + timedelta(days=30 * months)
-
-    conn = db.get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE users SET status = 'active', subscription_expires_at = ? WHERE id = ?",
-        (new_exp.strftime("%Y-%m-%d %H:%M:%S"), req.user_id)
-    )
-    conn.commit()
-    conn.close()
-    append_billing_activity(f"Abbonamento esteso di {months} mese/i per {user['email']}", "subscription_extended")
-    return {
-        "status": "success",
-        "message": f"Abbonamento esteso di {months} mese/i. Nuova scadenza: {new_exp.strftime('%Y-%m-%d')}.",
-    }
-
-@app.post("/api/saas/update-user-plan")
-def admin_update_user_plan(req: AdminUserPlanRequest, admin_token: str = Depends(require_admin)):
-    user = db.get_user_by_id(req.user_id)
-    if not user:
-        raise HTTPException(status_code=404, detail="Utente non trovato")
-    plan = get_plan_for_user(req.plan_id)
-    db.update_user_plan(req.user_id, plan["id"])
-    append_billing_activity(f"Step aggiornato a {plan['name']} per {user['email']}", "plan_updated")
-    return {
-        "status": "success",
-        "message": f"Step utente aggiornato a {plan['name']}.",
-        "plan_id": plan["id"],
-        "plan_name": plan["name"],
-    }
+    return {"status": "success", "message": "Utente attivato manualmente."}
 
 @app.post("/api/saas/delete-user")
 def admin_delete_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
@@ -2711,63 +2422,59 @@ def list_crypto_payments(admin_token: str = Depends(require_admin)):
 def get_saas_overview_db(admin_token: str = Depends(require_admin)):
     users = db.get_all_users()
     payments = db.get_all_payments()
-    plans = get_plan_catalog()
+    
+    from datetime import datetime as _dt
+    now = _dt.utcnow()
     
     # Calcolo metriche
     active_customers = len([u for u in users if u["status"] == "active"])
-    mrr = round(sum(float((plans.get((u.get("plan_id") or "pro")) or plans.get("pro") or {}).get("price_monthly", 0) or 0) for u in users if u["status"] == "active"), 2)
-    now = datetime.utcnow()
-    expiring_soon = 0
-    past_due = 0
+    # MRR reale: solo clienti che hanno pagato E abbonamento non scaduto
+    paying_users = []
+    for u in users:
+        if u.get("paid_at"):
+            exp = u.get("subscription_expires_at")
+            if exp:
+                try:
+                    if _dt.strptime(exp, "%Y-%m-%d %H:%M:%S") > now:
+                        paying_users.append(u)
+                except Exception:
+                    paying_users.append(u)
+            else:
+                paying_users.append(u)
+    mrr = len(paying_users) * 99
     
     # Formattazione per il frontend
     customers = []
     for u in users:
-        plan = get_plan_for_user(u.get("plan_id"))
-        expiry_label = u.get("subscription_expires_at", "N/A")
-        days_left = None
-        if u.get("subscription_expires_at"):
-          try:
-              expiry_dt = datetime.strptime(u["subscription_expires_at"], "%Y-%m-%d %H:%M:%S")
-              days_left = (expiry_dt - now).days
-              if u["status"] == "active" and days_left < 0:
-                  past_due += 1
-              elif u["status"] == "active" and days_left <= 7:
-                  expiring_soon += 1
-          except Exception:
-              days_left = None
+        paid_at = u.get("paid_at")
+        sub_expires = u.get("subscription_expires_at")
+        is_paid = False
+        if paid_at:
+            if sub_expires:
+                try:
+                    is_paid = _dt.strptime(sub_expires, "%Y-%m-%d %H:%M:%S") > now
+                except Exception:
+                    is_paid = True
+            else:
+                is_paid = True
         customers.append({
             "id": u["id"],
             "email": u["email"],
             "status": u["status"],
             "role": u["role"],
-            "plan_id": plan["id"],
-            "plan_name": plan["name"],
-            "modules_enabled": plan.get("modules", []),
-            "next_billing_at": expiry_label,
-            "days_left": days_left,
-            "monthly_amount": plan.get("price_monthly", 0),
-            "created_at": u.get("created_at")
+            "next_billing_at": sub_expires or "N/A",
+            "monthly_amount": 99,
+            "created_at": u.get("created_at"),
+            "paid_at": paid_at,
+            "is_paid": is_paid,
         })
         
     return {
         "mrr": mrr,
         "active_customers": active_customers,
-        "metrics": {
-            "monthly_recurring_revenue": mrr,
-            "annual_run_rate": round(mrr * 12, 2),
-            "active_customers": active_customers,
-            "trialing_customers": len([u for u in users if u["status"] == "pending"]),
-            "leads_count": 0,
-            "collection_rate": round((active_customers / len(users)) * 100, 1) if users else 0,
-            "expiring_soon": expiring_soon,
-            "past_due": past_due,
-        },
-        "payment_queue": payments[:10],
-        "activity_feed": load_billing_db().get("recent_activity", [])[:8],
-        "recent_activity": payments[:10],
+        "paying_customers": len(paying_users),
+        "recent_activity": payments[:10], # Ultimi pagamenti
         "customers": customers,
-        "plans": list(plans.values()),
         "settings": {"currency": "USDT"}
     }
 

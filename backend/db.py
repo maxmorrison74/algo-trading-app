@@ -45,16 +45,18 @@ def init_db():
             password_hash TEXT NOT NULL,
             role TEXT DEFAULT 'user',
             status TEXT DEFAULT 'pending',
-            plan_id TEXT DEFAULT 'pro',
             subscription_expires_at DATETIME,
+            paid_at DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     ''')
-
-    cursor.execute("PRAGMA table_info(users)")
-    user_columns = {row[1] for row in cursor.fetchall()}
-    if "plan_id" not in user_columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN plan_id TEXT DEFAULT 'pro'")
+    
+    # Migrate existing DBs: add paid_at column if not exists
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN paid_at DATETIME")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
     
     # API Keys table (encrypted)
     cursor.execute('''
@@ -64,18 +66,9 @@ def init_db():
             alpaca_secret TEXT,
             binance_key TEXT,
             binance_secret TEXT,
-            kraken_key TEXT,
-            kraken_secret TEXT,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )
     ''')
-
-    cursor.execute("PRAGMA table_info(api_keys)")
-    existing_columns = {row[1] for row in cursor.fetchall()}
-    if "kraken_key" not in existing_columns:
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN kraken_key TEXT")
-    if "kraken_secret" not in existing_columns:
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN kraken_secret TEXT")
     
     # Crypto Payments table
     cursor.execute('''
@@ -86,22 +79,10 @@ def init_db():
             amount REAL NOT NULL,
             currency TEXT NOT NULL,
             status TEXT DEFAULT 'pending',
-            check_status TEXT DEFAULT 'unchecked',
-            check_message TEXT,
-            checked_at DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )
     ''')
-
-    cursor.execute("PRAGMA table_info(crypto_payments)")
-    payment_columns = {row[1] for row in cursor.fetchall()}
-    if "check_status" not in payment_columns:
-        cursor.execute("ALTER TABLE crypto_payments ADD COLUMN check_status TEXT DEFAULT 'unchecked'")
-    if "check_message" not in payment_columns:
-        cursor.execute("ALTER TABLE crypto_payments ADD COLUMN check_message TEXT")
-    if "checked_at" not in payment_columns:
-        cursor.execute("ALTER TABLE crypto_payments ADD COLUMN checked_at DATETIME")
     
     conn.commit()
     conn.close()
@@ -112,13 +93,13 @@ def get_db_connection():
     return conn
 
 # User Operations
-def create_user(user_id: str, email: str, password: str, role: str = 'user', status: str = 'pending', plan_id: str = 'pro'):
+def create_user(user_id: str, email: str, password: str, role: str = 'user', status: str = 'pending'):
     conn = get_db_connection()
     cursor = conn.cursor()
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
     try:
-        cursor.execute("INSERT INTO users (id, email, password_hash, role, status, plan_id) VALUES (?, ?, ?, ?, ?, ?)",
-                       (user_id, email, password_hash, role, status, plan_id))
+        cursor.execute("INSERT INTO users (id, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)",
+                       (user_id, email, password_hash, role, status))
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -129,7 +110,7 @@ def create_user(user_id: str, email: str, password: str, role: str = 'user', sta
 def verify_user_login(email: str, password: str):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, password_hash, role, status, plan_id FROM users WHERE email = ?", (email,))
+    cursor.execute("SELECT id, email, password_hash, role, status FROM users WHERE email = ?", (email,))
     row = cursor.fetchone()
     conn.close()
     
@@ -140,7 +121,7 @@ def verify_user_login(email: str, password: str):
 def get_user_by_id(user_id: str):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, role, status, plan_id, subscription_expires_at FROM users WHERE id = ?", (user_id,))
+    cursor.execute("SELECT id, email, role, status, subscription_expires_at, paid_at FROM users WHERE id = ?", (user_id,))
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -148,7 +129,7 @@ def get_user_by_id(user_id: str):
 def get_all_users():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, role, status, plan_id, subscription_expires_at, created_at FROM users ORDER BY created_at DESC")
+    cursor.execute("SELECT id, email, role, status, subscription_expires_at, paid_at, created_at FROM users ORDER BY created_at DESC")
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
@@ -161,29 +142,19 @@ def update_user_status(user_id: str, status: str):
     conn.close()
 
 def update_subscription(user_id: str, expires_at: str):
+    """Called when a payment is approved. Sets paid_at to now."""
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("UPDATE users SET subscription_expires_at = ?, status = 'active' WHERE id = ?", (expires_at, user_id))
-    conn.commit()
-    conn.close()
-
-def update_user_plan(user_id: str, plan_id: str):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE users SET plan_id = ? WHERE id = ?", (plan_id, user_id))
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        "UPDATE users SET subscription_expires_at = ?, status = 'active', paid_at = ? WHERE id = ?",
+        (expires_at, now, user_id)
+    )
     conn.commit()
     conn.close()
 
 # API Keys Operations
-def save_api_keys(
-    user_id: str,
-    alpaca_key: str = "",
-    alpaca_secret: str = "",
-    binance_key: str = "",
-    binance_secret: str = "",
-    kraken_key: str = "",
-    kraken_secret: str = "",
-):
+def save_api_keys(user_id: str, alpaca_key: str = "", alpaca_secret: str = "", binance_key: str = "", binance_secret: str = ""):
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -192,23 +163,21 @@ def save_api_keys(
     if cursor.fetchone():
         cursor.execute("""
             UPDATE api_keys 
-            SET alpaca_key = ?, alpaca_secret = ?, binance_key = ?, binance_secret = ?, kraken_key = ?, kraken_secret = ?
+            SET alpaca_key = ?, alpaca_secret = ?, binance_key = ?, binance_secret = ? 
             WHERE user_id = ?
         """, (
             encrypt_value(alpaca_key), encrypt_value(alpaca_secret),
             encrypt_value(binance_key), encrypt_value(binance_secret),
-            encrypt_value(kraken_key), encrypt_value(kraken_secret),
             user_id
         ))
     else:
         cursor.execute("""
-            INSERT INTO api_keys (user_id, alpaca_key, alpaca_secret, binance_key, binance_secret, kraken_key, kraken_secret)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO api_keys (user_id, alpaca_key, alpaca_secret, binance_key, binance_secret)
+            VALUES (?, ?, ?, ?, ?)
         """, (
             user_id,
             encrypt_value(alpaca_key), encrypt_value(alpaca_secret),
-            encrypt_value(binance_key), encrypt_value(binance_secret),
-            encrypt_value(kraken_key), encrypt_value(kraken_secret)
+            encrypt_value(binance_key), encrypt_value(binance_secret)
         ))
         
     conn.commit()
@@ -228,9 +197,7 @@ def get_api_keys(user_id: str):
         "alpaca_key": decrypt_value(row['alpaca_key']),
         "alpaca_secret": decrypt_value(row['alpaca_secret']),
         "binance_key": decrypt_value(row['binance_key']),
-        "binance_secret": decrypt_value(row['binance_secret']),
-        "kraken_key": decrypt_value(row['kraken_key']),
-        "kraken_secret": decrypt_value(row['kraken_secret']),
+        "binance_secret": decrypt_value(row['binance_secret'])
     }
 
 # Crypto Payments Operations
@@ -255,29 +222,6 @@ def update_payment_status(payment_id: str, status: str):
     cursor.execute("UPDATE crypto_payments SET status = ? WHERE id = ?", (status, payment_id))
     conn.commit()
     conn.close()
-
-def update_payment_check(payment_id: str, check_status: str, check_message: str = ""):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE crypto_payments SET check_status = ?, check_message = ?, checked_at = CURRENT_TIMESTAMP WHERE id = ?",
-        (check_status, check_message, payment_id)
-    )
-    conn.commit()
-    conn.close()
-
-def get_payment_by_id(payment_id: str):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT p.*, u.email as user_email
-        FROM crypto_payments p
-        JOIN users u ON p.user_id = u.id
-        WHERE p.id = ?
-    """, (payment_id,))
-    row = cursor.fetchone()
-    conn.close()
-    return dict(row) if row else None
 
 def get_all_payments():
     conn = get_db_connection()

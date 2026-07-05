@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
-import heroAsset from './assets/hero.png';
 
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
 const DEMO_MODE_KEY = 'omni_demo_mode';
-const USER_PLAN_KEY = 'omni_user_plan';
-const USER_ALLOWED_MODULES_KEY = 'omni_user_allowed_modules';
-const USER_LOGIN_PATH = '/access';
-const ADMIN_LOGIN_PATH = '/aureo-control-vault';
 const BILLING_ENABLED = true;
 const TAB_TITLES = {
   home: 'Dashboard',
@@ -19,6 +14,7 @@ const TAB_TITLES = {
   ai_content: 'AI Content',
   settings: 'Security & API',
   saas: 'SaaS & Billing',
+  guide: '📖 Guida Setup',
 };
 
 const DEMO_BILLING_OVERVIEW = {
@@ -76,18 +72,8 @@ const DEMO_BILLING_OVERVIEW = {
   settings: { trial_days: 7, currency: 'EUR' },
 };
 
-const FALLBACK_PAYMENT_RATES = {
-  EURUSD: 1.11,
-  BTCUSD: 118420,
-  ETHUSD: 6180,
-  SOLUSD: 242,
-};
-
 const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || '';
 const isDemoSession = () => localStorage.getItem(DEMO_MODE_KEY) === '1';
-const getCurrentPath = () => (typeof window !== 'undefined' ? window.location.pathname : '/');
-const getAuthRouteMode = (path = getCurrentPath()) => (path === ADMIN_LOGIN_PATH ? 'admin' : 'user');
-const isKnownAuthPath = (path = getCurrentPath()) => path === USER_LOGIN_PATH || path === ADMIN_LOGIN_PATH;
 
 const clearAuthSession = () => {
   localStorage.removeItem(AUTH_TOKEN_KEY);
@@ -95,8 +81,6 @@ const clearAuthSession = () => {
   localStorage.removeItem(DEMO_MODE_KEY);
   localStorage.removeItem('USER_ROLE');
   localStorage.removeItem('USER_STATUS');
-  localStorage.removeItem(USER_PLAN_KEY);
-  localStorage.removeItem(USER_ALLOWED_MODULES_KEY);
 };
 
 const authFetch = async (input, init = {}) => {
@@ -317,6 +301,7 @@ function OmniApp() {
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingMessage, setBillingMessage] = useState('');
   const [billingLead, setBillingLead] = useState({ company: '', contact_name: '', email: '', plan_id: 'pro', seats: 1 });
+  const [userIsPaid, setUserIsPaid] = useState(false);
   
   // AI Investment Hub state
   const [aiBudget, setAiBudget] = useState(500);
@@ -335,21 +320,13 @@ function OmniApp() {
   const [manualQuote, setManualQuote] = useState(null);
   const [manualLoading, setManualLoading] = useState(false);
   const [manualMessage, setManualMessage] = useState("");
-  const [landingTickerItems, setLandingTickerItems] = useState([]);
-  const [paymentWallets, setPaymentWallets] = useState({});
 
   const handleCryptoSubmit = async () => {
     if (!txid) return alert('Inserisci il TXID');
-    const selectedWallet = paymentWallets[selectedCrypto];
-    if (!selectedWallet) {
-      setBillingMessage(`Wallet ${selectedCrypto} non ancora configurato. Contattaci prima di inviare il pagamento.`);
-      return;
-    }
-    const paymentQuote = getCryptoPaymentQuote();
     try {
       const res = await authFetch('/api/billing/submit-txid', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txid, amount: paymentQuote.convertedAmount, currency: selectedCrypto })
+        body: JSON.stringify({ txid, amount: 99, currency: selectedCrypto })
       });
       const data = await res.json();
       setBillingMessage(data.message);
@@ -359,11 +336,6 @@ function OmniApp() {
   };
 
   const renderCryptoPaywall = () => (
-    (() => {
-      const paymentQuote = getCryptoPaymentQuote();
-      const selectedPlan = paymentQuote.plan;
-      const selectedWallet = paymentWallets[selectedCrypto] || '';
-      return (
     <div className="module-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', height: '100%', padding: '2rem' }}>
         <h2 style={{ fontSize: '2rem', marginBottom: '1rem', color: '#e2e8f0' }}>🔐 Account in attesa di sblocco</h2>
         <p style={{ fontSize: '1.1rem', color: 'var(--text-secondary)', marginBottom: '2rem', maxWidth: '600px' }}>
@@ -377,32 +349,6 @@ function OmniApp() {
           <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
             Seleziona la criptovaluta, invia l'importo all'indirizzo indicato e inserisci qui il Transaction ID (TXID) per la verifica manuale.
           </p>
-          <div style={{ marginBottom: '1rem', padding: '0.85rem 1rem', background: 'rgba(56, 189, 248, 0.08)', border: '1px solid rgba(56, 189, 248, 0.2)', borderRadius: '12px', color: '#bae6fd', fontSize: '0.88rem', lineHeight: 1.45 }}>
-            Dopo l’invio, il pagamento entra in verifica e l’account viene sbloccato dall’admin con lo step scelto. Ideale per onboarding guidato e attivazioni controllate.
-          </div>
-
-          {selectedPlan && (
-            <div style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '12px', padding: '0.9rem 1rem', marginBottom: '1rem' }}>
-              <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>
-                Step selezionato
-              </div>
-              <div style={{ color: '#e2e8f0', fontSize: '1.15rem', fontWeight: 700 }}>
-                {selectedPlan.name} · €{paymentQuote.eurAmount}/mese
-              </div>
-            </div>
-          )}
-
-          <div style={{ background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '12px', padding: '1rem', marginBottom: '1.2rem' }}>
-            <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.45rem' }}>
-              Importo da inviare
-            </div>
-            <div style={{ color: '#10b981', fontSize: '1.8rem', fontWeight: 800, lineHeight: 1 }}>
-              {paymentQuote.displayAmount} {selectedCrypto}
-            </div>
-            <div style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', marginTop: '0.45rem' }}>
-              Equivalente a €{paymentQuote.eurAmount} per il piano {selectedPlan?.name || 'selezionato'}. Invia esattamente questo importo al wallet indicato qui sotto.
-            </div>
-          </div>
 
           <div className="form-group" style={{ marginBottom: '1rem' }}>
             <label>Metodo di Pagamento</label>
@@ -418,15 +364,12 @@ function OmniApp() {
           <div style={{ background: '#111', padding: '1rem', borderRadius: '8px', border: '1px solid #333', marginBottom: '1.5rem', wordBreak: 'break-all', fontSize: '0.9rem' }}>
             <div style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.8rem', textTransform: 'uppercase' }}>Indirizzo di Deposito {selectedCrypto}</div>
             <strong style={{ color: '#e2e8f0', userSelect: 'all' }}>
-              {selectedWallet || 'Wallet non configurato'}
+              {selectedCrypto === 'BTC' ? 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' : 
+               selectedCrypto === 'ETH' || selectedCrypto === 'USDC' ? '0x71C7656EC7ab88b098defB751B7401B5f6d8976F' :
+               selectedCrypto === 'SOL' ? 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH' :
+               'TX9bF1BWeYdG4N6N1eR6fB8B5L6M7P8Q9R'}
             </strong>
           </div>
-
-          {!selectedWallet && (
-            <div style={{ marginBottom: '1rem', padding: '0.8rem', background: 'rgba(239, 68, 68, 0.12)', color: '#fca5a5', borderRadius: '8px', textAlign: 'center', fontSize: '0.9rem', border: '1px solid rgba(239, 68, 68, 0.28)' }}>
-              Questo metodo di pagamento non è ancora disponibile. Seleziona una crypto configurata o contattaci.
-            </div>
-          )}
           
           <div className="form-group" style={{ marginBottom: '1.5rem' }}>
             <label>Transaction ID (TXID)</label>
@@ -439,7 +382,7 @@ function OmniApp() {
             />
           </div>
 
-          <button className="btn btn-start" onClick={handleCryptoSubmit} style={{ width: '100%', padding: '1rem' }} disabled={!selectedWallet}>
+          <button className="btn btn-start" onClick={handleCryptoSubmit} style={{ width: '100%', padding: '1rem' }}>
             Invia per Verifica
           </button>
           
@@ -450,44 +393,7 @@ function OmniApp() {
           )}
         </div>
       </div>
-      );
-    })()
   );
-
-  useEffect(() => {
-    const fallbackTicker = [
-      { market: 'BTC/USD', price: '$118,420', change: '+2.6%', direction: 'up' },
-      { market: 'ETH/USD', price: '$6,180', change: '+1.9%', direction: 'up' },
-      { market: 'SOL/USD', price: '$242', change: '+4.2%', direction: 'up' },
-      { market: 'GOLD', price: '$2,612', change: '-0.4%', direction: 'down' },
-      { market: 'NASDAQ', price: '21,440', change: '+0.8%', direction: 'up' },
-      { market: 'EUR/USD', price: '1.11', change: '+0.2%', direction: 'up' },
-    ];
-
-    let active = true;
-
-    const fetchLandingTicker = async () => {
-      try {
-        const res = await fetch('/api/landing-ticker');
-        const data = await res.json();
-        if (!active) return;
-        if (Array.isArray(data?.items) && data.items.length > 0) {
-          setLandingTickerItems(data.items);
-        } else {
-          setLandingTickerItems(fallbackTicker);
-        }
-      } catch (error) {
-        if (active) setLandingTickerItems(fallbackTicker);
-      }
-    };
-
-    fetchLandingTicker();
-    const interval = setInterval(fetchLandingTicker, 60000);
-    return () => {
-      active = false;
-      clearInterval(interval);
-    };
-  }, []);
 
   const handleQuote = async () => {
     if (!manualSymbol) return;
@@ -587,25 +493,14 @@ function OmniApp() {
     return false;
   };
   const [isAuthenticated, setIsAuthenticated] = useState(checkAuthMemory());
-  const [showLanding, setShowLanding] = useState(!isKnownAuthPath());
-  const [showLandingPlans, setShowLandingPlans] = useState(false);
-  const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [showLanding, setShowLanding] = useState(true);
   const [isDemoMode, setIsDemoMode] = useState(isDemoSession());
 
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  const [authScreenMode, setAuthScreenMode] = useState(getAuthRouteMode());
-  const [userRole, setUserRole] = useState(localStorage.getItem('USER_ROLE') || 'user');
+  const [userRole, setUserRole] = useState(localStorage.getItem('USER_ROLE') || 'admin');
   const [userStatus, setUserStatus] = useState(localStorage.getItem('USER_STATUS') || 'active');
-  const [userPlanId, setUserPlanId] = useState(localStorage.getItem(USER_PLAN_KEY) || 'pro');
-  const [userAllowedModules, setUserAllowedModules] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem(USER_ALLOWED_MODULES_KEY) || '[]');
-    } catch {
-      return [];
-    }
-  });
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
   const [isBackendOnline, setIsBackendOnline] = useState(true);
@@ -624,78 +519,6 @@ function OmniApp() {
   const syncLabel = isBackendOnline
     ? (lastStatusSync ? `Live • ${lastStatusSync}` : 'Live')
     : 'Offline';
-  const hasPlanAccess = (moduleId) => (
-    userRole === 'admin' ||
-    !moduleId ||
-    userAllowedModules.includes(moduleId)
-  );
-
-  const getBillingPlansCatalog = () => (
-    billingOverview?.plans?.length ? billingOverview.plans : DEMO_BILLING_OVERVIEW.plans
-  );
-
-  const getActiveBillingPlan = () => {
-    const plans = getBillingPlansCatalog();
-    const preferredPlanId = selectedPlanId || billingLead.plan_id || 'pro';
-    return plans.find((plan) => plan.id === preferredPlanId) || plans.find((plan) => plan.id === 'pro') || plans[0] || null;
-  };
-
-  const getPaymentRates = () => {
-    const rates = { ...FALLBACK_PAYMENT_RATES };
-    const sourceItems = landingTickerItems.length > 0 ? landingTickerItems : [
-      { market: 'BTC/USD', price: '$118,420' },
-      { market: 'ETH/USD', price: '$6,180' },
-      { market: 'SOL/USD', price: '$242' },
-      { market: 'EUR/USD', price: '1.11' },
-    ];
-
-    sourceItems.forEach((item) => {
-      const rawPrice = Number(String(item.price || '').replace(/[^0-9.]/g, ''));
-      if (!Number.isFinite(rawPrice) || rawPrice <= 0) return;
-      if (item.market === 'BTC/USD') rates.BTCUSD = rawPrice;
-      if (item.market === 'ETH/USD') rates.ETHUSD = rawPrice;
-      if (item.market === 'SOL/USD') rates.SOLUSD = rawPrice;
-      if (item.market === 'EUR/USD') rates.EURUSD = rawPrice;
-    });
-
-    return rates;
-  };
-
-  const getCryptoPaymentQuote = (plan = getActiveBillingPlan(), currency = selectedCrypto) => {
-    if (!plan) {
-      return {
-        plan: null,
-        eurAmount: 0,
-        convertedAmount: 0,
-        displayAmount: '0.00',
-      };
-    }
-
-    const rates = getPaymentRates();
-    const eurAmount = Number(plan.price_monthly || 0);
-    const amountInUsd = eurAmount * (rates.EURUSD || FALLBACK_PAYMENT_RATES.EURUSD);
-
-    let convertedAmount = amountInUsd;
-    let precision = 2;
-
-    if (currency === 'BTC') {
-      convertedAmount = amountInUsd / (rates.BTCUSD || FALLBACK_PAYMENT_RATES.BTCUSD);
-      precision = 8;
-    } else if (currency === 'ETH') {
-      convertedAmount = amountInUsd / (rates.ETHUSD || FALLBACK_PAYMENT_RATES.ETHUSD);
-      precision = 6;
-    } else if (currency === 'SOL') {
-      convertedAmount = amountInUsd / (rates.SOLUSD || FALLBACK_PAYMENT_RATES.SOLUSD);
-      precision = 4;
-    }
-
-    return {
-      plan,
-      eurAmount,
-      convertedAmount: Number(convertedAmount.toFixed(precision)),
-      displayAmount: convertedAmount.toFixed(precision),
-    };
-  };
 
   useEffect(() => {
     if (!BILLING_ENABLED && activeTab === 'saas') {
@@ -704,68 +527,9 @@ function OmniApp() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (userRole === 'admin') return;
-    const accessByTab = {
-      home: true,
-      trading: hasPlanAccess('trading'),
-      crypto_arb: hasPlanAccess('defi'),
-      value_bets: false,
-      ai_content: false,
-      settings: true,
-      saas: false,
-    };
-    if (accessByTab[activeTab] === false) {
-      setActiveTab('home');
-    }
-  }, [activeTab, userRole, userAllowedModules]);
-
-  useEffect(() => {
     const supported = typeof window !== 'undefined' && !!window.PublicKeyCredential && !!navigator.credentials;
     setPasskeySupported(supported);
   }, []);
-
-  useEffect(() => {
-    const handleRouteChange = () => {
-      const path = getCurrentPath();
-      const mode = getAuthRouteMode(path);
-      setAuthScreenMode(mode);
-      setShowLanding(!isKnownAuthPath(path));
-      setIsRegistering(false);
-      setLoginError('');
-      setPassword('');
-      if (mode === 'admin') {
-        setEmail('');
-      }
-    };
-
-    window.addEventListener('popstate', handleRouteChange);
-    return () => window.removeEventListener('popstate', handleRouteChange);
-  }, []);
-
-  const navigateToPath = (path) => {
-    if (typeof window !== 'undefined' && window.location.pathname !== path) {
-      window.history.pushState({}, '', path);
-    }
-  };
-
-  const openUserLogin = () => {
-    navigateToPath(USER_LOGIN_PATH);
-    setAuthScreenMode('user');
-    setShowLanding(false);
-    setIsRegistering(false);
-    setLoginError('');
-    setPassword('');
-  };
-
-  const openAdminLogin = () => {
-    navigateToPath(ADMIN_LOGIN_PATH);
-    setAuthScreenMode('admin');
-    setShowLanding(false);
-    setIsRegistering(false);
-    setLoginError('');
-    setPassword('');
-    setEmail('');
-  };
 
   const enterDemoMode = () => {
     localStorage.setItem(DEMO_MODE_KEY, '1');
@@ -774,33 +538,6 @@ function OmniApp() {
     setLoginError('');
     setPassword('');
     setActiveTab('home');
-  };
-
-  const openPricingSection = () => {
-    setShowLandingPlans(true);
-    if (typeof window !== 'undefined') {
-      window.setTimeout(() => {
-        const element = document.getElementById('landing-pricing');
-        element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 80);
-    }
-  };
-
-  const continueWithPlan = (planId) => {
-    setSelectedPlanId(planId);
-    setBillingLead((prev) => ({ ...prev, plan_id: planId }));
-    setLoginError('');
-    setPassword('');
-    setEmail('');
-    setIsRegistering(true);
-    setShowLandingPlans(true);
-    setShowLanding(true);
-    if (typeof window !== 'undefined') {
-      window.setTimeout(() => {
-        const element = document.getElementById('landing-plan-onboarding');
-        element?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      }, 100);
-    }
   };
 
   useEffect(() => {
@@ -839,25 +576,6 @@ function OmniApp() {
   }, [selectedSymbol]);
 
   useEffect(() => {
-    if (!isAuthenticated) {
-      return;
-    }
-
-    const fetchPaymentWallets = async () => {
-      try {
-        const res = await authFetch('/api/billing/wallets');
-        if (!res.ok) {
-          return;
-        }
-        const data = await res.json();
-        setPaymentWallets(data.wallets || {});
-      } catch (err) {}
-    };
-
-    fetchPaymentWallets();
-  }, [isAuthenticated]);
-
-  useEffect(() => {
     if (!selectedSymbol) return;
     const fetchChart = async () => {
       try {
@@ -876,14 +594,12 @@ function OmniApp() {
     fetchChart();
   }, [selectedSymbol, timeframe]);
 
-  const completeAuthenticatedSession = (token, role = 'admin', status = 'active', planId = 'pro', allowedModules = []) => {
+  const completeAuthenticatedSession = (token, role = 'admin', status = 'active') => {
     setIsAuthenticated(true);
     const demo = (status === 'pending');
     setIsDemoMode(demo);
     setUserRole(role);
     setUserStatus(status);
-    setUserPlanId(planId);
-    setUserAllowedModules(Array.isArray(allowedModules) ? allowedModules : []);
     if (demo) {
       localStorage.setItem(DEMO_MODE_KEY, '1');
     } else {
@@ -893,12 +609,19 @@ function OmniApp() {
     localStorage.setItem(AUTH_TIME_KEY, Date.now().toString());
     localStorage.setItem('USER_ROLE', role);
     localStorage.setItem('USER_STATUS', status);
-    localStorage.setItem(USER_PLAN_KEY, planId || 'pro');
-    localStorage.setItem(USER_ALLOWED_MODULES_KEY, JSON.stringify(Array.isArray(allowedModules) ? allowedModules : []));
     setLoginError('');
     setPasskeyMessage('');
     setActiveTab('home');
-    navigateToPath(role === 'admin' ? ADMIN_LOGIN_PATH : USER_LOGIN_PATH);
+    // Fetch payment status for user (non-blocking)
+    setTimeout(async () => {
+      try {
+        const res = await authFetch('/api/user/me');
+        if (res.ok) {
+          const data = await res.json();
+          setUserIsPaid(data.is_paid || data.role === 'admin');
+        }
+      } catch(e) {}
+    }, 500);
   };
 
   const normalizeCreationOptions = (publicKey) => ({
@@ -941,32 +664,25 @@ function OmniApp() {
       if (isRegistering) {
         const res = await fetch('/api/register', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, plan_id: selectedPlanId || billingLead.plan_id || 'pro' })
+          body: JSON.stringify({ email, password })
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
-          setIsRegistering(false);
-          setPassword('');
-          setLoginError(data.message || 'Account creato con successo. Ora puoi accedere.');
+          // Successo registrazione, mostra il messaggio senza fare il login automatico.
+          setLoginError(data.message);
         } else {
           setLoginError(data.detail || 'Errore durante la registrazione');
         }
       } else {
-        const endpoint = authScreenMode === 'admin' ? '/api/admin/login' : '/api/login';
-        const payload = authScreenMode === 'admin' ? { password } : { email, password };
-        const res = await fetch(endpoint, {
+        // Modalità Login (se email è vuoto entra come admin)
+        const payload = email ? { email, password } : { password };
+        const res = await fetch('/api/login', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(payload)
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
-          completeAuthenticatedSession(
-            data.token,
-            data.role || 'admin',
-            data.user_status || 'active',
-            data.plan_id || selectedPlanId || billingLead.plan_id || 'pro',
-            data.allowed_modules || []
-          );
+          completeAuthenticatedSession(data.token, data.role || 'admin', data.user_status || 'active');
         } else {
           clearAuthSession();
           setIsAuthenticated(false);
@@ -1107,13 +823,7 @@ function OmniApp() {
       setIsDemoMode(false);
       setIsAuthenticated(false);
       setPassword('');
-      setEmail('');
       setLoginError('');
-      if (userRole === 'admin') {
-        openAdminLogin();
-      } else {
-        openUserLogin();
-      }
     }
   };
 
@@ -1321,16 +1031,6 @@ function OmniApp() {
     fetchBilling();
   }, [activeTab, isDemoMode]);
 
-  const refreshBillingOverview = async () => {
-    const res = await authFetch('/api/saas/overview?t=' + Date.now());
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.detail || 'Errore aggiornamento billing');
-    }
-    setBillingOverview(data);
-    return data;
-  };
-
   useEffect(() => {
     if (!isAuthenticated || isDemoMode || activeTab !== 'settings') {
       return;
@@ -1399,54 +1099,169 @@ function OmniApp() {
     setBillingLoading(false);
   };
 
-  const updateUserPlan = async (userId, planId) => {
-    if (isDemoMode) {
-      setBillingMessage('Demo mode: aggiornamento step disabilitato');
-      return;
-    }
-    setBillingLoading(true);
-    try {
-      const res = await authFetch('/api/saas/update-user-plan', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, plan_id: planId }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        await refreshBillingOverview();
-        setBillingMessage(data.message || 'Step aggiornato');
-      } else {
-        setBillingMessage(data.detail || 'Errore aggiornamento step');
-      }
-    } catch {
-      setBillingMessage('Errore di rete durante l’aggiornamento step');
-    }
-    setBillingLoading(false);
-  };
+  const renderGuideView = () => {
+    const platforms = [
+      {
+        id: 'alpaca',
+        name: 'Alpaca',
+        subtitle: 'Stock Trading USA (Paper & Live)',
+        icon: '🦙',
+        color: '#f59e0b',
+        bg: 'rgba(245, 158, 11, 0.08)',
+        border: 'rgba(245, 158, 11, 0.25)',
+        url: 'https://alpaca.markets',
+        keyPresent: savedKeys['ALPACA_KEY'],
+        steps: [
+          { n: 1, text: 'Vai su alpaca.markets e clicca "Create Account"' },
+          { n: 2, text: 'Scegli Paper Trading (gratuito, nessun rischio reale)' },
+          { n: 3, text: 'Nella dashboard, clicca "API Keys" in alto a destra' },
+          { n: 4, text: 'Genera nuova API Key → copia "API Key ID" e "Secret Key"' },
+          { n: 5, text: 'Torna su Aureo OS → Security → incolla in "Alpaca"' },
+        ],
+        note: 'Il Paper Trading è completamente gratuito e simula operazioni reali senza rischi.',
+      },
+      {
+        id: 'binance',
+        name: 'Binance',
+        subtitle: 'Crypto Arbitrage',
+        icon: '🟡',
+        color: '#eab308',
+        bg: 'rgba(234, 179, 8, 0.08)',
+        border: 'rgba(234, 179, 8, 0.25)',
+        url: 'https://www.binance.com',
+        keyPresent: savedKeys['BINANCE_KEY'],
+        steps: [
+          { n: 1, text: 'Vai su binance.com → Registrati con email' },
+          { n: 2, text: 'Completa la verifica identità (KYC) — richiede documento' },
+          { n: 3, text: 'Profilo → Gestione API → Crea nuova API Key' },
+          { n: 4, text: 'Permessi: abilita "Lettura" + "Trading Spot". Lascia DISABILITATO "Prelievi"' },
+          { n: 5, text: 'Copia "API Key" e "Secret Key"' },
+          { n: 6, text: 'Torna su Aureo OS → Security → incolla in "Binance"' },
+        ],
+        note: '⚠️ Non abilitare mai i permessi di prelievo sulle API Key per sicurezza.',
+      },
+      {
+        id: 'kraken',
+        name: 'Kraken',
+        subtitle: 'Crypto Arbitrage (secondo exchange)',
+        icon: '🦑',
+        color: '#8b5cf6',
+        bg: 'rgba(139, 92, 246, 0.08)',
+        border: 'rgba(139, 92, 246, 0.25)',
+        url: 'https://www.kraken.com',
+        keyPresent: savedKeys['KRAKEN_KEY'],
+        steps: [
+          { n: 1, text: 'Vai su kraken.com → Registrati' },
+          { n: 2, text: 'Completa la verifica base (email + telefono)' },
+          { n: 3, text: 'Sicurezza → API Keys → Genera nuova chiave' },
+          { n: 4, text: 'Permessi: seleziona "Query Funds" + "Create & Modify Orders"' },
+          { n: 5, text: 'Copia "API Key" e "Private Key"' },
+          { n: 6, text: 'Torna su Aureo OS → Security → incolla in "Kraken"' },
+        ],
+        note: 'Kraken è usato in combinazione con Binance per rilevare opportunità di arbitraggio.',
+      },
+      {
+        id: 'groq',
+        name: 'Groq AI',
+        subtitle: 'Analisi AI & Sentiment (Gratuito)',
+        icon: '🤖',
+        color: '#10b981',
+        bg: 'rgba(16, 185, 129, 0.08)',
+        border: 'rgba(16, 185, 129, 0.25)',
+        url: 'https://console.groq.com',
+        keyPresent: savedKeys['GROQ_KEY'],
+        steps: [
+          { n: 1, text: 'Vai su console.groq.com → Sign Up (gratuito)' },
+          { n: 2, text: 'Nella dashboard, clicca "API Keys" nel menu a sinistra' },
+          { n: 3, text: 'Clicca "Create API Key" → dai un nome (es. "aureo")' },
+          { n: 4, text: 'Copia la chiave generata (mostrata una sola volta)' },
+          { n: 5, text: 'Torna su Aureo OS → Security → incolla in "Groq"' },
+        ],
+        note: 'Groq è completamente gratuito e alimenta le analisi AI Sentiment e le proposte di investimento.',
+      },
+    ];
 
-  const extendUserSubscription = async (userId, months) => {
-    if (isDemoMode) {
-      setBillingMessage('Demo mode: rinnovo disabilitato');
-      return;
-    }
-    setBillingLoading(true);
-    try {
-      const res = await authFetch('/api/saas/extend-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, months }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        await refreshBillingOverview();
-        setBillingMessage(data.message || 'Abbonamento aggiornato');
-      } else {
-        setBillingMessage(data.detail || 'Errore rinnovo abbonamento');
-      }
-    } catch {
-      setBillingMessage('Errore di rete durante il rinnovo');
-    }
-    setBillingLoading(false);
+    return (
+      <div className="module-content">
+        <div className="header" style={{ marginBottom: '2rem' }}>
+          <h2>📖 Guida Setup – Come Configurare Aureo OS</h2>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', lineHeight: 1.6 }}>
+            Segui questi passaggi per connettere i tuoi account ai mercati reali. Puoi configurare solo le piattaforme che vuoi usare.
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '1.5rem' }}>
+          {platforms.map(platform => (
+            <div key={platform.id} className="card" style={{ border: `1px solid ${platform.border}`, background: platform.bg, padding: '1.5rem' }}>
+              {/* Header */}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                  <span style={{ fontSize: '2rem' }}>{platform.icon}</span>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: '1.1rem', color: '#e2e8f0' }}>{platform.name}</div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{platform.subtitle}</div>
+                  </div>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.5rem' }}>
+                  {platform.keyPresent
+                    ? <span style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid #10b981', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.78rem', fontWeight: 600 }}>✓ API Configurata</span>
+                    : <span style={{ background: 'rgba(239,68,68,0.1)', color: '#f87171', border: '1px solid #f87171', borderRadius: '6px', padding: '0.2rem 0.6rem', fontSize: '0.78rem' }}>✗ Non configurata</span>
+                  }
+                  <a href={platform.url} target="_blank" rel="noopener noreferrer" style={{ color: platform.color, fontSize: '0.8rem', textDecoration: 'none' }}>
+                    🔗 Vai al sito →
+                  </a>
+                </div>
+              </div>
+
+              {/* Steps */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>
+                {platform.steps.map(step => (
+                  <div key={step.n} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
+                    <span style={{ minWidth: '24px', height: '24px', borderRadius: '50%', background: platform.color, color: '#000', fontWeight: 700, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
+                      {step.n}
+                    </span>
+                    <span style={{ color: '#cbd5e1', fontSize: '0.9rem', lineHeight: 1.5 }}>{step.text}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Note */}
+              <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '0.7rem 1rem', fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.5, marginBottom: '1rem' }}>
+                💡 {platform.note}
+              </div>
+
+              {/* CTA */}
+              <button
+                className="btn btn-outline"
+                onClick={() => setActiveTab('settings')}
+                style={{ width: '100%', padding: '0.6rem', fontSize: '0.9rem', borderColor: platform.color, color: platform.color }}
+              >
+                🔐 Vai a Security per inserire la chiave →
+              </button>
+            </div>
+          ))}
+        </div>
+
+        {/* Bottom tip */}
+        <div className="card" style={{ marginTop: '2rem', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', padding: '1.5rem' }}>
+          <h3 style={{ color: '#10b981', marginBottom: '0.8rem' }}>✅ Ordine consigliato per iniziare</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem' }}>
+            {[
+              { n: 1, icon: '🤖', name: 'Groq AI', desc: 'Prima cosa — gratuito e immediato' },
+              { n: 2, icon: '🦙', name: 'Alpaca', desc: 'Paper trading gratuito — zero rischi' },
+              { n: 3, icon: '🟡', name: 'Binance', desc: 'Crypto arb (richiede KYC)' },
+              { n: 4, icon: '🦑', name: 'Kraken', desc: 'Secondo exchange per arb' },
+            ].map(item => (
+              <div key={item.n} style={{ textAlign: 'center', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
+                <div style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>{item.icon}</div>
+                <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.9rem' }}>Step {item.n}: {item.name}</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '0.3rem' }}>{item.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderSettingsView = () => (
@@ -1480,7 +1295,7 @@ function OmniApp() {
               <span style={{ color: passkeyStatus?.configured ? '#10b981' : 'var(--text-secondary)', fontSize: '0.9rem', fontWeight: 500 }}>
                 {passkeyStatus?.configured ? `✓ Attivo (${passkeyStatus.credentials_count} credenziali)` : 'Disattivato'}
               </span>
-              <button className="btn btn-outline" onClick={registerCurrentDevicePasskey} disabled={!passkeySupported || passkeyBusy || isDemoMode}>
+              <button className="btn btn-outline" onClick={handlePasskeyRegister} disabled={!passkeySupported || passkeyBusy || isDemoMode}>
                 {passkeyBusy ? 'Configurazione...' : 'Aggiungi dispositivo'}
               </button>
             </div>
@@ -3088,8 +2903,7 @@ function OmniApp() {
     const plans = overview.plans || [];
     const customers = overview.customers || [];
     const leads = overview.leads || [];
-    const activity = overview.activity_feed || [];
-    const paymentQueue = overview.payment_queue || overview.recent_activity || [];
+    const activity = overview.recent_activity || [];
 
     return (
       <div className="module-content module-content--billing">
@@ -3131,28 +2945,20 @@ function OmniApp() {
               {Number(metrics.trialing_customers || 0)} / {Number(metrics.leads_count || 0)}
             </div>
           </div>
-          <div className="card col-span-3">
-            <div className="card-title">In Scadenza</div>
-            <div className="portfolio-value" style={{ color: '#f59e0b' }}>{Number(metrics.expiring_soon || 0)}</div>
-          </div>
-          <div className="card col-span-3">
-            <div className="card-title">Da Recuperare</div>
-            <div className="portfolio-value" style={{ color: '#f43f5e' }}>{Number(metrics.past_due || 0)}</div>
-          </div>
         </div>
 
         <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
-          <div className="card col-span-12 billing-customers-card">
+          <div className="card col-span-6">
             <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Clienti Iscritti</h3>
-            <div className="data-table-wrapper billing-customers-table-wrapper">
-              <table className="data-table billing-customers-table">
+            <div className="data-table-wrapper">
+              <table className="data-table">
                 <thead>
                   <tr>
                     <th>Email</th>
                     <th>Status</th>
-                    <th>Step / MRR</th>
+                    <th>Pagamento</th>
                     <th>Scadenza</th>
-                    <th>Azioni Manuali</th>
+                    <th>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -3160,71 +2966,48 @@ function OmniApp() {
                     <tr key={user.id}>
                       <td>
                         <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{user.email}</div>
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>Role: {user.role}</div>
-                        {user.plan_name && (
-                          <div style={{ color: '#d4af37', fontSize: '0.78rem' }}>Step: {user.plan_name}</div>
-                        )}
-                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.35rem', maxWidth: '280px', marginTop: '0.55rem' }}>
-                          {(user.modules_enabled || []).map((moduleName) => (
-                            <span key={moduleName} style={{ padding: '0.2rem 0.45rem', borderRadius: '999px', background: 'rgba(212,175,55,0.12)', color: '#d4af37', fontSize: '0.7rem', border: '1px solid rgba(212,175,55,0.22)' }}>
-                              {moduleName}
-                            </span>
-                          ))}
-                        </div>
-                      </td>
-                      <td><span className={`badge ${user.status === 'active' ? 'badge-active' : 'badge-idle'}`}>{user.status}</span></td>
-                      <td>
-                        <div style={{ color: '#e2e8f0', fontWeight: 700 }}>€{Number(user.monthly_amount || 0).toFixed(0)}/mese</div>
-                        <select
-                          value={user.plan_id || 'pro'}
-                          onChange={(e) => updateUserPlan(user.id, e.target.value)}
-                          style={{ marginTop: '0.55rem', padding: '0.45rem 0.55rem', background: 'rgba(0,0,0,0.3)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '8px' }}
-                        >
-                          {plans.map((plan) => (
-                            <option key={plan.id} value={plan.id}>{plan.name}</option>
-                          ))}
-                        </select>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '2px' }}>registrato: {user.created_at ? user.created_at.slice(0,10) : '-'}</div>
                       </td>
                       <td>
-                        <div>{user.next_billing_at || '-'}</div>
-                        {typeof user.days_left === 'number' && (
-                          <div style={{ color: user.days_left < 0 ? '#f43f5e' : user.days_left <= 7 ? '#f59e0b' : 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '0.35rem' }}>
-                            {user.days_left < 0 ? `Scaduto da ${Math.abs(user.days_left)}g` : `${user.days_left} giorni residui`}
-                          </div>
-                        )}
+                        {user.status === 'active' && user.is_paid && <span className="badge badge-active" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid #10b981' }}>ATTIVO</span>}
+                        {user.status === 'active' && !user.is_paid && <span className="badge badge-idle" style={{ background: 'rgba(148,163,184,0.12)', color: '#94a3b8', border: '1px solid #475569' }}>ATTIVATO GRATIS</span>}
+                        {user.status === 'pending' && <span className="badge badge-idle" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b' }}>IN ATTESA</span>}
                       </td>
                       <td>
-                        <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', minWidth: '240px' }}>
+                        {user.is_paid
+                          ? <span style={{ color: '#10b981', fontWeight: 600 }}>✅ Pagato<br/><span style={{color:'#64748b', fontSize:'0.75rem', fontWeight:400}}>{user.paid_at ? user.paid_at.slice(0,10) : ''}</span></span>
+                          : <span style={{ color: '#94a3b8' }}>🎁 Gratis</span>
+                        }
+                      </td>
+                      <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{user.next_billing_at !== 'N/A' ? user.next_billing_at?.slice(0,10) : '-'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.5rem' }}>
                           {user.status !== 'active' && (
                             <button className="btn btn-start" onClick={async () => {
-                              if(!window.confirm('Vuoi attivare manualmente questo utente?')) return;
+                              if(!window.confirm('Vuoi attivare manualmente questo utente (GRATIS)?')) return;
                               try {
                                 await authFetch('/api/saas/activate-user', {
                                   method: 'POST', headers: {'Content-Type': 'application/json'},
                                   body: JSON.stringify({ user_id: user.id })
                                 });
-                                await refreshBillingOverview();
+                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                                setBillingOverview(await res2.json());
                               } catch(e) {}
-                            }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>
+                            }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}>
                               Attiva
                             </button>
                           )}
-                          <button className="btn btn-outline" onClick={() => extendUserSubscription(user.id, 1)} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>
-                            +30g
-                          </button>
-                          <button className="btn btn-outline" onClick={() => extendUserSubscription(user.id, 3)} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem' }}>
-                            +90g
-                          </button>
                           <button className="btn btn-outline" onClick={async () => {
                             if(!window.confirm('Eliminare definitivamente questo utente?')) return;
                             try {
                               await authFetch('/api/saas/delete-user', {
                                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                                  body: JSON.stringify({ user_id: user.id })
+                                body: JSON.stringify({ user_id: user.id })
                               });
-                              await refreshBillingOverview();
+                              const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                              setBillingOverview(await res2.json());
                             } catch(e) {}
-                          }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.8rem', borderColor: '#ef4444', color: '#ef4444' }}>
+                          }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem', borderColor: '#ef4444', color: '#ef4444' }}>
                             Elimina
                           </button>
                         </div>
@@ -3246,71 +3029,19 @@ function OmniApp() {
                     <th>Cliente</th>
                     <th>Importo</th>
                     <th>TXID</th>
-                    <th>Check Software</th>
                     <th>Azione</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {paymentQueue?.map((payment) => (
+                  {billingOverview?.recent_activity?.map((payment) => (
                     <tr key={payment.id}>
                       <td>{payment.user_email}</td>
                       <td>{payment.amount} {payment.currency}</td>
                       <td style={{fontFamily:'monospace', fontSize:'0.8rem', maxWidth:'150px', overflow:'hidden', textOverflow:'ellipsis'}} title={payment.txid}>{payment.txid}</td>
                       <td>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                          <span
-                            style={{
-                              color:
-                                payment.check_status === 'matched' || payment.status === 'verified'
-                                  ? '#10b981'
-                                  : payment.check_status === 'amount_mismatch' || payment.check_status === 'address_mismatch'
-                                    ? '#f59e0b'
-                                    : payment.check_status === 'not_found' || payment.status === 'rejected'
-                                      ? '#f43f5e'
-                                      : '#94a3b8',
-                              fontWeight: 700,
-                              fontSize: '0.82rem',
-                            }}
-                          >
-                            {payment.status === 'verified'
-                              ? 'CONFERMATO DA ADMIN'
-                              : payment.check_status === 'matched'
-                                ? 'TX TROVATA'
-                                : payment.check_status === 'amount_mismatch'
-                                  ? 'IMPORTO DIVERSO'
-                                  : payment.check_status === 'address_mismatch'
-                                    ? 'WALLET DIVERSO'
-                                    : payment.check_status === 'not_found'
-                                      ? 'NON TROVATA'
-                                      : payment.check_status === 'pending_review'
-                                        ? 'DA RICONTROLLARE'
-                                        : 'NON CONTROLLATA'}
-                          </span>
-                          {payment.check_message && (
-                            <span style={{ color: 'var(--text-secondary)', fontSize: '0.74rem', lineHeight: 1.35 }}>
-                              {payment.check_message}
-                            </span>
-                          )}
-                        </div>
-                      </td>
-                      <td>
                         {payment.status === 'pending' ? (
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
                             <button className="btn btn-start" onClick={async () => {
-                              try {
-                                const res = await authFetch('/api/billing/check-payment', {
-                                  method: 'POST', headers: {'Content-Type': 'application/json'},
-                                  body: JSON.stringify({ payment_id: payment.id })
-                                });
-                                const data = await res.json();
-                                setBillingMessage(data.message);
-                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
-                                setBillingOverview(await res2.json());
-                              } catch(e) {}
-                            }} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
-                              Controlla TX
-                            </button>
-                            <button className="btn btn-outline" onClick={async () => {
                               try {
                                 const res = await authFetch('/api/billing/verify-payment', {
                                   method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -3322,7 +3053,7 @@ function OmniApp() {
                                 setBillingOverview(await res2.json());
                               } catch(e) {}
                             }} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
-                              Segna Ok
+                              Verifica (1 Mese)
                             </button>
                             <button className="btn btn-outline" onClick={async () => {
                               try {
@@ -3345,7 +3076,7 @@ function OmniApp() {
                       </td>
                     </tr>
                   ))}
-                  {!paymentQueue?.length && <tr><td colSpan="5" style={{textAlign:'center', color:'#888'}}>Nessun pagamento in coda</td></tr>}
+                  {!billingOverview?.recent_activity?.length && <tr><td colSpan="4" style={{textAlign:'center', color:'#888'}}>Nessun pagamento in coda</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -3360,11 +3091,6 @@ function OmniApp() {
                   <div style={{ color: 'var(--text-secondary)', fontSize: '0.76rem', marginTop: '0.4rem' }}>{item.created_at}</div>
                 </div>
               ))}
-              {!activity.length && (
-                <div style={{ background: 'rgba(255,255,255,0.04)', borderRadius: '10px', padding: '0.85rem 0.9rem', color: 'var(--text-secondary)' }}>
-                  Nessuna attività registrata per ora.
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -3374,372 +3100,24 @@ function OmniApp() {
 
   
   if (!isAuthenticated) {
-    const landingPlans = DEMO_BILLING_OVERVIEW.plans || [];
-    const selectedPlan = landingPlans.find((plan) => plan.id === selectedPlanId);
-    const landingTicker = landingTickerItems.length > 0 ? landingTickerItems : [
-      { market: 'BTC/USD', price: '$118,420', change: '+2.6%', direction: 'up' },
-      { market: 'ETH/USD', price: '$6,180', change: '+1.9%', direction: 'up' },
-      { market: 'SOL/USD', price: '$242', change: '+4.2%', direction: 'up' },
-      { market: 'GOLD', price: '$2,612', change: '-0.4%', direction: 'down' },
-      { market: 'NASDAQ', price: '21,440', change: '+0.8%', direction: 'up' },
-      { market: 'EUR/USD', price: '1.11', change: '+0.2%', direction: 'up' },
-    ];
-    const landingStats = [
-      { value: '24/7', label: 'visibilità costante su capitale, segnali e rischio' },
-      { value: 'Multi-device', label: 'esperienza fluida su iPhone, Android, tablet e desktop' },
-      { value: '3 step', label: 'accessi pensati per livelli operativi diversi' },
-    ];
-    const landingFeatures = [
-      {
-        icon: '🧠',
-        title: 'AI Avanzata',
-        text: 'Algoritmi e letture assistite aiutano a interpretare contesto, opportunità e segnali in tempo reale con più lucidità.',
-      },
-      {
-        icon: '⚡',
-        title: 'Esecuzione più rapida',
-        text: 'Interfaccia, dati e moduli sono organizzati per ridurre attrito e trasformare più in fretta l’analisi in azione.',
-      },
-      {
-        icon: '🛡️',
-        title: 'Sicurezza premium',
-        text: 'Accesso biometrico, gestione chiavi e percorsi protetti rafforzano la percezione di solidità fin dal primo ingresso.',
-      },
-      {
-        icon: '📊',
-        title: 'Control room evoluta',
-        text: 'Dashboard, trading, DeFi e lettura di segnali convivono in un unico ambiente credibile e leggibile.',
-      },
-      {
-        icon: '📱',
-        title: 'Multi-device reale',
-        text: 'L’esperienza resta forte e pulita su iPhone, Android, tablet e desktop, senza perdere presenza visiva.',
-      },
-      {
-        icon: '🎧',
-        title: 'Percorso guidato',
-        text: 'Dalla prima impressione fino all’accesso, ogni passaggio accompagna l’utente senza spezzare fiducia e attenzione.',
-      },
-    ];
-    const landingFlow = [
-      {
-        number: '1',
-        title: 'Scopri il sistema',
-        text: 'La pagina iniziale mostra subito posizionamento, forza visiva e valore percepito del prodotto.',
-      },
-      {
-        number: '2',
-        title: 'Scegli lo step',
-        text: 'L’utente capisce con chiarezza quale accesso è più adatto al suo profilo, senza confusione.',
-      },
-      {
-        number: '3',
-        title: 'Entra senza attrito',
-        text: 'Registrazione o accesso avvengono nella stessa esperienza, mantenendo continuità e qualità percepita.',
-      },
-    ];
-    const landingTestimonials = [
-      {
-        initials: 'MQ',
-        name: 'Marco',
-        role: 'Private investor',
-        quote: 'La prima impressione è forte: sembra un ambiente serio, ordinato e costruito per chi vuole controllo vero.',
-      },
-      {
-        initials: 'GV',
-        name: 'Giulia',
-        role: 'Consulente indipendente',
-        quote: 'Non comunica solo funzionalità, comunica posizionamento. Questo cambia molto la percezione del prodotto.',
-      },
-      {
-        initials: 'LD',
-        name: 'Luca',
-        role: 'Trader attivo',
-        quote: 'Finalmente una presentazione che accompagna bene alla scelta, senza buttarti subito dentro un login freddo.',
-      },
-    ];
     if (showLanding) {
       return (
-        <div className="sales-landing">
-          <div className="sales-bg-animation" />
-          <div className="sales-bg-animation sales-bg-animation--second" />
-
-          <nav className="sales-nav">
-            <a href="#landing-top" className="sales-logo">
-              <img src="/aureo-icon.png" alt="Aureo" />
-              <span>AUREO OS</span>
-            </a>
-            <div className="sales-nav-links">
-              <a href="#landing-features">Funzionalità</a>
-              <a href="#landing-flow">Percorso</a>
-              <a href="#landing-pricing">Step</a>
-              <a href="#landing-proof">Impatto</a>
-            </div>
-            <div className="sales-nav-actions">
-              <button className="btn btn-outline" onClick={openUserLogin}>Accedi</button>
-              <button className="btn btn-start" onClick={openPricingSection}>Scopri Aureo</button>
-            </div>
-          </nav>
-
-          <div className="sales-ticker">
-            <div className="sales-ticker-track">
-              {[...landingTicker, ...landingTicker].map((item, index) => (
-                <div key={`${item.market}-${index}`} className="sales-ticker-item">
-                  <span className="sales-ticker-market">{item.market}</span>
-                  <span className="sales-ticker-price">{item.price}</span>
-                  <span className={`sales-ticker-change sales-ticker-change--${item.direction}`}>{item.change}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="sales-page" id="landing-top">
-            <section className="sales-hero">
-              <div className="sales-hero-content">
-                <div className="sales-badge">⚡ Nuovo: AUREO OS Experience</div>
-                <h1>
-                  Il Futuro della <span>Control Room Operativa</span> è qui
-                </h1>
-                <p>
-                  AUREO OS è l’ambiente premium che unisce dashboard, AI, trading, DeFi e sicurezza in un’esperienza elegante, autorevole e pronta a valorizzare il prodotto fin dal primo sguardo.
-                </p>
-                <div className="sales-hero-buttons">
-                  <button className="btn btn-start btn-large" onClick={openPricingSection}>
-                    Scopri gli step
-                  </button>
-                </div>
-                <div className="sales-stats-row">
-                  {landingStats.map((item) => (
-                    <div key={item.value} className="sales-stat-item">
-                      <div className="sales-stat-value">{item.value}</div>
-                      <div className="sales-stat-label">{item.label}</div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="sales-hero-visual">
-                <div className="sales-phone-mockup">
-                  <div className="sales-phone-notch" />
-                  <div className="sales-phone-screen">
-                    <div className="sales-app-header">
-                      <div>
-                        <div className="sales-app-title">AUREO OS</div>
-                        <div className="sales-app-subtitle">Premium Control Room</div>
-                      </div>
-                      <div className="sales-app-balance">$100,900</div>
-                    </div>
-                    <div className="sales-balance-chart">
-                      <div className="sales-chart-line" />
-                    </div>
-                    <div className="sales-bot-status">
-                      <span className="sales-status-dot" />
-                      <span>Sistema attivo • dashboard, AI e security sincronizzati</span>
-                    </div>
-                    {[
-                      { label: 'AI Guided Investment', meta: 'Segnale live • Budget allocato', value: '+$1,240' },
-                      { label: 'DeFi Arbitrage', meta: 'Spread monitorato • 4 venue', value: '+$420' },
-                      { label: 'Security Vault', meta: 'Chiavi protette • accesso biometrico', value: 'SAFE' },
-                    ].map((item) => (
-                      <div key={item.label} className="sales-trade-card">
-                        <div className="sales-trade-info">
-                          <h4>{item.label}</h4>
-                          <span>{item.meta}</span>
-                        </div>
-                        <div className={`sales-trade-profit ${item.value === 'SAFE' ? 'sales-trade-profit--neutral' : ''}`}>{item.value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="sales-float-card sales-float-card--top">
-                  <div className="sales-float-card-header">Signal confidence</div>
-                  <div className="sales-float-card-value">98.2%</div>
-                </div>
-                <div className="sales-float-card sales-float-card--bottom">
-                  <div className="sales-float-card-header">Passkey & secure access</div>
-                  <div className="sales-float-card-value sales-float-card-value--alt">Ready</div>
-                </div>
-                <img src={heroAsset} alt="" className="sales-hero-orb" />
-              </div>
-            </section>
-
-            <section className="sales-section" id="landing-features">
-              <div className="sales-section-header">
-                <h2>Tutto ciò che serve per dare peso al prodotto</h2>
-                <p>La struttura ora segue molto più da vicino la pagina originale: stessi blocchi, stesso ritmo, identità Aureo.</p>
-              </div>
-              <div className="sales-features-grid">
-                {landingFeatures.map((item) => (
-                  <article key={item.title} className="sales-feature-card">
-                    <div className="sales-feature-icon">{item.icon}</div>
-                    <h3>{item.title}</h3>
-                    <p>{item.text}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className="sales-section sales-section--soft" id="landing-flow">
-              <div className="sales-section-header">
-                <h2>Inizia in 3 semplici passi</h2>
-                <p>Prima percezione, poi scelta, poi accesso: tutto nella stessa esperienza.</p>
-              </div>
-              <div className="sales-steps-container">
-                {landingFlow.map((step) => (
-                  <article key={step.number} className="sales-step">
-                    <div className="sales-step-number">{step.number}</div>
-                    <h3>{step.title}</h3>
-                    <p>{step.text}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <section className="sales-section" id="landing-pricing">
-              <div className="sales-section-header">
-                <h2>Scegli lo step perfetto per te</h2>
-                <p>Una sezione piani più vicina alla pagina originale, ma con contenuti Aureo e onboarding già collegato.</p>
-              </div>
-              <div className="sales-pricing-grid">
-                {landingPlans.map((plan) => (
-                  <article key={plan.id} className={`sales-pricing-card ${plan.id === 'pro' ? 'sales-pricing-card--popular' : ''}`}>
-                    {plan.id === 'pro' && <div className="sales-popular-badge">Più richiesto</div>}
-                    <div className="sales-pricing-header">
-                      <h3>{plan.name}</h3>
-                      <div className="sales-price">€{plan.price_monthly}<span>/mese</span></div>
-                      <p>{plan.description}</p>
-                    </div>
-                    <div className="sales-pricing-features">
-                      {plan.features.map((feature) => (
-                        <div key={feature} className="sales-pricing-feature">✓ {feature}</div>
-                      ))}
-                    </div>
-                    <button className="btn btn-start sales-pricing-button" onClick={() => continueWithPlan(plan.id)}>
-                      Continua con {plan.name}
-                    </button>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            {selectedPlan && (
-              <section className="sales-section sales-section--onboarding" id="landing-plan-onboarding">
-                <div className="sales-inline-plan">
-                  <div className="sales-inline-plan-badge">Percorso selezionato</div>
-                  <h3>{selectedPlan.name}</h3>
-                  <p>{selectedPlan.description}</p>
-                  <div className="sales-inline-plan-price">€{selectedPlan.price_monthly}<span>/mese</span></div>
-                  <div className="sales-inline-plan-features">
-                    {selectedPlan.features.map((feature) => (
-                      <div key={feature} className="sales-inline-plan-feature">✓ {feature}</div>
-                    ))}
-                  </div>
-                </div>
-
-                <form className="sales-inline-form" onSubmit={handleLogin}>
-                  <div className="sales-inline-form-head">
-                    <div className="sales-badge sales-badge--small">Attivazione guidata</div>
-                    <h3>{isRegistering ? `Crea il tuo accesso per ${selectedPlan.name}` : `Accedi per proseguire con ${selectedPlan.name}`}</h3>
-                    <p>
-                      {isRegistering
-                        ? 'Completa qui la registrazione e continua senza uscire dalla pagina.'
-                        : 'Se hai già un account, entra qui sotto e prosegui direttamente con lo step scelto.'}
-                    </p>
-                  </div>
-                  <input
-                    type="email"
-                    placeholder="La tua email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="sales-input"
-                  />
-                  <input
-                    type="password"
-                    placeholder={isRegistering ? 'Crea una password' : 'Inserisci la tua password'}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="sales-input"
-                  />
-                  {loginError && (
-                    <div className={`sales-form-message ${loginError.toLowerCase().includes('successo') || loginError.toLowerCase().includes('creato') ? 'sales-form-message--success' : ''}`}>
-                      {loginError}
-                    </div>
-                  )}
-                  <button type="submit" className="btn btn-start sales-submit-button">
-                    {isRegistering ? `Crea accesso e continua con ${selectedPlan.name}` : `Accedi e continua con ${selectedPlan.name}`}
-                  </button>
-                  <button type="button" className="btn btn-outline sales-alt-button" onClick={() => setIsRegistering(!isRegistering)}>
-                    {isRegistering ? 'Hai già un account? Accedi' : 'Non hai un account? Registrati'}
-                  </button>
-                  <button
-                    type="button"
-                    className="btn sales-ghost-button"
-                    onClick={() => {
-                      setSelectedPlanId('');
-                      setIsRegistering(false);
-                      setLoginError('');
-                      setPassword('');
-                      setEmail('');
-                    }}
-                  >
-                    Cambia step
-                  </button>
-                </form>
-              </section>
-            )}
-
-            <section className="sales-section sales-section--proof" id="landing-proof">
-              <div className="sales-section-header">
-                <h2>Recensioni e impressioni</h2>
-                <p>Stessa logica della pagina che mi hai dato: prova sociale, autorevolezza e percezione premium.</p>
-              </div>
-              <div className="sales-testimonials-grid">
-                {landingTestimonials.map((item) => (
-                  <article key={item.name} className="sales-testimonial-card">
-                    <div className="sales-testimonial-header">
-                      <div className="sales-testimonial-avatar">{item.initials}</div>
-                      <div>
-                        <h4>{item.name}</h4>
-                        <span>{item.role}</span>
-                      </div>
-                    </div>
-                    <div className="sales-stars">★★★★★</div>
-                    <p>{item.quote}</p>
-                  </article>
-                ))}
-              </div>
-            </section>
-
-            <footer className="sales-footer">
-              <div className="sales-footer-grid">
-                <div className="sales-footer-brand">
-                  <a href="#landing-top" className="sales-logo">
-                    <img src="/aureo-icon.png" alt="Aureo" />
-                    <span>AUREO OS</span>
-                  </a>
-                  <p>Dashboard, AI, trading, DeFi e security in un’unica esperienza premium pensata per controllo, chiarezza e presenza.</p>
-                </div>
-                <div className="sales-footer-links">
-                  <h4>Prodotto</h4>
-                  <a href="#landing-features">Funzionalità</a>
-                  <a href="#landing-pricing">Step</a>
-                </div>
-                <div className="sales-footer-links">
-                  <h4>Esperienza</h4>
-                  <a href="#landing-flow">Percorso</a>
-                  <a href="#landing-proof">Impatto</a>
-                </div>
-                <div className="sales-footer-links">
-                  <h4>Accesso</h4>
-                  <button type="button" className="sales-footer-button" onClick={openUserLogin}>Accedi</button>
-                  <button type="button" className="sales-footer-button" onClick={openPricingSection}>Scegli piano</button>
-                </div>
-              </div>
-              <div className="sales-footer-bottom">
-                <span>© 2026 AUREO OS</span>
-                <span>Premium crypto & investment experience</span>
-              </div>
-            </footer>
+        <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center', background: 'radial-gradient(circle at center, #0f172a 0%, #020617 100%)' }}>
+          <div style={{ textAlign: 'center', maxWidth: '600px', padding: '2rem' }}>
+            <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '180px', marginBottom: '2rem', objectFit: 'contain', filter: 'drop-shadow(0 0 20px rgba(16, 185, 129, 0.2))' }} />
+            <h1 style={{ color: '#e2e8f0', fontSize: '2.5rem', marginBottom: '1rem', fontWeight: 800, letterSpacing: '-0.02em' }}>
+              AUREO OS
+            </h1>
+            <p style={{ color: '#94a3b8', fontSize: '1.2rem', marginBottom: '3rem', lineHeight: 1.6 }}>
+              L'intelligenza quantitativa al servizio del tuo capitale. Una piattaforma avanzata per investitori moderni.
+            </p>
+            <button 
+              className="btn btn-start" 
+              onClick={() => setShowLanding(false)} 
+              style={{ padding: '1.2rem 3rem', fontSize: '1.1rem', letterSpacing: '0.05em', boxShadow: '0 0 20px rgba(16, 185, 129, 0.4)' }}
+            >
+              ACCEDI AL SISTEMA
+            </button>
           </div>
         </div>
       );
@@ -3747,82 +3125,48 @@ function OmniApp() {
 
     return (
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <div className="card" style={{ textAlign: 'center', width: '440px', maxWidth: 'calc(100vw - 2rem)', padding: '3rem 2rem' }}>
+        <div className="card" style={{ textAlign: 'center', width: '400px', padding: '3rem 2rem' }}>
           <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '0.6rem', fontSize: '0.9rem' }}>
-            {authScreenMode === 'admin' ? 'Accesso amministrativo riservato' : 'Accesso clienti e area demo'}
-          </p>
+          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>Ponte di Comando Autenticato</p>
           <form onSubmit={handleLogin}>
-            {authScreenMode !== 'admin' && (
-              <input 
-                type="email" 
-                placeholder="La tua Email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
-              />
-            )}
+            <input 
+              type="email" 
+              placeholder={isRegistering ? "La tua Email" : "Email (Lascia vuoto se Admin)"}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
+            />
             <input 
               type="password" 
-              placeholder={authScreenMode === 'admin' ? "Password amministrativa" : (isRegistering ? "Crea una Password" : "Password")}
+              placeholder={isRegistering ? "Crea una Password" : "Password o Master Password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
             />
             {loginError && <div style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
             <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>
-              {authScreenMode === 'admin'
-                ? 'ACCEDI COME ADMIN'
-                : (isRegistering ? (selectedPlan ? `CREA ACCOUNT E CONTINUA CON ${selectedPlan.name.toUpperCase()}` : 'CREA ACCOUNT') : 'ACCEDI')}
+              {isRegistering ? 'CREA ACCOUNT' : 'ACCEDI'}
             </button>
           </form>
-          {authScreenMode === 'admin' && (
-            <button
-              type="button"
-              className="btn"
-              onClick={handlePasskeyLogin}
-              disabled={!passkeySupported || passkeyBusy}
-              style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: passkeySupported ? 1 : 0.3 }}
-            >
-              {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI COME ADMIN CON FACE ID / TOUCH ID'}
-            </button>
-          )}
-          {authScreenMode !== 'admin' && (
-            <>
-              <button
-                type="button"
-                className="btn btn-outline"
-                onClick={() => setIsRegistering(!isRegistering)}
-                style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
-              >
-                {isRegistering ? 'HAI GIÀ UN ACCOUNT? ACCEDI' : 'NON HAI UN ACCOUNT? REGISTRATI'}
-              </button>
-              <button
-                type="button"
-                className="btn"
-                onClick={handlePasskeyLogin}
-                disabled={!passkeySupported || passkeyBusy || isRegistering}
-                style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: (passkeySupported && !isRegistering) ? 1 : 0.3 }}
-              >
-                {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI CON FACE ID / TOUCH ID'}
-              </button>
-              <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: isRegistering ? 0.3 : 1 }}>
-                ENTRA IN DEMO MODE
-              </button>
-            </>
-          )}
+          <button
+            type="button"
+            className="btn btn-outline"
+            onClick={() => setIsRegistering(!isRegistering)}
+            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
+          >
+            {isRegistering ? 'HAI GIÀ UN ACCOUNT? ACCEDI' : 'NON HAI UN ACCOUNT? REGISTRATI'}
+          </button>
           <button
             type="button"
             className="btn"
-            onClick={() => {
-              navigateToPath('/');
-              setShowLanding(true);
-              setIsRegistering(false);
-              setLoginError('');
-            }}
-            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
+            onClick={handlePasskeyLogin}
+            disabled={!passkeySupported || passkeyBusy || isRegistering}
+            style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: (passkeySupported && !isRegistering) ? 1 : 0.3 }}
           >
-            {authScreenMode === 'admin' ? 'TORNA AL SITO' : 'TORNA ALLA PRESENTAZIONE'}
+            {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI CON FACE ID / TOUCH ID'}
+          </button>
+          <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: isRegistering ? 0.3 : 1 }}>
+            ENTRA IN DEMO MODE
           </button>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
             🔒 Protetto da Crittografia<br/>
@@ -3852,20 +3196,16 @@ function OmniApp() {
             <span className="menu-icon">📊</span>
             <span className="menu-label">Dashboard</span>
           </div>
-          {hasPlanAccess('trading') && (
-            <div className={`menu-item ${activeTab === 'trading' ? 'active' : ''}`} onClick={() => setActiveTab('trading')}>
-              <span className="menu-icon">📈</span>
-              <span className="menu-label">Trading</span>
-              {status.modules?.trading && <div className="active-dot"></div>}
-            </div>
-          )}
-          {hasPlanAccess('defi') && (
-            <div className={`menu-item ${activeTab === 'crypto_arb' ? 'active' : ''}`} onClick={() => setActiveTab('crypto_arb')}>
-              <span className="menu-icon">⛓️</span>
-              <span className="menu-label">DeFi</span>
-              {status.modules?.crypto_arb && <div className="active-dot"></div>}
-            </div>
-          )}
+          <div className={`menu-item ${activeTab === 'trading' ? 'active' : ''}`} onClick={() => setActiveTab('trading')}>
+            <span className="menu-icon">📈</span>
+            <span className="menu-label">Trading</span>
+            {status.modules?.trading && <div className="active-dot"></div>}
+          </div>
+          <div className={`menu-item ${activeTab === 'crypto_arb' ? 'active' : ''}`} onClick={() => setActiveTab('crypto_arb')}>
+            <span className="menu-icon">⛓️</span>
+            <span className="menu-label">DeFi</span>
+            {status.modules?.crypto_arb && <div className="active-dot"></div>}
+          </div>
           <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
             <span className="menu-icon">🔐</span>
             <span className="menu-label">Security</span>
@@ -3876,6 +3216,10 @@ function OmniApp() {
               <span className="menu-label">Billing</span>
             </div>
           )}
+          <div className={`menu-item ${activeTab === 'guide' ? 'active' : ''}`} onClick={() => setActiveTab('guide')}>
+            <span className="menu-icon">📖</span>
+            <span className="menu-label">Guida Setup</span>
+          </div>
         </div>
         
         <div className="sidebar-footer">
@@ -3884,8 +3228,8 @@ function OmniApp() {
           <div className={`sync-pill ${isBackendOnline ? 'online' : 'offline'}`}>{syncLabel}</div>
           
           {userRole === 'user' && (
-            <button className="btn btn-start" onClick={() => setShowPaymentModal(true)} style={{ width: '100%', marginTop: '1rem', fontSize: '1rem', padding: '0.8rem', background: 'linear-gradient(90deg, #f59e0b, #d97706)', border: 'none', boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)' }}>
-              💎 Sblocca {getActiveBillingPlan()?.name || 'Piano'} / Paga
+            <button className="btn btn-start" onClick={() => setShowPaymentModal(true)} style={{ width: '100%', marginTop: '1rem', fontSize: '1rem', padding: '0.8rem', background: userIsPaid ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #f59e0b, #d97706)', border: 'none', boxShadow: userIsPaid ? '0 4px 12px rgba(16, 185, 129, 0.3)' : '0 4px 12px rgba(245, 158, 11, 0.3)' }}>
+              {userIsPaid ? '♻️ Rinnova Abbonamento' : '💎 Sblocca Pro / Paga'}
             </button>
           )}
 
@@ -3940,6 +3284,7 @@ function OmniApp() {
         {activeTab === 'value_bets' && renderValueBetsView()}
         {activeTab === 'ai_content' && renderAIContentView()}
         {BILLING_ENABLED && activeTab === 'saas' && renderSaaSView()}
+        {activeTab === 'guide' && renderGuideView()}
       </div>
     </div>
 
