@@ -1047,7 +1047,7 @@ def api_status(response: Response, request: Request):
 
 
 @app.post("/api/modules")
-async def toggle_module(payload: dict, _: str = Depends(require_admin)):
+async def toggle_module(payload: dict, user: dict = Depends(require_admin)):
     mod_id = payload.get("module")
     active = payload.get("active")
     if mod_id in bot_state.modules:
@@ -1061,9 +1061,11 @@ async def toggle_module(payload: dict, _: str = Depends(require_admin)):
         if active:
             if module_name == "ai_content" and not ai_engine.running:
                 ai_engine.running = True
+                ai_engine.user_id = user.get("sub", "admin")
                 global_executor.submit(ai_engine.loop)
             elif module_name == "sports_arb" and not sports_engine.running:
                 sports_engine.running = True
+                sports_engine.user_id = user.get("sub", "admin")
                 global_executor.submit(sports_engine.loop)
                 bot_state.add_log("⚽ Modulo Sports Arbitrage avviato.")
             elif module_name == "ai_sports_sentiment":
@@ -1073,10 +1075,12 @@ async def toggle_module(payload: dict, _: str = Depends(require_admin)):
                     return {"error": "Modulo AI Sentiment Radar non disponibile in questa build"}
                 if not getattr(sentiment_engine, "running", False):
                     sentiment_engine.running = True
+                    sentiment_engine.user_id = user.get("sub", "admin")
                     global_executor.submit(sentiment_engine.loop)
                     bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
             elif (module_name == "crypto_arb" or module_name == "high_risk_crypto_arb") and not arb_engine.running:
                 arb_engine.running = True
+                arb_engine.user_id = user.get("sub", "admin")
                 global_executor.submit(arb_engine.loop)
                 
             if module_name == "high_risk_crypto_arb":
@@ -1086,6 +1090,7 @@ async def toggle_module(payload: dict, _: str = Depends(require_admin)):
             elif module_name == "trading" and not alpaca_engine.running:
                 bot_state.is_running = True
                 alpaca_engine.running = True
+                alpaca_engine.user_id = user.get("sub", "admin")
                 global_executor.submit(alpaca_engine.loop)
         else:
             if module_name == "sports_arb":
@@ -1621,6 +1626,19 @@ def reset_simulation(req: Request, _: str = Depends(require_admin)):
         bot_state.latest_predictions = {}
         bot_state.add_log("Simulazione Resettata a $100.0")
         bot_state.save_state()
+        
+        # Reset del Risk Manager
+        try:
+            from risk_manager import get_risk_manager
+            import risk_manager as rm
+            risk_file = os.path.join(os.path.dirname(__file__), "risk_state.json")
+            if os.path.exists(risk_file):
+                os.remove(risk_file)
+            rm._risk_manager_instance = None
+            get_risk_manager(bot_state.virtual_cash)
+            bot_state.add_log("🔄 Risk Manager resettato (Circuit Breaker sbloccato).")
+        except Exception as e:
+            print(f"Errore reset risk manager: {e}")
         
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Errore Reset: {str(e)}")
