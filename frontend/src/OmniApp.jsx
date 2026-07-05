@@ -705,8 +705,9 @@ function OmniApp() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
+        const token = localStorage.getItem('AUREO_SESSION');
         const res = await fetch('/api/status?t=' + Date.now(), {
-          headers: sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {}
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
         });
         const data = await res.json();
         if (!data.error) {
