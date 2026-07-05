@@ -44,16 +44,18 @@ class AlpacaEngine:
             except Exception:
                 pass
             
-            self.alpaca_key = keys.get("ALPACA_KEY", os.getenv("ALPACA_API_KEY", ""))
-            self.alpaca_secret = keys.get("ALPACA_SECRET", os.getenv("ALPACA_SECRET_KEY", ""))
-            self.alpaca_base = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
-            groq_key = keys.get("GROQ_KEY", os.getenv("GROQ_API_KEY", ""))
-            
-            # Leggi dal DB anche per l'admin se sono state salvate dalla UI
             user_keys = get_api_keys("admin") or {}
-            self.alpaca_key = self.alpaca_key or user_keys.get("alpaca_key", "")
-            self.alpaca_secret = self.alpaca_secret or user_keys.get("alpaca_secret", "")
-            groq_key = groq_key or user_keys.get("groq_key", "")
+            
+            db_alpaca = user_keys.get("alpaca_key", "")
+            self.alpaca_key = db_alpaca if db_alpaca else keys.get("ALPACA_KEY", os.getenv("ALPACA_API_KEY", ""))
+            
+            db_secret = user_keys.get("alpaca_secret", "")
+            self.alpaca_secret = db_secret if db_secret else keys.get("ALPACA_SECRET", os.getenv("ALPACA_SECRET_KEY", ""))
+            
+            self.alpaca_base = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+            
+            db_groq = user_keys.get("groq_key", "")
+            groq_key = db_groq if db_groq else keys.get("GROQ_KEY", os.getenv("GROQ_API_KEY", ""))
         else:
             user_keys = get_api_keys(user_id) or {}
             self.alpaca_key = user_keys.get("alpaca_key", "")

@@ -142,14 +142,21 @@ class CryptoArbitrage:
         k_key = keys.get("KRAKEN_KEY", os.getenv("KRAKEN_API_KEY", ""))
         k_secret = keys.get("KRAKEN_SECRET", os.getenv("KRAKEN_SECRET_KEY", ""))
         
-        # Fallback to DB for admin
+        # Fallback to DB for admin (Prioritize DB)
         try:
             from db import get_api_keys
             user_keys = get_api_keys("admin") or {}
-            b_key = b_key or user_keys.get("binance_key", "")
-            b_secret = b_secret or user_keys.get("binance_secret", "")
-            k_key = k_key or user_keys.get("kraken_key", "")
-            k_secret = k_secret or user_keys.get("kraken_secret", "")
+            db_b_key = user_keys.get("binance_key", "")
+            b_key = db_b_key if db_b_key else b_key
+            
+            db_b_sec = user_keys.get("binance_secret", "")
+            b_secret = db_b_sec if db_b_sec else b_secret
+            
+            db_k_key = user_keys.get("kraken_key", "")
+            k_key = db_k_key if db_k_key else k_key
+            
+            db_k_sec = user_keys.get("kraken_secret", "")
+            k_secret = db_k_sec if db_k_sec else k_secret
         except Exception:
             pass
 
