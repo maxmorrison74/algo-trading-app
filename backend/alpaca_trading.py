@@ -135,14 +135,14 @@ class AlpacaEngine:
 
     def get_llm_sentiment_with_confidence(self, symbol):
         if not self.llm_enabled:
-            return "NEUTRAL", 3
+            return "NEUTRAL", 3, "LLM Disabilitato"
             
         try:
             import json
             news = self.alpaca_rest.get_news(symbol, limit=6)
             headlines = [n.headline for n in news]
             if not headlines:
-                return "NEUTRAL", 3
+                return "NEUTRAL", 3, "Nessuna notizia recente."
                 
             prompt = (
                 f"Analizza il sentiment di queste notizie finanziarie su {symbol}.\n"
@@ -167,11 +167,41 @@ class AlpacaEngine:
             data = json.loads(response.choices[0].message.content)
             sentiment = data.get("sentiment", "NEUTRAL").strip().upper()
             confidence = int(data.get("confidence", 3))
-            self._log(f"🧠 AI Sentiment per {symbol}: {sentiment} (Confidenza: {confidence}/5) - {data.get('reason')}")
-            return sentiment, confidence
+            reason = data.get('reason', 'Nessun motivo fornito')
+            return sentiment, confidence, reason
         except Exception as e:
             self._log(f"Errore Groq Sentiment API: {e}")
-            return "NEUTRAL", 3
+            return "NEUTRAL", 3, "Errore API Groq"
+
+    def format_price(self, price):
+        if price >= 1.0:
+            return round(price, 2)
+        else:
+            return round(price, 4)
+
+    def is_market_open_for_symbol(self, symbol):
+        if "/" in symbol: # Crypto is 24/7
+            return True
+        import pytz
+        ny_tz = pytz.timezone('America/New_York')
+        now_ny = datetime.datetime.now(ny_tz)
+        # Check if weekend
+        if now_ny.weekday() >= 5:
+            return False
+        # Check RTH 9:30 to 16:00
+        market_open = now_ny.replace(hour=9, minute=30, second=0, microsecond=0)
+        market_close = now_ny.replace(hour=16, minute=0, second=0, microsecond=0)
+        return market_open <= now_ny <= market_close
+
+    def has_open_position(self, symbol):
+        try:
+            positions = self.alpaca_rest.list_positions()
+            for p in positions:
+                if p.symbol == symbol.replace("/", ""):
+                    return True
+            return False
+        except Exception:
+            return False
 
     def clean_sym(self, sym):
         # Le API Alpaca (incluso get_bars) per le criptovalute richiedono BTCUSD e non BTC/USD
@@ -288,7 +318,7 @@ class AlpacaEngine:
         # Strategia 1: Crollo Ipervenduto (Mean Reversion)
         is_mean_reversion_long = (current_price < bb_lower and rsi < 35)
         # Strategia 2: Breakout al rialzo (Momentum Veloce)
-        is_momentum_long = (current_price > bb_upper and rsi > 55)
+        is_momentum_long = (current_price > upper and rsi > 55)
         
         if is_mean_reversion_long or is_momentum_long:
             if lstm_prob > 0.60: # Scalping: basta il 60% di probabilità
@@ -331,31 +361,39 @@ class AlpacaEngine:
     def execute_trade(self, symbol, current_price, side, atr, lstm_prob=0.5):
         self._log(f"⚡ SETUP {side} RILEVATO su {symbol}: Prezzo {current_price:.2f} (ATR: {atr:.2f})")
         
+        if not self.is_market_open_for_symbol(symbol):
+            self._log(f"🕒 RTH FILTER: Il mercato per {symbol} è chiuso. Ignoro segnale.")
+            return
+
+        if self.has_open_position(symbol):
+            self._log(f"🛡️ RISK FILTER: Posizione già aperta su {symbol}. Ignoro per evitare spari multipli.")
+            return
+
         if side == "SHORT" and not self.is_shortable(symbol):
             self._log(f"⚠️ SKIP SHORT su {symbol}: L'asset non è shortabile su Alpaca. Operazione annullata.")
             return
             
-        sentiment, confidence = self.get_llm_sentiment_with_confidence(symbol)
+        sentiment, confidence, reason = self.get_llm_sentiment_with_confidence(symbol)
         
         # Veto basato su sentiment
         if side == "LONG" and sentiment == "BEARISH":
-            self._log(f"🧠 AI VETO: Sentiment Bearish per {symbol}. Long annullato.")
+            self._log(f"🧠 AI VETO: Sentiment Bearish per {symbol}. Long annullato. Motivo AI: {reason}")
             return
         elif side == "SHORT" and sentiment == "BULLISH":
-            self._log(f"🧠 AI VETO: Sentiment Bullish per {symbol}. Short annullato.")
+            self._log(f"🧠 AI VETO: Sentiment Bullish per {symbol}. Short annullato. Motivo AI: {reason}")
             return
             
         # Veto basato su bassa confidenza (1 o 2)
         if confidence <= 2:
-            self._log(f"🧠 AI VETO: Confidenza Groq troppo bassa ({confidence}/5). Operazione annullata per ridurre il rischio.")
+            self._log(f"🧠 AI VETO: Confidenza Groq troppo bassa ({confidence}/5). Operazione annullata. Motivo AI: {reason}")
             return
             
-        self._log(f"🧠 AI CONFERMA: Sentiment = {sentiment} (Confidenza: {confidence}/5). Esecuzione Ordine!")
+        self._log(f"🧠 AI CONFERMA: Sentiment = {sentiment} ({confidence}/5). Esecuzione! [MOTIVO AI: {reason}]")
         
         risk = get_risk_manager(self.bot_state.virtual_cash)
-        can_trade, reason = risk.can_trade()
+        can_trade, risk_reason = risk.can_trade()
         if not can_trade:
-            self._log(f"⛔ {reason}")
+            self._log(f"⛔ {risk_reason}")
             return
             
         # Position Sizing con Advanced Kelly Criterion (dal Risk Manager)
@@ -373,65 +411,63 @@ class AlpacaEngine:
         max_qty = (self.bot_state.virtual_cash * max_cap_fraction) / current_price if current_price > 0 else 0
         qty = min(qty, round(max_qty, 4))
         
+        # Le crypto ammettono frazioni, le azioni dipendono dal broker. Arrotondiamo a 4 decimali.
+        qty = round(qty, 4)
+        
         if qty <= 0.0001: return
         
-        # Bracket Order Dinamico per Scalping Aggressivo (Max Profit)
-        tp_percent = round((2.0 * atr) / current_price, 4) # Raddoppiato il target potenziale
-        tp_percent = max(0.01, min(tp_percent, 0.04)) # TP tra 1% e 4%
-        sl_percent = tp_percent / 2.0 # Stop Loss è la metà del Take Profit (1:2)
-        
         alpaca_side = 'buy' if side == "LONG" else 'sell'
+        clean_symbol = self.clean_sym(symbol)
         
-        if side == "LONG":
-            limit_price = round(current_price * (1 + tp_percent), 2)
-            stop_price = round(current_price * (1 - sl_percent), 2)
-        else:
-            limit_price = round(current_price * (1 - tp_percent), 2)
-            stop_price = round(current_price * (1 + sl_percent), 2)
+        # Trailing Stop Dinamico (es. 1.5% di distanza dal picco)
+        trail_percent = 1.5
         
         try:
-            # Invia Ordine Bracket (Entrata a Mercato + TP + SL automatici)
+            # Ordine a Mercato con Trailing Stop agganciato
             self.alpaca_rest.submit_order(
-                symbol=symbol,
+                symbol=clean_symbol,
                 qty=qty,
                 side=alpaca_side,
                 type='market',
                 time_in_force='day',
-                order_class='bracket',
-                take_profit=dict(
-                    limit_price=limit_price,
-                ),
-                stop_loss=dict(
-                    stop_price=stop_price,
-                )
+                order_class='trailing_stop',
+                trail_percent=trail_percent
             )
-            self._log(f"🚀 ORDINE SCALP BRACKET {side} {qty} {symbol} INVIATO (TP: {limit_price}$ | SL: {stop_price}$)")
+            self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Trailing Stop al {trail_percent}%)")
         except Exception as e:
-            self._log(f"❌ ERRORE INVIO BRACKET: {e}")
+            self._log(f"❌ ERRORE INVIO ORDINE TRAILING: {e}")
 
     def _stream_runner(self):
         stock_symbols = [s for s in self.symbols if "/" not in s]
-        self.alpaca_stream = Stream(self.alpaca_key, self.alpaca_secret, base_url=self.alpaca_base, data_feed='iex')
-        if stock_symbols:
-            self.alpaca_stream.subscribe_bars(self.on_bar, *stock_symbols)
-        try:
-            self._log("📡 WebSocket Connesso: in attesa di stream tick-by-tick...")
-            if stock_symbols:
+        if not stock_symbols:
+            self._log("Avviso: Nessun asset azionario da ascoltare via WebSocket.")
+            return
+
+        reconnect_attempts = 0
+        while self.running and self.bot_state.modules.get("trading", False):
+            try:
+                self.alpaca_stream = Stream(self.alpaca_key, self.alpaca_secret, base_url=self.alpaca_base, data_feed='iex')
+                self.alpaca_stream.subscribe_bars(self.on_bar, *stock_symbols)
+                self._log("📡 WebSocket Connesso: in attesa di stream tick-by-tick...")
+                reconnect_attempts = 0
                 self.alpaca_stream.run()
-            else:
-                self._log("Avviso: Nessun asset azionario da ascoltare via WebSocket.")
-        except ValueError as ve:
-            self.running = False
-            self.bot_state.modules["trading"] = False
-            if "auth failed" in str(ve).lower():
-                self._log("❌ ERRORE: Chiavi Alpaca rifiutate dal server. Controlla le impostazioni!")
-            else:
-                self._log(f"❌ WebSocket errore: {ve}")
-        except Exception as e:
-            if self.running:
-                self.running = False
-                self.bot_state.modules["trading"] = False
-                self._log(f"❌ WebSocket disconnesso: {e}")
+            except ValueError as ve:
+                if "auth failed" in str(ve).lower():
+                    self._log("❌ ERRORE CRITICO: Chiavi Alpaca rifiutate dal server WS. Disattivo modulo Trading.")
+                    self.running = False
+                    self.bot_state.modules["trading"] = False
+                    break
+                else:
+                    self._log(f"❌ WebSocket errore: {ve}")
+            except Exception as e:
+                if self.running:
+                    self._log(f"❌ WebSocket disconnesso ({e}). Tentativo di riconnessione in corso...")
+            
+            if self.running and self.bot_state.modules.get("trading", False):
+                reconnect_attempts += 1
+                backoff = min(60, 2 ** reconnect_attempts)
+                self._log(f"🔄 Auto-Reconnect WebSocket tra {backoff} secondi... (Tentativo {reconnect_attempts})")
+                time.sleep(backoff)
 
     def loop(self):
         """Questo è il punto di ingresso chiamato dal main thread (api.py)"""
