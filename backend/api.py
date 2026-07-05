@@ -1010,6 +1010,16 @@ def get_status(user_id="admin"):
         return {"error": str(e)}
 
 
+import math
+def sanitize_nans(obj):
+    if isinstance(obj, float) and math.isnan(obj):
+        return 0.0
+    elif isinstance(obj, dict):
+        return {k: sanitize_nans(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_nans(v) for v in obj]
+    return obj
+
 @app.get("/api/status")
 def api_status(response: Response, request: Request):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
@@ -1023,7 +1033,8 @@ def api_status(response: Response, request: Request):
             user_id = payload.get("sub", "admin")
         except: pass
     try:
-        return get_status(user_id)
+        raw_status = get_status(user_id)
+        return sanitize_nans(raw_status)
     except Exception as e:
         return {"error": str(e)}
 
