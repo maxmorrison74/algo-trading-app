@@ -3739,9 +3739,11 @@ function OmniApp() {
                   <button type="submit" className="btn btn-start sales-submit-button">
                     {isRegistering ? `Crea accesso e continua con ${selectedPlan.name}` : `Accedi e continua con ${selectedPlan.name}`}
                   </button>
+                  {/*
                   <button type="button" className="btn btn-outline sales-alt-button" onClick={() => setIsRegistering(!isRegistering)}>
                     {isRegistering ? 'Hai già un account? Accedi' : 'Non hai un account? Registrati'}
                   </button>
+                  */}
                   <button
                     type="button"
                     className="btn sales-ghost-button"
@@ -3860,14 +3862,14 @@ function OmniApp() {
               {isRegistering ? 'CREA ACCOUNT' : 'ACCEDI'}
             </button>
           </form>
-          <button
+          {/* <button
             type="button"
             className="btn btn-outline"
             onClick={() => setIsRegistering(!isRegistering)}
             style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
           >
             {isRegistering ? 'HAI GIÀ UN ACCOUNT? ACCEDI' : 'NON HAI UN ACCOUNT? REGISTRATI'}
-          </button>
+          </button> */}
           <button
             type="button"
             className="btn"
