@@ -280,9 +280,82 @@ const CapitalPhase = () => {
   );
 };
 
+const OnboardingModal = ({ onClose, onGoToSettings }) => {
+  return (
+    <div style={{
+      position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
+      background: 'rgba(0,0,0,0.85)', backdropFilter: 'blur(8px)',
+      display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999
+    }}>
+      <div style={{
+        background: '#1a1f2e', padding: '2.5rem', borderRadius: '16px',
+        width: '90%', maxWidth: '600px', border: '1px solid #334155',
+        boxShadow: '0 25px 50px -12px rgba(0,0,0,0.5)', position: 'relative',
+        maxHeight: '90vh', overflowY: 'auto'
+      }}>
+        <button onClick={onClose} style={{
+          position: 'absolute', top: '1rem', right: '1rem', background: 'transparent',
+          border: 'none', color: '#64748b', fontSize: '1.5rem', cursor: 'pointer'
+        }}>×</button>
+
+        <h2 style={{ fontSize: '2rem', marginBottom: '1rem', background: 'linear-gradient(90deg, #60a5fa, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Benvenuto nel tuo Bot Personale!
+        </h2>
+        <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '2rem', lineHeight: 1.6 }}>
+          Prima di attivare l'intelligenza artificiale e iniziare a fare trading, devi collegare i tuoi account. Non preoccuparti, i tuoi fondi restano sempre al sicuro sui tuoi exchange e noi operiamo tramite chiavi API dedicate.
+        </p>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+          {/* Alpaca */}
+          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#fcd34d' }}>1. Trading Azionario (Alpaca)</h3>
+            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
+              Alpaca è il broker senza commissioni utilizzato per l'azionario USA.
+            </p>
+            <a href="https://alpaca.markets" target="_blank" rel="noopener noreferrer" style={{
+              display: 'inline-block', background: '#fcd34d', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
+            }}>Apri un account Alpaca ↗</a>
+          </div>
+
+          {/* Binance */}
+          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#f59e0b' }}>2. Trading Crypto (Binance)</h3>
+            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
+              Per il trading ad alta frequenza sulle crypto, suggeriamo Binance.
+            </p>
+            <a href="https://www.binance.com/" target="_blank" rel="noopener noreferrer" style={{
+              display: 'inline-block', background: '#f59e0b', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
+            }}>Registrati su Binance ↗</a>
+          </div>
+
+          {/* Groq */}
+          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#a78bfa' }}>3. Intelligenza Artificiale (Groq)</h3>
+            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
+              Il motore AI alla base delle decisioni di trading ultrarapide.
+            </p>
+            <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" style={{
+              display: 'inline-block', background: '#a78bfa', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
+            }}>Ottieni API Key Groq ↗</a>
+          </div>
+        </div>
+
+        <button onClick={onGoToSettings} style={{
+          width: '100%', padding: '1rem', marginTop: '2rem', background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+          color: '#fff', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer',
+          boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)'
+        }}>
+          Vai alle Impostazioni per inserire le chiavi
+        </button>
+      </div>
+    </div>
+  );
+};
+
 function OmniApp() {
   const [status, setStatus] = useState({});
   const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedCrypto, setSelectedCrypto] = useState('USDT');
   const [txid, setTxid] = useState('');
   
@@ -682,13 +755,23 @@ function OmniApp() {
     setLoginError('');
     setPasskeyMessage('');
     setActiveTab('home');
-    // Fetch payment status for user (non-blocking)
+    // Fetch payment status and check onboarding for user (non-blocking)
     setTimeout(async () => {
       try {
         const res = await authFetch('/api/user/me');
         if (res.ok) {
           const data = await res.json();
           setUserIsPaid(data.is_paid || data.role === 'admin');
+        }
+        
+        if (role !== 'admin' && !demo) {
+          const keysRes = await authFetch('/api/keys');
+          if (keysRes.ok) {
+            const keysData = await keysRes.json();
+            if (!keysData.ALPACA_KEY && !keysData.BINANCE_KEY) {
+              setShowOnboarding(true);
+            }
+          }
         }
       } catch(e) {}
     }, 500);
@@ -1146,6 +1229,23 @@ function OmniApp() {
     }
     fetchPasskeyStatus();
   }, [activeTab, isAuthenticated, isDemoMode]);
+
+  useEffect(() => {
+    if (isAuthenticated && !isDemoMode && userRole !== 'admin') {
+      const checkOnboarding = async () => {
+        try {
+          const res = await authFetch('/api/keys');
+          if (res.ok) {
+            const data = await res.json();
+            if (!data.ALPACA_KEY && !data.BINANCE_KEY && !data.KRAKEN_KEY) {
+              setShowOnboarding(true);
+            }
+          }
+        } catch(e) {}
+      };
+      checkOnboarding();
+    }
+  }, [isAuthenticated, isDemoMode, userRole]);
 
   const copyCheckoutLink = async (url) => {
     try {
@@ -3829,6 +3929,40 @@ function OmniApp() {
       </div>
       
       <div className="main-content">
+        {/* Onboarding Modal */}
+        {showOnboarding && (
+          <OnboardingModal 
+            onClose={() => setShowOnboarding(false)} 
+            onGoToSettings={() => {
+              setShowOnboarding(false);
+              setActiveTab('settings');
+            }}
+          />
+        )}
+
+        {/* Missing Keys Banner */}
+        {(!apiKeys.alpaca_key && !apiKeys.binance_key && userRole !== 'admin' && !isDemoMode) && (
+          <div style={{
+            background: 'linear-gradient(90deg, #f59e0b, #d97706)',
+            color: '#fff', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)'
+          }}>
+            <div>
+              <strong>Azione Richiesta:</strong> Configura le tue API Key per iniziare a operare sui mercati.
+            </div>
+            <button 
+              onClick={() => setActiveTab('settings')}
+              style={{
+                background: '#fff', color: '#d97706', border: 'none', padding: '0.5rem 1rem',
+                borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer'
+              }}
+            >
+              Vai alle Impostazioni →
+            </button>
+          </div>
+        )}
+
         {/* Payment Modal */}
         {showPaymentModal && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
