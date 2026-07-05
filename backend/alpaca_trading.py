@@ -28,22 +28,32 @@ class AlpacaEngine:
         # Start async loop thread for streaming
         self._stream_thread = None
 
-    def init_clients(self):
+    def init_clients(self, user_id="admin"):
+        from db import get_api_keys
         # Init Alpaca
         keys = {}
-        try:
-            keys_file = os.path.join(os.path.dirname(__file__), ".env.keys")
-            with open(keys_file, "r") as f:
-                for line in f:
-                    if "=" in line:
-                        k, v = line.strip().split("=", 1)
-                        keys[k] = v
-        except Exception:
-            pass
+        
+        if user_id == "admin":
+            try:
+                keys_file = os.path.join(os.path.dirname(__file__), ".env.keys")
+                with open(keys_file, "r") as f:
+                    for line in f:
+                        if "=" in line:
+                            k, v = line.strip().split("=", 1)
+                            keys[k] = v
+            except Exception:
+                pass
             
-        self.alpaca_key = keys.get("ALPACA_KEY", os.getenv("ALPACA_API_KEY", ""))
-        self.alpaca_secret = keys.get("ALPACA_SECRET", os.getenv("ALPACA_SECRET_KEY", ""))
-        self.alpaca_base = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+            self.alpaca_key = keys.get("ALPACA_KEY", os.getenv("ALPACA_API_KEY", ""))
+            self.alpaca_secret = keys.get("ALPACA_SECRET", os.getenv("ALPACA_SECRET_KEY", ""))
+            self.alpaca_base = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+            groq_key = keys.get("GROQ_KEY", os.getenv("GROQ_API_KEY", ""))
+        else:
+            user_keys = get_api_keys(user_id) or {}
+            self.alpaca_key = user_keys.get("alpaca_key", "")
+            self.alpaca_secret = user_keys.get("alpaca_secret", "")
+            self.alpaca_base = "https://paper-api.alpaca.markets" # Hardcoded paper or check setting
+            groq_key = "" # Groq key is admin only for now
         
         if self.alpaca_key and self.alpaca_secret:
             try:
@@ -61,8 +71,6 @@ class AlpacaEngine:
                 self.running = False
                 self.bot_state.modules["trading"] = False
                 
-        # Init Gemini
-        groq_key = keys.get("GROQ_KEY", os.getenv("GROQ_API_KEY", ""))
         if groq_key:
             self.model = Groq(api_key=groq_key)
             self.llm_enabled = True

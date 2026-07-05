@@ -88,16 +88,22 @@ def send_telegram_message(message: str):
 # Importiamo il modello
 from data_loader import fetch_historical_data
 
-DB_FILE = "bot_db.json"
+DB_FILE_PREFIX = "bot_db"
 db_lock = threading.Lock()
 SYMBOL_RANK_CACHE_TTL_SECONDS = 300
 symbol_rank_cache = {"expires_at": 0.0, "max_symbols": 0, "result": ([], [])}
 
-def load_db():
+def get_db_file(user_id=None):
+    if not user_id or user_id == "admin":
+        return f"{DB_FILE_PREFIX}.json"
+    return f"{DB_FILE_PREFIX}_{user_id}.json"
+
+def load_db(user_id=None):
     with db_lock:
-        if os.path.exists(DB_FILE):
+        file_path = get_db_file(user_id)
+        if os.path.exists(file_path):
             try:
-                with open(DB_FILE, "r") as f:
+                with open(file_path, "r") as f:
                     data = json.load(f)
                     if "modules" in data and "high_risk_crypto_arb" not in data["modules"]:
                         data["modules"]["high_risk_crypto_arb"] = False
@@ -106,10 +112,11 @@ def load_db():
                 print("⚠️ bot_db.json corrotto (forse per un riavvio forzato). Ricarico default.")
         return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "crypto_arb": False, "high_risk_crypto_arb": False, "sports_arb": False, "ai_content": False}}
 
-def save_db(state_dict):
+def save_db(state_dict, user_id=None):
     with db_lock:
-        with open(DB_FILE, "w") as f:
-            json.dump(state_dict, f)
+        file_path = get_db_file(user_id)
+        with open(file_path, "w") as f:
+            json.dump(state_dict, f, indent=4)
 
 def _parse_allowed_origins():
     raw = os.getenv("ALLOWED_ORIGINS", "")
@@ -445,8 +452,9 @@ def get_yf_symbol(symbol):
 target_symbols = [] # Inizialmente vuoto, verrà popolato dinamicamente
 
 class BotState:
-    def __init__(self):
-        db_data = load_db()
+    def __init__(self, user_id=None):
+        self.user_id = user_id
+        db_data = load_db(user_id)
         self.is_running = False
         self.target_symbols = db_data.get("target_symbols", DEFAULT_TARGET_SYMBOLS[:])
         self.virtual_cash = db_data.get("virtual_cash", 100.0)
@@ -508,7 +516,7 @@ class BotState:
             "modules": self.modules,
             "target_symbols": self.target_symbols,
             "symbol_selection": self.symbol_selection,
-        })
+        }, self.user_id)
 
     def close_trade(self, symbol: str, side: str, profit_usd: float, profit_pct: float):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
@@ -551,7 +559,26 @@ engines = {
     "crypto_arb": arb_engine,
     "ai_content": ai_engine
 }
-alpaca_engine = AlpacaEngine(bot_state)
+user_bot_states = {}
+user_engines = {}
+
+def get_user_bot_state(user_id="admin"):
+    if user_id not in user_bot_states:
+        user_bot_states[user_id] = BotState(user_id)
+        if not user_bot_states[user_id].target_symbols:
+            user_bot_states[user_id].target_symbols = DEFAULT_TARGET_SYMBOLS[:]
+    return user_bot_states[user_id]
+
+def get_user_alpaca_engine(user_id="admin"):
+    if user_id not in user_engines:
+        state = get_user_bot_state(user_id)
+        engine = AlpacaEngine(state)
+        engine.init_clients(user_id)
+        user_engines[user_id] = engine
+    return user_engines[user_id]
+
+admin_bot_state = get_user_bot_state("admin")
+alpaca_engine = get_user_alpaca_engine("admin")
 trade_lock = threading.Lock()
 
 
@@ -846,8 +873,11 @@ def _reentry_loop():
 global_executor.submit(_auto_exit_loop)
 # thread sostituito da executor
 global_executor.submit(_reentry_loop)
-def get_status():
-    if not alpaca: return {"error": "Alpaca API non configurata."}
+def get_status(user_id="admin"):
+    bot_state = get_user_bot_state(user_id)
+    alpaca = get_user_alpaca_engine(user_id).alpaca_rest
+    alpaca_connected = alpaca is not None
+    #if not alpaca: return {"error": "Alpaca API non configurata."}
     pos_dict = {}
     virtual_portfolio_value = bot_state.virtual_cash
     try:
@@ -954,6 +984,7 @@ def get_status():
             "cash": round(bot_state.virtual_cash, 2),
             "symbols": bot_state.target_symbols,
             "symbol_selection": getattr(bot_state, "symbol_selection", {}),
+            "alpaca_connected": alpaca_connected,
             "logs": bot_state.logs,
             "alpaca_info": alpaca_info,
             "aggressiveness": bot_state.aggressiveness,
@@ -980,12 +1011,19 @@ def get_status():
 
 
 @app.get("/api/status")
-def api_status(response: Response):
+def api_status(response: Response, request: Request):
     response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
     response.headers["Pragma"] = "no-cache"
     response.headers["Expires"] = "0"
+    user_id = "admin"
+    auth = request.headers.get("Authorization")
+    if auth and auth.startswith("Bearer "):
+        try:
+            payload = jwt.decode(auth.split(" ")[1], JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            user_id = payload.get("sub", "admin")
+        except: pass
     try:
-        return get_status()
+        return get_status(user_id)
     except Exception as e:
         return {"error": str(e)}
 
@@ -1055,13 +1093,11 @@ async def toggle_module(payload: dict, _: str = Depends(require_admin)):
             "ai_videos": getattr(bot_state, "ai_videos", [])}
     return {"error": "Modulo non trovato"}
 @app.get("/api/stock/quote/{symbol}")
-def get_stock_quote(symbol: str):
+def get_stock_quote(symbol: str, user_id: str = "admin"):
     """Restituisce la quotazione in tempo reale tramite Alpaca (o yfinance come fallback)."""
     symbol = symbol.upper().strip()
     try:
-        import alpaca_trade_api as tradeapi
-        # Prova con Alpaca prima se configurata
-        global alpaca
+        alpaca = get_user_alpaca_engine(user_id).alpaca_rest
         if alpaca:
             bar = alpaca.get_latest_trade(symbol)
             if bar:
@@ -1083,7 +1119,14 @@ def get_stock_quote(symbol: str):
     return {"error": f"Impossibile recuperare la quotazione per {symbol}"}
 
 @app.post("/api/stock/trade/manual")
-def manual_stock_trade(payload: dict, _: str = Depends(require_admin)):
+def manual_stock_trade(payload: dict, req: Request, _: str = Depends(require_admin)):
+    user_id = "admin"
+    auth = req.headers.get("Authorization")
+    if auth and auth.startswith("Bearer "):
+        try:
+            tok = jwt.decode(auth.split(" ")[1], JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            user_id = tok.get("sub", "admin")
+        except: pass
     """Esegue un trade azionario manuale in paper trading."""
     symbol = payload.get("symbol", "").upper().strip()
     side = payload.get("side", "buy").lower()
@@ -1093,7 +1136,7 @@ def manual_stock_trade(payload: dict, _: str = Depends(require_admin)):
         return {"error": "Parametri non validi"}
         
     # Ottieni prezzo
-    quote = get_stock_quote(symbol)
+    quote = get_stock_quote(symbol, user_id)
     if "error" in quote:
         return quote
         
@@ -1483,7 +1526,16 @@ async def update_config(config: dict, _: str = Depends(require_admin)):
     return {"error": "Parametri non validi"}
 
 @app.post("/api/stop")
-def stop_bot(_: str = Depends(require_admin)):
+def stop_bot(req: Request, _: str = Depends(require_admin)):
+    user_id = "admin"
+    auth = req.headers.get("Authorization")
+    if auth and auth.startswith("Bearer "):
+        try:
+            tok = jwt.decode(auth.split(" ")[1], JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            user_id = tok.get("sub", "admin")
+        except: pass
+    alpaca = get_user_alpaca_engine(user_id).alpaca_rest
+    bot_state = get_user_bot_state(user_id)
     if not alpaca: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     
     bot_state.is_running = False
@@ -1511,7 +1563,16 @@ def stop_bot(_: str = Depends(require_admin)):
     return {"message": "Bot fermato", "state": get_status()}
 
 @app.post("/api/reset")
-def reset_simulation(_: str = Depends(require_admin)):
+def reset_simulation(req: Request, _: str = Depends(require_admin)):
+    user_id = "admin"
+    auth = req.headers.get("Authorization")
+    if auth and auth.startswith("Bearer "):
+        try:
+            tok = jwt.decode(auth.split(" ")[1], JWT_SECRET, algorithms=[JWT_ALGORITHM])
+            user_id = tok.get("sub", "admin")
+        except: pass
+    alpaca = get_user_alpaca_engine(user_id).alpaca_rest
+    bot_state = get_user_bot_state(user_id)
     if not alpaca: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     
     bot_state.is_running = False
@@ -1596,7 +1657,8 @@ def get_chart_data(symbol: str, timeframe: str = "1M"):
                     df = pd.DataFrame(ohlcv, columns=['timestamp', 'Open', 'High', 'Low', 'Close', 'Volume'])
                     df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
                     df.set_index('timestamp', inplace=True)
-                elif alpaca:
+                elif get_user_alpaca_engine("admin").alpaca_rest:
+                    alpaca = get_user_alpaca_engine("admin").alpaca_rest
                     import alpaca_trade_api as tradeapi
                     from datetime import datetime, timedelta
                     tf_map = {"5m": tradeapi.TimeFrame.Minute, "15m": tradeapi.TimeFrame.Minute, "1h": tradeapi.TimeFrame.Hour, "1d": tradeapi.TimeFrame.Day, "1wk": tradeapi.TimeFrame.Day}

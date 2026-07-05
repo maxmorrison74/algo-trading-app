@@ -621,7 +621,9 @@ function OmniApp() {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const res = await fetch('/api/status?t=' + Date.now());
+        const res = await fetch('/api/status?t=' + Date.now(), {
+          headers: sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {}
+        });
         const data = await res.json();
         if (!data.error) {
           setStatus(data);
@@ -964,7 +966,9 @@ function OmniApp() {
       if (res.ok) {
         alert(data.message);
         // Forza refresh stato
-        fetch('/api/status').then(r => r.json()).then(d => { if(!d.error) setStatus(d); });
+        fetch('/api/status', {
+          headers: sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {}
+        }).then(r => r.json()).then(d => { if(!d.error) setStatus(d); });
       } else {
         alert(data.detail || 'Errore durante la cancellazione');
       }
@@ -1485,6 +1489,16 @@ function OmniApp() {
           <h2>Dashboard 📊</h2>
           <div className="page-subtitle" style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Dashboard Aggregata delle Rendite Passive</div>
         </div>
+
+        {status.alpaca_connected === false && (
+          <div className="onboarding-banner" style={{ background: 'linear-gradient(90deg, #ef4444, #b91c1c)', color: 'white', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <h3 style={{ margin: '0 0 0.5rem 0' }}>⚠️ Broker non collegato</h3>
+              <p style={{ margin: 0, opacity: 0.9 }}>Per operare sui mercati finanziari, devi prima inserire le tue chiavi API di Alpaca/Binance.</p>
+            </div>
+            <button onClick={() => setActiveTab('settings')} className="btn" style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white' }}>Collega ora ➔</button>
+          </div>
+        )}
 
         {/* Big Number */}
         <div className="hero-summary" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(0,0,0,0) 100%)', padding: '3rem', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.3)', textAlign: 'center', marginBottom: '2rem' }}>
