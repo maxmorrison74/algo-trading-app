@@ -494,6 +494,8 @@ function OmniApp() {
   };
   const [isAuthenticated, setIsAuthenticated] = useState(checkAuthMemory());
   const [showLanding, setShowLanding] = useState(true);
+  const [showLandingPlans, setShowLandingPlans] = useState(false);
+  const [selectedPlanId, setSelectedPlanId] = useState('');
   const [isDemoMode, setIsDemoMode] = useState(isDemoSession());
 
   const [password, setPassword] = useState('');
