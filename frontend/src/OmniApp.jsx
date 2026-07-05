@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
-
+import heroAsset from './assets/hero.png';
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
 const DEMO_MODE_KEY = 'omni_demo_mode';
