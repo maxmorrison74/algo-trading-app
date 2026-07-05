@@ -461,6 +461,21 @@ class AlpacaEngine:
                 trail_percent=trail_percent
             )
             self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Trailing Stop al {trail_percent}%)")
+            
+            # Notifica Telegram
+            try:
+                from api import send_telegram_message
+                msg = f"🚀 *TRADE AUTOMATICO (Alpaca)*\n"
+                msg += f"Asset: {symbol}\n"
+                msg += f"Azione: {side}\n"
+                msg += f"Quantità: {qty}\n"
+                msg += f"Prezzo: ${current_price:.2f}\n"
+                msg += f"Trailing Stop: {trail_percent}%\n"
+                msg += f"Probabilità AI: {lstm_prob*100:.1f}%\n"
+                send_telegram_message(msg)
+            except Exception as e:
+                self._log(f"⚠️ Errore invio notifica Telegram: {e}")
+                
         except Exception as e:
             self._log(f"❌ ERRORE INVIO ORDINE TRAILING: {e}")
 
