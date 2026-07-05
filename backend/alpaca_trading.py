@@ -53,7 +53,7 @@ class AlpacaEngine:
             self.alpaca_key = user_keys.get("alpaca_key", "")
             self.alpaca_secret = user_keys.get("alpaca_secret", "")
             self.alpaca_base = "https://paper-api.alpaca.markets" # Hardcoded paper or check setting
-            groq_key = "" # Groq key is admin only for now
+            groq_key = user_keys.get("groq_key", "")
         
         if self.alpaca_key and self.alpaca_secret:
             try:

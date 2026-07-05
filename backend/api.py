@@ -2133,24 +2133,33 @@ class KeysRequest(BaseModel):
 def get_keys(user: dict = Depends(require_user)):
     keys = {}
     try:
-        # Global AI keys (masked) per tutti, lette dal file .env
-        if os.path.exists(API_KEYS_FILE):
-            with open(API_KEYS_FILE, "r") as f:
-                for line in f:
-                    if "=" in line:
-                        k, v = line.strip().split("=", 1)
-                        if v and k in ["ELEVENLABS_KEY", "THEODDS_KEY", "GROQ_KEY", "NEWSAPI_KEY"]:
-                            keys[k] = v[:4] + "*" * 10 if len(v) > 4 else "***"
-        if os.path.exists(".env.gcp.json"):
-            keys["GOOGLE_APPLICATION_CREDENTIALS"] = "MASKED_JSON"
+        if user.get("role") == "admin":
+            # Global AI keys (masked) per admin, lette dal file .env
+            if os.path.exists(API_KEYS_FILE):
+                with open(API_KEYS_FILE, "r") as f:
+                    for line in f:
+                        if "=" in line:
+                            k, v = line.strip().split("=", 1)
+                            if v and k in ["ELEVENLABS_KEY", "THEODDS_KEY", "GROQ_KEY", "NEWSAPI_KEY"]:
+                                keys[k] = v[:4] + "*" * 10 if len(v) > 4 else "***"
+            if os.path.exists(".env.gcp.json"):
+                keys["GOOGLE_APPLICATION_CREDENTIALS"] = "MASKED_JSON"
             
-        # Per le chiavi di trading (Alpaca, Binance, Kraken), le leggiamo dal DB per l'utente specifico
+        # Chiavi lette dal DB per l'utente specifico
         user_keys = db.get_api_keys(user["sub"])
         if user_keys:
             if user_keys.get("alpaca_key"): keys["ALPACA_KEY"] = user_keys["alpaca_key"][:4] + "***"
             if user_keys.get("alpaca_secret"): keys["ALPACA_SECRET"] = user_keys["alpaca_secret"][:4] + "***"
             if user_keys.get("binance_key"): keys["BINANCE_KEY"] = user_keys["binance_key"][:4] + "***"
             if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = user_keys["binance_secret"][:4] + "***"
+            
+            # Se l'utente non è admin, usa le AI keys dal suo DB
+            if user.get("role") != "admin":
+                if user_keys.get("groq_key"): keys["GROQ_KEY"] = user_keys["groq_key"][:4] + "***"
+                if user_keys.get("elevenlabs_key"): keys["ELEVENLABS_KEY"] = user_keys["elevenlabs_key"][:4] + "***"
+                if user_keys.get("theodds_key"): keys["THEODDS_KEY"] = user_keys["theodds_key"][:4] + "***"
+                if user_keys.get("newsapi_key"): keys["NEWSAPI_KEY"] = user_keys["newsapi_key"][:4] + "***"
+                
     except Exception as e:
         keys["ERROR"] = str(e)
     return keys
@@ -2158,7 +2167,7 @@ def get_keys(user: dict = Depends(require_user)):
 @app.post("/api/keys")
 def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
     try:
-        # 1. Salva chiavi di trading nel database per l'utente
+        # 1. Salva chiavi nel database per l'utente
         user_keys = db.get_api_keys(user["sub"]) or {}
         
         def merge_user_key(incoming_val, db_val):
@@ -2171,7 +2180,11 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
             alpaca_key=merge_user_key(req.alpaca_key, user_keys.get("alpaca_key")),
             alpaca_secret=merge_user_key(req.alpaca_secret, user_keys.get("alpaca_secret")),
             binance_key=merge_user_key(req.binance_key, user_keys.get("binance_key")),
-            binance_secret=merge_user_key(req.binance_secret, user_keys.get("binance_secret"))
+            binance_secret=merge_user_key(req.binance_secret, user_keys.get("binance_secret")),
+            groq_key=merge_user_key(req.groq_key, user_keys.get("groq_key")),
+            elevenlabs_key=merge_user_key(req.elevenlabs_key, user_keys.get("elevenlabs_key")),
+            theodds_key=merge_user_key(req.theodds_key, user_keys.get("theodds_key")),
+            newsapi_key=merge_user_key(req.newsapi_key, user_keys.get("newsapi_key"))
         )
 
         # 2. Solo l'admin può salvare le chiavi globali AI in .env
