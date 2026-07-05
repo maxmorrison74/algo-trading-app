@@ -909,10 +909,7 @@ function OmniApp() {
       console.error(err);
     } finally {
       clearAuthSession();
-      setIsDemoMode(false);
-      setIsAuthenticated(false);
-      setPassword('');
-      setLoginError('');
+      window.location.href = '/';
     }
   };
 
