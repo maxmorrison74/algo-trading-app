@@ -310,18 +310,21 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
           <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
             <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#fcd34d' }}>1. Trading Azionario (Alpaca)</h3>
             <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Alpaca è il broker senza commissioni utilizzato per l'azionario USA.
+              Alpaca è il broker senza commissioni utilizzato per l'azionario USA. <br/>
+              <span style={{opacity: 0.8, fontSize: '0.85rem'}}><strong>Guida:</strong> Registrati, conferma l'email e accedi. Clicca su "View API Keys" sulla destra della dashboard per generare la Key ID e la Secret Key.</span>
             </p>
             <a href="https://alpaca.markets" target="_blank" rel="noopener noreferrer" style={{
               display: 'inline-block', background: '#fcd34d', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
             }}>Apri un account Alpaca ↗</a>
           </div>
 
-          {/* Binance */}
+          {/* Binance/Kraken */}
           <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
             <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#f59e0b' }}>2. Trading Crypto (Binance o Kraken)</h3>
             <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Per il trading ad alta frequenza sulle crypto, suggeriamo Binance o Kraken.
+              Per il trading ad alta frequenza sulle crypto, suggeriamo Binance o Kraken.<br/>
+              <span style={{opacity: 0.8, fontSize: '0.85rem'}}><strong>Guida Binance:</strong> Profilo {'>'} API Management {'>'} Create API. <br/>
+              <strong>Guida Kraken:</strong> Profilo {'>'} Sicurezza {'>'} API {'>'} Aggiungi chiave. Attendi 24h se l'account è nuovo.</span>
             </p>
             <div style={{ display: 'flex', gap: '1rem' }}>
               <a href="https://www.binance.com/" target="_blank" rel="noopener noreferrer" style={{
@@ -337,7 +340,8 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
           <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
             <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#a78bfa' }}>3. Intelligenza Artificiale (Groq)</h3>
             <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Il motore AI alla base delle decisioni di trading ultrarapide.
+              Il motore AI alla base delle decisioni di trading ultrarapide.<br/>
+              <span style={{opacity: 0.8, fontSize: '0.85rem'}}><strong>Guida:</strong> Accedi alla console di Groq, vai su "API Keys" nel menu a sinistra e clicca su "Create API Key". Copiala sùbito perché non potrai visualizzarla di nuovo.</span>
             </p>
             <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" style={{
               display: 'inline-block', background: '#a78bfa', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
