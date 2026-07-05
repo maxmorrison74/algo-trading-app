@@ -1927,16 +1927,22 @@ function OmniApp() {
         </div>
       </div>
 
-      <div className="chart-container" style={{ height: '300px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '1rem', marginTop: '1rem' }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-            <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} />
-            <YAxis stroke="#94a3b8" fontSize={12} domain={['auto', 'auto']} />
-            <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
-            <Line type="monotone" dataKey="price" stroke="#06b6d4" strokeWidth={2} dot={false} />
-          </LineChart>
-        </ResponsiveContainer>
+      <div className="chart-container" style={{ height: '300px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '1rem', marginTop: '1rem', position: 'relative' }}>
+        {!status.modules?.trading ? (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+            Bot Offline. Il grafico si popolerà in tempo reale all'avvio.
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+              <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} />
+              <YAxis stroke="#94a3b8" fontSize={12} domain={['auto', 'auto']} />
+              <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+              <Line type="monotone" dataKey="price" stroke="#06b6d4" strokeWidth={2} dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
+        )}
       </div>
 
       <div className="dashboard-grid" style={{ marginTop: "2rem" }}>
@@ -2061,10 +2067,16 @@ function OmniApp() {
         <div className="card col-span-6">
           <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Terminale Scansione</h3>
           <div className="terminal-window">
-            {status.logs?.map((l, i) => (
-              <div key={i} style={{ marginBottom: '0.3rem' }}>{l}</div>
-            ))}
-            {status.logs?.length === 0 && <div>In attesa di connessione...</div>}
+            {!status.modules?.trading ? (
+              <div style={{ color: 'var(--text-secondary)' }}>Bot Offline. Avvia il trading IA per iniziare la scansione del mercato...</div>
+            ) : (
+              <>
+                {status.logs?.map((l, i) => (
+                  <div key={i} style={{ marginBottom: '0.3rem' }}>{l}</div>
+                ))}
+                {(!status.logs || status.logs.length === 0) && <div>In attesa di dati dal server...</div>}
+              </>
+            )}
           </div>
         </div>
       </div>
