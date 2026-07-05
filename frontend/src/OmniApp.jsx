@@ -2068,16 +2068,12 @@ function OmniApp() {
         <div className="card col-span-6">
           <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Terminale Scansione</h3>
           <div className="terminal-window">
-            {!status.modules?.trading ? (
-              <div style={{ color: 'var(--text-secondary)' }}>Bot Offline. Avvia il trading IA per iniziare la scansione del mercato...</div>
-            ) : (
               <>
                 {status.logs?.map((l, i) => (
-                  <div key={i} style={{ marginBottom: '0.3rem' }}>{l}</div>
+                  <div key={i} style={{ marginBottom: '0.3rem', color: l.includes('ERRORE') || l.includes('CRASH') ? '#ef4444' : l.includes('ATTIVATO') ? '#10b981' : 'rgba(255,255,255,0.7)' }}>{l}</div>
                 ))}
-                {(!status.logs || status.logs.length === 0) && <div>In attesa di dati dal server...</div>}
+                {(!status.logs || status.logs.length === 0) && <div style={{ color: 'var(--text-secondary)' }}>Nessun evento registrato. Avvia il trading IA per iniziare la scansione del mercato...</div>}
               </>
-            )}
           </div>
         </div>
       </div>

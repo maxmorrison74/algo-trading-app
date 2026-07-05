@@ -541,6 +541,8 @@ class AlpacaEngine:
             if not self.alpaca_rest:
                 self._log("Mancano chiavi Alpaca valide. Il modulo si ferma.")
                 self.running = False
+                self.bot_state.modules["trading"] = False
+                self.bot_state.save_state()
                 return
                 
             self.prefill_history()
