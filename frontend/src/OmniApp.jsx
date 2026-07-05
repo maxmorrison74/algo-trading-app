@@ -867,6 +867,27 @@ function OmniApp() {
     setIsAiLoading(false);
   };
 
+  const cancelAiInvestment = async (index, symbol, platform) => {
+    if(!window.confirm(`Vuoi davvero annullare l'ordine su ${symbol}?`)) return;
+    try {
+      const res = await authFetch('/api/ai-invest/cancel', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ index, symbol, platform })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        alert(data.message);
+        // Forza refresh stato
+        fetch('/api/status').then(r => r.json()).then(d => { if(!d.error) setStatus(d); });
+      } else {
+        alert(data.detail || 'Errore durante la cancellazione');
+      }
+    } catch (e) {
+      alert('Errore di rete');
+    }
+  };
+
   const executeAiProposal = async (proposal) => {
     setExecutionMessage(`Esecuzione in corso per ${proposal.symbol}...`);
     try {
@@ -1601,6 +1622,7 @@ function OmniApp() {
                     <th>Importo ($)</th>
                     <th>Piattaforma</th>
                     <th>Orario</th>
+                    <th style={{ textAlign: 'right', paddingRight: '1rem' }}>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1611,6 +1633,15 @@ function OmniApp() {
                       <td style={{ padding: '1rem', color: '#10b981', fontWeight: 'bold' }}>${Number(inv.amount_usd).toFixed(2)}</td>
                       <td style={{ padding: '1rem', color: '#e2e8f0' }}>{inv.platform}</td>
                       <td style={{ padding: '1rem', color: 'var(--text-muted)' }}>{inv.timestamp}</td>
+                      <td style={{ padding: '1rem', textAlign: 'right' }}>
+                        <button 
+                          className="btn btn-outline" 
+                          onClick={() => cancelAiInvestment(idx, inv.symbol, inv.platform)}
+                          style={{ borderColor: '#ef4444', color: '#ef4444', padding: '0.4rem 0.8rem', fontSize: '0.8rem', minHeight: '0' }}
+                        >
+                          Annulla Ordine
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

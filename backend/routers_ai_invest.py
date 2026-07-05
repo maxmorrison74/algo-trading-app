@@ -248,3 +248,38 @@ def execute_investment(req: InvestRequest, _: str = Depends(require_admin)):
             raise HTTPException(status_code=400, detail=str(e))
 
     raise HTTPException(status_code=400, detail="Asset type non supportato")
+
+class CancelInvestmentRequest(BaseModel):
+    index: int
+    symbol: str
+    platform: str
+
+@router.post("/cancel")
+def cancel_investment(req: CancelInvestmentRequest, _: str = Depends(require_admin)):
+    from api import bot_state
+    keys = get_api_keys()
+    
+    # Se l'ordine è su Alpaca, proviamo a cancellarlo dalle API (se il mercato era chiuso, sarà in stato 'open' o 'new')
+    if req.platform.lower() == 'alpaca':
+        api_key = keys.get("ALPACA_KEY") or os.getenv("ALPACA_API_KEY")
+        api_secret = keys.get("ALPACA_SECRET") or os.getenv("ALPACA_SECRET_KEY")
+        base_url = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets")
+        if api_key:
+            try:
+                import alpaca_trade_api as tradeapi
+                alpaca = tradeapi.REST(api_key, api_secret, base_url, api_version='v2')
+                open_orders = alpaca.list_orders(status='open', symbols=[req.symbol])
+                for order in open_orders:
+                    alpaca.cancel_order(order.id)
+            except Exception as e:
+                print(f"Errore cancellazione ordine Alpaca per {req.symbol}:", e)
+                
+    # Rimuovi dal registro locale
+    if hasattr(bot_state, "ai_investments") and 0 <= req.index < len(bot_state.ai_investments):
+        inv = bot_state.ai_investments[req.index]
+        if inv["symbol"] == req.symbol:
+            bot_state.ai_investments.pop(req.index)
+            bot_state.save_state()
+            return {"status": "success", "message": f"Investimento su {req.symbol} annullato con successo."}
+            
+    raise HTTPException(status_code=404, detail="Investimento non trovato nel registro.")
