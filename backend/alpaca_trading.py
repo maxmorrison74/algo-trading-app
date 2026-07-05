@@ -318,7 +318,7 @@ class AlpacaEngine:
         # Strategia 1: Crollo Ipervenduto (Mean Reversion)
         is_mean_reversion_long = (current_price < bb_lower and rsi < 35)
         # Strategia 2: Breakout al rialzo (Momentum Veloce)
-        is_momentum_long = (current_price > upper and rsi > 55)
+        is_momentum_long = (current_price > bb_upper and rsi > 55)
         
         if is_mean_reversion_long or is_momentum_long:
             if lstm_prob > 0.60: # Scalping: basta il 60% di probabilità
