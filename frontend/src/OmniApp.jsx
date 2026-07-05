@@ -300,6 +300,8 @@ function OmniApp() {
   const [billingOverview, setBillingOverview] = useState(null);
   const [billingLoading, setBillingLoading] = useState(false);
   const [billingMessage, setBillingMessage] = useState('');
+  const [showCreateUser, setShowCreateUser] = useState(false);
+  const [newUser, setNewUser] = useState({ email: '', password: '', role: 'user' });
   const [billingLead, setBillingLead] = useState({ company: '', contact_name: '', email: '', plan_id: 'pro', seats: 1 });
   const [userIsPaid, setUserIsPaid] = useState(false);
   
@@ -3079,7 +3081,66 @@ function OmniApp() {
 
         <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
           <div className="card col-span-12">
-            <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Clienti Iscritti</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, color: '#e2e8f0' }}>Clienti Iscritti</h3>
+              <button 
+                className="btn" 
+                onClick={() => setShowCreateUser(!showCreateUser)}
+                style={{ background: 'var(--primary-color)', color: 'white', padding: '0.4rem 1rem', fontSize: '0.9rem' }}
+              >
+                {showCreateUser ? 'Annulla' : '+ Crea Utente'}
+              </button>
+            </div>
+
+            {showCreateUser && (
+              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                <h4 style={{ margin: '0 0 1rem 0' }}>Nuovo Utente</h4>
+                <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>Email</label>
+                    <input type="email" className="settings-input" value={newUser.email} onChange={e => setNewUser({...newUser, email: e.target.value})} placeholder="email@esempio.com" />
+                  </div>
+                  <div style={{ flex: 1, minWidth: '200px' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>Password Temporanea</label>
+                    <input type="text" className="settings-input" value={newUser.password} onChange={e => setNewUser({...newUser, password: e.target.value})} placeholder="Pass123!" />
+                  </div>
+                  <div style={{ width: '120px' }}>
+                    <label style={{ display: 'block', fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: '0.3rem' }}>Ruolo</label>
+                    <select className="settings-input" value={newUser.role} onChange={e => setNewUser({...newUser, role: e.target.value})}>
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <button 
+                    className="btn btn-start" 
+                    onClick={async () => {
+                      if (!newUser.email || !newUser.password) { alert('Compila email e password'); return; }
+                      try {
+                        const res = await authFetch('/api/saas/create-user', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify(newUser)
+                        });
+                        const data = await res.json();
+                        if (res.ok) {
+                          alert(data.message);
+                          setShowCreateUser(false);
+                          setNewUser({email:'', password:'', role:'user'});
+                          const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                          setBillingOverview(await res2.json());
+                        } else {
+                          alert(data.detail || 'Errore creazione utente');
+                        }
+                      } catch(e) { alert('Errore di connessione'); }
+                    }}
+                    style={{ minHeight: '42px', padding: '0 1.5rem' }}
+                  >
+                    Salva
+                  </button>
+                </div>
+              </div>
+            )}
+
             <div className="data-table-wrapper">
               <table className="data-table">
                 <thead>

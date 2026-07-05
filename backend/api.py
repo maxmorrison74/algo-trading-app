@@ -2452,6 +2452,21 @@ def verify_crypto_payment(req: VerifyPaymentRequest, admin_token: str = Depends(
 class AdminUserActionRequest(BaseModel):
     user_id: str
 
+class AdminCreateUserRequest(BaseModel):
+    email: str
+    password: str
+    role: str = "user"
+
+@app.post("/api/saas/create-user")
+def admin_create_user(req: AdminCreateUserRequest, admin_token: str = Depends(require_admin)):
+    import uuid
+    new_user_id = str(uuid.uuid4())
+    success = db.create_user(new_user_id, req.email, req.password, role=req.role, status="active")
+    if success:
+        return {"status": "success", "message": "Utente creato con successo.", "user_id": new_user_id}
+    else:
+        raise HTTPException(status_code=400, detail="Email già in uso.")
+
 @app.post("/api/saas/activate-user")
 def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
     conn = db.get_db_connection()
