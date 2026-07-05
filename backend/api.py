@@ -2145,13 +2145,15 @@ def get_keys(user: dict = Depends(require_user)):
             if os.path.exists(".env.gcp.json"):
                 keys["GOOGLE_APPLICATION_CREDENTIALS"] = "MASKED_JSON"
             
-        # Chiavi lette dal DB per l'utente specifico
+        # Per le chiavi di trading (Alpaca, Binance, Kraken), le leggiamo dal DB per l'utente specifico
         user_keys = db.get_api_keys(user["sub"])
         if user_keys:
             if user_keys.get("alpaca_key"): keys["ALPACA_KEY"] = user_keys["alpaca_key"][:4] + "***"
             if user_keys.get("alpaca_secret"): keys["ALPACA_SECRET"] = user_keys["alpaca_secret"][:4] + "***"
             if user_keys.get("binance_key"): keys["BINANCE_KEY"] = user_keys["binance_key"][:4] + "***"
             if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = user_keys["binance_secret"][:4] + "***"
+            if user_keys.get("kraken_key"): keys["KRAKEN_KEY"] = user_keys["kraken_key"][:4] + "***"
+            if user_keys.get("kraken_secret"): keys["KRAKEN_SECRET"] = user_keys["kraken_secret"][:4] + "***"
             
             # Se l'utente non è admin, usa le AI keys dal suo DB
             if user.get("role") != "admin":
@@ -2181,6 +2183,8 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
             alpaca_secret=merge_user_key(req.alpaca_secret, user_keys.get("alpaca_secret")),
             binance_key=merge_user_key(req.binance_key, user_keys.get("binance_key")),
             binance_secret=merge_user_key(req.binance_secret, user_keys.get("binance_secret")),
+            kraken_key=merge_user_key(req.kraken_key, user_keys.get("kraken_key")),
+            kraken_secret=merge_user_key(req.kraken_secret, user_keys.get("kraken_secret")),
             groq_key=merge_user_key(req.groq_key, user_keys.get("groq_key")),
             elevenlabs_key=merge_user_key(req.elevenlabs_key, user_keys.get("elevenlabs_key")),
             theodds_key=merge_user_key(req.theodds_key, user_keys.get("theodds_key")),

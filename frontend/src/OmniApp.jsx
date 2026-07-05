@@ -319,13 +319,18 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
 
           {/* Binance */}
           <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#f59e0b' }}>2. Trading Crypto (Binance)</h3>
+            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#f59e0b' }}>2. Trading Crypto (Binance o Kraken)</h3>
             <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Per il trading ad alta frequenza sulle crypto, suggeriamo Binance.
+              Per il trading ad alta frequenza sulle crypto, suggeriamo Binance o Kraken.
             </p>
-            <a href="https://www.binance.com/" target="_blank" rel="noopener noreferrer" style={{
-              display: 'inline-block', background: '#f59e0b', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
-            }}>Registrati su Binance ↗</a>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <a href="https://www.binance.com/" target="_blank" rel="noopener noreferrer" style={{
+                display: 'inline-block', background: '#f59e0b', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
+              }}>Binance ↗</a>
+              <a href="https://www.kraken.com/" target="_blank" rel="noopener noreferrer" style={{
+                display: 'inline-block', background: '#5841D8', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
+              }}>Kraken ↗</a>
+            </div>
           </div>
 
           {/* Groq */}
