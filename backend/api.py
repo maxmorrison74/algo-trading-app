@@ -1050,75 +1050,88 @@ def api_status(response: Response, request: Request):
 async def toggle_module(payload: dict, user: dict = Depends(require_admin)):
     mod_id = payload.get("module")
     active = payload.get("active")
-    if mod_id in bot_state.modules:
-        bot_state.modules[mod_id] = active
-        bot_state.save_state()
+    
+    user_id = user.get("sub", "admin")
+    u_bot_state = get_user_bot_state(user_id)
+    u_alpaca_engine = get_user_alpaca_engine(user_id)
+    u_arb_engine = get_user_arb_engine(user_id)
+    u_sports_engine = get_user_sports_engine(user_id)
+    u_ai_engine = get_user_ai_engine(user_id)
+    
+    # Sentiment Engine (global or specific, let's assume it exists globally as fallback)
+    u_sentiment_engine = sentiment_engine
+    
+    if mod_id in u_bot_state.modules:
+        u_bot_state.modules[mod_id] = active
+        u_bot_state.save_state()
         state_str = "ATTIVATO" if active else "DISATTIVATO"
-        bot_state.add_log(f"⚙️ Modulo {mod_id.upper()} {state_str}")
+        u_bot_state.add_log(f"⚙️ Modulo {mod_id.upper()} {state_str}")
         
         # Start/Stop logic
         module_name = mod_id
         if active:
-            if module_name == "ai_content" and not ai_engine.running:
-                ai_engine.running = True
-                ai_engine.user_id = user.get("sub", "admin")
-                global_executor.submit(ai_engine.loop)
-            elif module_name == "sports_arb" and not sports_engine.running:
-                sports_engine.running = True
-                sports_engine.user_id = user.get("sub", "admin")
-                global_executor.submit(sports_engine.loop)
-                bot_state.add_log("⚽ Modulo Sports Arbitrage avviato.")
+            if module_name == "ai_content" and u_ai_engine and not getattr(u_ai_engine, "running", False):
+                u_ai_engine.running = True
+                u_ai_engine.user_id = user_id
+                global_executor.submit(u_ai_engine.loop)
+            elif module_name == "sports_arb" and u_sports_engine and not getattr(u_sports_engine, "running", False):
+                u_sports_engine.running = True
+                u_sports_engine.user_id = user_id
+                global_executor.submit(u_sports_engine.loop)
+                u_bot_state.add_log("⚽ Modulo Sports Arbitrage avviato.")
             elif module_name == "ai_sports_sentiment":
-                if sentiment_engine is None:
-                    bot_state.modules[mod_id] = False
-                    bot_state.save_state()
+                if u_sentiment_engine is None:
+                    u_bot_state.modules[mod_id] = False
+                    u_bot_state.save_state()
                     return {"error": "Modulo AI Sentiment Radar non disponibile in questa build"}
-                if not getattr(sentiment_engine, "running", False):
-                    sentiment_engine.running = True
-                    sentiment_engine.user_id = user.get("sub", "admin")
-                    global_executor.submit(sentiment_engine.loop)
-                    bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
-            elif (module_name == "crypto_arb" or module_name == "high_risk_crypto_arb") and not arb_engine.running:
-                arb_engine.running = True
-                arb_engine.user_id = user.get("sub", "admin")
-                global_executor.submit(arb_engine.loop)
+                if not getattr(u_sentiment_engine, "running", False):
+                    u_sentiment_engine.running = True
+                    u_sentiment_engine.user_id = user_id
+                    global_executor.submit(u_sentiment_engine.loop)
+                    u_bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
+            elif (module_name == "crypto_arb" or module_name == "high_risk_crypto_arb") and u_arb_engine and not getattr(u_arb_engine, "running", False):
+                u_arb_engine.running = True
+                u_arb_engine.user_id = user_id
+                global_executor.submit(u_arb_engine.loop)
                 
             if module_name == "high_risk_crypto_arb":
-                bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 Motore Alto Rischio Avviato (Ricerca memecoin volatili...)")
-                if len(bot_state.high_risk_arb_logs) > 50:
-                    bot_state.high_risk_arb_logs.pop()
-            elif module_name == "trading" and not alpaca_engine.running:
-                bot_state.is_running = True
-                alpaca_engine.running = True
-                alpaca_engine.user_id = user.get("sub", "admin")
-                global_executor.submit(alpaca_engine.loop)
+                u_bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 Motore Alto Rischio Avviato (Ricerca memecoin volatili...)")
+                if len(u_bot_state.high_risk_arb_logs) > 50:
+                    u_bot_state.high_risk_arb_logs.pop()
+            elif module_name == "trading" and u_alpaca_engine and not getattr(u_alpaca_engine, "running", False):
+                u_bot_state.is_running = True
+                u_alpaca_engine.running = True
+                u_alpaca_engine.user_id = user_id
+                global_executor.submit(u_alpaca_engine.loop)
         else:
-            if module_name == "sports_arb":
-                sports_engine.stop()
-                bot_state.add_log("⚽ Modulo Sports Arbitrage fermato.")
-            elif module_name == "ai_sports_sentiment":
-                if sentiment_engine is not None:
-                    sentiment_engine.stop()
-                    bot_state.add_log("📡 Modulo AI Sentiment Radar fermato.")
+            if module_name == "sports_arb" and u_sports_engine:
+                if hasattr(u_sports_engine, "stop"): u_sports_engine.stop()
+                u_bot_state.add_log("⚽ Modulo Sports Arbitrage fermato.")
+            elif module_name == "ai_sports_sentiment" and u_sentiment_engine:
+                if hasattr(u_sentiment_engine, "stop"): u_sentiment_engine.stop()
+                u_bot_state.add_log("📡 Modulo AI Sentiment Radar fermato.")
             elif module_name == "trading":
-                bot_state.is_running = False
+                u_bot_state.is_running = False
+                if u_alpaca_engine:
+                    u_alpaca_engine.running = False
+                    if hasattr(u_alpaca_engine, "alpaca_stream") and getattr(u_alpaca_engine, "alpaca_stream", None):
+                        try:
+                            u_alpaca_engine.alpaca_stream.stop()
+                        except: pass
             elif module_name == "high_risk_crypto_arb":
-                bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 🛑 Motore Alto Rischio Fermato.")
-                if len(bot_state.high_risk_arb_logs) > 50:
-                    bot_state.high_risk_arb_logs.pop()
+                u_bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 🛑 Motore Alto Rischio Fermato.")
+                if len(u_bot_state.high_risk_arb_logs) > 50:
+                    u_bot_state.high_risk_arb_logs.pop()
+            elif module_name == "crypto_arb":
+                if u_arb_engine:
+                    u_arb_engine.running = False
                 
-        current_state = get_status()
-        return {"message": "Modulo aggiornato", "modules": bot_state.modules,
-            "arb_logs": getattr(bot_state, "arb_logs", []),
-            "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
-            "high_risk_arb_logs": getattr(bot_state, "high_risk_arb_logs", []),
-            "high_risk_arb_prices": getattr(bot_state, "high_risk_arb_prices", {}),
-            "table_data": current_state.get("table_data", []) if "error" not in current_state else [],
-            "sports_logs": getattr(bot_state, "sports_logs", []),
-            "active_surebets": getattr(bot_state, "active_surebets", []),
-            "value_bets": getattr(bot_state, "value_bets", []),
-            "ai_logs": getattr(bot_state, "ai_logs", []),
-            "ai_videos": getattr(bot_state, "ai_videos", [])}
+        current_state = get_status(user_id)
+        return {
+            "message": "Modulo aggiornato", 
+            "modules": u_bot_state.modules, 
+            "status": current_state
+        }
     return {"error": "Modulo non trovato"}
 @app.get("/api/stock/quote/{symbol}")
 def get_stock_quote(symbol: str, user_id: str = "admin"):
