@@ -2405,6 +2405,21 @@ def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(
     conn.close()
     return {"status": "success", "message": "Utente attivato manualmente."}
 
+@app.post("/api/saas/activate-demo")
+def admin_activate_demo(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
+    conn = db.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET status = 'active' WHERE id = ?", (req.user_id,))
+    
+    # Imposta scadenza a 2 ore da oggi
+    from datetime import datetime, timedelta
+    new_exp = datetime.utcnow() + timedelta(hours=2)
+    cursor.execute("UPDATE users SET subscription_expires_at = ? WHERE id = ?", (new_exp.strftime("%Y-%m-%d %H:%M:%S"), req.user_id))
+    
+    conn.commit()
+    conn.close()
+    return {"status": "success", "message": "Demo full temporanea di 2 ore attivata."}
+
 @app.post("/api/saas/delete-user")
 def admin_delete_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
     conn = db.get_db_connection()
