@@ -52,15 +52,25 @@ class AlpacaEngine:
             db_secret = user_keys.get("alpaca_secret", "").strip(' \t\n\r"\'')
             self.alpaca_secret = db_secret if db_secret else keys.get("ALPACA_SECRET", os.getenv("ALPACA_SECRET_KEY", "")).strip(' \t\n\r"\'')
             
-            self.alpaca_base = os.getenv("ALPACA_BASE_URL", "https://paper-api.alpaca.markets").strip(' \t\n\r"\'')
-            
+            # Auto-detect LIVE vs PAPER
+            if self.alpaca_key.startswith("AK"):
+                self.alpaca_base = "https://api.alpaca.markets"
+            else:
+                self.alpaca_base = "https://paper-api.alpaca.markets"
+                
             db_groq = user_keys.get("groq_key", "").strip(' \t\n\r"\'')
             groq_key = db_groq if db_groq else keys.get("GROQ_KEY", os.getenv("GROQ_API_KEY", "")).strip(' \t\n\r"\'')
         else:
             user_keys = get_api_keys(user_id) or {}
             self.alpaca_key = user_keys.get("alpaca_key", "").strip(' \t\n\r"\'')
             self.alpaca_secret = user_keys.get("alpaca_secret", "").strip(' \t\n\r"\'')
-            self.alpaca_base = "https://paper-api.alpaca.markets" # Hardcoded paper or check setting
+            
+            # Auto-detect LIVE vs PAPER
+            if self.alpaca_key.startswith("AK"):
+                self.alpaca_base = "https://api.alpaca.markets"
+            else:
+                self.alpaca_base = "https://paper-api.alpaca.markets"
+                
             groq_key = user_keys.get("groq_key", "").strip(' \t\n\r"\'')
         
         if self.alpaca_key and self.alpaca_secret:
@@ -78,6 +88,7 @@ class AlpacaEngine:
                 self.alpaca_rest = None
                 self.running = False
                 self.bot_state.modules["trading"] = False
+                self.bot_state.save_state()
                 
         if groq_key:
             self.model = Groq(api_key=groq_key)
@@ -506,6 +517,7 @@ class AlpacaEngine:
                     self._log("❌ ERRORE CRITICO: Chiavi Alpaca rifiutate dal server WS. Disattivo modulo Trading.")
                     self.running = False
                     self.bot_state.modules["trading"] = False
+                    self.bot_state.save_state()
                     break
                 else:
                     self._log(f"❌ WebSocket errore: {ve}")
@@ -552,6 +564,7 @@ class AlpacaEngine:
                 except Exception:
                     self.running = False
                     self.bot_state.modules["trading"] = False
+                    self.bot_state.save_state()
                     
             # Chiusura
             self.running = False
@@ -562,3 +575,4 @@ class AlpacaEngine:
             self._log(f"💥 CRASH CRITICO nel motore Alpaca: {e}")
             self.running = False
             self.bot_state.modules["trading"] = False
+            self.bot_state.save_state()
