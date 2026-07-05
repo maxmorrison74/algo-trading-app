@@ -1047,7 +1047,7 @@ def api_status(response: Response, request: Request):
 
 
 @app.post("/api/modules")
-async def toggle_module(payload: dict, user: dict = Depends(require_admin)):
+async def toggle_module(payload: dict, user: dict = Depends(require_user)):
     mod_id = payload.get("module")
     active = payload.get("active")
     
