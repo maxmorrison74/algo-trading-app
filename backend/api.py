@@ -2240,15 +2240,29 @@ class TestConnectionRequest(BaseModel):
     groq_key: str = ""
 
 @app.post("/api/test-connection")
-def test_connection(req: TestConnectionRequest, _: str = Depends(require_admin)):
+def test_connection(req: TestConnectionRequest, user: dict = Depends(require_user)):
     keys = {}
-    if os.path.exists(API_KEYS_FILE):
-        with open(API_KEYS_FILE, "r") as f:
-            for line in f:
-                if "=" in line:
-                    k, v = line.strip().split("=", 1)
-                    keys[k] = v
-                    
+    
+    if user.get("role") == "admin":
+        if os.path.exists(API_KEYS_FILE):
+            with open(API_KEYS_FILE, "r") as f:
+                for line in f:
+                    if "=" in line:
+                        k, v = line.strip().split("=", 1)
+                        keys[k] = v
+    
+    # Per tutti gli utenti (incluso admin per alpaca_key, se li ha salvati nel db), leggiamo dal db
+    user_keys = db.get_api_keys(user["sub"])
+    if user_keys:
+        if user_keys.get("alpaca_key"): keys["ALPACA_KEY"] = user_keys["alpaca_key"]
+        if user_keys.get("alpaca_secret"): keys["ALPACA_SECRET"] = user_keys["alpaca_secret"]
+        if user_keys.get("binance_key"): keys["BINANCE_KEY"] = user_keys["binance_key"]
+        if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = user_keys["binance_secret"]
+        if user.get("role") != "admin":
+            if user_keys.get("groq_key"): keys["GROQ_KEY"] = user_keys["groq_key"]
+            if user_keys.get("elevenlabs_key"): keys["ELEVENLABS_KEY"] = user_keys["elevenlabs_key"]
+            if user_keys.get("theodds_key"): keys["THEODDS_KEY"] = user_keys["theodds_key"]
+            if user_keys.get("newsapi_key"): keys["NEWSAPI_KEY"] = user_keys["newsapi_key"]
     # Overlay with keys from request if present and not masked
     if req.alpaca_key and "***" not in req.alpaca_key: keys['ALPACA_KEY'] = req.alpaca_key
     if req.alpaca_secret and "***" not in req.alpaca_secret: keys['ALPACA_SECRET'] = req.alpaca_secret
