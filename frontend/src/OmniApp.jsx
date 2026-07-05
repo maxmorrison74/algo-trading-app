@@ -2948,7 +2948,7 @@ function OmniApp() {
         </div>
 
         <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
-          <div className="card col-span-6">
+          <div className="card col-span-12">
             <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Clienti Iscritti</h3>
             <div className="data-table-wrapper">
               <table className="data-table">
@@ -3020,7 +3020,7 @@ function OmniApp() {
             </div>
           </div>
 
-          <div className="card col-span-6">
+          <div className="card col-span-12">
             <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Verifica Pagamenti Crypto</h3>
             <div className="data-table-wrapper">
               <table className="data-table">
