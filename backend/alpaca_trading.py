@@ -100,23 +100,24 @@ class AlpacaEngine:
         # Carica modelli LSTM
         models_dir = os.path.join(os.path.dirname(__file__), "models")
         loaded_models_cache = {}
-        if os.path.exists(models_dir):
-            for sym in self.symbols:
-                model_path = os.path.join(models_dir, f"{sym}_model.keras")
-                fallback_path = os.path.join(models_dir, "SUPER_MODEL.keras")
-                target_path = model_path if os.path.exists(model_path) else fallback_path
-                if os.path.exists(target_path):
-                    try:
-                        if target_path in loaded_models_cache:
-                            self.ml_models[sym] = loaded_models_cache[target_path]
-                            self._log(f"🧠 Ensemble ML condiviso in cache per {sym} ({os.path.basename(target_path)})")
-                        else:
-                            self.ml_models[sym] = EnsembleTradingModel()
-                            self.ml_models[sym].load(target_path)
-                            loaded_models_cache[target_path] = self.ml_models[sym]
-                            self._log(f"🧠 Ensemble ML (LSTM+RF) caricato per {sym} da {os.path.basename(target_path)}")
-                    except Exception as e:
-                        self._log(f"⚠️ Errore caricamento Ensemble ML per {sym}: {e}")
+        # BYPASS TEMPORANEO PER TESTARE OOM VPS
+        # if os.path.exists(models_dir):
+        #     for sym in self.symbols:
+        #         model_path = os.path.join(models_dir, f"{sym}_model.keras")
+        #         fallback_path = os.path.join(models_dir, "SUPER_MODEL.keras")
+        #         target_path = model_path if os.path.exists(model_path) else fallback_path
+        #         if os.path.exists(target_path):
+        #             try:
+        #                 if target_path in loaded_models_cache:
+        #                     self.ml_models[sym] = loaded_models_cache[target_path]
+        #                     self._log(f"🧠 Ensemble ML condiviso in cache per {sym} ({os.path.basename(target_path)})")
+        #                 else:
+        #                     self.ml_models[sym] = EnsembleTradingModel()
+        #                     self.ml_models[sym].load(target_path)
+        #                     loaded_models_cache[target_path] = self.ml_models[sym]
+        #                     self._log(f"🧠 Ensemble ML (LSTM+RF) caricato per {sym} da {os.path.basename(target_path)}")
+        #             except Exception as e:
+        #                 self._log(f"⚠️ Errore caricamento Ensemble ML per {sym}: {e}")
 
     def sync_portfolio(self):
         try:
