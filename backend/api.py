@@ -2158,8 +2158,8 @@ def get_keys(user: dict = Depends(require_user)):
                     for line in f:
                         if "=" in line:
                             k, v = line.strip().split("=", 1)
-                            if v and k in ["ELEVENLABS_KEY", "THEODDS_KEY", "GROQ_KEY", "NEWSAPI_KEY"]:
-                                keys[k] = v[:4] + "*" * 10 if len(v) > 4 else "***"
+                            if v:
+                                keys[k] = v[:4] + "***" if len(v) > 4 else "***"
             if os.path.exists(".env.gcp.json"):
                 keys["GOOGLE_APPLICATION_CREDENTIALS"] = "MASKED_JSON"
             
