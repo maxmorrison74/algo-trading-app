@@ -90,34 +90,24 @@ class AlpacaEngine:
                 self.bot_state.modules["trading"] = False
                 self.bot_state.save_state()
                 
-        if groq_key:
+        kimi_key = ""
+        if isinstance(user_keys, dict):
+            kimi_key = user_keys.get("kimi_key", "").strip(' \t\n\r"\'')
+            
+        if kimi_key or (groq_key and groq_key.startswith("sk-")):
+            self.kimi_key = kimi_key if kimi_key else groq_key
+            self.llm_provider = "kimi"
+            self.llm_enabled = True
+            self._log("Modulo AI Sentiment abilitato (Moonshot Kimi 200k).")
+        elif groq_key:
             self.model = Groq(api_key=groq_key)
+            self.llm_provider = "groq"
             self.llm_enabled = True
             self._log("Modulo AI Sentiment basato su notizie in tempo reale abilitato (Groq LLaMA3).")
         else:
-            self._log("Avviso: GROQ_KEY non trovata. Trading solo su Analisi Tecnica e LSTM.")
+            self._log("Avviso: GROQ_KEY / KIMI_KEY non trovata. Trading solo su Analisi Tecnica e LSTM.")
             
-        # Carica modelli LSTM
-        models_dir = os.path.join(os.path.dirname(__file__), "models")
-        loaded_models_cache = {}
-        # BYPASS TEMPORANEO PER TESTARE OOM VPS
-        # if os.path.exists(models_dir):
-        #     for sym in self.symbols:
-        #         model_path = os.path.join(models_dir, f"{sym}_model.keras")
-        #         fallback_path = os.path.join(models_dir, "SUPER_MODEL.keras")
-        #         target_path = model_path if os.path.exists(model_path) else fallback_path
-        #         if os.path.exists(target_path):
-        #             try:
-        #                 if target_path in loaded_models_cache:
-        #                     self.ml_models[sym] = loaded_models_cache[target_path]
-        #                     self._log(f"🧠 Ensemble ML condiviso in cache per {sym} ({os.path.basename(target_path)})")
-        #                 else:
-        #                     self.ml_models[sym] = EnsembleTradingModel()
-        #                     self.ml_models[sym].load(target_path)
-        #                     loaded_models_cache[target_path] = self.ml_models[sym]
-        #                     self._log(f"🧠 Ensemble ML (LSTM+RF) caricato per {sym} da {os.path.basename(target_path)}")
-        #             except Exception as e:
-        #                 self._log(f"⚠️ Errore caricamento Ensemble ML per {sym}: {e}")
+        # I modelli LSTM verranno caricati dinamicamente da get_ml_model per evitare OOM sul VPS
 
     def sync_portfolio(self):
         try:
@@ -136,27 +126,58 @@ class AlpacaEngine:
         if not self.llm_enabled:
             return "UP"
             
+    def predict_pattern_with_groq(self, symbol, closes):
+        if not self.llm_enabled:
+            return "UP"
         try:
             import json
-            prices_str = ", ".join([f"{p:.2f}" for p in close_prices.tail(30)])
+            import requests
+            trend = "crescente" if closes.iloc[-1] > closes.iloc[0] else "decrescente"
             prompt = (
-                f"Agisci come un analista quantitativo di time-series. Analizza questa sequenza di prezzi di chiusura recenti (dal meno recente al più recente) per {symbol}:\n"
-                f"[{prices_str}]\n\n"
-                f"Predici se la prossima chiusura sarà maggiore (UP) o minore (DOWN) del prezzo corrente ({close_prices.iloc[-1]:.2f}).\n"
-                f"Rispondi rigidamente in formato JSON con questo schema:\n"
-                f"{{\n  \"prediction\": \"UP\" | \"DOWN\",\n  \"confidence\": 1,\n  \"reason\": \"spiegazione tecnica\"\n}}"
+                f"Analizza questo micro-trend per {symbol} negli ultimi 5 minuti. "
+                f"Il trend è {trend}. "
+                f"Rispondi RIGIDAMENTE in formato JSON con questa struttura:\n"
+                f"{{\n"
+                f"  \"prediction\": \"UP\" | \"DOWN\",\n"
+                f"  \"confidence\": 1,\n"
+                f"  \"reason\": \"spiegazione\"\n"
+                f"}}"
             )
-            response = self.model.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model="llama-3.1-8b-instant",
-                response_format={"type": "json_object"}
-            )
-            data = json.loads(response.choices[0].message.content)
+            
+            if getattr(self, 'llm_provider', 'groq') == "kimi":
+                headers = {
+                    "Authorization": f"Bearer {self.kimi_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "moonshot-v1-8k",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.3
+                }
+                resp = requests.post("https://api.moonshot.cn/v1/chat/completions", json=payload, headers=headers)
+                if resp.status_code == 200:
+                    content = resp.json()["choices"][0]["message"]["content"]
+                    start = content.find('{')
+                    end = content.rfind('}') + 1
+                    if start != -1 and end != -1:
+                        data = json.loads(content[start:end])
+                    else:
+                        data = json.loads(content)
+                else:
+                    return "UP"
+            else:
+                response = self.model.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="llama-3.1-8b-instant",
+                    response_format={"type": "json_object"}
+                )
+                data = json.loads(response.choices[0].message.content)
+                
             prediction = data.get("prediction", "UP").strip().upper()
             self._log(f"🧠 AI Predictor per {symbol}: {prediction} (Confidenza: {data.get('confidence')}/5) - {data.get('reason')}")
             return prediction
         except Exception as e:
-            self._log(f"Errore Groq Pattern Predictor per {symbol}: {e}")
+            self._log(f"Errore LLM Pattern Predictor per {symbol}: {e}")
             return "UP"
 
     def get_llm_sentiment_with_confidence(self, symbol):
@@ -185,19 +206,43 @@ class AlpacaEngine:
                 f"}}"
             )
                 
-            response = self.model.chat.completions.create(
-                messages=[{"role": "user", "content": prompt}],
-                model="llama-3.1-8b-instant",
-                response_format={"type": "json_object"}
-            )
-            data = json.loads(response.choices[0].message.content)
+            if getattr(self, 'llm_provider', 'groq') == "kimi":
+                import requests
+                headers = {
+                    "Authorization": f"Bearer {self.kimi_key}",
+                    "Content-Type": "application/json"
+                }
+                payload = {
+                    "model": "moonshot-v1-8k",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.3
+                }
+                resp = requests.post("https://api.moonshot.cn/v1/chat/completions", json=payload, headers=headers)
+                if resp.status_code == 200:
+                    content = resp.json()["choices"][0]["message"]["content"]
+                    start = content.find('{')
+                    end = content.rfind('}') + 1
+                    if start != -1 and end != -1:
+                        data = json.loads(content[start:end])
+                    else:
+                        data = json.loads(content)
+                else:
+                    return "NEUTRAL", 3, "Errore API Kimi"
+            else:
+                response = self.model.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt}],
+                    model="llama-3.1-8b-instant",
+                    response_format={"type": "json_object"}
+                )
+                data = json.loads(response.choices[0].message.content)
+                
             sentiment = data.get("sentiment", "NEUTRAL").strip().upper()
             confidence = int(data.get("confidence", 3))
             reason = data.get('reason', 'Nessun motivo fornito')
             return sentiment, confidence, reason
         except Exception as e:
-            self._log(f"Errore Groq Sentiment API: {e}")
-            return "NEUTRAL", 3, "Errore API Groq"
+            self._log(f"Errore LLM Sentiment API: {e}")
+            return "NEUTRAL", 3, "Errore API LLM"
 
     def format_price(self, price):
         if price >= 1.0:
@@ -325,11 +370,12 @@ class AlpacaEngine:
             
         # 🤖 Predizione LSTM Quantitativa
         lstm_prob = 0.5
-        if symbol in self.ml_models:
-            try:
-                lstm_prob = self.ml_models[symbol].predict_realtime(df)
-            except Exception as e:
-                pass
+        try:
+            model = self.get_ml_model(symbol)
+            if model:
+                lstm_prob = model.predict_realtime(df)
+        except Exception as e:
+            pass
 
         # ⏱️ Multi-Timeframe Analysis (Macro Trend su 5 Minuti)
         try:
