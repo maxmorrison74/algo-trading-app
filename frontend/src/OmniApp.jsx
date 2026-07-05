@@ -496,6 +496,71 @@ function OmniApp() {
   const [showLanding, setShowLanding] = useState(true);
   const [showLandingPlans, setShowLandingPlans] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [isTourActive, setIsTourActive] = useState(false);
+  const [tourStep, setTourStep] = useState(0);
+
+  const TOUR_STEPS = [
+    {
+      targetTab: 'home',
+      title: 'Benvenuto in Aureo OS',
+      text: 'Questa è la Dashboard Principale, la tua Control Room. Da qui hai una visione globale del tuo portafoglio, bilanciamento in tempo reale e metriche chiave.'
+    },
+    {
+      targetTab: 'trading',
+      title: 'Trading Manuale & AI',
+      text: 'Qui puoi seguire i segnali operativi guidati dall\'Intelligenza Artificiale, analizzare i grafici e impostare operazioni sia manuali che ad alta frequenza.'
+    },
+    {
+      targetTab: 'crypto_arb',
+      title: 'Arbitraggio DeFi',
+      text: 'Il modulo Arbitraggio analizza centinaia di pool di liquidità decentralizzate per farti capitalizzare gli spread in millisecondi.'
+    },
+    {
+      targetTab: 'value_bets',
+      title: 'AI Sentiment & Value Bets',
+      text: 'L\'AI scandaglia news, tweet e flussi di mercato per prevedere i movimenti istituzionali e suggerirti scommesse di valore altissimo.'
+    },
+    {
+      targetTab: 'settings',
+      title: 'Sicurezza Totale',
+      text: 'Aureo OS è un vero e proprio caveau. Nessuna password insicura: accesso biometrico Passkey e chiavi API crittografate end-to-end.'
+    }
+  ];
+
+  const startTour = () => {
+    setIsTourActive(true);
+    setTourStep(0);
+    setShowLanding(false);
+    setIsDemoMode(true);
+    setIsAuthenticated(true);
+    setActiveTab(TOUR_STEPS[0].targetTab);
+  };
+
+  const nextTourStep = () => {
+    if (tourStep < TOUR_STEPS.length - 1) {
+      const nextStep = tourStep + 1;
+      setTourStep(nextStep);
+      setActiveTab(TOUR_STEPS[nextStep].targetTab);
+    } else {
+      endTour();
+    }
+  };
+
+  const prevTourStep = () => {
+    if (tourStep > 0) {
+      const prevStep = tourStep - 1;
+      setTourStep(prevStep);
+      setActiveTab(TOUR_STEPS[prevStep].targetTab);
+    }
+  };
+
+  const endTour = () => {
+    setIsTourActive(false);
+    setIsDemoMode(false);
+    setIsAuthenticated(false);
+    setShowLanding(true);
+  };
+
   const [isDemoMode, setIsDemoMode] = useState(isDemoSession());
 
   const [password, setPassword] = useState('');
@@ -3035,34 +3100,19 @@ function OmniApp() {
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           {user.status !== 'active' && (
-                            <>
-                              <button className="btn btn-start" onClick={async () => {
-                                if(!window.confirm('Vuoi attivare manualmente questo utente (GRATIS)?')) return;
-                                try {
-                                  await authFetch('/api/saas/activate-user', {
-                                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                                    body: JSON.stringify({ user_id: user.id })
-                                  });
-                                  const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
-                                  setBillingOverview(await res2.json());
-                                } catch(e) {}
-                              }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}>
-                                Attiva
-                              </button>
-                              <button className="btn btn-start" onClick={async () => {
-                                if(!window.confirm('Vuoi attivare una demo temporanea di 2 ore per questo utente?')) return;
-                                try {
-                                  await authFetch('/api/saas/activate-demo', {
-                                    method: 'POST', headers: {'Content-Type': 'application/json'},
-                                    body: JSON.stringify({ user_id: user.id })
-                                  });
-                                  const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
-                                  setBillingOverview(await res2.json());
-                                } catch(e) {}
-                              }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem', background: '#3b82f6', color: 'white', border: 'none' }}>
-                                Demo 2H
-                              </button>
-                            </>
+                            <button className="btn btn-start" onClick={async () => {
+                              if(!window.confirm('Vuoi attivare manualmente questo utente (GRATIS)?')) return;
+                              try {
+                                await authFetch('/api/saas/activate-user', {
+                                  method: 'POST', headers: {'Content-Type': 'application/json'},
+                                  body: JSON.stringify({ user_id: user.id })
+                                });
+                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
+                                setBillingOverview(await res2.json());
+                              } catch(e) {}
+                            }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}>
+                              Attiva
+                            </button>
                           )}
                           <button className="btn btn-outline" onClick={async () => {
                             if(!window.confirm('Eliminare definitivamente questo utente?')) return;
@@ -3302,9 +3352,12 @@ function OmniApp() {
                 <p>
                   AUREO OS è l’ambiente premium che unisce dashboard, AI, trading, DeFi e sicurezza in un’esperienza elegante, autorevole e pronta a valorizzare il prodotto fin dal primo sguardo.
                 </p>
-                <div className="sales-hero-buttons">
+                                <div className="sales-hero-buttons">
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
                     Scopri gli step
+                  </button>
+                  <button className="btn btn-outline btn-large" onClick={startTour}>
+                    Guarda il Tour Guidato
                   </button>
                 </div>
                 <div className="sales-stats-row">
