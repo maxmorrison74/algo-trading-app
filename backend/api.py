@@ -2461,9 +2461,9 @@ class AdminCreateUserRequest(BaseModel):
 def admin_create_user(req: AdminCreateUserRequest, admin_token: str = Depends(require_admin)):
     import uuid
     new_user_id = str(uuid.uuid4())
-    success = db.create_user(new_user_id, req.email, req.password, role=req.role, status="active")
+    success = db.create_user(new_user_id, req.email, req.password, role=req.role, status="pending")
     if success:
-        return {"status": "success", "message": "Utente creato con successo.", "user_id": new_user_id}
+        return {"status": "success", "message": "Utente creato con successo (IN ATTESA).", "user_id": new_user_id}
     else:
         raise HTTPException(status_code=400, detail="Email già in uso.")
 
