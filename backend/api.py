@@ -1012,8 +1012,10 @@ def get_status(user_id="admin"):
 
 import math
 def sanitize_nans(obj):
-    if isinstance(obj, float) and math.isnan(obj):
-        return 0.0
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return 0.0
+        return obj
     elif isinstance(obj, dict):
         return {k: sanitize_nans(v) for k, v in obj.items()}
     elif isinstance(obj, list):
