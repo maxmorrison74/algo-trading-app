@@ -406,11 +406,18 @@ class AlpacaEngine:
                 
                 stop_price = trail['peak_price'] * (1 - trail['trail_percent'] / 100.0)
                 if current_price <= stop_price:
-                    self._log(f"🛑 TRAILING STOP COLPITO su {sym} (LONG). Prezzo è sceso del {trail['trail_percent']}% dal picco massimo.")
+                    msg_log = f"🛑 TRAILING STOP COLPITO su {sym} (LONG). Prezzo è sceso del {trail['trail_percent']}% dal picco massimo."
+                    self._log(msg_log)
                     self._execute_exit(sym, trail['qty'], 'sell')
                     pnl = (current_price - trail['entry_price']) * trail['qty']
                     get_capital_manager().record_trade_result(pnl)
                     del self.active_trails[sym]
+                    
+                    try:
+                        from api import send_telegram_message
+                        msg = f"🛑 *TRADE CHIUSO (Trailing Stop)*\nAsset: {sym}\nLungo chiuso a: ${current_price:.2f}\nProfitto/Perdita: ${pnl:.2f}"
+                        send_telegram_message(msg)
+                    except: pass
                     
             elif trail['side'] == "SHORT":
                 if current_price < trail['peak_price']:
@@ -418,11 +425,18 @@ class AlpacaEngine:
                 
                 stop_price = trail['peak_price'] * (1 + trail['trail_percent'] / 100.0)
                 if current_price >= stop_price:
-                    self._log(f"🛑 TRAILING STOP COLPITO su {sym} (SHORT). Prezzo è salito del {trail['trail_percent']}% dal picco minimo.")
+                    msg_log = f"🛑 TRAILING STOP COLPITO su {sym} (SHORT). Prezzo è salito del {trail['trail_percent']}% dal picco minimo."
+                    self._log(msg_log)
                     self._execute_exit(sym, trail['qty'], 'buy')
                     pnl = (trail['entry_price'] - current_price) * trail['qty']
                     get_capital_manager().record_trade_result(pnl)
                     del self.active_trails[sym]
+                    
+                    try:
+                        from api import send_telegram_message
+                        msg = f"🛑 *TRADE CHIUSO (Trailing Stop)*\nAsset: {sym}\nShort chiuso a: ${current_price:.2f}\nProfitto/Perdita: ${pnl:.2f}"
+                        send_telegram_message(msg)
+                    except: pass
 
         # Converte l'oggetto bar in un formato compatibile con il dataframe
         new_row = pd.DataFrame([{

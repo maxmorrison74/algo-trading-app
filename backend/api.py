@@ -68,11 +68,16 @@ except Exception as e:
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path)
 
-def send_telegram_message(message: str):
+def send_telegram_message(message: str, user_id: str = "admin"):
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    
+    keys = db.get_api_keys(user_id) or {}
+    bot_token = keys.get("telegram_bot_token") or bot_token
+    chat_id = keys.get("telegram_chat_id") or chat_id
+    
     if not bot_token or not chat_id:
-        print("Telegram non configurato in .env")
+        print("Telegram non configurato in .env o Vault")
         return
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     payload = {"chat_id": chat_id, "text": message}
@@ -2188,6 +2193,8 @@ class KeysRequest(BaseModel):
     google_cloud_json: str = ""
     trailing_stop_base_pct: float = 2.5
     dynamic_atr_stop: bool = True
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
 
 
 @app.get("/api/keys")
