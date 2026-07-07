@@ -55,18 +55,18 @@ PHASE_REQUIREMENTS = {
 @dataclass
 class CapitalConfig:
     mode: str = "paper"
-    paper_capital: float = 10000.0   # $10k virtuale
+    paper_capital: float = 1000.0    # $1k virtuale
     micro_capital: float = 500.0     # €500 reale
     small_capital: float = 2000.0    # €2000 reale
     full_capital: float = 10000.0    # €10000 reale
-    current_capital: float = 10000.0
+    current_capital: float = 1000.0
     phase_start_date: str = ""
     total_trades: int = 0
     winning_trades: int = 0
     total_profit: float = 0.0
     total_loss: float = 0.0
     max_drawdown: float = 0.0
-    peak_capital: float = 10000.0
+    peak_capital: float = 1000.0
 
 class CapitalManager:
     def __init__(self):
