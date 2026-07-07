@@ -2514,6 +2514,78 @@ class SubmitTxidRequest(BaseModel):
     amount: float
     currency: str
 
+class AiProposalRequest(BaseModel):
+    budget: float
+    strategy: str
+
+class AiExecuteRequest(BaseModel):
+    symbol: str
+    amount: float
+    strategy: str
+    risk: str
+    reasoning: str
+
+class AiCancelRequest(BaseModel):
+    index: int
+    symbol: str
+    platform: str
+
+@app.post("/api/ai-invest/proposals")
+def generate_ai_invest_proposals(req: AiProposalRequest, user: dict = Depends(require_user)):
+    # Simula una chiamata all'AI per generare 3 asset
+    # (In un sistema reale, invocherebbe Groq per selezionare i migliori 3 ticker)
+    if req.strategy == 'momentum':
+        props = [
+            {"symbol": "NVDA", "risk": "High", "reasoning": "Fortissimo momentum nel settore AI.", "amount": round(req.budget * 0.5, 2), "strategy": req.strategy},
+            {"symbol": "AMD", "risk": "High", "reasoning": "Rottura tecnica al rialzo.", "amount": round(req.budget * 0.3, 2), "strategy": req.strategy},
+            {"symbol": "PLTR", "risk": "High", "reasoning": "Aumento volumi istituzionali.", "amount": round(req.budget * 0.2, 2), "strategy": req.strategy}
+        ]
+    else:
+        props = [
+            {"symbol": "MSFT", "risk": "Medium", "reasoning": "Leader cloud stabile.", "amount": round(req.budget * 0.4, 2), "strategy": req.strategy},
+            {"symbol": "AAPL", "risk": "Medium", "reasoning": "Bilancio solido.", "amount": round(req.budget * 0.4, 2), "strategy": req.strategy},
+            {"symbol": "JNJ", "risk": "Low", "reasoning": "Difensivo, ottimo dividendo.", "amount": round(req.budget * 0.2, 2), "strategy": req.strategy}
+        ]
+    return {"proposals": props}
+
+@app.post("/api/ai-invest/execute")
+def execute_ai_invest(req: AiExecuteRequest, user: dict = Depends(require_user)):
+    bot_state = get_bot_state(user["sub"])
+    
+    if not hasattr(bot_state, 'ai_investments'):
+        bot_state.ai_investments = []
+        
+    bot_state.ai_investments.append({
+        "symbol": req.symbol,
+        "amount": req.amount,
+        "platform": "Alpaca",
+        "strategy": req.strategy,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    })
+    save_db({"ai_investments": bot_state.ai_investments}, user["sub"])
+    
+    # Invia notifica telegram ricca
+    msg = f"🧠 *AI INVEST ESEGUITO*\nAsset: {req.symbol}\nImporto: ${req.amount}\nStrategia: {req.strategy.upper()}\nMotivo: {req.reasoning}"
+    send_telegram_message(msg, user["sub"])
+    
+    return {"status": "success", "message": f"Ordine per {req.symbol} eseguito!"}
+
+@app.post("/api/ai-invest/cancel")
+def cancel_ai_invest(req: AiCancelRequest, user: dict = Depends(require_user)):
+    bot_state = get_bot_state(user["sub"])
+    if not hasattr(bot_state, 'ai_investments'):
+        bot_state.ai_investments = []
+    
+    # Rimuovi l'investimento
+    if req.index < len(bot_state.ai_investments):
+        del bot_state.ai_investments[req.index]
+        save_db({"ai_investments": bot_state.ai_investments}, user["sub"])
+    
+    msg = f"🛑 *AI INVEST ANNULLATO*\nAsset: {req.symbol} è stato rimosso e liquidato dal portfolio."
+    send_telegram_message(msg, user["sub"])
+    
+    return {"status": "success", "message": f"Ordine su {req.symbol} annullato!"}
+
 @app.post("/api/billing/submit-txid")
 def submit_crypto_payment(req: SubmitTxidRequest, user: dict = Depends(require_user)):
     user_id = user["sub"]

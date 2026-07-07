@@ -1020,7 +1020,7 @@ function OmniApp() {
     setExecutionMessage("");
     setAiProposals([]);
     try {
-      const res = await fetch('/api/ai-invest/proposals', {
+      const res = await authFetch('/api/ai-invest/proposals', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ budget: Number(aiBudget), strategy })
