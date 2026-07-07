@@ -108,6 +108,34 @@ class AlpacaEngine:
             self._log("Avviso: GROQ_KEY / KIMI_KEY non trovata. Trading solo su Analisi Tecnica e LSTM.")
             
         # I modelli LSTM verranno caricati dinamicamente da get_ml_model per evitare OOM sul VPS
+        
+    def get_ml_model(self, symbol):
+        import gc
+        import os
+        try:
+            from keras import backend as K
+        except ImportError:
+            return None
+            
+        if symbol in self.ml_models:
+            return self.ml_models[symbol]
+            
+        # Per evitare OOM, teniamo solo un modello in memoria alla volta
+        self.ml_models.clear()
+        try:
+            K.clear_session()
+            gc.collect()
+        except: pass
+        
+        model_path = f"{symbol}_model.keras"
+        if os.path.exists(model_path) or os.path.exists("SUPER_MODEL.keras"):
+            self._log(f"🧠 Caricamento Lazy Modello ML per {symbol}...")
+            from ensemble_ml import EnsembleTradingModel
+            model = EnsembleTradingModel(symbol)
+            self.ml_models[symbol] = model
+            return model
+            
+        return None
 
     def sync_portfolio(self):
         try:
