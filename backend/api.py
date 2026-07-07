@@ -467,6 +467,8 @@ class BotState:
         self.trade_history = db_data.get("trade_history", [])
         self.ai_investments = db_data.get("ai_investments", [])
         self.high_watermarks = db_data.get("high_watermarks", {})
+        self.arb_logs = []
+        self.arb_prices = {"binance": 0, "kraken": 0}
         self.high_risk_arb_logs = []
         self.high_risk_arb_prices = {}
         self.high_risk_volatile_assets = []
