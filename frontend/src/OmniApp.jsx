@@ -2163,7 +2163,7 @@ function OmniApp() {
               }}
               {...demoActionButtonProps()}
             >
-              ⚙️ AUTO-SCALPING AI {status.auto_bet_enabled ? '(ON)' : '(OFF)'}
+              {status.auto_bet_enabled ? '⚡ DISATTIVA AUTO-SCALPING AI (ORA ACCESO)' : '⚡ ATTIVA AUTO-SCALPING AI (ORA SPENTO)'}
             </button>
             <button 
               className={`btn ${status.modules?.high_risk_crypto_arb ? 'btn-stop' : 'btn-start'}`}
