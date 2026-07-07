@@ -116,6 +116,10 @@ class LSTMTradingModel:
         """Prepara le feature per l'inferenza in real-time e ritorna la probabilità"""
         data = df.copy()
         
+        # Fix: Capitalize le colonne O,H,L,C,V se arrivano minuscole da alpaca
+        mapping = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'}
+        data = data.rename(columns={k: v for k, v in mapping.items() if k in data.columns})
+        
         # Feature base (se non esistono, le calcoliamo)
         if 'SMA_20' not in data.columns:
             data['SMA_20'] = data['Close'].rolling(window=20).mean()
@@ -137,10 +141,6 @@ class LSTMTradingModel:
         std_dev = data['Close'].rolling(window=20).std()
         data['BB_Upper'] = data['BB_Middle'] + (std_dev * 2)
         data['BB_Lower'] = data['BB_Middle'] - (std_dev * 2)
-        
-        # Fix: Capitalize le colonne O,H,L,C,V se arrivano minuscole da alpaca
-        mapping = {'open': 'Open', 'high': 'High', 'low': 'Low', 'close': 'Close', 'volume': 'Volume'}
-        data = data.rename(columns={k: v for k, v in mapping.items() if k in data.columns})
         
         features = ['Open', 'High', 'Low', 'Close', 'Volume', 'SMA_20', 'SMA_50', 'RSI', 'MACD', 'BB_Upper', 'BB_Lower']
         data = data.dropna()
