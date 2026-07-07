@@ -874,7 +874,7 @@ def get_status(user_id="admin"):
     alpaca_connected = alpaca is not None
     #if not alpaca: return {"error": "Alpaca API non configurata."}
     pos_dict = {}
-    virtual_portfolio_value = bot_state.virtual_cash
+    virtual_portfolio_value = get_capital_manager().config.current_capital
     try:
         if alpaca:
             try:
@@ -895,10 +895,14 @@ def get_status(user_id="admin"):
                         
                 # Calcoliamo il portfolio_value virtuale per lo status (market_value dello short è già negativo)
                 pos_market_value = sum(float(p.market_value) for p in positions if p.symbol in bot_state.target_symbols)
-                virtual_portfolio_value = bot_state.virtual_cash + pos_market_value
+                cap = get_capital_manager()
+                virtual_portfolio_value = cap.config.current_capital + pos_market_value
             except Exception:
-                # Silenzioso se Alpaca non è autorizzato o crasha
                 pass
+
+        if not alpaca or 'virtual_portfolio_value' not in locals():
+            cap = get_capital_manager()
+            virtual_portfolio_value = cap.config.current_capital
 
         # Per i simboli che non abbiamo, segniamo "LIQUID"
         for sym in bot_state.target_symbols:

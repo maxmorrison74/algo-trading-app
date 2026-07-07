@@ -1547,7 +1547,7 @@ function OmniApp() {
 
   const renderHomeView = () => {
     const aiEarnings = status.ai_videos?.reduce((acc, v) => acc + (v.earnings || 0), 0) || 0;
-    const virtualCash = capital ? capital.current_capital : 10000;
+    const virtualCash = Number(status.portfolio_value || 10000);
     const initialCash = 10000;
     const tradingProfit = virtualCash - initialCash;
     const totalWorth = virtualCash + aiEarnings;
