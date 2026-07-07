@@ -647,9 +647,10 @@ class AlpacaEngine:
         alpaca_side = 'buy' if side == "LONG" else 'sell'
         clean_symbol = self.clean_sym(symbol)
         
-        # Trailing Stop Dinamico (compreso tra 1.0% e 5.0% basato su volatilità ATR)
+        # Trailing Stop Dinamico (Modalità Cecchino: compreso tra 0.5% e 4.0% basato su volatilità ATR)
         atr_percent = atr / current_price if current_price > 0 else 0.01
-        trail_percent = max(1.0, min(5.0, atr_percent * 100 * 2.5))
+        # Stop chirurgico a 1.5x l'ATR per evitare rumore ma catturare l'inversione vera
+        trail_percent = max(0.5, min(4.0, atr_percent * 100 * 1.5))
         trail_percent = round(trail_percent, 2)
         
         try:

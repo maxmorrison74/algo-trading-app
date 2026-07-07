@@ -199,17 +199,24 @@ class RiskManager:
             
     def get_position_size(self, confidence: float, price: float) -> float:
         """
-        Calcola la dimensione della posizione con Kelly Criterion semplificato
+        Calcola la dimensione della posizione con Kelly Criterion Avanzato (Modalità Cecchino)
         """
         with self._lock:
-            # Kelly semplificato: f* = confidence - (1 - confidence) = 2*confidence - 1
-            # Half Kelly per sicurezza
-            kelly = (2 * confidence - 1) * 0.5
-            kelly = max(0, min(kelly, 0.25))  # Max 25% del capitale
+            # Kelly: f* = confidence - (1 - confidence) = 2*confidence - 1
+            kelly = (2 * confidence - 1)
             
-            # Riduci se drawdown è alto
-            if self.state.max_drawdown_pct > 5:
-                kelly *= 0.5  # Riduci del 50%
+            # Modalità Cecchino: se confidenza >= 80%, scommettiamo pesante (fino al 40% di esposizione max)
+            if confidence >= 0.80:
+                kelly *= 0.8  # Aggressive Kelly
+                kelly = max(0, min(kelly, 0.40))  # Max 40% del capitale
+            else:
+                # Setup normali: conservativi
+                kelly *= 0.4  # Conservative Kelly
+                kelly = max(0, min(kelly, 0.15))  # Max 15% del capitale
+                
+            # Riduci drasticamente se drawdown è alto (sicurezza)
+            if self.state.max_drawdown_pct > 5.0:
+                kelly *= 0.3  # Taglia le scommesse del 70%
                 
             position_value = self.state.current_equity * kelly
             qty = position_value / price if price > 0 else 0
