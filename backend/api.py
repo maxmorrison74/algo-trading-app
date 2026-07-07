@@ -1082,6 +1082,7 @@ async def toggle_module(payload: dict, user: dict = Depends(require_user)):
                 u_ai_engine.user_id = user_id
                 global_executor.submit(u_ai_engine.loop)
             elif module_name == "sports_arb" and u_sports_engine and not getattr(u_sports_engine, "running", False):
+                u_sports_engine.bot_state = u_bot_state
                 u_sports_engine.running = True
                 u_sports_engine.user_id = user_id
                 global_executor.submit(u_sports_engine.loop)
@@ -1092,11 +1093,13 @@ async def toggle_module(payload: dict, user: dict = Depends(require_user)):
                     u_bot_state.save_state()
                     return {"error": "Modulo AI Sentiment Radar non disponibile in questa build"}
                 if not getattr(u_sentiment_engine, "running", False):
+                    u_sentiment_engine.bot_state = u_bot_state
                     u_sentiment_engine.running = True
                     u_sentiment_engine.user_id = user_id
                     global_executor.submit(u_sentiment_engine.loop)
                     u_bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
             elif (module_name == "crypto_arb" or module_name == "high_risk_crypto_arb") and u_arb_engine and not getattr(u_arb_engine, "running", False):
+                u_arb_engine.bot_state = u_bot_state
                 u_arb_engine.running = True
                 u_arb_engine.user_id = user_id
                 global_executor.submit(u_arb_engine.loop)
