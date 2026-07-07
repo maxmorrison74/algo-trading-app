@@ -551,12 +551,9 @@ class CryptoArbitrage:
     async def _arb_loop(self):
         self._log(f"🚀 Avvio CCXT Arbitrage Engine ({'PAPER' if self.paper_mode else 'REAL'} MODE)")
         await self.init_ccxt()
-        if not self.binance_client.apiKey or not self.kraken_client.apiKey:
-            self._log("❌ ERRORE: API keys mancanti per Binance o Kraken. Controlla le impostazioni!")
-            self.running = False
-            self.bot_state.modules["crypto_arb"] = False
-            self.bot_state.modules["high_risk_crypto_arb"] = False
-            return
+        if not self.paper_mode and (not getattr(self.binance_client, 'apiKey', None) or not getattr(self.kraken_client, 'apiKey', None)):
+            self._log("⚠️ Avviso: API keys mancanti. Forzo attivazione PAPER MODE per l'Arbitraggio.")
+            self.paper_mode = True
             
         # Carica una prima scansione di volatilità subito se attivo
         if self.bot_state.modules.get("high_risk_crypto_arb", False):
