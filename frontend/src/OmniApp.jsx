@@ -3613,6 +3613,13 @@ function OmniApp() {
                     <div className="stat-value" id="ai-winrate">0%</div>
                   </div>
                 </div>
+                <div style={{ height: '250px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '1rem', border: '1px solid #334155', position: 'relative' }}>
+                  <div style={{ position: 'absolute', top: '10px', right: '15px', display: 'flex', gap: '15px', fontSize: '0.8rem', color: '#94a3b8' }}>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ display: 'inline-block', width: '12px', height: '2px', background: '#94a3b8' }}></span> Buy & Hold</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ display: 'inline-block', width: '12px', height: '2px', background: '#10b981' }}></span> AI Strategy</span>
+                  </div>
+                  <svg id="backtest-chart" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ marginTop: '20px' }}></svg>
+                </div>
               </div>
             </div>
           </div>
