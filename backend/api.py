@@ -1168,13 +1168,16 @@ def manual_stock_trade(payload: dict, req: Request, _: str = Depends(require_adm
             tok = jwt.decode(auth.split(" ")[1], JWT_SECRET, algorithms=[JWT_ALGORITHM])
             user_id = tok.get("sub", "admin")
         except: pass
-    """Esegue un trade azionario manuale in paper trading."""
+    """Esegue un trade azionario manuale e lo invia ad Alpaca."""
     symbol = payload.get("symbol", "").upper().strip()
     side = payload.get("side", "buy").lower()
     amount = float(payload.get("amount", 0))
     
     if not symbol or side not in ["buy", "sell"] or amount <= 0:
         return {"error": "Parametri non validi"}
+        
+    u_state = get_user_bot_state(user_id)
+    alpaca_engine = get_user_alpaca_engine(user_id)
         
     # Ottieni prezzo
     quote = get_stock_quote(symbol, user_id)
@@ -1183,15 +1186,30 @@ def manual_stock_trade(payload: dict, req: Request, _: str = Depends(require_adm
         
     price = quote["price"]
     qty = amount / price
+    qty = round(qty, 4)
     
-    # Esegui in Paper Mode (virtual_cash)
+    # Se la quantità è frazionaria, Alpaca non supporta ordini avanzati.
+    # Invia un ordine Market Semplice ad Alpaca se configurato
+    if alpaca_engine and alpaca_engine.alpaca_rest:
+        try:
+            alpaca_engine.alpaca_rest.submit_order(
+                symbol=symbol,
+                qty=qty,
+                side=side,
+                type='market',
+                time_in_force='day'
+            )
+        except Exception as e:
+            return {"error": f"Alpaca ha rifiutato l'ordine: {str(e)}"}
+    
+    # Esegui in Paper Mode (virtual_cash) locale
     if side == "buy":
-        if bot_state.virtual_cash < amount:
+        if u_state.virtual_cash < amount:
             return {"error": "Fondi virtuali insufficienti"}
-        bot_state.virtual_cash -= amount
+        u_state.virtual_cash -= amount
         
         # Aggiungi a monitored positions se l'utente vuole che il bot gestisca l'uscita
-        bot_state.monitored_positions.append({
+        u_state.monitored_positions.append({
             "symbol": symbol,
             "buy_price": price,
             "qty": qty,
@@ -1202,31 +1220,33 @@ def manual_stock_trade(payload: dict, req: Request, _: str = Depends(require_adm
         
         _send_telegram_trade(
             event="BUY", symbol=symbol, qty=qty, price=price,
-            reason="Trade Azionario Manuale", virtual_cash=bot_state.virtual_cash
+            reason="Trade Azionario Manuale", virtual_cash=u_state.virtual_cash
         )
+        u_state.save_state()
         return {"status": "ok", "message": f"Acquistate {qty:.4f} {symbol} a ${price:.2f}"}
     else:
         # SELL manuale
         # Trova la posizione in monitored_positions
         pos_idx = -1
-        for i, p in enumerate(bot_state.monitored_positions):
+        for i, p in enumerate(u_state.monitored_positions):
             if p["symbol"].upper() == symbol:
                 pos_idx = i
                 break
                 
         if pos_idx == -1:
-            return {"error": f"Nessuna posizione aperta trovata per {symbol}"}
+            return {"error": f"Nessuna posizione aperta trovata in locale per {symbol}"}
             
-        pos = bot_state.monitored_positions.pop(pos_idx)
+        pos = u_state.monitored_positions.pop(pos_idx)
         revenue = pos["qty"] * price
         profit = revenue - pos["amount"]
         
-        bot_state.virtual_cash += revenue
-        bot_state.profit += profit
+        u_state.virtual_cash += revenue
+        u_state.profit += profit
+        u_state.save_state()
         
         _send_telegram_trade(
             event="SELL", symbol=symbol, qty=pos["qty"], price=price,
-            reason=f"Chiusura Manuale Azionario", virtual_cash=bot_state.virtual_cash
+            reason=f"Chiusura Manuale Azionario", virtual_cash=u_state.virtual_cash
         )
         
         return {"status": "ok", "message": f"Vendute {pos['qty']:.4f} {symbol} a ${price:.2f}. Profitto: ${profit:.2f}"}
