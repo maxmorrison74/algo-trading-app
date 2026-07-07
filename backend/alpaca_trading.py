@@ -408,6 +408,8 @@ class AlpacaEngine:
                 if current_price <= stop_price:
                     self._log(f"🛑 TRAILING STOP COLPITO su {sym} (LONG). Prezzo è sceso del {trail['trail_percent']}% dal picco massimo.")
                     self._execute_exit(sym, trail['qty'], 'sell')
+                    pnl = (current_price - trail['entry_price']) * trail['qty']
+                    get_capital_manager().record_trade_result(pnl)
                     del self.active_trails[sym]
                     
             elif trail['side'] == "SHORT":
@@ -418,6 +420,8 @@ class AlpacaEngine:
                 if current_price >= stop_price:
                     self._log(f"🛑 TRAILING STOP COLPITO su {sym} (SHORT). Prezzo è salito del {trail['trail_percent']}% dal picco minimo.")
                     self._execute_exit(sym, trail['qty'], 'buy')
+                    pnl = (trail['entry_price'] - current_price) * trail['qty']
+                    get_capital_manager().record_trade_result(pnl)
                     del self.active_trails[sym]
 
         # Converte l'oggetto bar in un formato compatibile con il dataframe
