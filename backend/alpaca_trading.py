@@ -364,7 +364,14 @@ class AlpacaEngine:
         for sym in self.symbols:
             try:
                 query_sym = self.clean_sym(sym)
-                bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=150).df
+                if "/" in sym:
+                    try:
+                        bars = self.alpaca_rest.get_crypto_bars(query_sym, tradeapi.TimeFrame.Minute, limit=150).df
+                    except AttributeError:
+                        bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=150).df
+                else:
+                    bars = self.alpaca_rest.get_bars(query_sym, tradeapi.TimeFrame.Minute, limit=150).df
+                    
                 if not bars.empty:
                     self.history_buffers[sym] = bars
                     # Calcola subito la predizione iniziale ad ogni avvio!
@@ -706,16 +713,22 @@ class AlpacaEngine:
 
     def _stream_runner(self):
         stock_symbols = [s for s in self.symbols if "/" not in s]
-        if not stock_symbols:
-            self._log("Avviso: Nessun asset azionario da ascoltare via WebSocket.")
+        crypto_symbols = [self.clean_sym(s) for s in self.symbols if "/" in s]
+        
+        if not stock_symbols and not crypto_symbols:
+            self._log("Avviso: Nessun asset azionario o crypto da ascoltare via WebSocket.")
             return
 
         reconnect_attempts = 0
         while self.running and self.bot_state.modules.get("trading", False):
             try:
                 self.alpaca_stream = Stream(self.alpaca_key, self.alpaca_secret, base_url=self.alpaca_base, data_feed='iex')
-                self.alpaca_stream.subscribe_bars(self.on_bar, *stock_symbols)
-                self._log("📡 WebSocket Connesso: in attesa di stream tick-by-tick...")
+                if stock_symbols:
+                    self.alpaca_stream.subscribe_bars(self.on_bar, *stock_symbols)
+                if crypto_symbols:
+                    self.alpaca_stream.subscribe_crypto_bars(self.on_bar, *crypto_symbols)
+                
+                self._log(f"📡 WebSocket Connesso: in attesa di stream tick-by-tick ({len(stock_symbols)} stocks, {len(crypto_symbols)} crypto)...")
                 reconnect_attempts = 0
                 self.alpaca_stream.run()
             except ValueError as ve:
