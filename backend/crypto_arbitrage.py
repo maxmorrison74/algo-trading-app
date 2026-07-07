@@ -572,11 +572,7 @@ class CryptoArbitrage:
     def loop(self):
         """Entry point del thread del motore di arbitraggio."""
         self.running = True
-        uid = getattr(self, 'user_id', 'admin')
-        self.init_clients(uid)
         
-        # Prefill history
-        self._log("Pre-caricamento storico prezzi...")
         try:
             asyncio.run(self._arb_loop())
         except Exception as e:
