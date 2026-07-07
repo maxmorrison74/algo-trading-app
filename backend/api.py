@@ -889,8 +889,14 @@ def get_status(user_id="admin"):
                 # Creiamo un dizionario delle posizioni aperte formattato per il frontend
                 for p in positions:
                     if p.symbol in bot_state.target_symbols:
-                        # Includiamo il side (long o short) per il frontend
-                        pos_dict[p.symbol] = {"qty": float(p.qty), "market_value": float(p.market_value), "side": p.side.upper()}
+                        # Includiamo il side (long o short) per il frontend e i dati di PnL
+                        pos_dict[p.symbol] = {
+                            "qty": float(p.qty), 
+                            "market_value": float(p.market_value), 
+                            "side": p.side.upper(),
+                            "unrealized_pl": float(getattr(p, 'unrealized_pl', 0)),
+                            "unrealized_plpc": float(getattr(p, 'unrealized_plpc', 0)) * 100
+                        }
                         
                 # Calcoliamo il portfolio_value virtuale per lo status (market_value dello short è già negativo)
                 pos_market_value = sum(float(p.market_value) for p in positions if p.symbol in bot_state.target_symbols)
