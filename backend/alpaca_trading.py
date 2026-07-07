@@ -210,6 +210,11 @@ class AlpacaEngine:
                 )
                 data = json.loads(response.choices[0].message.content)
                 
+            if isinstance(data, list) and len(data) > 0:
+                data = data[0]
+            if not isinstance(data, dict):
+                data = {}
+                
             prediction = data.get("prediction", "UP").strip().upper()
             self._log(f"🧠 AI Predictor per {symbol}: {prediction} (Confidenza: {data.get('confidence')}/5) - {data.get('reason')}")
             return prediction
@@ -272,6 +277,11 @@ class AlpacaEngine:
                     response_format={"type": "json_object"}
                 )
                 data = json.loads(response.choices[0].message.content)
+                
+            if isinstance(data, list) and len(data) > 0:
+                data = data[0]
+            if not isinstance(data, dict):
+                data = {}
                 
             sentiment = data.get("sentiment", "NEUTRAL").strip().upper()
             confidence = int(data.get("confidence", 3))
@@ -608,7 +618,7 @@ class AlpacaEngine:
                 self._log(f"⚠️ Errore invio notifica Telegram: {e}")
                 
         except Exception as e:
-            self._log(f"❌ ERRORE INVIO ORDINE TRAILING: {e}")
+            self._log(f"❌ ERRORE INVIO ORDINE: {e}")
 
     def _stream_runner(self):
         stock_symbols = [s for s in self.symbols if "/" not in s]
