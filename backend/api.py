@@ -2509,14 +2509,16 @@ def test_connection(req: TestConnectionRequest, user: dict = Depends(require_use
             if not api_key:
                 return {"status": "error", "message": "Chiave Google Gemini mancante."}
             try:
-                import google.genai as genai
-                client = genai.Client(api_key=api_key)
-                res = client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents="Rispondi solo 'OK'"
+                import requests as _req
+                resp = _req.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
+                    json={"contents": [{"parts": [{"text": "Hi"}]}]},
+                    timeout=10
                 )
-                if res.text:
-                    return {"status": "success", "message": f"✅ Connessione Google Gemini 2.0 Flash stabilita!"}
+                if resp.status_code == 200:
+                    return {"status": "success", "message": "✅ Connessione Google Gemini 2.0 Flash stabilita!"}
+                else:
+                    return {"status": "error", "message": f"Errore Gemini: HTTP {resp.status_code} — chiave non valida?"}
             except Exception as e:
                 return {"status": "error", "message": f"Errore Gemini: {str(e)}"}
                 

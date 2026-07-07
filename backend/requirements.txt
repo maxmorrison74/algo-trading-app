@@ -12,8 +12,8 @@ ccxt
 tenacity
 websockets
 groq
-google-generativeai
-google-cloud-aiplatform
+# Gemini via HTTP dirette (nessun SDK per evitare conflitti dipendenze)
+# google-generativeai  # rimosso: conflitto websockets con alpaca
 python-multipart
 tensorflow
 scikit-learn

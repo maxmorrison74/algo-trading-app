@@ -18,24 +18,17 @@ cd backend
 ./venv/bin/python -m pip install -r requirements.txt
 cd ..
 
-# Riavvio PM2 come utente corrente
-echo "4) Controllo PM2..."
-# Usa PM2 locale (senza sudo)
-if ! command -v pm2 &> /dev/null
-then
-    echo "PM2 non trovato globalmente, uso versione locale..."
-    npm install pm2 --prefix ./node_pm2 --save 2>/dev/null || true
-    PM2_CMD="./node_pm2/node_modules/.bin/pm2"
-else
-    PM2_CMD="pm2"
-fi
+# Riavvio del server
+echo "4) Riavvio backend..."
+pkill -f 'uvicorn api:app' || true
+sleep 2
 
 mkdir -p logs
 
-echo "🚀 Riavvio del Server tramite PM2 come utente corrente..."
-$PM2_CMD delete algotrading-api || true
-$PM2_CMD start ecosystem.config.js --update-env
-$PM2_CMD save
+echo "🚀 Avvio backend con nohup..."
+cd backend
+nohup ./venv/bin/python -m uvicorn api:app --host 0.0.0.0 --port 8000 >> ../logs/api-out.log 2>> ../logs/api-error.log &
+cd ..
 
 echo "5) Verifica avvio backend su 127.0.0.1:8000..."
 BACKEND_OK=0

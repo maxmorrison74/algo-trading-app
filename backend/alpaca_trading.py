@@ -5,8 +5,7 @@ import datetime
 import threading
 import pandas as pd
 from groq import Groq
-import google.genai as genai
-from google.genai import types as genai_types
+# Gemini viene chiamato via HTTP diretto (nessun SDK per evitare conflitti)
 import alpaca_trade_api as tradeapi
 from alpaca_trade_api.stream import Stream
 from ensemble_ml import EnsembleTradingModel
@@ -107,10 +106,21 @@ class AlpacaEngine:
 
         if gemini_key:
             try:
-                self._gemini_client = genai.Client(api_key=gemini_key)
-                self.llm_provider = "gemini"
-                self.llm_enabled = True
-                self._log("🧠 AI Predictor: Google Gemini 2.0 Flash attivato come cervello principale!")
+                # Verifica chiave con una chiamata test minima
+                import requests as _req
+                _test = _req.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
+                    json={"contents": [{"parts": [{"text": "Hi"}]}]},
+                    timeout=10
+                )
+                if _test.status_code == 200:
+                    self._gemini_key = gemini_key
+                    self.llm_provider = "gemini"
+                    self.llm_enabled = True
+                    self._log("🧠 AI Predictor: Google Gemini 2.0 Flash attivato come cervello principale!")
+                else:
+                    self._log(f"⚠️ Gemini test fallito ({_test.status_code}). Provo con Groq...")
+                    gemini_key = None
             except Exception as e:
                 self._log(f"⚠️ Errore init Gemini: {e}. Provo con Groq...")
                 gemini_key = None
@@ -237,18 +247,19 @@ class AlpacaEngine:
             )
             
             if getattr(self, 'llm_provider', 'groq') == "gemini":
-                import json
+                import json, requests as _req
                 prompt_text = (
                     f"Sei un analista finanziario quantitativo. Analizza il micro-trend di {symbol} negli ultimi 5 minuti. "
                     f"Il trend è {trend}. "
                     f"Rispondi SOLO in formato JSON valido, senza markdown:\n"
                     f"{{\"prediction\": \"UP\" oppure \"DOWN\", \"confidence\": numero da 1 a 5, \"reason\": \"breve motivazione\"}}"
                 )
-                response = self._gemini_client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=prompt_text
+                resp = _req.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self._gemini_key}",
+                    json={"contents": [{"parts": [{"text": prompt_text}]}]},
+                    timeout=15
                 )
-                text = response.text.strip()
+                text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
                 start = text.find('{')
                 end = text.rfind('}') + 1
                 data = json.loads(text[start:end]) if start != -1 else {}
@@ -320,18 +331,19 @@ class AlpacaEngine:
             )
                 
             if getattr(self, 'llm_provider', 'groq') == "gemini":
-                import json
+                import json, requests as _req
                 prompt_text = (
                     f"Sei un analista finanziario. Analizza il sentiment di queste notizie su {symbol}.\n"
                     f"Notizie:\n" + "\n".join(f"- {n}" for n in headlines) +
                     f"\n\nRispondi SOLO in JSON valido, senza markdown:\n"
                     f"{{\"sentiment\": \"BULLISH\" | \"BEARISH\" | \"NEUTRAL\", \"confidence\": numero 1-5, \"reason\": \"breve motivazione\"}}"
                 )
-                response = self._gemini_client.models.generate_content(
-                    model="gemini-2.0-flash",
-                    contents=prompt_text
+                resp = _req.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self._gemini_key}",
+                    json={"contents": [{"parts": [{"text": prompt_text}]}]},
+                    timeout=15
                 )
-                text = response.text.strip()
+                text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
                 start = text.find('{')
                 end = text.rfind('}') + 1
                 data = json.loads(text[start:end]) if start != -1 else {}
