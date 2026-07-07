@@ -128,7 +128,7 @@ class AlpacaEngine:
             
     def predict_pattern_with_groq(self, symbol, closes):
         if not self.llm_enabled:
-            return "UP"
+            return "NO_LLM"
         try:
             import json
             import requests
@@ -417,7 +417,7 @@ class AlpacaEngine:
         if is_mean_reversion_long or is_momentum_long or is_macd_vwap_long:
             if lstm_prob > 0.55: # Scalping: abbassato a 55%
                 pattern = self.predict_pattern_with_groq(symbol, close_prices)
-                if pattern == "UP":
+                if pattern in ["UP", "NO_LLM"]:
                     if is_macd_vwap_long: strategy_name = "MACD TREND"
                     elif is_momentum_long: strategy_name = "MOMENTUM SCALPING"
                     else: strategy_name = "MEAN REVERSION"
@@ -430,7 +430,7 @@ class AlpacaEngine:
             
         elif (is_mean_reversion_short or is_macd_vwap_short) and lstm_prob < 0.45:
             pattern = self.predict_pattern_with_groq(symbol, close_prices)
-            if pattern == "DOWN":
+            if pattern in ["DOWN", "NO_LLM"]:
                 strategy_name = "MACD TREND SHORT" if is_macd_vwap_short else "MEAN REVERSION SHORT"
                 self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol}")
                 self.execute_trade(symbol, current_price, "SHORT", atr, lstm_prob)
@@ -522,17 +522,31 @@ class AlpacaEngine:
         trail_percent = round(trail_percent, 2)
         
         try:
-            # Ordine a Mercato con Trailing Stop agganciato
-            self.alpaca_rest.submit_order(
-                symbol=clean_symbol,
-                qty=qty,
-                side=alpaca_side,
-                type='market',
-                time_in_force='day',
-                order_class='trailing_stop',
-                trail_percent=trail_percent
-            )
-            self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Trailing Stop al {trail_percent}%)")
+            is_fractional = (qty % 1 != 0)
+            
+            if is_fractional:
+                # Alpaca NON supporta order_class='trailing_stop' per ordini frazionati.
+                self.alpaca_rest.submit_order(
+                    symbol=clean_symbol,
+                    qty=qty,
+                    side=alpaca_side,
+                    type='market',
+                    time_in_force='day'
+                )
+                self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Ordine Semplice - No Trailing Stop per le Frazioni)")
+            else:
+                qty = int(qty)
+                # Ordine a Mercato con Trailing Stop agganciato per quantità intere
+                self.alpaca_rest.submit_order(
+                    symbol=clean_symbol,
+                    qty=qty,
+                    side=alpaca_side,
+                    type='market',
+                    time_in_force='day',
+                    order_class='trailing_stop',
+                    trail_percent=trail_percent
+                )
+                self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Trailing Stop al {trail_percent}%)")
             
             # Notifica Telegram
             try:
