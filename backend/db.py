@@ -77,25 +77,25 @@ def init_db():
         )
     ''')
 
-    # Migrate existing api_keys DB: add AI key columns if not exists
-    try:
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN groq_key TEXT")
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN elevenlabs_key TEXT")
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN theodds_key TEXT")
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN newsapi_key TEXT")
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN kraken_key TEXT")
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN kraken_secret TEXT")
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN oanda_key TEXT")
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN oanda_account TEXT")
-        conn.commit()
-    except Exception:
-        pass  # Columns already exist
-
-    try:
-        cursor.execute("ALTER TABLE api_keys ADD COLUMN gemini_key TEXT")
-        conn.commit()
-    except Exception:
-        pass  # Column already exists
+    # Migrate existing api_keys DB: ogni colonna ha il suo try/except separato
+    # così se una esiste già le altre vengono comunque aggiunte
+    _migrations = [
+        "ALTER TABLE api_keys ADD COLUMN groq_key TEXT",
+        "ALTER TABLE api_keys ADD COLUMN gemini_key TEXT",
+        "ALTER TABLE api_keys ADD COLUMN elevenlabs_key TEXT",
+        "ALTER TABLE api_keys ADD COLUMN theodds_key TEXT",
+        "ALTER TABLE api_keys ADD COLUMN newsapi_key TEXT",
+        "ALTER TABLE api_keys ADD COLUMN kraken_key TEXT",
+        "ALTER TABLE api_keys ADD COLUMN kraken_secret TEXT",
+        "ALTER TABLE api_keys ADD COLUMN oanda_key TEXT",
+        "ALTER TABLE api_keys ADD COLUMN oanda_account TEXT",
+    ]
+    for _sql in _migrations:
+        try:
+            cursor.execute(_sql)
+            conn.commit()
+        except Exception:
+            pass  # Colonna già esistente, ok
 
     # Crypto Payments table
     cursor.execute('''
