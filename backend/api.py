@@ -216,8 +216,8 @@ POOL_TICKERS = [
     "BTC/USD", "ETH/USD", "SOL/USD", "DOGE/USD"
 ]
 
-# Aggiunti ETF BRICS (Brazil, China, India, South Africa)
-DEFAULT_TARGET_SYMBOLS = ["TSLA", "NVDA", "PLTR", "SOFI", "MARA", "AMD", "AAPL", "EWZ", "FXI", "INDA", "EZA"]
+# Aggiunti ETF BRICS (Brazil, China, India, South Africa) e Crypto Base
+DEFAULT_TARGET_SYMBOLS = ["TSLA", "NVDA", "PLTR", "SOFI", "MARA", "AMD", "AAPL", "EWZ", "FXI", "INDA", "EZA", "BTC/USD", "ETH/USD"]
 STOCK_UNIVERSE = [ticker for ticker in POOL_TICKERS if "/" not in ticker] + [
     "AAPL", "AMD", "AMZN", "AVGO", "META", "MSFT", "MARA", "MU", "NFLX",
     "NVDA", "QQQ", "SMCI", "SPY", "TSLA", "UBER"
