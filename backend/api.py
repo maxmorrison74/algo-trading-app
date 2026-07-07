@@ -104,6 +104,9 @@ def load_db(user_id=None):
             try:
                 with open(file_path, "r") as f:
                     data = json.load(f)
+                    if "modules" in data:
+                        data["modules"].pop("high_risk_crypto_arb", None)
+                        data["modules"].pop("crypto_arb", None)
                     return data
             except json.JSONDecodeError:
                 print("⚠️ bot_db.json corrotto (forse per un riavvio forzato). Ricarico default.")
