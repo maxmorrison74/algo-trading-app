@@ -494,14 +494,22 @@ class AlpacaEngine:
             return
             
         # Position Sizing con Advanced Kelly Criterion (dal Risk Manager)
-        # Usa LSTM prob per scalare il risk
-        base_confidence = lstm_prob if lstm_prob else 0.5
+        # Per SHORT, la confidence è l'inverso della probabilità LSTM di salire
+        base_confidence = lstm_prob if side == "LONG" else (1.0 - lstm_prob)
+        
+        # Se il setup tecnico è forte ma LSTM è neutro (es. 0.5), forziamo una confidence minima
+        if base_confidence <= 0.5:
+            base_confidence = 0.55
         
         # Boost aggressivo solo per setup eccellenti
-        if (side == "LONG" and lstm_prob > 0.75) or (side == "SHORT" and lstm_prob < 0.25):
-            base_confidence = min(base_confidence * 1.5, 0.9)
+        if base_confidence > 0.75:
+            base_confidence = min(base_confidence * 1.5, 0.95)
             
         qty = risk.get_position_size(confidence=base_confidence, price=current_price)
+        
+        # Moltiplichiamo per l'aggressività dell'utente (0 - 100)
+        agg_factor = self.bot_state.aggressiveness / 50.0  # Default 55 = 1.1x
+        qty *= agg_factor
         
         cap = get_capital_manager()
         max_cap_fraction = cap.get_trade_size_limit()

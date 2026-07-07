@@ -1548,21 +1548,23 @@ def start_bot(_: str = Depends(require_admin)):
     return {"message": "Bot avviato", "state": get_status()}
 
 @app.post("/api/config")
-async def update_config(config: dict, _: str = Depends(require_admin)):
+async def update_config(config: dict, user: dict = Depends(require_user)):
+    user_id = user.get("sub", "admin")
+    u_state = get_user_bot_state(user_id)
     if "aggressiveness" in config:
-        bot_state.aggressiveness = float(config["aggressiveness"])
-        bot_state.save_state()
-        bot_state.add_log(f"Aggressività IA impostata al {bot_state.aggressiveness}%")
-        return {"message": "Configurazione aggiornata", "aggressiveness": bot_state.aggressiveness}
+        u_state.aggressiveness = float(config["aggressiveness"])
+        u_state.save_state()
+        u_state.add_log(f"Aggressività IA impostata al {u_state.aggressiveness}%")
+        return {"message": "Configurazione aggiornata", "aggressiveness": u_state.aggressiveness}
     if config.get("refresh_symbols"):
         symbol_count = int(config.get("symbol_count", 7))
         symbol_count = max(3, min(symbol_count, 12))
         selected = refresh_target_symbols(max_symbols=symbol_count)
-        bot_state.add_log(f"🎯 Nuova selezione titoli: {', '.join(selected)}")
+        u_state.add_log(f"🎯 Nuova selezione titoli: {', '.join(selected)}")
         return {
             "message": "Watchlist aggiornata",
             "symbols": selected,
-            "symbol_selection": bot_state.symbol_selection,
+            "symbol_selection": u_state.symbol_selection,
         }
     return {"error": "Parametri non validi"}
 
