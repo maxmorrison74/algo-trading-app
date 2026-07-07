@@ -3541,9 +3541,13 @@ function OmniApp() {
                   btn.innerText = "Simulazione in corso...";
                   btn.disabled = true;
                   try {
-                      const res = await authFetch('/api/backtest', 'POST', { ticker, period: '4y' });
-                      if (res && res.status === 'success') {
-                        const data = res.data;
+                      const res = await authFetch('/api/backtest', { 
+                          method: 'POST', 
+                          body: JSON.stringify({ ticker, period: '4y' }) 
+                      });
+                      const dataObj = await res.json();
+                      if (dataObj && dataObj.status === 'success') {
+                        const data = dataObj.data;
                         document.getElementById('backtest-results-container').style.display = 'block';
                         document.getElementById('bh-return').innerText = data.stats.market_return_pct + '%';
                         document.getElementById('ai-return').innerText = data.stats.strategy_return_pct + '%';
@@ -3580,7 +3584,7 @@ function OmniApp() {
                         svg.appendChild(pathM);
                         svg.appendChild(pathS);
                       } else {
-                        alert("Errore nel backtest: " + (res?.message || 'Sconosciuto'));
+                        alert("Errore nel backtest: " + (dataObj?.message || 'Sconosciuto'));
                       }
                   } catch(err) {
                       alert("Errore di rete");
