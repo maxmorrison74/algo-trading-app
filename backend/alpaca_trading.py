@@ -127,12 +127,17 @@ class AlpacaEngine:
             gc.collect()
         except: pass
         
-        model_path = f"{symbol}_model.keras"
-        if not os.path.exists(model_path) and os.path.exists("SUPER_MODEL.keras"):
-            model_path = "SUPER_MODEL.keras"
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        models_dir = os.path.join(base_dir, "models")
+        
+        model_path = os.path.join(models_dir, f"{symbol}_model.keras")
+        super_model_path = os.path.join(models_dir, "SUPER_MODEL.keras")
+        
+        if not os.path.exists(model_path) and os.path.exists(super_model_path):
+            model_path = super_model_path
             
         if os.path.exists(model_path):
-            self._log(f"🧠 Caricamento Lazy Modello ML per {symbol} dal file {model_path}...")
+            self._log(f"🧠 Caricamento Lazy Modello ML per {symbol} dal file {os.path.basename(model_path)}...")
             from ensemble_ml import EnsembleTradingModel
             model = EnsembleTradingModel()
             model.load(model_path)
