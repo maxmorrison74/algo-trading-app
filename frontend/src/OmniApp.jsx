@@ -1553,8 +1553,7 @@ function OmniApp() {
     
     const pieData = [
       { name: 'Liquidità', value: virtualCash, color: 'var(--text-secondary)' },
-      { name: 'Azioni (Trading)', value: Math.abs(tradingProfit) || 100, color: '#38bdf8' },
-      { name: 'Crypto Arbitrage', value: status.modules?.crypto_arb ? 120.50 : 0, color: '#10b981' }
+      { name: 'Azioni (Trading)', value: Math.abs(tradingProfit) || 100, color: '#38bdf8' }
     ].filter(item => item.value > 0);
 
     return (
@@ -1619,16 +1618,7 @@ function OmniApp() {
 
 
 
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                  <span style={{ fontSize: '1.5rem' }}>🥈</span>
-                  <div>
-                    <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'var(--font-mono)' }}>DeFi Arbitrage</div>
-                    <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Spread</div>
-                  </div>
-                </div>
-                <div style={{ fontWeight: 'bold', color: '#10b981' }}>+${status.modules?.crypto_arb ? '120.50' : '0.00'}</div>
-              </div>
+              {/* Removed Arbitrage */}
             </div>
           </div>
         </div>
