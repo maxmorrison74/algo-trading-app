@@ -434,7 +434,7 @@ class AlpacaEngine:
         
         # Filtro "Anti-Noia" (Volatilità Estrema Richiesta)
         atr_percent = atr / current_price
-        if atr_percent < 0.003: # Se il prezzo si muove meno dello 0.3% non entriamo
+        if atr_percent < 0.0008: # Se il prezzo si muove meno dello 0.08% al minuto in media, ignoriamo (mercato piatto)
              return
 
         self.bot_state.latest_predictions[symbol] = f"LSTM: {lstm_prob*100:.1f}% | RSI(1M): {rsi:.1f} | MACD: {current_macd_hist:.2f} | VWAP: {vwap:.2f}"
