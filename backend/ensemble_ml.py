@@ -29,12 +29,12 @@ class EnsembleTradingModel:
                 print(f"Errore caricamento RF: {e}")
                 self.rf_model = None
 
-    def predict_proba(self, df):
+    def predict_realtime(self, df):
         """
-        Calculates weighted prediction from LSTM and RF.
+        Calculates weighted prediction from LSTM and RF for real-time data.
         """
         # 1. Get LSTM Prediction
-        p_lstm = self.lstm.predict_proba(df)
+        p_lstm = self.lstm.predict_realtime(df)
         
         # Se c'è un errore o dati insufficienti per LSTM (che ritorna 0.5 di default)
         if p_lstm == 0.5:
