@@ -9,6 +9,22 @@ __pycache__/
 bot_db.json
 bot_state.json
 
+# Database e file di stato del server (specifici per ogni macchina)
+backend/users.db
+backend/capital_config.json
+backend/login.json
+backend/*.log
+
+# Script di debug e patch temporanei
+*.py_patch
+patch_*.py
+fix_*.py
+remove_*.py
+debug_*.py
+test_*.py
+test_*.txt
+old_*.jsx
+
 # Log e Cache
 *.log
 .DS_Store
