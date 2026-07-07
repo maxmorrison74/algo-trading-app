@@ -598,17 +598,15 @@ class AlpacaEngine:
                 self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Ordine Semplice - No Trailing Stop per le Frazioni)")
             else:
                 qty = int(qty)
-                # Ordine a Mercato con Trailing Stop agganciato per quantità intere
+                # Ordine a Mercato Semplice (Alpaca non supporta trailing stop come OTO class in questo formato)
                 self.alpaca_rest.submit_order(
                     symbol=clean_symbol,
                     qty=qty,
                     side=alpaca_side,
                     type='market',
-                    time_in_force='day',
-                    order_class='trailing_stop',
-                    trail_percent=trail_percent
+                    time_in_force='day'
                 )
-                self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Trailing Stop al {trail_percent}%)")
+                self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Ordine Semplice a Mercato)")
             
             # Notifica Telegram
             try:
