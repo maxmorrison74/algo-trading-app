@@ -1487,6 +1487,47 @@ function OmniApp() {
 
 
 
+      <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+        <h3 style={{ margin: 0, color: '#ef4444', marginBottom: '1.5rem', display: 'flex', alignItems: 'center' }}>
+          <span style={{ marginRight: '0.5rem' }}>🛡️</span> Risk Management
+        </h3>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '1.5rem' }}>
+          <div>
+            <label style={{ display: 'block', color: '#cbd5e1', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Trailing Stop Dinamico (ATR)</label>
+            <div style={{ display: 'flex', gap: '1rem' }}>
+              <button 
+                className={`btn ${apiKeys.dynamic_atr_stop ? 'btn-start' : 'btn-outline'}`}
+                onClick={() => setApiKeys({...apiKeys, dynamic_atr_stop: true})}
+                style={{ flex: 1 }}
+              >Attivo</button>
+              <button 
+                className={`btn ${!apiKeys.dynamic_atr_stop ? 'btn-stop' : 'btn-outline'}`}
+                onClick={() => setApiKeys({...apiKeys, dynamic_atr_stop: false})}
+                style={{ flex: 1 }}
+              >Spento</button>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem' }}>Regola il trailing stop automaticamente in base alla volatilità del momento.</p>
+          </div>
+          
+          <div style={{ opacity: apiKeys.dynamic_atr_stop ? 0.5 : 1.0, pointerEvents: apiKeys.dynamic_atr_stop ? 'none' : 'auto' }}>
+            <label style={{ display: 'block', color: '#cbd5e1', marginBottom: '0.5rem', fontSize: '0.9rem' }}>
+              Trailing Stop Fisso: {apiKeys.trailing_stop_base_pct}%
+            </label>
+            <input 
+              type="range" 
+              min="0.5" 
+              max="5.0" 
+              step="0.1" 
+              value={apiKeys.trailing_stop_base_pct || 2.5} 
+              onChange={e => setApiKeys({...apiKeys, trailing_stop_base_pct: parseFloat(e.target.value)})} 
+              style={{ width: '100%', cursor: 'pointer', accentColor: '#ef4444' }} 
+            />
+            <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem' }}>Se il dinamico è spento, usa questa percentuale fissa per proteggere i profitti.</p>
+          </div>
+        </div>
+      </div>
+
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Groq AI (Sentiment & Investments) {savedKeys['GROQ_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
@@ -1930,7 +1971,7 @@ function OmniApp() {
               </div>
               <button
                 className="btn"
-                onClick={async () => {
+                onClick={async (e) => {
                   const res = await authFetch('/api/config', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -2363,7 +2404,7 @@ function OmniApp() {
                 </div>
               </div>
               <button
-                onClick={async () => {
+                onClick={async (e) => {
                   setPlacedBets(prev => ({ ...prev, [vb.id]: 'loading' }));
                   await new Promise(r => setTimeout(r, 1500));
                   if (Math.random() > 0.1) {
@@ -2710,7 +2751,7 @@ function OmniApp() {
                   </div>
                   <button 
                     className="btn btn-start" 
-                    onClick={async () => {
+                    onClick={async (e) => {
                       if (!newUser.email || !newUser.password) { alert('Compila email e password'); return; }
                       try {
                         const res = await authFetch('/api/saas/create-user', {
@@ -2772,7 +2813,7 @@ function OmniApp() {
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
                           {user.status !== 'active' && (
                             <>
-                            <button className="btn btn-start" onClick={async () => {
+                            <button className="btn btn-start" onClick={async (e) => {
                               if(!window.confirm('Vuoi attivare manualmente questo utente (GRATIS)?')) return;
                               try {
                                 await authFetch('/api/saas/activate-user', {
@@ -2785,7 +2826,7 @@ function OmniApp() {
                             }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}>
                               Attiva (Gratis)
                             </button>
-                            <button className="btn btn-start" onClick={async () => {
+                            <button className="btn btn-start" onClick={async (e) => {
                               if(!window.confirm('Vuoi attivare manualmente questo utente (PAGATO)?')) return;
                               try {
                                 await authFetch('/api/saas/activate-paid', {
@@ -2800,7 +2841,7 @@ function OmniApp() {
                             </button>
                             </>
                           )}
-                          <button className="btn btn-outline" onClick={async () => {
+                          <button className="btn btn-outline" onClick={async (e) => {
                             if(!window.confirm('Eliminare definitivamente questo utente?')) return;
                             try {
                               await authFetch('/api/saas/delete-user', {
@@ -2844,7 +2885,7 @@ function OmniApp() {
                       <td>
                         {payment.status === 'pending' ? (
                           <div style={{ display: 'flex', gap: '0.5rem' }}>
-                            <button className="btn btn-start" onClick={async () => {
+                            <button className="btn btn-start" onClick={async (e) => {
                               try {
                                 const res = await authFetch('/api/billing/verify-payment', {
                                   method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -2858,7 +2899,7 @@ function OmniApp() {
                             }} style={{ width: 'auto', minHeight: 0, padding: '0.45rem 0.7rem' }}>
                               Verifica (1 Mese)
                             </button>
-                            <button className="btn btn-outline" onClick={async () => {
+                            <button className="btn btn-outline" onClick={async (e) => {
                               try {
                                 const res = await authFetch('/api/billing/verify-payment', {
                                   method: 'POST', headers: {'Content-Type': 'application/json'},
@@ -3382,6 +3423,10 @@ function OmniApp() {
             <span className="menu-label">Trading</span>
             {status.modules?.trading && <div className="active-dot"></div>}
           </div>
+          <div className={`menu-item ${activeTab === 'backtest' ? 'active' : ''}`} onClick={() => setActiveTab('backtest')}>
+            <span className="menu-icon">🧪</span>
+            <span className="menu-label">Laboratorio</span>
+          </div>
           <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
             <span className="menu-icon">🔐</span>
             <span className="menu-label">Security</span>
@@ -3487,6 +3532,93 @@ function OmniApp() {
           </button>
         </div>
         {activeTab === 'home' && renderHomeView()}
+        {activeTab === 'backtest' && (
+          <div className="view-section fade-in">
+            <h2 className="section-title">Laboratorio Backtest AI</h2>
+            <div className="card" style={{ padding: '2rem', marginBottom: '2rem' }}>
+              <p style={{ color: '#94a3b8', marginBottom: '1.5rem' }}>
+                Esegui una simulazione quantitativa (LSTM) su 4 anni di dati storici. 
+                Compara i risultati dell'Intelligenza Artificiale rispetto all'acquisto e detenzione passiva (Buy & Hold).
+              </p>
+              
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '2rem' }}>
+                <input type="text" id="backtest-ticker" placeholder="Ticker (es. MRNA)" defaultValue="MRNA" style={{ padding: '0.8rem', borderRadius: '6px', border: '1px solid #334155', background: '#0f172a', color: 'white' }} />
+                <button className="btn btn-start" onClick={async (e) => {
+                  const ticker = document.getElementById('backtest-ticker').value;
+                  const btn = e.currentTarget;
+                  const originalText = btn.innerText;
+                  btn.innerText = "Simulazione in corso...";
+                  btn.disabled = true;
+                  try {
+                      const res = await authFetch('/api/backtest', 'POST', { ticker, period: '4y' });
+                      if (res && res.status === 'success') {
+                        const data = res.data;
+                        document.getElementById('backtest-results-container').style.display = 'block';
+                        document.getElementById('bh-return').innerText = data.stats.market_return_pct + '%';
+                        document.getElementById('ai-return').innerText = data.stats.strategy_return_pct + '%';
+                        document.getElementById('ai-winrate').innerText = data.stats.win_rate_pct + '%';
+                        
+                        // Generazione grafico SVG leggero
+                        const svg = document.getElementById('backtest-chart');
+                        svg.innerHTML = ''; // pulisci
+                        const width = 100; const height = 100;
+                        const m_curve = data.market_curve;
+                        const s_curve = data.strategy_curve;
+                        const minVal = Math.min(...m_curve, ...s_curve);
+                        const maxVal = Math.max(...m_curve, ...s_curve);
+                        const range = maxVal - minVal || 1;
+                        
+                        const getPts = (curve) => curve.map((v, i) => {
+                            const x = (i / (curve.length - 1)) * width;
+                            const y = height - ((v - minVal) / range) * height;
+                            return `${x},${y}`;
+                        }).join(' ');
+                        
+                        const pathM = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+                        pathM.setAttribute("points", getPts(m_curve));
+                        pathM.setAttribute("fill", "none");
+                        pathM.setAttribute("stroke", "#94a3b8");
+                        pathM.setAttribute("stroke-width", "0.5");
+                        
+                        const pathS = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+                        pathS.setAttribute("points", getPts(s_curve));
+                        pathS.setAttribute("fill", "none");
+                        pathS.setAttribute("stroke", "#10b981");
+                        pathS.setAttribute("stroke-width", "0.8");
+                        
+                        svg.appendChild(pathM);
+                        svg.appendChild(pathS);
+                      } else {
+                        alert("Errore nel backtest: " + (res?.message || 'Sconosciuto'));
+                      }
+                  } catch(err) {
+                      alert("Errore di rete");
+                  } finally {
+                      btn.innerText = originalText;
+                      btn.disabled = false;
+                  }
+                }}>Avvia Simulazione Storica</button>
+              </div>
+
+              <div id="backtest-results-container" style={{ display: 'none' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
+                  <div className="stat-card">
+                    <div className="stat-label">Rendimento Buy & Hold</div>
+                    <div className="stat-value" id="bh-return" style={{ color: '#94a3b8' }}>0%</div>
+                  </div>
+                  <div className="stat-card" style={{ border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                    <div className="stat-label">Rendimento Strategia AI</div>
+                    <div className="stat-value" id="ai-return" style={{ color: '#10b981' }}>0%</div>
+                  </div>
+                  <div className="stat-card">
+                    <div className="stat-label">Win Rate Strategia</div>
+                    <div className="stat-value" id="ai-winrate">0%</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
         {activeTab === 'settings' && renderSettingsView()}
         {activeTab === 'trading' && renderTradingView()}
         {activeTab === 'sports_arb' && renderSportsArbitrageView()}

@@ -2182,6 +2182,8 @@ class KeysRequest(BaseModel):
     groq_key: str = ""
     newsapi_key: str = ""
     google_cloud_json: str = ""
+    trailing_stop_base_pct: float = 2.5
+    dynamic_atr_stop: bool = True
 
 
 @app.get("/api/keys")
@@ -2220,6 +2222,20 @@ def get_keys(user: dict = Depends(require_user)):
     except Exception as e:
         keys["ERROR"] = str(e)
     return keys
+
+
+class BacktestRequest(BaseModel):
+    ticker: str = "AAPL"
+    period: str = "4y"
+
+@app.post("/api/backtest")
+def api_run_backtest(req: BacktestRequest, user: dict = Depends(require_user)):
+    from backtest_lstm import run_lstm_backtest
+    try:
+        results = run_lstm_backtest(ticker=req.ticker, period=req.period)
+        return {"status": "success", "data": results}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 @app.post("/api/keys")
 def save_keys(req: KeysRequest, user: dict = Depends(require_user)):

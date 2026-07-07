@@ -8,52 +8,60 @@ import tensorflow as tf
 np.random.seed(42)
 tf.random.set_seed(42)
 
-def run_lstm_backtest(ticker: str = "MRNA"):
+def run_lstm_backtest(ticker: str = "MRNA", period="4y"):
     print(f"--- Avvio Backtest LSTM per {ticker} ---")
     
-    # 1. Scaricamento dati (Aumentiamo il periodo a 4 anni per dare più dati alla rete neurale)
-    df = fetch_historical_data(ticker, period="4y", interval="1d")
+    df = fetch_historical_data(ticker, period=period, interval="1d")
+    if df.empty:
+        return {"error": "Nessun dato trovato"}
     
-    # 2. Inizializzazione Modello LSTM (sequenze da 30 giorni)
     sequence_length = 30
     lstm_model = LSTMTradingModel(sequence_length=sequence_length)
     
-    # 3. Preparazione Feature (Inclusi MACD e Bollinger Bands)
     X, y, data_clean = lstm_model.prepare_features(df)
     
-    # 4. Suddivisione Train/Test (80% training, 20% test)
     split_index = int(len(X) * 0.8)
-    
     X_train, X_test = X[:split_index], X[split_index:]
     y_train, y_test = y[:split_index], y[split_index:]
     
-    # 5. Addestramento
     lstm_model.train(X_train, y_train, epochs=30, batch_size=32)
-    
-    # 6. Valutazione
-    print("\n--- Risultati sul Test Set ---")
     predictions = lstm_model.evaluate(X_test, y_test)
     
-    # 7. Simulazione portafoglio base
     test_data = data_clean.iloc[split_index:].copy()
     test_data['Prediction'] = predictions
     
     test_data['Daily_Return'] = test_data['Close'].pct_change()
     test_data = test_data.dropna()
     
-    # Regola: se prediciamo 1 stiamo nel mercato, se 0 stiamo liquidi
     test_data['Strategy_Return'] = test_data['Daily_Return'] * test_data['Prediction'].shift(1)
     test_data = test_data.dropna()
     
     cumulative_market_return = (1 + test_data['Daily_Return']).cumprod() - 1
     cumulative_strategy_return = (1 + test_data['Strategy_Return']).cumprod() - 1
     
-    final_market_return = cumulative_market_return.iloc[-1] * 100
-    final_strategy_return = cumulative_strategy_return.iloc[-1] * 100
+    # Prepara dati JSON per il chart front-end
+    dates = test_data.index.strftime('%Y-%m-%d').tolist()
+    market_curve = (cumulative_market_return * 100).round(2).tolist()
+    strategy_curve = (cumulative_strategy_return * 100).round(2).tolist()
     
-    print("\n--- Simulazione Finanziaria (LSTM) ---")
-    print(f"Rendimento Buy & Hold (Mercato): {final_market_return:.2f}%")
-    print(f"Rendimento Strategia AI: {final_strategy_return:.2f}%")
+    final_market = float(market_curve[-1]) if market_curve else 0.0
+    final_strategy = float(strategy_curve[-1]) if strategy_curve else 0.0
+    
+    win_rate = float((test_data['Strategy_Return'] > 0).mean() * 100)
+    
+    return {
+        "ticker": ticker,
+        "dates": dates,
+        "market_curve": market_curve,
+        "strategy_curve": strategy_curve,
+        "stats": {
+            "market_return_pct": final_market,
+            "strategy_return_pct": final_strategy,
+            "win_rate_pct": round(win_rate, 2),
+            "trades": len(test_data)
+        }
+    }
+
 
 if __name__ == "__main__":
     # Disabilitiamo i warning fastidiosi di TensorFlow per il log
