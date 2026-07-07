@@ -3543,6 +3543,9 @@ function OmniApp() {
                   try {
                       const res = await authFetch('/api/backtest', { 
                           method: 'POST', 
+                          headers: {
+                              'Content-Type': 'application/json'
+                          },
                           body: JSON.stringify({ ticker, period: '4y' }) 
                       });
                       const dataObj = await res.json();
