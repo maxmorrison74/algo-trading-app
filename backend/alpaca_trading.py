@@ -352,9 +352,7 @@ class AlpacaEngine:
             return False
 
     def clean_sym(self, sym):
-        # Le API Alpaca (incluso get_bars) per le criptovalute richiedono BTCUSD e non BTC/USD
-        if "/" in sym:
-            return sym.replace("/", "")
+        # Alpaca crypto API v2 requires the slash (e.g. BTC/USD)
         return sym
 
     def prefill_history(self):
