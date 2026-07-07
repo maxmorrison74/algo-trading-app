@@ -1547,9 +1547,10 @@ function OmniApp() {
 
   const renderHomeView = () => {
     const aiEarnings = status.ai_videos?.reduce((acc, v) => acc + (v.earnings || 0), 0) || 0;
-    const tradingProfit = Number(status.profit || 0);
-    const virtualCash = Number(status.virtual_cash || 100000);
-    const totalWorth = virtualCash + (tradingProfit > 0 ? tradingProfit : 0) + aiEarnings;
+    const virtualCash = capital ? capital.current_capital : 10000;
+    const initialCash = 10000;
+    const tradingProfit = virtualCash - initialCash;
+    const totalWorth = virtualCash + aiEarnings;
     
     const pieData = [
       { name: 'Liquidità', value: virtualCash, color: 'var(--text-secondary)' },
