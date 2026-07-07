@@ -2177,10 +2177,6 @@ def update_saas_customer_status(customer_id: str, req: BillingCustomerStatusRequ
 class KeysRequest(BaseModel):
     alpaca_key: str = ""
     alpaca_secret: str = ""
-    binance_key: str = ""
-    binance_secret: str = ""
-    kraken_key: str = ""
-    kraken_secret: str = ""
     elevenlabs_key: str = ""
     theodds_key: str = ""
     groq_key: str = ""
@@ -2293,10 +2289,6 @@ class TestConnectionRequest(BaseModel):
     service: str
     alpaca_key: str = ""
     alpaca_secret: str = ""
-    binance_key: str = ""
-    binance_secret: str = ""
-    kraken_key: str = ""
-    kraken_secret: str = ""
     elevenlabs_key: str = ""
     theodds_key: str = ""
     newsapi_key: str = ""

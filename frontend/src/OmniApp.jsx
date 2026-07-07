@@ -317,24 +317,6 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
             }}>Apri un account Alpaca ↗</a>
           </div>
 
-          {/* Binance/Kraken */}
-          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#f59e0b' }}>2. Trading Crypto (Binance o Kraken)</h3>
-            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Per il trading ad alta frequenza sulle crypto, suggeriamo Binance o Kraken.<br/>
-              <span style={{opacity: 0.8, fontSize: '0.85rem'}}><strong>Guida Binance:</strong> Profilo {'>'} API Management {'>'} Create API. <br/>
-              <strong>Guida Kraken:</strong> Profilo {'>'} Sicurezza {'>'} API {'>'} Aggiungi chiave. Attendi 24h se l'account è nuovo.</span>
-            </p>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <a href="https://www.binance.com/" target="_blank" rel="noopener noreferrer" style={{
-                display: 'inline-block', background: '#f59e0b', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
-              }}>Binance ↗</a>
-              <a href="https://www.kraken.com/" target="_blank" rel="noopener noreferrer" style={{
-                display: 'inline-block', background: '#5841D8', color: '#fff', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
-              }}>Kraken ↗</a>
-            </div>
-          </div>
-
           {/* Groq */}
           <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
             <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#a78bfa' }}>3. Intelligenza Artificiale (Groq)</h3>
@@ -369,7 +351,7 @@ function OmniApp() {
   
   const [numValueBets, setNumValueBets] = useState(9);
   const [placedBets, setPlacedBets] = useState({});
-  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', binance_key:'', binance_secret:'', kraken_key:'', kraken_secret:'', elevenlabs_key:'', theodds_key:'', groq_key:'', newsapi_key:'', google_cloud_json:''});
+  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', elevenlabs_key:'', theodds_key:'', groq_key:'', newsapi_key:'', google_cloud_json:''});
   const [testResults, setTestResults] = useState({});
   const [savedKeys, setSavedKeys] = useState({});
   const [timeframe, setTimeframe] = useState('1D');
@@ -777,7 +759,7 @@ function OmniApp() {
           const keysRes = await authFetch('/api/keys');
           if (keysRes.ok) {
             const keysData = await keysRes.json();
-            if (!keysData.ALPACA_KEY && !keysData.BINANCE_KEY) {
+            if (!keysData.ALPACA_KEY) {
               setShowOnboarding(true);
             }
           }
@@ -1201,10 +1183,6 @@ function OmniApp() {
             ...prev,
             alpaca_key: data.ALPACA_KEY || '',
             alpaca_secret: data.ALPACA_SECRET || '',
-            binance_key: data.BINANCE_KEY || '',
-            binance_secret: data.BINANCE_SECRET || '',
-            kraken_key: data.KRAKEN_KEY || '',
-            kraken_secret: data.KRAKEN_SECRET || '',
             elevenlabs_key: data.ELEVENLABS_KEY || '',
             theodds_key: data.THEODDS_KEY || '',
             groq_key: data.GROQ_KEY || '',
@@ -1257,7 +1235,7 @@ function OmniApp() {
           const res = await authFetch('/api/keys');
           if (res.ok) {
             const data = await res.json();
-            if (!data.ALPACA_KEY && !data.BINANCE_KEY && !data.KRAKEN_KEY) {
+            if (!data.ALPACA_KEY) {
               setShowOnboarding(true);
             }
           }
@@ -1350,46 +1328,6 @@ function OmniApp() {
         note: 'Il Paper Trading è completamente gratuito e simula operazioni reali senza rischi.',
       },
       {
-        id: 'binance',
-        name: 'Binance',
-        subtitle: 'Crypto Arbitrage',
-        icon: '🟡',
-        color: '#eab308',
-        bg: 'rgba(234, 179, 8, 0.08)',
-        border: 'rgba(234, 179, 8, 0.25)',
-        url: 'https://www.binance.com',
-        keyPresent: savedKeys['BINANCE_KEY'],
-        steps: [
-          { n: 1, text: 'Vai su binance.com → Registrati con email' },
-          { n: 2, text: 'Completa la verifica identità (KYC) — richiede documento' },
-          { n: 3, text: 'Profilo → Gestione API → Crea nuova API Key' },
-          { n: 4, text: 'Permessi: abilita "Lettura" + "Trading Spot". Lascia DISABILITATO "Prelievi"' },
-          { n: 5, text: 'Copia "API Key" e "Secret Key"' },
-          { n: 6, text: 'Torna su Aureo OS → Security → incolla in "Binance"' },
-        ],
-        note: '⚠️ Non abilitare mai i permessi di prelievo sulle API Key per sicurezza.',
-      },
-      {
-        id: 'kraken',
-        name: 'Kraken',
-        subtitle: 'Crypto Arbitrage (secondo exchange)',
-        icon: '🦑',
-        color: '#8b5cf6',
-        bg: 'rgba(139, 92, 246, 0.08)',
-        border: 'rgba(139, 92, 246, 0.25)',
-        url: 'https://www.kraken.com',
-        keyPresent: savedKeys['KRAKEN_KEY'],
-        steps: [
-          { n: 1, text: 'Vai su kraken.com → Registrati' },
-          { n: 2, text: 'Completa la verifica base (email + telefono)' },
-          { n: 3, text: 'Sicurezza → API Keys → Genera nuova chiave' },
-          { n: 4, text: 'Permessi: seleziona "Query Funds" + "Create & Modify Orders"' },
-          { n: 5, text: 'Copia "API Key" e "Private Key"' },
-          { n: 6, text: 'Torna su Aureo OS → Security → incolla in "Kraken"' },
-        ],
-        note: 'Kraken è usato in combinazione con Binance per rilevare opportunità di arbitraggio.',
-      },
-      {
         id: 'groq',
         name: 'Groq AI',
         subtitle: 'Analisi AI & Sentiment (Gratuito)',
@@ -1478,7 +1416,6 @@ function OmniApp() {
             {[
               { n: 1, icon: '🤖', name: 'Groq AI', desc: 'Prima cosa — gratuito e immediato' },
               { n: 2, icon: '🦙', name: 'Alpaca', desc: 'Paper trading gratuito — zero rischi' },
-              { n: 3, icon: '🟡', name: 'Binance', desc: 'Crypto arb (richiede KYC)' },
               { n: 4, icon: '🦑', name: 'Kraken', desc: 'Secondo exchange per arb' },
             ].map(item => (
               <div key={item.n} style={{ textAlign: 'center', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
@@ -1549,29 +1486,7 @@ function OmniApp() {
         {testResults['alpaca'] && <div style={{ color: testResults['alpaca'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['alpaca']}</div>}
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Binance (Crypto Arb) {savedKeys['BINANCE_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
-          <button onClick={() => testConnection('binance')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <input type="password" placeholder="API Key" value={apiKeys.binance_key} onChange={e => setApiKeys({...apiKeys, binance_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
-          <input type="password" placeholder="Secret Key" value={apiKeys.binance_secret} onChange={e => setApiKeys({...apiKeys, binance_secret: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
-        </div>
-        {testResults['binance'] && <div style={{ color: testResults['binance'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['binance']}</div>}
-      </div>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Kraken (Crypto Arb) {savedKeys['KRAKEN_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
-          <button onClick={() => testConnection('kraken')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <input type="password" placeholder="API Key" value={apiKeys.kraken_key} onChange={e => setApiKeys({...apiKeys, kraken_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
-          <input type="password" placeholder="Secret Key" value={apiKeys.kraken_secret} onChange={e => setApiKeys({...apiKeys, kraken_secret: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
-        </div>
-        {testResults['kraken'] && <div style={{ color: testResults['kraken'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['kraken']}</div>}
-      </div>
 
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -1613,7 +1528,7 @@ function OmniApp() {
           <div className="onboarding-banner" style={{ background: 'linear-gradient(90deg, #ef4444, #b91c1c)', color: 'white', padding: '1.5rem', borderRadius: '12px', marginBottom: '2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
               <h3 style={{ margin: '0 0 0.5rem 0' }}>⚠️ Broker non collegato</h3>
-              <p style={{ margin: 0, opacity: 0.9 }}>Per operare sui mercati finanziari, devi prima inserire le tue chiavi API di Alpaca/Binance.</p>
+              <p style={{ margin: 0, opacity: 0.9 }}>Per operare sui mercati finanziari, devi prima inserire le tue chiavi API di Alpaca.</p>
             </div>
             <button onClick={() => setActiveTab('settings')} className="btn" style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white' }}>Collega ora ➔</button>
           </div>
@@ -3524,7 +3439,7 @@ function OmniApp() {
         )}
 
         {/* Missing Keys Banner */}
-        {(!apiKeys.alpaca_key && !apiKeys.binance_key && userRole !== 'admin' && !isDemoMode) && (
+        {(!apiKeys.alpaca_key && userRole !== 'admin' && !isDemoMode) && (
           <div style={{
             background: 'linear-gradient(90deg, #f59e0b, #d97706)',
             color: '#fff', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem',
