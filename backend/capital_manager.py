@@ -83,6 +83,10 @@ class CapitalManager:
             except:
                 pass
                 
+        if not self.config.phase_start_date:
+            self.config.phase_start_date = datetime.now().isoformat()
+            self.save()
+                
     def save(self):
         with open(self._file, 'w') as f:
             json.dump(asdict(self.config), f, indent=2)
