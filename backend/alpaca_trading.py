@@ -24,6 +24,7 @@ class AlpacaEngine:
         self.llm_enabled = False
         self.history_buffers = {sym: pd.DataFrame() for sym in self.symbols}
         self.ml_models = {}
+        self.active_trails = {}
         
         # Start async loop thread for streaming
         self._stream_thread = None
@@ -150,7 +151,36 @@ class AlpacaEngine:
         try:
             account = self.alpaca_rest.get_account()
             self.bot_state.virtual_cash = float(account.portfolio_value)
-            # Potremmo anche listare le posizioni reali qui se servisse aggiornare UI
+            
+            # Sincronizza Trailing Stops interni per eventuali posizioni orfane o chiuse
+            try:
+                positions = self.alpaca_rest.list_positions()
+                active_symbols = set()
+                for p in positions:
+                    # Clean symbol (es. BTC/USD -> BTCUSD per coerenza interna)
+                    sym_clean = p.symbol.replace('/', '')
+                    # Mappiamo al symbol originale per la cronologia se esiste
+                    sym = next((s for s in self.symbols if self.clean_sym(s) == sym_clean), sym_clean)
+                    active_symbols.add(sym)
+                    
+                    if sym not in self.active_trails:
+                        side = "LONG" if float(p.qty) > 0 else "SHORT"
+                        self.active_trails[sym] = {
+                            'side': side,
+                            'qty': abs(float(p.qty)),
+                            'entry_price': float(p.avg_entry_price),
+                            'peak_price': float(p.current_price),
+                            'trail_percent': 2.5 # Default 2.5% per posizioni orfane
+                        }
+                        self._log(f"🛡️ Ripristinato Trailing Stop interno al 2.5% per {sym}")
+                
+                # Rimuovi trail se la posizione è stata chiusa manualmente dalla dashboard di Alpaca
+                for sym in list(self.active_trails.keys()):
+                    if sym not in active_symbols:
+                        del self.active_trails[sym]
+            except Exception as e:
+                pass
+                
         except Exception as e:
             self._log(f"❌ ERRORE: Chiavi Alpaca non valide o account non autorizzato. {e}")
             raise e
@@ -342,10 +372,49 @@ class AlpacaEngine:
             except Exception as e:
                 self._log(f"Errore history {sym}: {e}")
 
+    def _execute_exit(self, symbol, qty, side):
+        try:
+            self.alpaca_rest.submit_order(
+                symbol=self.clean_sym(symbol),
+                qty=qty,
+                side=side,
+                type='market',
+                time_in_force='day'
+            )
+            self._log(f"✅ POSIZIONE CHIUSA su {symbol} (Market Order).")
+        except Exception as e:
+            self._log(f"❌ ERRORE CHIUSURA {symbol}: {e}")
+
     async def on_bar(self, bar):
         sym = bar.symbol
         if sym not in self.symbols: return
         
+        current_price = bar.close
+        
+        # Gestione Trailing Stop Interno in Real-Time
+        if sym in self.active_trails:
+            trail = self.active_trails[sym]
+            
+            if trail['side'] == "LONG":
+                if current_price > trail['peak_price']:
+                    trail['peak_price'] = current_price
+                
+                stop_price = trail['peak_price'] * (1 - trail['trail_percent'] / 100.0)
+                if current_price <= stop_price:
+                    self._log(f"🛑 TRAILING STOP COLPITO su {sym} (LONG). Prezzo è sceso del {trail['trail_percent']}% dal picco massimo.")
+                    self._execute_exit(sym, trail['qty'], 'sell')
+                    del self.active_trails[sym]
+                    
+            elif trail['side'] == "SHORT":
+                if current_price < trail['peak_price']:
+                    trail['peak_price'] = current_price
+                
+                stop_price = trail['peak_price'] * (1 + trail['trail_percent'] / 100.0)
+                if current_price >= stop_price:
+                    self._log(f"🛑 TRAILING STOP COLPITO su {sym} (SHORT). Prezzo è salito del {trail['trail_percent']}% dal picco minimo.")
+                    self._execute_exit(sym, trail['qty'], 'buy')
+                    del self.active_trails[sym]
+
         # Converte l'oggetto bar in un formato compatibile con il dataframe
         new_row = pd.DataFrame([{
             'open': bar.open,
@@ -607,6 +676,15 @@ class AlpacaEngine:
                     time_in_force='day'
                 )
                 self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Ordine Semplice a Mercato)")
+            
+            # Registra il trailing stop in memoria!
+            self.active_trails[symbol] = {
+                'side': side,
+                'qty': qty,
+                'entry_price': current_price,
+                'peak_price': current_price,
+                'trail_percent': trail_percent
+            }
             
             # Notifica Telegram
             try:
