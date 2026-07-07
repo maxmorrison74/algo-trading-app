@@ -24,7 +24,6 @@ from concurrent.futures import ThreadPoolExecutor
 global_executor = ThreadPoolExecutor(max_workers=10)
 atexit.register(lambda: global_executor.shutdown(wait=False))
 
-from crypto_arbitrage import CryptoArbitrage
 from sports_arbitrage import SportsArbitrage
 from ai_sports_sentiment import AISentimentRadar
 from ai_content import AIContentCreator
@@ -105,12 +104,10 @@ def load_db(user_id=None):
             try:
                 with open(file_path, "r") as f:
                     data = json.load(f)
-                    if "modules" in data and "high_risk_crypto_arb" not in data["modules"]:
-                        data["modules"]["high_risk_crypto_arb"] = False
                     return data
             except json.JSONDecodeError:
                 print("⚠️ bot_db.json corrotto (forse per un riavvio forzato). Ricarico default.")
-        return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "crypto_arb": False, "high_risk_crypto_arb": False, "sports_arb": False, "ai_content": False}}
+        return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "sports_arb": False, "ai_content": False}}
 
 def save_db(state_dict, user_id=None):
     with db_lock:
@@ -469,9 +466,6 @@ class BotState:
         self.high_watermarks = db_data.get("high_watermarks", {})
         self.arb_logs = []
         self.arb_prices = {"binance": 0, "kraken": 0}
-        self.high_risk_arb_logs = []
-        self.high_risk_arb_prices = {}
-        self.high_risk_volatile_assets = []
         self.monitored_positions = []  # [{symbol, buy_price, qty, amount, peak_price, target_price, price_history, timestamp}]
         self.reentry_watchlist = []   # [{symbol, exit_price, original_amount, reentry_count, trigger_pct, added_at}]
         self.loop_task = None
@@ -481,10 +475,7 @@ class BotState:
         self.symbol_selection = db_data.get("symbol_selection", {"method": "static_default", "ranked": []})
         default_modules = {
             "trading": False,
-            "crypto_arb": False,
-            "high_risk_crypto_arb": False,
             "sports_arb": False,
-            "ai_sports_sentiment": False,
             "ai_content": False
         }
         loaded_modules = db_data.get("modules", {})
@@ -552,17 +543,15 @@ bot_state = BotState()
 if not bot_state.target_symbols:
     bot_state.target_symbols = DEFAULT_TARGET_SYMBOLS[:]
 # Inizializza moduli background
-arb_engine = CryptoArbitrage(bot_state)
 sports_engine = SportsArbitrage(bot_state)
 sentiment_engine = None
 ai_engine = AIContentCreator(bot_state)
 
 engines = {
     "sports_arb": sports_engine,
-    "crypto_arb": arb_engine,
     "ai_content": ai_engine
 }
-user_bot_states = {}
+user_bot_states = {"admin": bot_state}
 user_engines = {}
 
 def get_user_bot_state(user_id="admin"):
@@ -1001,11 +990,6 @@ def get_status(user_id="admin"):
             "modules": bot_state.modules,
             "auto_bet_enabled": bot_state.auto_bet_enabled,
             "auto_bet_threshold": bot_state.auto_bet_threshold,
-            "arb_logs": getattr(bot_state, "arb_logs", []),
-            "arb_prices": getattr(bot_state, "arb_prices", {"binance": 0, "kraken": 0}),
-            "high_risk_arb_logs": getattr(bot_state, "high_risk_arb_logs", []),
-            "high_risk_arb_prices": getattr(bot_state, "high_risk_arb_prices", {}),
-            "high_risk_volatile_assets": getattr(bot_state, "high_risk_volatile_assets", []),
             "monitored_positions": getattr(bot_state, "monitored_positions", []),
             "reentry_watchlist": getattr(bot_state, "reentry_watchlist", []),
             "sports_logs": getattr(bot_state, "sports_logs", []),
@@ -1063,7 +1047,6 @@ async def toggle_module(payload: dict, user: dict = Depends(require_user)):
     user_id = user.get("sub", "admin")
     u_bot_state = get_user_bot_state(user_id)
     u_alpaca_engine = get_user_alpaca_engine(user_id)
-    u_arb_engine = arb_engine
     u_sports_engine = sports_engine
     u_ai_engine = ai_engine
     
@@ -1100,16 +1083,6 @@ async def toggle_module(payload: dict, user: dict = Depends(require_user)):
                     u_sentiment_engine.user_id = user_id
                     global_executor.submit(u_sentiment_engine.loop)
                     u_bot_state.add_log("📡 Modulo AI Sentiment Radar avviato.")
-            elif (module_name == "crypto_arb" or module_name == "high_risk_crypto_arb") and u_arb_engine and not getattr(u_arb_engine, "running", False):
-                u_arb_engine.bot_state = u_bot_state
-                u_arb_engine.running = True
-                u_arb_engine.user_id = user_id
-                global_executor.submit(u_arb_engine.loop)
-                
-            if module_name == "high_risk_crypto_arb":
-                u_bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 🚀 Motore Alto Rischio Avviato (Ricerca memecoin volatili...)")
-                if len(u_bot_state.high_risk_arb_logs) > 50:
-                    u_bot_state.high_risk_arb_logs.pop()
             elif module_name == "trading" and u_alpaca_engine and not getattr(u_alpaca_engine, "running", False):
                 u_bot_state.is_running = True
                 u_alpaca_engine.running = True
@@ -1130,13 +1103,6 @@ async def toggle_module(payload: dict, user: dict = Depends(require_user)):
                         try:
                             u_alpaca_engine.alpaca_stream.stop()
                         except: pass
-            elif module_name == "high_risk_crypto_arb":
-                u_bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 🛑 Motore Alto Rischio Fermato.")
-                if len(u_bot_state.high_risk_arb_logs) > 50:
-                    u_bot_state.high_risk_arb_logs.pop()
-            elif module_name == "crypto_arb":
-                if u_arb_engine:
-                    u_arb_engine.running = False
                 
         current_state = get_status(user_id)
         return {
@@ -2750,13 +2716,6 @@ def startup_event():
             global_executor.submit(alpaca_engine.loop)
     except Exception as e:
         print(f"Errore autostart trading: {e}")
-        
-    try:
-        if (bot_state.modules.get("crypto_arb", False) or bot_state.modules.get("high_risk_crypto_arb", False)) and 'arb_engine' in globals() and arb_engine is not None:
-            bot_state.add_log("Autostart: Avvio automatico DeFi Arbitrage Engine...")
-            global_executor.submit(arb_engine.loop)
-    except Exception as e:
-        print(f"Errore autostart crypto_arb: {e}")
         
     try:
         if bot_state.modules.get("sports_arb", False) and 'sports_engine' in globals() and sports_engine is not None:
