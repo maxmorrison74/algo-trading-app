@@ -1473,31 +1473,33 @@ Rispondi SOLO in questo formato JSON (nessun altro testo):
 
 
 @app.post("/api/auto-bet-settings")
-async def update_auto_bet_settings(payload: dict, _: str = Depends(require_admin)):
+async def update_auto_bet_settings(payload: dict, user: dict = Depends(require_user)):
     """Aggiorna le impostazioni dell'auto-bet (abilitato + soglia %)"""
     try:
+        user_id = user.get("sub", "admin")
+        u_bot_state = get_user_bot_state(user_id)
         changed = False
         if "enabled" in payload:
-            bot_state.auto_bet_enabled = bool(payload["enabled"])
+            u_bot_state.auto_bet_enabled = bool(payload["enabled"])
             changed = True
-            state = "ABILITATO" if bot_state.auto_bet_enabled else "DISABILITATO"
-            thresh = float(getattr(bot_state, "auto_bet_threshold", 10.0))
-            bot_state.add_log(f"🤖 Auto-Bet {state} (soglia: {thresh:.1f}%)")
+            state = "ABILITATO" if u_bot_state.auto_bet_enabled else "DISABILITATO"
+            thresh = float(getattr(u_bot_state, "auto_bet_threshold", 10.0))
+            u_bot_state.add_log(f"🤖 Auto-Bet {state} (soglia: {thresh:.1f}%)")
         
         if "threshold" in payload:
             val = float(payload["threshold"])
-            bot_state.auto_bet_threshold = max(1.0, min(val, 50.0))  # clamp 1-50%
+            u_bot_state.auto_bet_threshold = max(1.0, min(val, 50.0))  # clamp 1-50%
             changed = True
-            thresh = float(bot_state.auto_bet_threshold)
-            bot_state.add_log(f"🤖 Auto-Bet soglia aggiornata a {thresh:.1f}%")
+            thresh = float(u_bot_state.auto_bet_threshold)
+            u_bot_state.add_log(f"🤖 Auto-Bet soglia aggiornata a {thresh:.1f}%")
             
         if changed:
-            bot_state.save_state()
+            u_bot_state.save_state()
             
         return {
             "status": "ok",
-            "auto_bet_enabled": getattr(bot_state, "auto_bet_enabled", False),
-            "auto_bet_threshold": getattr(bot_state, "auto_bet_threshold", 10.0)
+            "auto_bet_enabled": getattr(u_bot_state, "auto_bet_enabled", False),
+            "auto_bet_threshold": getattr(u_bot_state, "auto_bet_threshold", 10.0)
         }
     except Exception as e:
         print(f"Errore update_auto_bet_settings: {e}")

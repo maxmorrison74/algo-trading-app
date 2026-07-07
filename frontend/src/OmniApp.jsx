@@ -2159,6 +2159,8 @@ function OmniApp() {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ enabled: !status.auto_bet_enabled })
+                }).then(() => {
+                  setStatus(prev => ({...prev, auto_bet_enabled: !prev.auto_bet_enabled}));
                 });
               }}
               {...demoActionButtonProps()}
