@@ -2320,6 +2320,10 @@ class TestConnectionRequest(BaseModel):
     theodds_key: str = ""
     newsapi_key: str = ""
     groq_key: str = ""
+    binance_key: str = ""
+    binance_secret: str = ""
+    kraken_key: str = ""
+    kraken_secret: str = ""
 
 @app.post("/api/test-connection")
 def test_connection(req: TestConnectionRequest, user: dict = Depends(require_user)):
