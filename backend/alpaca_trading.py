@@ -566,6 +566,13 @@ class AlpacaEngine:
         # Le crypto ammettono frazioni, le azioni dipendono dal broker. Arrotondiamo a 4 decimali.
         qty = round(qty, 4)
         
+        # Alpaca NON permette la vendita allo scoperto (SHORT) di azioni frazionate. Deve essere un numero intero.
+        if side == "SHORT":
+            qty = int(qty)
+            if qty < 1:
+                self._log(f"⚠️ SHORT su {symbol} annullato: Capitale insufficiente per vendere allo scoperto almeno 1 azione intera (Alpaca non permette short frazionati).")
+                return
+        
         if qty <= 0.0001: return
         
         alpaca_side = 'buy' if side == "LONG" else 'sell'
