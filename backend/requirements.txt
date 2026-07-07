@@ -12,6 +12,7 @@ ccxt
 tenacity
 websockets
 groq
+google-generativeai
 google-cloud-aiplatform
 python-multipart
 tensorflow
@@ -20,3 +21,5 @@ joblib
 cryptography
 pyjwt
 bcrypt
+alpaca-py==0.32.0
+oandapyV20==0.7.2

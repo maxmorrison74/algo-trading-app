@@ -1475,7 +1475,7 @@ function OmniApp() {
 
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Alpaca (Stock Market) {savedKeys['ALPACA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Alpaca (Stock & Options) {savedKeys['ALPACA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
           <button onClick={() => testConnection('alpaca')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
@@ -1483,6 +1483,33 @@ function OmniApp() {
           <input type="password" placeholder="Secret Key" value={apiKeys.alpaca_secret} onChange={e => setApiKeys({...apiKeys, alpaca_secret: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
         </div>
         {testResults['alpaca'] && <div style={{ color: testResults['alpaca'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['alpaca']}</div>}
+      </div>
+
+      <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(66, 133, 244, 0.4)', background: 'linear-gradient(135deg, rgba(66,133,244,0.08) 0%, rgba(15,157,88,0.08) 100%)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ fontSize: '1.3rem' }}>🧠</span> Google Gemini AI
+            {savedKeys['GEMINI_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Attivo</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Non configurato</span>}
+          </h3>
+          <button onClick={() => testConnection('gemini')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', background: 'linear-gradient(135deg, #4285f4, #0f9d58)', border: 'none', ...demoActionStyle }}>Test Connessione</button>
+        </div>
+        <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(66,133,244,0.1)', borderRadius: '6px', borderLeft: '3px solid #4285f4' }}>
+          💡 Cervello principale del bot. Gemini 1.5 Flash ha priorità su Groq. Ottieni la chiave gratis su <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#4285f4' }}>aistudio.google.com</a>
+        </div>
+        <input type="password" placeholder="Gemini API Key (AIza...)" value={apiKeys.gemini_key || ''} onChange={e => setApiKeys({...apiKeys, gemini_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(66,133,244,0.3)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
+        {testResults['gemini'] && <div style={{ color: testResults['gemini'].includes('stabilita') ? '#10b981' : '#f59e0b', fontSize: '0.8rem', marginTop: '0.5rem' }}>{testResults['gemini']}</div>}
+      </div>
+
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>OANDA (Forex Market) {savedKeys['OANDA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
+          <button onClick={() => testConnection('oanda')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
+          <input type="password" placeholder="API Key / Access Token" value={apiKeys.oanda_key || ''} onChange={e => setApiKeys({...apiKeys, oanda_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
+          <input type="password" placeholder="Account ID (es. 101-004-...)" value={apiKeys.oanda_account || ''} onChange={e => setApiKeys({...apiKeys, oanda_account: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
+        </div>
+        {testResults['oanda'] && <div style={{ color: testResults['oanda'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['oanda']}</div>}
       </div>
 
 
@@ -1547,8 +1574,8 @@ function OmniApp() {
 
   const renderHomeView = () => {
     const aiEarnings = status.ai_videos?.reduce((acc, v) => acc + (v.earnings || 0), 0) || 0;
-    const virtualCash = Number(status.portfolio_value || 10000);
-    const initialCash = 10000;
+    const initialCash = status.initial_cash || 1000;
+    const virtualCash = Number(status.portfolio_value || 1000);
     const tradingProfit = virtualCash - initialCash;
     const totalWorth = virtualCash + aiEarnings;
     
@@ -1614,7 +1641,9 @@ function OmniApp() {
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>Trading Quantitativo AI</div>
                   </div>
                 </div>
-                <div style={{ fontWeight: 'bold', color: '#10b981' }}>+${Math.abs(tradingProfit).toFixed(2)}</div>
+                <div style={{ fontWeight: 'bold', color: tradingProfit >= 0 ? '#10b981' : '#ef4444' }}>
+                  {tradingProfit >= 0 ? '+' : ''}${tradingProfit.toFixed(2)}
+                </div>
               </div>
 
 

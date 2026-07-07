@@ -67,9 +67,12 @@ def init_db():
             binance_key TEXT,
             binance_secret TEXT,
             groq_key TEXT,
+            gemini_key TEXT,
             elevenlabs_key TEXT,
             theodds_key TEXT,
             newsapi_key TEXT,
+            oanda_key TEXT,
+            oanda_account TEXT,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )
     ''')
@@ -82,9 +85,17 @@ def init_db():
         cursor.execute("ALTER TABLE api_keys ADD COLUMN newsapi_key TEXT")
         cursor.execute("ALTER TABLE api_keys ADD COLUMN kraken_key TEXT")
         cursor.execute("ALTER TABLE api_keys ADD COLUMN kraken_secret TEXT")
+        cursor.execute("ALTER TABLE api_keys ADD COLUMN oanda_key TEXT")
+        cursor.execute("ALTER TABLE api_keys ADD COLUMN oanda_account TEXT")
         conn.commit()
     except Exception:
         pass  # Columns already exist
+
+    try:
+        cursor.execute("ALTER TABLE api_keys ADD COLUMN gemini_key TEXT")
+        conn.commit()
+    except Exception:
+        pass  # Column already exists
 
     # Crypto Payments table
     cursor.execute('''
@@ -170,38 +181,40 @@ def update_subscription(user_id: str, expires_at: str):
     conn.close()
 
 # API Keys Operations
-def save_api_keys(user_id: str, alpaca_key: str = "", alpaca_secret: str = "", binance_key: str = "", binance_secret: str = "", kraken_key: str = "", kraken_secret: str = "", groq_key: str = "", elevenlabs_key: str = "", theodds_key: str = "", newsapi_key: str = ""):
+def save_api_keys(user_id: str, alpaca_key: str = "", alpaca_secret: str = "", binance_key: str = "", binance_secret: str = "", kraken_key: str = "", kraken_secret: str = "", groq_key: str = "", gemini_key: str = "", elevenlabs_key: str = "", theodds_key: str = "", newsapi_key: str = "", oanda_key: str = "", oanda_account: str = ""):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # Check if exists
     cursor.execute("SELECT user_id FROM api_keys WHERE user_id = ?", (user_id,))
     if cursor.fetchone():
         cursor.execute("""
             UPDATE api_keys 
             SET alpaca_key = ?, alpaca_secret = ?, binance_key = ?, binance_secret = ?,
                 kraken_key = ?, kraken_secret = ?,
-                groq_key = ?, elevenlabs_key = ?, theodds_key = ?, newsapi_key = ?
+                groq_key = ?, gemini_key = ?, elevenlabs_key = ?, theodds_key = ?, newsapi_key = ?,
+                oanda_key = ?, oanda_account = ?
             WHERE user_id = ?
         """, (
             encrypt_value(alpaca_key), encrypt_value(alpaca_secret),
             encrypt_value(binance_key), encrypt_value(binance_secret),
             encrypt_value(kraken_key), encrypt_value(kraken_secret),
-            encrypt_value(groq_key), encrypt_value(elevenlabs_key),
+            encrypt_value(groq_key), encrypt_value(gemini_key), encrypt_value(elevenlabs_key),
             encrypt_value(theodds_key), encrypt_value(newsapi_key),
+            encrypt_value(oanda_key), encrypt_value(oanda_account),
             user_id
         ))
     else:
         cursor.execute("""
-            INSERT INTO api_keys (user_id, alpaca_key, alpaca_secret, binance_key, binance_secret, kraken_key, kraken_secret, groq_key, elevenlabs_key, theodds_key, newsapi_key)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO api_keys (user_id, alpaca_key, alpaca_secret, binance_key, binance_secret, kraken_key, kraken_secret, groq_key, gemini_key, elevenlabs_key, theodds_key, newsapi_key, oanda_key, oanda_account)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             user_id,
             encrypt_value(alpaca_key), encrypt_value(alpaca_secret),
             encrypt_value(binance_key), encrypt_value(binance_secret),
             encrypt_value(kraken_key), encrypt_value(kraken_secret),
-            encrypt_value(groq_key), encrypt_value(elevenlabs_key),
-            encrypt_value(theodds_key), encrypt_value(newsapi_key)
+            encrypt_value(groq_key), encrypt_value(gemini_key), encrypt_value(elevenlabs_key),
+            encrypt_value(theodds_key), encrypt_value(newsapi_key),
+            encrypt_value(oanda_key), encrypt_value(oanda_account)
         ))
         
     conn.commit()
@@ -227,7 +240,9 @@ def get_api_keys(user_id: str):
         "groq_key": decrypt_value(row.get('groq_key', '')),
         "elevenlabs_key": decrypt_value(row.get('elevenlabs_key', '')),
         "theodds_key": decrypt_value(row.get('theodds_key', '')),
-        "newsapi_key": decrypt_value(row.get('newsapi_key', ''))
+        "newsapi_key": decrypt_value(row.get('newsapi_key', '')),
+        "oanda_key": decrypt_value(row.get('oanda_key', '')),
+        "oanda_account": decrypt_value(row.get('oanda_account', ''))
     }
 
 # Crypto Payments Operations

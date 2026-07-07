@@ -20,18 +20,22 @@ cd ..
 
 # Riavvio PM2 come utente corrente
 echo "4) Controllo PM2..."
+# Usa PM2 locale (senza sudo)
 if ! command -v pm2 &> /dev/null
 then
-    echo "PM2 non trovato, installazione globale in corso..."
-    sudo npm install -g pm2
+    echo "PM2 non trovato globalmente, uso versione locale..."
+    npm install pm2 --prefix ./node_pm2 --save 2>/dev/null || true
+    PM2_CMD="./node_pm2/node_modules/.bin/pm2"
+else
+    PM2_CMD="pm2"
 fi
 
 mkdir -p logs
 
 echo "🚀 Riavvio del Server tramite PM2 come utente corrente..."
-pm2 delete algotrading-api || true
-pm2 start ecosystem.config.js --update-env
-pm2 save
+$PM2_CMD delete algotrading-api || true
+$PM2_CMD start ecosystem.config.js --update-env
+$PM2_CMD save
 
 echo "5) Verifica avvio backend su 127.0.0.1:8000..."
 BACKEND_OK=0
