@@ -3534,10 +3534,6 @@ function OmniApp() {
             <span className="menu-label">Trading</span>
             {status.modules?.trading && <div className="active-dot"></div>}
           </div>
-          <div className={`menu-item ${activeTab === 'backtest' ? 'active' : ''}`} onClick={() => setActiveTab('backtest')}>
-            <span className="menu-icon">🧪</span>
-            <span className="menu-label">Laboratorio</span>
-          </div>
           <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
             <span className="menu-icon">🔐</span>
             <span className="menu-label">Security</span>
@@ -3644,107 +3640,6 @@ function OmniApp() {
           </button>
         </div>
         {activeTab === 'home' && renderHomeView()}
-        {activeTab === 'backtest' && (
-          <div className="view-section fade-in">
-            <h2 className="section-title">Laboratorio Backtest AI</h2>
-            <div className="card" style={{ padding: '2rem', marginBottom: '2rem' }}>
-              <p style={{ color: '#94a3b8', marginBottom: '1.5rem' }}>
-                Esegui una simulazione quantitativa (LSTM) su 4 anni di dati storici. 
-                Compara i risultati dell'Intelligenza Artificiale rispetto all'acquisto e detenzione passiva (Buy & Hold).
-              </p>
-              
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '2rem' }}>
-                <input type="text" id="backtest-ticker" placeholder="Ticker (es. MRNA)" defaultValue="MRNA" style={{ padding: '0.8rem', borderRadius: '6px', border: '1px solid #334155', background: '#0f172a', color: 'white' }} />
-                <button className="btn btn-start" onClick={async (e) => {
-                  const ticker = document.getElementById('backtest-ticker').value;
-                  const btn = e.currentTarget;
-                  const originalText = btn.innerText;
-                  btn.innerText = "Simulazione in corso...";
-                  btn.disabled = true;
-                  try {
-                      const res = await authFetch('/api/backtest', { 
-                          method: 'POST', 
-                          headers: {
-                              'Content-Type': 'application/json'
-                          },
-                          body: JSON.stringify({ ticker, period: '4y' }) 
-                      });
-                      const dataObj = await res.json();
-                      if (dataObj && dataObj.status === 'success') {
-                        const data = dataObj.data;
-                        document.getElementById('backtest-results-container').style.display = 'block';
-                        document.getElementById('bh-return').innerText = data.stats.market_return_pct + '%';
-                        document.getElementById('ai-return').innerText = data.stats.strategy_return_pct + '%';
-                        document.getElementById('ai-winrate').innerText = data.stats.win_rate_pct + '%';
-                        
-                        // Generazione grafico SVG leggero
-                        const svg = document.getElementById('backtest-chart');
-                        svg.innerHTML = ''; // pulisci
-                        const width = 100; const height = 100;
-                        const m_curve = data.market_curve;
-                        const s_curve = data.strategy_curve;
-                        const minVal = Math.min(...m_curve, ...s_curve);
-                        const maxVal = Math.max(...m_curve, ...s_curve);
-                        const range = maxVal - minVal || 1;
-                        
-                        const getPts = (curve) => curve.map((v, i) => {
-                            const x = (i / (curve.length - 1)) * width;
-                            const y = height - ((v - minVal) / range) * height;
-                            return `${x},${y}`;
-                        }).join(' ');
-                        
-                        const pathM = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-                        pathM.setAttribute("points", getPts(m_curve));
-                        pathM.setAttribute("fill", "none");
-                        pathM.setAttribute("stroke", "#94a3b8");
-                        pathM.setAttribute("stroke-width", "0.5");
-                        
-                        const pathS = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
-                        pathS.setAttribute("points", getPts(s_curve));
-                        pathS.setAttribute("fill", "none");
-                        pathS.setAttribute("stroke", "#10b981");
-                        pathS.setAttribute("stroke-width", "0.8");
-                        
-                        svg.appendChild(pathM);
-                        svg.appendChild(pathS);
-                      } else {
-                        alert("Errore nel backtest: " + (dataObj?.message || 'Sconosciuto'));
-                      }
-                  } catch(err) {
-                      alert("Errore di rete");
-                  } finally {
-                      btn.innerText = originalText;
-                      btn.disabled = false;
-                  }
-                }}>Avvia Simulazione Storica</button>
-              </div>
-
-              <div id="backtest-results-container" style={{ display: 'none' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '1rem', marginBottom: '2rem' }}>
-                  <div className="stat-card">
-                    <div className="stat-label">Rendimento Buy & Hold</div>
-                    <div className="stat-value" id="bh-return" style={{ color: '#94a3b8' }}>0%</div>
-                  </div>
-                  <div className="stat-card" style={{ border: '1px solid rgba(16, 185, 129, 0.3)' }}>
-                    <div className="stat-label">Rendimento Strategia AI</div>
-                    <div className="stat-value" id="ai-return" style={{ color: '#10b981' }}>0%</div>
-                  </div>
-                  <div className="stat-card">
-                    <div className="stat-label">Win Rate Strategia</div>
-                    <div className="stat-value" id="ai-winrate">0%</div>
-                  </div>
-                </div>
-                <div style={{ height: '250px', background: 'rgba(0,0,0,0.3)', borderRadius: '12px', padding: '1rem', border: '1px solid #334155', position: 'relative' }}>
-                  <div style={{ position: 'absolute', top: '10px', right: '15px', display: 'flex', gap: '15px', fontSize: '0.8rem', color: '#94a3b8' }}>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ display: 'inline-block', width: '12px', height: '2px', background: '#94a3b8' }}></span> Buy & Hold</span>
-                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}><span style={{ display: 'inline-block', width: '12px', height: '2px', background: '#10b981' }}></span> AI Strategy</span>
-                  </div>
-                  <svg id="backtest-chart" width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none" style={{ marginTop: '20px' }}></svg>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
         {activeTab === 'settings' && renderSettingsView()}
         {activeTab === 'trading' && renderTradingView()}
         {activeTab === 'sports_arb' && renderSportsArbitrageView()}
