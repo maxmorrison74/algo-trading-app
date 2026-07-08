@@ -1476,6 +1476,69 @@ body {
 .badge-gold { background: rgba(245, 166, 35, 0.15); color: var(--accent-gold); border: 1px solid rgba(245, 166, 35, 0.3); }
 .badge-ai { background: rgba(139, 92, 246, 0.15); color: var(--accent-purple); border: 1px solid rgba(139, 92, 246, 0.3); }
 
+.risk-toggle-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(15, 23, 42, 0.85);
+  color: var(--text-primary);
+  border-radius: 999px;
+  padding: 0.3rem 0.5rem;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.risk-toggle-switch:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.risk-toggle-switch-track {
+  position: relative;
+  width: 48px;
+  height: 26px;
+  border-radius: 999px;
+  background: rgba(100, 116, 139, 0.45);
+  border: 1px solid rgba(255,255,255,0.1);
+  transition: 0.2s ease;
+}
+
+.risk-toggle-switch-thumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+  transition: 0.2s ease;
+}
+
+.risk-toggle-switch.is-on .risk-toggle-switch-track {
+  background: rgba(16, 185, 129, 0.55);
+}
+
+.risk-toggle-switch.is-on .risk-toggle-switch-thumb {
+  transform: translateX(22px);
+}
+
+.risk-toggle-switch.is-off .risk-toggle-switch-track {
+  background: rgba(100, 116, 139, 0.45);
+}
+
+.risk-toggle-switch-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.risk-toggle-switch.is-busy .risk-toggle-switch-track,
+.risk-toggle-switch.is-busy .risk-toggle-switch-thumb {
+  transition-duration: 0s;
+}
+
 /* SCROLLBAR */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: rgba(255,255,255,0.03); }

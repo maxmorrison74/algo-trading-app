@@ -30,6 +30,7 @@ class RiskLimits:
 
 @dataclass
 class RiskState:
+    enabled: bool = True
     daily_pnl: float = 0.0
     weekly_pnl: float = 0.0
     total_pnl: float = 0.0
@@ -104,6 +105,9 @@ class RiskManager:
         """
         with self._lock:
             self._check_daily_reset()
+
+            if not self.state.enabled:
+                return True, "⏸️ Risk Management disattivato manualmente"
             
             # 1. Verifica circuit breaker
             if self.state.circuit_breaker_until:
@@ -138,6 +142,15 @@ class RiskManager:
                 return False, f"⚠️ Max posizioni aperte ({self.limits.max_open_positions}) raggiunto"
                 
             return True, "✅ Trading consentito"
+
+    def set_enabled(self, enabled: bool):
+        with self._lock:
+            previous = self.state.enabled
+            self.state.enabled = bool(enabled)
+            if previous != self.state.enabled:
+                action = "attivato" if self.state.enabled else "disattivato"
+                self._add_alert(f"🛡️ Risk Management {action} manualmente")
+            self._save_state()
             
     def _trigger_circuit_breaker(self, reason: str):
         """Attiva il circuit breaker"""
@@ -230,6 +243,7 @@ class RiskManager:
             can_trade, reason = self.can_trade()
             
             return {
+                "enabled": self.state.enabled,
                 "status": self.state.status,
                 "can_trade": can_trade,
                 "reason": reason,

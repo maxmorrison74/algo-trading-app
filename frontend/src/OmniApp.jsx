@@ -190,6 +190,8 @@ class ErrorBoundary extends React.Component {
 
 const RiskStatus = () => {
   const [risk, setRisk] = useState(null);
+  const [isTogglingRisk, setIsTogglingRisk] = useState(false);
+  const userRole = localStorage.getItem('USER_ROLE') || 'user';
   
   useEffect(() => {
     const fetchRisk = () => authFetch('/api/risk/status').then(r => r.json()).then(setRisk).catch(e => console.error(e));
@@ -201,6 +203,7 @@ const RiskStatus = () => {
   if (!risk || !risk.status) return <div className="card col-span-12" style={{ padding: '2rem', textAlign: 'center', color: '#f59e0b' }}>Caricamento Risk Manager (o Backend Offline)...</div>;
   
   const statusColors = {
+    disabled: '#64748B',
     green: '#10B981',
     yellow: '#F59E0B', 
     red: '#EF4444',
@@ -234,8 +237,37 @@ const RiskStatus = () => {
     }
   };
 
-  const meta = statusMeta[risk.status] || statusMeta.red;
-  const statusColor = statusColors[risk.status] || '#555';
+  const riskEnabled = risk.enabled !== false;
+  const meta = riskEnabled
+    ? (statusMeta[risk.status] || statusMeta.red)
+    : {
+        label: 'SPENTO',
+        title: 'Protezione disattivata',
+        description: 'Il controllo rischio è spento manualmente: il bot non blocca nuove operazioni.',
+        badgeClass: 'badge-idle'
+      };
+  const statusColor = riskEnabled ? (statusColors[risk.status] || '#555') : statusColors.disabled;
+
+  const handleRiskToggle = async () => {
+    if (userRole !== 'admin' || isTogglingRisk || !risk) return;
+    setIsTogglingRisk(true);
+    try {
+      const res = await authFetch('/api/risk/enabled', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ enabled: !riskEnabled })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.detail || data?.message || 'Impossibile aggiornare Risk Management');
+      }
+      setRisk(data.risk);
+    } catch (error) {
+      alert(error.message || 'Impossibile aggiornare Risk Management');
+    } finally {
+      setIsTogglingRisk(false);
+    }
+  };
   
   return (
     <div className="card col-span-6" style={{ border: `2px solid ${statusColor}` }}>
@@ -244,14 +276,29 @@ const RiskStatus = () => {
           <div className="card-title">🛡️ Risk Management</div>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>{meta.title}</div>
         </div>
-        <div className={`badge ${meta.badgeClass}`} style={{ fontSize: '0.9rem', fontWeight: 800 }}>
-          {meta.label}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div className={`badge ${meta.badgeClass}`} style={{ fontSize: '0.9rem', fontWeight: 800 }}>
+            {meta.label}
+          </div>
+          <button
+            type="button"
+            className={`risk-toggle-switch ${riskEnabled ? 'is-on' : 'is-off'} ${isTogglingRisk ? 'is-busy' : ''}`}
+            onClick={handleRiskToggle}
+            disabled={userRole !== 'admin' || isTogglingRisk}
+            aria-pressed={riskEnabled}
+            title={userRole === 'admin' ? 'Attiva o disattiva Risk Management' : 'Solo admin'}
+          >
+            <span className="risk-toggle-switch-track">
+              <span className="risk-toggle-switch-thumb"></span>
+            </span>
+            <span className="risk-toggle-switch-label">{riskEnabled ? 'ON' : 'OFF'}</span>
+          </button>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
         <span style={{ width: '12px', height: '12px', borderRadius: '999px', background: statusColor, boxShadow: `0 0 12px ${statusColor}` }}></span>
         <div style={{ color: statusColor, fontSize: '1.3rem', fontWeight: 'bold', letterSpacing: '0.04em' }}>
-          {risk.can_trade ? 'OPERATIVO' : 'BLOCCATO'}
+          {!riskEnabled ? 'CONTROLLO OFF' : (risk.can_trade ? 'OPERATIVO' : 'BLOCCATO')}
         </div>
       </div>
       <div style={{ opacity: 0.92 }}>{meta.description}</div>

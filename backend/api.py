@@ -151,6 +151,16 @@ def risk_status():
     risk = get_risk_manager(initial_capital=bot_state.virtual_cash)
     return risk.get_status()
 
+class RiskToggleRequest(BaseModel):
+    enabled: bool
+
+@app.post("/api/risk/enabled")
+def set_risk_enabled(payload: RiskToggleRequest, _: str = Depends(require_admin)):
+    """Attiva o disattiva il risk manager"""
+    risk = get_risk_manager(initial_capital=bot_state.virtual_cash)
+    risk.set_enabled(payload.enabled)
+    return {"status": "ok", "risk": risk.get_status()}
+
 @app.post("/api/risk/limits")
 def update_risk_limits(limits: dict, _: str = Depends(require_admin)):
     """Aggiorna i limiti di risk (solo admin)"""
