@@ -908,7 +908,7 @@ def _reentry_loop():
 global_executor.submit(_auto_exit_loop)
 # thread sostituito da executor
 global_executor.submit(_reentry_loop)
-def get_status(user_id="admin"):
+def get_status(user_id="admin", scope: str = "core"):
     bot_state = get_user_bot_state(user_id)
     alpaca = get_user_alpaca_engine(user_id).alpaca_rest
     alpaca_connected = alpaca is not None
@@ -1012,7 +1012,7 @@ def get_status(user_id="admin"):
         except Exception:
             pass
 
-        return {
+        response = {
             "is_running": bot_state.is_running,
             "portfolio_value": round(virtual_portfolio_value, 2),
             "profit": round(virtual_portfolio_value - 100.0, 2),
@@ -1024,28 +1024,44 @@ def get_status(user_id="admin"):
             "max_drawdown": max_drawdown,
             "market_open": market_open,
             "positions": pos_dict,
-            "predictions": bot_state.latest_predictions,
             "last_trade": bot_state.last_trade,
             "cash": round(bot_state.virtual_cash, 2),
             "symbols": bot_state.target_symbols,
-            "symbol_selection": getattr(bot_state, "symbol_selection", {}),
             "alpaca_connected": alpaca_connected,
-            "logs": bot_state.logs,
             "alpaca_info": alpaca_info,
             "aggressiveness": bot_state.aggressiveness,
-            "trade_history": bot_state.trade_history,
             "modules": bot_state.modules,
             "auto_bet_enabled": bot_state.auto_bet_enabled,
             "auto_bet_threshold": bot_state.auto_bet_threshold,
-            "monitored_positions": getattr(bot_state, "monitored_positions", []),
-            "reentry_watchlist": getattr(bot_state, "reentry_watchlist", []),
-            "sports_logs": getattr(bot_state, "sports_logs", []),
-            "active_surebets": getattr(bot_state, "active_surebets", []),
-            "value_bets": getattr(bot_state, "value_bets", []),
-            "ai_logs": getattr(bot_state, "ai_logs", []),
-            "ai_videos": getattr(bot_state, "ai_videos", []),
-            "ai_investments": getattr(bot_state, "ai_investments", [])
         }
+        if scope in {"trading", "charts", "full"}:
+            response.update({
+                "predictions": bot_state.latest_predictions,
+                "symbol_selection": getattr(bot_state, "symbol_selection", {}),
+                "logs": bot_state.logs[:80],
+                "trade_history": bot_state.trade_history[-120:],
+                "monitored_positions": getattr(bot_state, "monitored_positions", []),
+                "reentry_watchlist": getattr(bot_state, "reentry_watchlist", []),
+                "ai_investments": getattr(bot_state, "ai_investments", []),
+            })
+        if scope in {"sports_arb", "full"}:
+            response.update({
+                "sports_logs": getattr(bot_state, "sports_logs", [])[:120],
+                "active_surebets": getattr(bot_state, "active_surebets", []),
+            })
+        if scope in {"value_bets", "full"}:
+            response.update({
+                "value_bets": getattr(bot_state, "value_bets", []),
+            })
+        if scope in {"home", "ai_content", "full"}:
+            response.update({
+                "ai_videos": getattr(bot_state, "ai_videos", []),
+            })
+        if scope in {"ai_content", "full"}:
+            response.update({
+                "ai_logs": getattr(bot_state, "ai_logs", [])[:120],
+            })
+        return response
     except Exception as e:
         return {"error": str(e)}
 
@@ -1074,13 +1090,14 @@ def api_status(response: Response, request: Request):
     response.headers["Expires"] = "0"
     user_id = "admin"
     auth = request.headers.get("Authorization")
+    scope = request.query_params.get("scope", "core")
     if auth and auth.startswith("Bearer "):
         try:
             payload = jwt.decode(auth.split(" ")[1], JWT_SECRET, algorithms=[JWT_ALGORITHM])
             user_id = payload.get("sub", "admin")
         except: pass
     try:
-        raw_status = get_status(user_id)
+        raw_status = get_status(user_id, scope=scope)
         return sanitize_nans(raw_status)
     except Exception as e:
         return {"error": str(e)}

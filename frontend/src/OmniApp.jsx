@@ -84,6 +84,38 @@ const clearAuthSession = () => {
   localStorage.removeItem('USER_STATUS');
 };
 
+const getStatusScope = (activeTab) => {
+  switch (activeTab) {
+    case 'trading':
+    case 'charts':
+      return 'trading';
+    case 'sports_arb':
+      return 'sports_arb';
+    case 'value_bets':
+      return 'value_bets';
+    case 'ai_content':
+      return 'ai_content';
+    case 'home':
+      return 'home';
+    default:
+      return 'core';
+  }
+};
+
+const getStatusPollingMs = (activeTab) => {
+  switch (activeTab) {
+    case 'trading':
+    case 'charts':
+      return 2000;
+    case 'sports_arb':
+    case 'value_bets':
+    case 'ai_content':
+      return 3500;
+    default:
+      return 5000;
+  }
+};
+
 const authFetch = async (input, init = {}) => {
   const headers = new Headers(init.headers || {});
   const token = getAuthToken();
@@ -852,19 +884,19 @@ function OmniApp() {
   }, []);
 
   useEffect(() => {
+    const scope = getStatusScope(activeTab);
+    const pollingMs = getStatusPollingMs(activeTab);
+
     const fetchStatus = async () => {
       try {
-        const token = localStorage.getItem('AUREO_SESSION');
-        const res = await fetch('/api/status?t=' + Date.now(), {
-          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
-        });
+        const res = await authFetch(`/api/status?scope=${scope}&t=${Date.now()}`);
         const data = await res.json();
         if (!data.error) {
-          setStatus(data);
+          setStatus(prev => ({ ...prev, ...data }));
           setIsBackendOnline(true);
           setLastStatusSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }));
-          if (!selectedSymbol && data.symbols && data.symbols.length > 0) {
-            setSelectedSymbol(data.symbols[0]);
+          if (data.symbols && data.symbols.length > 0) {
+            setSelectedSymbol(prev => (prev && data.symbols.includes(prev) ? prev : data.symbols[0]));
           }
         }
       } catch (err) {
@@ -873,9 +905,9 @@ function OmniApp() {
       }
     };
     fetchStatus();
-    const interval = setInterval(fetchStatus, 2000);
+    const interval = setInterval(fetchStatus, pollingMs);
     return () => clearInterval(interval);
-  }, [selectedSymbol]);
+  }, [activeTab]);
 
   useEffect(() => {
     if (!selectedSymbol) return;
