@@ -596,6 +596,8 @@ engines = {
 }
 user_bot_states = {"admin": bot_state}
 user_engines = {}
+status_snapshot_cache = {}
+status_snapshot_lock = threading.Lock()
 
 def get_user_bot_state(user_id="admin"):
     if user_id not in user_bot_states:
@@ -615,6 +617,84 @@ def get_user_alpaca_engine(user_id="admin"):
 admin_bot_state = get_user_bot_state("admin")
 alpaca_engine = get_user_alpaca_engine("admin")
 trade_lock = threading.Lock()
+
+
+def _get_status_snapshot_ttl(scope: str) -> float:
+    if scope in {"trading", "charts"}:
+        return 1.5
+    if scope in {"sports_arb", "value_bets", "ai_content", "home"}:
+        return 3.0
+    return 5.0
+
+
+def _get_cached_alpaca_snapshot(user_id: str, alpaca, target_symbols, current_capital: float, scope: str):
+    if not alpaca:
+        return {
+            "alpaca_connected": False,
+            "positions": {},
+            "portfolio_value": current_capital,
+            "market_open": False,
+            "alpaca_info": {"status": "Scollegato", "account_number": "N/A", "type": "N/A"},
+        }
+
+    now_ts = time.time()
+    ttl = _get_status_snapshot_ttl(scope)
+    cache_key = f"{user_id}:{scope}"
+
+    with status_snapshot_lock:
+        cached = status_snapshot_cache.get(cache_key)
+        if cached and cached["expires_at"] > now_ts and cached.get("target_symbols") == tuple(target_symbols):
+            return cached["payload"]
+
+    positions_dict = {}
+    pos_unrealized_pl = 0.0
+    market_open = False
+    alpaca_info = {"status": "Scollegato", "account_number": "N/A", "type": "N/A"}
+
+    try:
+        account = alpaca.get_account()
+        positions = alpaca.list_positions()
+
+        for position in positions:
+            if position.symbol in target_symbols:
+                positions_dict[position.symbol] = {
+                    "qty": float(position.qty),
+                    "market_value": float(position.market_value),
+                    "side": position.side.upper(),
+                    "unrealized_pl": float(getattr(position, 'unrealized_pl', 0)),
+                    "unrealized_plpc": float(getattr(position, 'unrealized_plpc', 0)) * 100
+                }
+                pos_unrealized_pl += float(getattr(position, 'unrealized_pl', 0))
+
+        try:
+            clock = alpaca.get_clock()
+            market_open = clock.is_open
+        except Exception:
+            market_open = False
+
+        alpaca_info["account_number"] = account.account_number
+        alpaca_info["status"] = account.status
+        is_paper = "paper" in os.getenv("ALPACA_BASE_URL", "").lower()
+        alpaca_info["type"] = "PAPER" if is_paper else "LIVE"
+    except Exception:
+        pass
+
+    payload = {
+        "alpaca_connected": True,
+        "positions": positions_dict,
+        "portfolio_value": current_capital + pos_unrealized_pl,
+        "market_open": market_open,
+        "alpaca_info": alpaca_info,
+    }
+
+    with status_snapshot_lock:
+        status_snapshot_cache[cache_key] = {
+            "expires_at": now_ts + ttl,
+            "target_symbols": tuple(target_symbols),
+            "payload": payload,
+        }
+
+    return payload
 
 
 def _normalize_ccxt_symbol(symbol: str) -> str:
@@ -911,38 +991,21 @@ global_executor.submit(_reentry_loop)
 def get_status(user_id="admin", scope: str = "core"):
     bot_state = get_user_bot_state(user_id)
     alpaca = get_user_alpaca_engine(user_id).alpaca_rest
-    alpaca_connected = alpaca is not None
-    #if not alpaca: return {"error": "Alpaca API non configurata."}
     pos_dict = {}
     virtual_portfolio_value = get_capital_manager().config.current_capital
     try:
-        if alpaca:
-            try:
-                account = alpaca.get_account()
-                positions = alpaca.list_positions()
-                
-                # Creiamo un dizionario delle posizioni aperte formattato per il frontend
-                for p in positions:
-                    if p.symbol in bot_state.target_symbols:
-                        # Includiamo il side (long o short) per il frontend e i dati di PnL
-                        pos_dict[p.symbol] = {
-                            "qty": float(p.qty), 
-                            "market_value": float(p.market_value), 
-                            "side": p.side.upper(),
-                            "unrealized_pl": float(getattr(p, 'unrealized_pl', 0)),
-                            "unrealized_plpc": float(getattr(p, 'unrealized_plpc', 0)) * 100
-                        }
-                        
-                # Calcoliamo il portfolio_value virtuale sommando i profitti/perdite latenti al capitale corrente
-                pos_unrealized_pl = sum(float(getattr(p, 'unrealized_pl', 0)) for p in positions if p.symbol in bot_state.target_symbols)
-                cap = get_capital_manager()
-                virtual_portfolio_value = cap.config.current_capital + pos_unrealized_pl
-            except Exception:
-                pass
-
-        if not alpaca or 'virtual_portfolio_value' not in locals():
-            cap = get_capital_manager()
-            virtual_portfolio_value = cap.config.current_capital
+        cap = get_capital_manager()
+        current_capital = cap.config.current_capital
+        snapshot = _get_cached_alpaca_snapshot(
+            user_id=user_id,
+            alpaca=alpaca,
+            target_symbols=bot_state.target_symbols,
+            current_capital=current_capital,
+            scope=scope,
+        )
+        alpaca_connected = snapshot["alpaca_connected"]
+        pos_dict = dict(snapshot["positions"])
+        virtual_portfolio_value = snapshot["portfolio_value"]
 
         # Per i simboli che non abbiamo, segniamo "LIQUID"
         for sym in bot_state.target_symbols:
@@ -986,20 +1049,8 @@ def get_status(user_id="admin", scope: str = "core"):
         if high_val > current_val:
             max_drawdown = round(((high_val - current_val) / high_val) * 100, 2)
 
-        market_open = False
-        alpaca_info = {"status": "Scollegato", "account_number": "N/A", "type": "N/A"}
-        try:
-            if alpaca:
-                clock = alpaca.get_clock()
-                market_open = clock.is_open
-                
-                account = alpaca.get_account()
-                alpaca_info["account_number"] = account.account_number
-                alpaca_info["status"] = account.status
-                is_paper = "paper" in os.getenv("ALPACA_BASE_URL", "").lower()
-                alpaca_info["type"] = "PAPER" if is_paper else "LIVE"
-        except Exception:
-            pass
+        market_open = snapshot["market_open"]
+        alpaca_info = snapshot["alpaca_info"]
 
         # Fallback orario se l'API Alpaca fallisce
         try:
