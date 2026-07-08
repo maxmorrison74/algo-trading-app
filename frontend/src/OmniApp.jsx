@@ -3220,57 +3220,63 @@ function OmniApp() {
       { market: 'EUR/USD', price: '1.11', change: '+0.2%', direction: 'up' },
     ];
     const landingStats = [
-      { value: '24/7', label: 'visibilità costante su capitale, segnali e rischio' },
-      { value: 'Multi-device', label: 'esperienza fluida su iPhone, Android, tablet e desktop' },
-      { value: '3 step', label: 'accessi pensati per livelli operativi diversi' },
+      { value: '24/7', label: 'visibilità continua su capitale, segnali, accessi e rischio' },
+      { value: 'Executive UX', label: 'esperienza premium coerente su iPhone, Android, tablet e desktop' },
+      { value: '3 step', label: 'attivazioni pensate per profili operativi, advisory e high-ticket' },
+    ];
+    const landingEnterpriseSignals = [
+      'Governance-ready onboarding',
+      'Manual approval control',
+      'Passkey & secure access',
+      'Multi-device executive experience',
     ];
     const landingFeatures = [
       {
         icon: '🧠',
-        title: 'AI Avanzata',
-        text: 'Algoritmi e letture assistite aiutano a interpretare contesto, opportunità e segnali in tempo reale con più lucidità.',
+        title: 'AI Assistita per decisioni',
+        text: 'Algoritmi e letture assistite supportano la lettura del contesto operativo e dei segnali senza appesantire l’esperienza.',
       },
       {
-        icon: '⚡',
-        title: 'Esecuzione più rapida',
-        text: 'Interfaccia, dati e moduli sono organizzati per ridurre attrito e trasformare più in fretta l’analisi in azione.',
+        icon: '🏛️',
+        title: 'Immagine enterprise-grade',
+        text: 'Ogni sezione è progettata per trasmettere ordine, solidità e controllo, qualità essenziali in trattative high-ticket.',
       },
       {
         icon: '🛡️',
         title: 'Sicurezza premium',
-        text: 'Accesso biometrico, gestione chiavi e percorsi protetti rafforzano la percezione di solidità fin dal primo ingresso.',
+        text: 'Passkey, gestione chiavi, login separati e percorsi protetti costruiscono una base credibile per clienti premium ed enterprise.',
       },
       {
         icon: '📊',
-        title: 'Control room evoluta',
-        text: 'Dashboard, trading, DeFi e lettura di segnali convivono in un unico ambiente credibile e leggibile.',
+        title: 'Control room unificata',
+        text: 'Dashboard, trading, DeFi, segnali e security convivono in un’unica interfaccia leggibile, forte e pronta per demo commerciali.',
       },
       {
         icon: '📱',
         title: 'Multi-device reale',
-        text: 'L’esperienza resta forte e pulita su iPhone, Android, tablet e desktop, senza perdere presenza visiva.',
+        text: 'L’esperienza resta pulita e autorevole su iPhone, Android, tablet e desktop, senza perdere presenza visiva.',
       },
       {
-        icon: '🎧',
-        title: 'Percorso guidato',
-        text: 'Dalla prima impressione fino all’accesso, ogni passaggio accompagna l’utente senza spezzare fiducia e attenzione.',
+        icon: '🧭',
+        title: 'Percorso commerciale guidato',
+        text: 'Dalla prima impressione fino all’attivazione, ogni passaggio accompagna l’utente con meno attrito e più fiducia percepita.',
       },
     ];
     const landingFlow = [
       {
         number: '1',
-        title: 'Scopri il sistema',
-        text: 'La pagina iniziale mostra subito posizionamento, forza visiva e valore percepito del prodotto.',
+        title: 'Valuta il posizionamento',
+        text: 'La pagina iniziale presenta subito il prodotto come una control room premium, non come una semplice dashboard tecnica.',
       },
       {
         number: '2',
-        title: 'Scegli lo step',
-        text: 'L’utente capisce con chiarezza quale accesso è più adatto al suo profilo, senza confusione.',
+        title: 'Scegli lo step operativo',
+        text: 'L’utente comprende quale accesso è coerente con il proprio livello operativo, senza dispersione o confusione.',
       },
       {
         number: '3',
-        title: 'Entra senza attrito',
-        text: 'Registrazione o accesso avvengono nella stessa esperienza, mantenendo continuità e qualità percepita.',
+        title: 'Attiva con continuità',
+        text: 'La registrazione e l’attivazione restano dentro la stessa esperienza, preservando qualità percepita e slancio commerciale.',
       },
     ];
     const landingTestimonials = [
@@ -3294,8 +3300,8 @@ function OmniApp() {
       },
     ];
     const landingTrustPillars = [
-      'Presenza visiva premium',
-      'Percorso lineare verso l’accesso',
+      'Presenza executive-grade',
+      'Percorso commerciale lineare',
       'Coerenza piena tra presentazione e utilizzo',
     ];
     if (showLanding) {
@@ -3311,13 +3317,13 @@ function OmniApp() {
             </a>
             <div className="sales-nav-links">
               <a href="#landing-features">Funzionalità</a>
-              <a href="#landing-flow">Percorso</a>
+              <a href="#landing-flow">Operating Model</a>
               <a href="#landing-pricing">Step</a>
               <a href="#landing-proof">Impatto</a>
             </div>
             <div className="sales-nav-actions">
-              <button className="btn btn-outline" onClick={() => setShowLanding(false)}>Accedi</button>
-              <button className="btn btn-start" onClick={openPricingSection}>Scopri Aureo</button>
+              <button className="btn btn-outline" onClick={() => setShowLanding(false)}>Area Riservata</button>
+              <button className="btn btn-start" onClick={openPricingSection}>Valuta gli step</button>
             </div>
           </nav>
 
@@ -3336,20 +3342,25 @@ function OmniApp() {
           <div className="sales-page" id="landing-top">
             <section className="sales-hero">
               <div className="sales-hero-content">
-                <div className="sales-badge">⚡ Nuovo: AUREO OS Experience</div>
+                <div className="sales-badge">⚡ Executive Trading Experience</div>
                 <h1>
-                  Il Futuro della <span>Control Room Operativa</span> è qui
+                  La <span>Control Room Operativa</span> che alza il livello del prodotto
                 </h1>
                 <p>
-                  AUREO OS è l’ambiente premium che unisce dashboard, AI, trading, DeFi e sicurezza in un’esperienza elegante, autorevole e pronta a valorizzare il prodotto fin dal primo sguardo.
+                  AUREO OS è un ambiente premium che unisce dashboard, AI, trading, DeFi e sicurezza in un’esperienza autorevole, pensata per clienti ad alto valore, demo commerciali forti e percorsi enterprise assistiti.
                 </p>
-                                <div className="sales-hero-buttons">
+                <div className="sales-hero-buttons">
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
-                    Scopri gli step
+                    Vedi gli step
                   </button>
                   <button className="btn btn-outline btn-large" onClick={startTour}>
                     Guarda il Tour Guidato
                   </button>
+                </div>
+                <div className="sales-enterprise-strip">
+                  {landingEnterpriseSignals.map((item) => (
+                    <div key={item} className="sales-enterprise-pill">{item}</div>
+                  ))}
                 </div>
                 <div className="sales-stats-row">
                   {landingStats.map((item) => (
@@ -3408,8 +3419,8 @@ function OmniApp() {
 
             <section className="sales-section" id="landing-features">
               <div className="sales-section-header">
-                <h2>Tutto ciò che serve per dare peso al prodotto</h2>
-                <p>La struttura ora segue molto più da vicino la pagina originale: stessi blocchi, stesso ritmo, identità Aureo.</p>
+                <h2>Un’esperienza che valorizza davvero il prodotto</h2>
+                <p>La landing parla il linguaggio di una piattaforma premium: più controllo percepito, più autorevolezza, più forza commerciale.</p>
               </div>
               <div className="sales-features-grid">
                 {landingFeatures.map((item) => (
@@ -3424,8 +3435,8 @@ function OmniApp() {
 
             <section className="sales-section sales-section--soft" id="landing-flow">
               <div className="sales-section-header">
-                <h2>Inizia in 3 semplici passi</h2>
-                <p>Prima percezione, poi scelta, poi accesso: tutto nella stessa esperienza.</p>
+                <h2>Operating model in 3 step</h2>
+                <p>Prima posizionamento, poi scelta, poi attivazione: tutto dentro la stessa esperienza commerciale.</p>
               </div>
               <div className="sales-steps-container">
                 {landingFlow.map((step) => (
@@ -3440,8 +3451,8 @@ function OmniApp() {
 
             <section className="sales-section" id="landing-pricing">
               <div className="sales-section-header">
-                <h2>Scegli lo step perfetto per te</h2>
-                <p>Una sezione piani più vicina alla pagina originale, ma con contenuti Aureo e onboarding già collegato.</p>
+                <h2>Scegli lo step più adatto al tuo profilo</h2>
+                <p>Tre accessi chiari, con onboarding collegato e una struttura pensata per accompagnare trattative premium senza dispersione.</p>
               </div>
               <div className="sales-pricing-grid">
                 {landingPlans.map((plan) => (
@@ -3535,8 +3546,8 @@ function OmniApp() {
 
             <section className="sales-section sales-section--proof" id="landing-proof">
               <div className="sales-section-header">
-                <h2>Recensioni e impressioni</h2>
-                <p>Stessa logica della pagina che mi hai dato: prova sociale, autorevolezza e percezione premium.</p>
+                <h2>Impatto percepito</h2>
+                <p>Prova sociale, autorevolezza e qualità percepita: elementi chiave quando il prodotto vuole salire di fascia.</p>
               </div>
               <div className="sales-testimonials-grid">
                 {landingTestimonials.map((item) => (
@@ -3559,8 +3570,8 @@ function OmniApp() {
               <div className="sales-cta-box">
                 <div className="sales-cta-content">
                   <img src="/aureo-logo.jpg" alt="Aureo OS" className="sales-cta-logo" />
-                  <h2>Porta l’utente dentro un’esperienza che si fa ricordare</h2>
-                  <p>Adesso la landing segue molto più fedelmente il layout originale, ma parla davvero il linguaggio di AUREO OS.</p>
+                  <h2>Presenta Aureo come una piattaforma high-end, non come una semplice app</h2>
+                  <p>La nuova direzione rafforza il posizionamento premium e prepara il terreno per una futura offerta enterprise più matura.</p>
                   <div className="sales-trust-row">
                     {landingTrustPillars.map((item) => (
                       <div key={item} className="sales-trust-pill">{item}</div>
@@ -3568,7 +3579,7 @@ function OmniApp() {
                   </div>
                   <div className="sales-hero-buttons sales-hero-buttons--center">
                     <button className="btn btn-start btn-large" onClick={openPricingSection}>Vedi gli step</button>
-                    <button className="btn btn-outline btn-large" onClick={() => setShowLanding(false)}>Accedi ora</button>
+                    <button className="btn btn-outline btn-large" onClick={startTour}>Apri il tour</button>
                   </div>
                 </div>
               </div>
@@ -3590,7 +3601,7 @@ function OmniApp() {
                 </div>
                 <div className="sales-footer-links">
                   <h4>Esperienza</h4>
-                  <a href="#landing-flow">Percorso</a>
+                  <a href="#landing-flow">Operating Model</a>
                   <a href="#landing-proof">Impatto</a>
                 </div>
                 <div className="sales-footer-links">
