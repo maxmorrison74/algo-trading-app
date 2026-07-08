@@ -353,6 +353,14 @@ const RiskStatus = () => {
           {!riskEnabled ? 'CONTROLLO OFF' : (risk.can_trade ? 'OPERATIVO' : 'BLOCCATO')}
         </div>
       </div>
+      <div style={{ marginBottom: '0.75rem', display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+        <div className={`badge ${status.dynamic_atr_stop ? 'badge-active' : 'badge-idle'}`} style={{ fontSize: '0.8rem' }}>
+          ATR Trailing {status.dynamic_atr_stop ? 'ON' : 'OFF'}
+        </div>
+        <div className="badge badge-idle" style={{ fontSize: '0.8rem' }}>
+          Stop Fisso {Number(status.trailing_stop_base_pct || 2.5).toFixed(1)}%
+        </div>
+      </div>
       <div style={{ opacity: 0.92 }}>{meta.description}</div>
       <div style={{ opacity: 0.8, marginTop: 6 }}>{risk.reason}</div>
       <div style={{marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem'}}>
@@ -1416,7 +1424,9 @@ function OmniApp() {
             elevenlabs_key: data.ELEVENLABS_KEY || '',
             theodds_key: data.THEODDS_KEY || '',
             groq_key: data.GROQ_KEY || '',
-            newsapi_key: data.NEWSAPI_KEY || ''
+            newsapi_key: data.NEWSAPI_KEY || '',
+            dynamic_atr_stop: data.DYNAMIC_ATR_STOP ?? true,
+            trailing_stop_base_pct: data.TRAILING_STOP_BASE_PCT ?? 2.5
           }));
         } catch(err) {
           console.error("Error fetching keys", err);

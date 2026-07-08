@@ -167,14 +167,15 @@ class AlpacaEngine:
                     
                     if sym not in self.active_trails:
                         side = "LONG" if float(p.qty) > 0 else "SHORT"
+                        restored_trail_percent = float(getattr(self.bot_state, 'trailing_stop_base_pct', 2.5) or 2.5)
                         self.active_trails[sym] = {
                             'side': side,
                             'qty': abs(float(p.qty)),
                             'entry_price': float(p.avg_entry_price),
                             'peak_price': float(p.current_price),
-                            'trail_percent': 2.5 # Default 2.5% per posizioni orfane
+                            'trail_percent': restored_trail_percent
                         }
-                        self._log(f"🛡️ Ripristinato Trailing Stop interno al 2.5% per {sym}")
+                        self._log(f"🛡️ Ripristinato Trailing Stop interno al {restored_trail_percent:.2f}% per {sym}")
                 
                 # Rimuovi trail se la posizione è stata chiusa manualmente dalla dashboard di Alpaca
                 for sym in list(self.active_trails.keys()):
@@ -685,11 +686,14 @@ class AlpacaEngine:
         alpaca_side = 'buy' if side == "LONG" else 'sell'
         clean_symbol = self.clean_sym(symbol)
         
-        # Trailing Stop Dinamico (Modalità Cecchino: compreso tra 0.5% e 4.0% basato su volatilità ATR)
-        atr_percent = atr / current_price if current_price > 0 else 0.01
-        # Stop chirurgico a 1.5x l'ATR per evitare rumore ma catturare l'inversione vera
-        trail_percent = max(0.5, min(4.0, atr_percent * 100 * 1.5))
-        trail_percent = round(trail_percent, 2)
+        dynamic_atr_stop = bool(getattr(self.bot_state, 'dynamic_atr_stop', True))
+        fixed_trailing_stop = float(getattr(self.bot_state, 'trailing_stop_base_pct', 2.5) or 2.5)
+        if dynamic_atr_stop:
+            atr_percent = atr / current_price if current_price > 0 else 0.01
+            trail_percent = max(0.5, min(4.0, atr_percent * 100 * 1.5))
+            trail_percent = round(trail_percent, 2)
+        else:
+            trail_percent = round(max(0.5, min(5.0, fixed_trailing_stop)), 2)
         
         try:
             is_fractional = (qty % 1 != 0)
@@ -733,7 +737,7 @@ class AlpacaEngine:
                 msg += f"Azione: {side}\n"
                 msg += f"Quantità: {qty}\n"
                 msg += f"Prezzo: ${current_price:.2f}\n"
-                msg += f"Trailing Stop: {trail_percent}%\n"
+                msg += f"Trailing Stop: {trail_percent}% ({'ATR dinamico' if dynamic_atr_stop else 'fisso'})\n"
                 msg += f"Probabilità AI: {lstm_prob*100:.1f}%\n"
                 send_telegram_message(msg)
             except Exception as e:

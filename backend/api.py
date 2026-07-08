@@ -115,7 +115,14 @@ def load_db(user_id=None):
                     return data
             except json.JSONDecodeError:
                 print("⚠️ bot_db.json corrotto (forse per un riavvio forzato). Ricarico default.")
-        return {"virtual_cash": 100.0, "logs": [], "aggressiveness": 55.0, "modules": {"trading": False, "sports_arb": False, "ai_content": False}}
+        return {
+            "virtual_cash": 100.0,
+            "logs": [],
+            "aggressiveness": 55.0,
+            "modules": {"trading": False, "sports_arb": False, "ai_content": False},
+            "dynamic_atr_stop": True,
+            "trailing_stop_base_pct": 2.5,
+        }
 
 def save_db(state_dict, user_id=None):
     with db_lock:
@@ -514,6 +521,8 @@ class BotState:
         self.auto_bet_enabled = db_data.get("auto_bet_enabled", False)
         self.auto_bet_threshold = db_data.get("auto_bet_threshold", 10.0)
         self.symbol_selection = db_data.get("symbol_selection", {"method": "static_default", "ranked": []})
+        self.dynamic_atr_stop = db_data.get("dynamic_atr_stop", True)
+        self.trailing_stop_base_pct = db_data.get("trailing_stop_base_pct", 2.5)
         default_modules = {
             "trading": False,
             "sports_arb": False,
@@ -553,6 +562,8 @@ class BotState:
             "modules": self.modules,
             "target_symbols": self.target_symbols,
             "symbol_selection": self.symbol_selection,
+            "dynamic_atr_stop": self.dynamic_atr_stop,
+            "trailing_stop_base_pct": self.trailing_stop_base_pct,
         }, self.user_id)
 
     def close_trade(self, symbol: str, side: str, profit_usd: float, profit_pct: float):
@@ -1084,6 +1095,8 @@ def get_status(user_id="admin", scope: str = "core"):
             "modules": bot_state.modules,
             "auto_bet_enabled": bot_state.auto_bet_enabled,
             "auto_bet_threshold": bot_state.auto_bet_threshold,
+            "dynamic_atr_stop": getattr(bot_state, "dynamic_atr_stop", True),
+            "trailing_stop_base_pct": getattr(bot_state, "trailing_stop_base_pct", 2.5),
         }
         if scope in {"trading", "charts", "full"}:
             response.update({
@@ -2323,6 +2336,7 @@ def get_keys(user: dict = Depends(require_user)):
             
         # Per le chiavi di trading (Alpaca, Binance, Kraken), le leggiamo dal DB per l'utente specifico
         user_keys = db.get_api_keys(user["sub"])
+        user_bot_state = get_user_bot_state(user["sub"])
         if user_keys:
             if user_keys.get("alpaca_key"): keys["ALPACA_KEY"] = user_keys["alpaca_key"][:4] + "***"
             if user_keys.get("alpaca_secret"): keys["ALPACA_SECRET"] = user_keys["alpaca_secret"][:4] + "***"
@@ -2336,6 +2350,8 @@ def get_keys(user: dict = Depends(require_user)):
                 if user_keys.get("elevenlabs_key"): keys["ELEVENLABS_KEY"] = user_keys["elevenlabs_key"][:4] + "***"
                 if user_keys.get("theodds_key"): keys["THEODDS_KEY"] = user_keys["theodds_key"][:4] + "***"
                 if user_keys.get("newsapi_key"): keys["NEWSAPI_KEY"] = user_keys["newsapi_key"][:4] + "***"
+        keys["DYNAMIC_ATR_STOP"] = bool(getattr(user_bot_state, "dynamic_atr_stop", True))
+        keys["TRAILING_STOP_BASE_PCT"] = float(getattr(user_bot_state, "trailing_stop_base_pct", 2.5))
                 
     except Exception as e:
         keys["ERROR"] = str(e)
@@ -2347,6 +2363,7 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
     try:
         # 1. Salva chiavi nel database per l'utente
         user_keys = db.get_api_keys(user["sub"]) or {}
+        user_bot_state = get_user_bot_state(user["sub"])
         
         def merge_user_key(incoming_val, db_val):
             if not incoming_val or "***" in incoming_val:
@@ -2366,6 +2383,9 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
             theodds_key=merge_user_key(req.theodds_key, user_keys.get("theodds_key")),
             newsapi_key=merge_user_key(req.newsapi_key, user_keys.get("newsapi_key"))
         )
+        user_bot_state.dynamic_atr_stop = bool(req.dynamic_atr_stop)
+        user_bot_state.trailing_stop_base_pct = float(req.trailing_stop_base_pct or 2.5)
+        user_bot_state.save_state()
 
         # 2. Solo l'admin può salvare le chiavi globali AI in .env
         if user.get("role") == "admin":
