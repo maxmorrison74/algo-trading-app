@@ -1245,6 +1245,16 @@ function OmniApp() {
     }
   }, [isAuthenticated, isDemoMode, userRole]);
 
+  const refreshBillingOverview = async () => {
+    const res = await authFetch('/api/saas/overview?t=' + Date.now());
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.detail || 'Errore aggiornamento billing');
+    }
+    setBillingOverview(data);
+    return data;
+  };
+
   const copyCheckoutLink = async (url) => {
     try {
       await navigator.clipboard.writeText(url);
@@ -1302,6 +1312,31 @@ function OmniApp() {
       }
     } catch {
       setBillingMessage('Errore di rete durante l’aggiornamento');
+    }
+    setBillingLoading(false);
+  };
+
+  const extendUserSubscription = async (userId, months) => {
+    if (isDemoMode) {
+      setBillingMessage('Demo mode: rinnovo disabilitato');
+      return;
+    }
+    setBillingLoading(true);
+    try {
+      const res = await authFetch('/api/saas/extend-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, months }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        await refreshBillingOverview();
+        setBillingMessage(data.message || 'Abbonamento aggiornato');
+      } else {
+        setBillingMessage(data.detail || 'Errore rinnovo abbonamento');
+      }
+    } catch {
+      setBillingMessage('Errore di rete durante il rinnovo');
     }
     setBillingLoading(false);
   };
@@ -2836,28 +2871,52 @@ function OmniApp() {
                             <button className="btn btn-start" onClick={async (e) => {
                               if(!window.confirm('Vuoi attivare manualmente questo utente (GRATIS)?')) return;
                               try {
-                                await authFetch('/api/saas/activate-user', {
+                                const res = await authFetch('/api/saas/activate-user', {
                                   method: 'POST', headers: {'Content-Type': 'application/json'},
                                   body: JSON.stringify({ user_id: user.id })
                                 });
-                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
-                                setBillingOverview(await res2.json());
-                              } catch(e) {}
+                                const data = await res.json();
+                                if (res.ok) {
+                                  await refreshBillingOverview();
+                                  setBillingMessage(data.message || 'Utente attivato');
+                                } else {
+                                  setBillingMessage(data.detail || 'Errore attivazione utente');
+                                }
+                              } catch(e) {
+                                setBillingMessage('Errore di rete durante l’attivazione');
+                              }
                             }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}>
                               Attiva (Gratis)
                             </button>
                             <button className="btn btn-start" onClick={async (e) => {
                               if(!window.confirm('Vuoi attivare manualmente questo utente (PAGATO)?')) return;
                               try {
-                                await authFetch('/api/saas/activate-paid', {
+                                const res = await authFetch('/api/saas/activate-paid', {
                                   method: 'POST', headers: {'Content-Type': 'application/json'},
                                   body: JSON.stringify({ user_id: user.id })
                                 });
-                                const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
-                                setBillingOverview(await res2.json());
-                              } catch(e) {}
+                                const data = await res.json();
+                                if (res.ok) {
+                                  await refreshBillingOverview();
+                                  setBillingMessage(data.message || 'Utente attivato come pagato');
+                                } else {
+                                  setBillingMessage(data.detail || 'Errore attivazione pagata');
+                                }
+                              } catch(e) {
+                                setBillingMessage('Errore di rete durante l’attivazione pagata');
+                              }
                             }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem', background: '#d4af37', color: 'black' }}>
                               Attiva (Pagato)
+                            </button>
+                            </>
+                          )}
+                          {user.status === 'active' && (
+                            <>
+                            <button className="btn btn-outline" onClick={() => extendUserSubscription(user.id, 1)} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}>
+                              +30g
+                            </button>
+                            <button className="btn btn-outline" onClick={() => extendUserSubscription(user.id, 3)} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}>
+                              +90g
                             </button>
                             </>
                           )}
@@ -2868,9 +2927,11 @@ function OmniApp() {
                                 method: 'POST', headers: {'Content-Type': 'application/json'},
                                 body: JSON.stringify({ user_id: user.id })
                               });
-                              const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
-                              setBillingOverview(await res2.json());
-                            } catch(e) {}
+                              await refreshBillingOverview();
+                              setBillingMessage('Utente eliminato');
+                            } catch(e) {
+                              setBillingMessage('Errore durante eliminazione utente');
+                            }
                           }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem', borderColor: '#ef4444', color: '#ef4444' }}>
                             Elimina
                           </button>

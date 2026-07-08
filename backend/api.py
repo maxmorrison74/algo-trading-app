@@ -2635,6 +2635,7 @@ def verify_crypto_payment(req: VerifyPaymentRequest, admin_token: str = Depends(
 
 class AdminUserActionRequest(BaseModel):
     user_id: str
+    months: int = 1
 
 class AdminCreateUserRequest(BaseModel):
     email: str
@@ -2665,6 +2666,40 @@ def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(
     conn.commit()
     conn.close()
     return {"status": "success", "message": "Utente attivato manualmente (Gratis)."}
+
+@app.post("/api/saas/extend-user")
+def admin_extend_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
+    user = db.get_user_by_id(req.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Utente non trovato")
+
+    from datetime import datetime, timedelta
+
+    months = max(1, min(int(req.months or 1), 24))
+    now = datetime.utcnow()
+    base_date = now
+    current_exp = user.get("subscription_expires_at")
+    if current_exp:
+        try:
+            parsed_exp = datetime.strptime(current_exp, "%Y-%m-%d %H:%M:%S")
+            if parsed_exp > base_date:
+                base_date = parsed_exp
+        except Exception:
+            pass
+
+    new_exp = base_date + timedelta(days=30 * months)
+    conn = db.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "UPDATE users SET status = 'active', subscription_expires_at = ? WHERE id = ?",
+        (new_exp.strftime("%Y-%m-%d %H:%M:%S"), req.user_id),
+    )
+    conn.commit()
+    conn.close()
+    return {
+        "status": "success",
+        "message": f"Abbonamento esteso di {months} mese/i fino al {new_exp.strftime('%Y-%m-%d')}.",
+    }
 
 @app.post("/api/saas/activate-paid")
 def admin_activate_paid(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
