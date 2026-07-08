@@ -3250,6 +3250,20 @@ function OmniApp() {
       { label: 'Security layer', value: 'Passkey / Vault' },
       { label: 'Commercial motion', value: 'High-ticket guided' },
     ];
+    const landingAssuranceBlocks = [
+      {
+        title: 'Security',
+        text: 'Accessi protetti, credenziali custodite e una presentazione che comunica subito controllo e serietà.',
+      },
+      {
+        title: 'Governance',
+        text: 'Percorsi guidati, attivazione controllata e separazione tra area riservata e percorso cliente.',
+      },
+      {
+        title: 'Compliance Posture',
+        text: 'Una base più credibile per future conversazioni su privacy, governance operativa e procurement.',
+      },
+    ];
     const landingFeatures = [
       {
         icon: '🧠',
@@ -3341,13 +3355,14 @@ function OmniApp() {
             </a>
             <div className="sales-nav-links">
               <a href="#landing-features">Funzionalità</a>
+              <a href="#landing-assurance">Assurance</a>
               <a href="#landing-flow">Operating Model</a>
               <a href="#landing-pricing">Step</a>
               <a href="#landing-proof">Impatto</a>
             </div>
             <div className="sales-nav-actions">
               <button className="btn btn-outline" onClick={() => setShowLanding(false)}>Area Riservata</button>
-              <button className="btn btn-start" onClick={openPricingSection}>Valuta gli step</button>
+              <button className="btn btn-start" onClick={openPricingSection}>Request Private Demo</button>
             </div>
           </nav>
 
@@ -3375,10 +3390,10 @@ function OmniApp() {
                 </p>
                 <div className="sales-hero-buttons">
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
-                    Vedi gli step
+                    Request Private Demo
                   </button>
                   <button className="btn btn-outline btn-large" onClick={startTour}>
-                    Guarda il Tour Guidato
+                    Executive Tour
                   </button>
                 </div>
                 <div className="sales-enterprise-strip">
@@ -3482,6 +3497,21 @@ function OmniApp() {
               </div>
             </section>
 
+            <section className="sales-section sales-section--assurance" id="landing-assurance">
+              <div className="sales-section-header">
+                <h2>Security, governance, compliance posture</h2>
+                <p>Il messaggio non è solo “bello da vedere”: è “solido da presentare” davanti a clienti più grandi e trattative più serie.</p>
+              </div>
+              <div className="sales-assurance-grid">
+                {landingAssuranceBlocks.map((item) => (
+                  <article key={item.title} className="sales-assurance-card">
+                    <div className="sales-assurance-title">{item.title}</div>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
             <section className="sales-section sales-section--enterprise">
               <div className="sales-section-header">
                 <h2>Executive posture per clienti più grandi</h2>
@@ -3515,8 +3545,8 @@ function OmniApp() {
 
             <section className="sales-section" id="landing-pricing">
               <div className="sales-section-header">
-                <h2>Scegli lo step più adatto al tuo profilo</h2>
-                <p>Tre accessi chiari, con onboarding collegato e una struttura pensata per accompagnare trattative premium senza dispersione.</p>
+                <h2>Seleziona il percorso di accesso</h2>
+                <p>Tre step chiari, utili per strutturare demo, attivazioni e percorsi commerciali ad alto valore senza perdere controllo.</p>
               </div>
               <div className="sales-pricing-grid">
                 {landingPlans.map((plan) => (
@@ -3533,7 +3563,7 @@ function OmniApp() {
                       ))}
                     </div>
                     <button className="btn btn-start sales-pricing-button" onClick={() => continueWithPlan(plan.id)}>
-                      Continua con {plan.name}
+                      Richiedi {plan.name}
                     </button>
                   </article>
                 ))}
@@ -3634,16 +3664,16 @@ function OmniApp() {
               <div className="sales-cta-box">
                 <div className="sales-cta-content">
                   <img src="/aureo-logo.jpg" alt="Aureo OS" className="sales-cta-logo" />
-                  <h2>Presenta Aureo come una piattaforma high-end, non come una semplice app</h2>
-                  <p>La nuova direzione rafforza il posizionamento premium e prepara il terreno per una futura offerta enterprise più matura.</p>
+                  <h2>Presenta Aureo come una private operating interface, non come una semplice webapp</h2>
+                  <p>Questa direzione rende più chiaro il salto: meno sensazione retail, più percezione di piattaforma executive per demo private e clienti high-ticket.</p>
                   <div className="sales-trust-row">
                     {landingTrustPillars.map((item) => (
                       <div key={item} className="sales-trust-pill">{item}</div>
                     ))}
                   </div>
                   <div className="sales-hero-buttons sales-hero-buttons--center">
-                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Vedi gli step</button>
-                    <button className="btn btn-outline btn-large" onClick={startTour}>Apri il tour</button>
+                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Request Private Demo</button>
+                    <button className="btn btn-outline btn-large" onClick={startTour}>Apri executive tour</button>
                   </div>
                 </div>
               </div>
@@ -3661,6 +3691,7 @@ function OmniApp() {
                 <div className="sales-footer-links">
                   <h4>Prodotto</h4>
                   <a href="#landing-features">Funzionalità</a>
+                  <a href="#landing-assurance">Assurance</a>
                   <a href="#landing-pricing">Step</a>
                 </div>
                 <div className="sales-footer-links">
@@ -3671,7 +3702,7 @@ function OmniApp() {
                 <div className="sales-footer-links">
                   <h4>Accesso</h4>
                   <button type="button" className="sales-footer-button" onClick={() => setShowLanding(false)}>Accedi</button>
-                  <button type="button" className="sales-footer-button" onClick={openPricingSection}>Scegli piano</button>
+                  <button type="button" className="sales-footer-button" onClick={openPricingSection}>Request demo</button>
                 </div>
               </div>
               <div className="sales-footer-bottom">
