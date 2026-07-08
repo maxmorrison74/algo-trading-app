@@ -22,4 +22,3 @@ cryptography
 pyjwt
 bcrypt
 alpaca-py==0.32.0
-oandapyV20==0.7.2

@@ -579,17 +579,6 @@ def get_user_alpaca_engine(user_id="admin"):
         user_engines[user_id] = engine
     return user_engines[user_id]
 
-user_forex_engines = {}
-def get_user_forex_engine(user_id="admin"):
-    from forex_bot import ForexEngine
-    if user_id not in user_forex_engines:
-        state = get_user_bot_state(user_id)
-        engine = ForexEngine(state)
-        engine.user_id = user_id
-        engine.init_clients()
-        user_forex_engines[user_id] = engine
-    return user_forex_engines[user_id]
-
 admin_bot_state = get_user_bot_state("admin")
 alpaca_engine = get_user_alpaca_engine("admin")
 trade_lock = threading.Lock()
@@ -1114,11 +1103,6 @@ async def toggle_module(payload: dict, user: dict = Depends(require_user)):
                     u_alpaca_engine.running = True
                     u_alpaca_engine.user_id = user_id
                     global_executor.submit(u_alpaca_engine.loop)
-                u_forex_engine = get_user_forex_engine(user_id)
-                if u_forex_engine and not getattr(u_forex_engine, "running", False):
-                    u_forex_engine.running = True
-                    u_forex_engine.user_id = user_id
-                    global_executor.submit(u_forex_engine.loop)
         else:
             if module_name == "sports_arb" and u_sports_engine:
                 if hasattr(u_sports_engine, "stop"): u_sports_engine.stop()
@@ -1134,9 +1118,6 @@ async def toggle_module(payload: dict, user: dict = Depends(require_user)):
                         try:
                             u_alpaca_engine.alpaca_stream.stop()
                         except: pass
-                u_forex_engine = get_user_forex_engine(user_id)
-                if u_forex_engine:
-                    u_forex_engine.running = False
                 
         current_state = get_status(user_id)
         return {
@@ -2222,8 +2203,6 @@ class KeysRequest(BaseModel):
     binance_secret: str = ""
     kraken_key: str = ""
     kraken_secret: str = ""
-    oanda_key: str = ""
-    oanda_account: str = ""
 
 
 @app.get("/api/keys")
@@ -2251,9 +2230,6 @@ def get_keys(user: dict = Depends(require_user)):
             if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = user_keys["binance_secret"][:4] + "***"
             if user_keys.get("kraken_key"): keys["KRAKEN_KEY"] = user_keys["kraken_key"][:4] + "***"
             if user_keys.get("kraken_secret"): keys["KRAKEN_SECRET"] = user_keys["kraken_secret"][:4] + "***"
-            if user_keys.get("oanda_key"): keys["OANDA_KEY"] = user_keys["oanda_key"][:4] + "***"
-            if user_keys.get("oanda_account"): keys["OANDA_ACCOUNT"] = user_keys["oanda_account"][:4] + "***"
-            
             # Se l'utente non è admin, usa le AI keys dal suo DB
             if user.get("role") != "admin":
                 if user_keys.get("groq_key"): keys["GROQ_KEY"] = user_keys["groq_key"][:4] + "***"
@@ -2303,9 +2279,7 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
             gemini_key=merge_user_key(req.gemini_key, user_keys.get("gemini_key")),
             elevenlabs_key=merge_user_key(req.elevenlabs_key, user_keys.get("elevenlabs_key")),
             theodds_key=merge_user_key(req.theodds_key, user_keys.get("theodds_key")),
-            newsapi_key=merge_user_key(req.newsapi_key, user_keys.get("newsapi_key")),
-            oanda_key=merge_user_key(req.oanda_key, user_keys.get("oanda_key")),
-            oanda_account=merge_user_key(req.oanda_account, user_keys.get("oanda_account"))
+            newsapi_key=merge_user_key(req.newsapi_key, user_keys.get("newsapi_key"))
         )
 
         # 2. Solo l'admin può salvare le chiavi globali AI in .env
@@ -2362,8 +2336,6 @@ class TestConnectionRequest(BaseModel):
     binance_secret: str = ""
     kraken_key: str = ""
     kraken_secret: str = ""
-    oanda_key: str = ""
-    oanda_account: str = ""
 
 @app.post("/api/test-connection")
 def test_connection(req: TestConnectionRequest, user: dict = Depends(require_user)):
@@ -2396,8 +2368,6 @@ def test_connection(req: TestConnectionRequest, user: dict = Depends(require_use
     if req.binance_secret and "***" not in req.binance_secret: keys['BINANCE_SECRET'] = req.binance_secret
     if req.kraken_key and "***" not in req.kraken_key: keys['KRAKEN_KEY'] = req.kraken_key
     if req.kraken_secret and "***" not in req.kraken_secret: keys['KRAKEN_SECRET'] = req.kraken_secret
-    if req.oanda_key and "***" not in req.oanda_key: keys['OANDA_KEY'] = req.oanda_key
-    if req.oanda_account and "***" not in req.oanda_account: keys['OANDA_ACCOUNT'] = req.oanda_account
     if req.elevenlabs_key and "***" not in req.elevenlabs_key: keys['ELEVENLABS_KEY'] = req.elevenlabs_key
     if req.newsapi_key and "***" not in req.newsapi_key: keys['NEWSAPI_KEY'] = req.newsapi_key
     if req.theodds_key and "***" not in req.theodds_key: keys['THEODDS_KEY'] = req.theodds_key
@@ -2453,19 +2423,6 @@ def test_connection(req: TestConnectionRequest, user: dict = Depends(require_use
             })
             balance = exchange.fetch_balance()
             return {"status": "success", "message": "Connessione Kraken stabilita! Auth OK."}
-            
-        elif service == 'oanda':
-            from forex_trading import get_oanda_client
-            api_key = keys.get("OANDA_KEY", "")
-            account_id = keys.get("OANDA_ACCOUNT", "")
-            if not api_key or not account_id:
-                return {"status": "error", "message": "Chiavi OANDA mancanti."}
-            
-            client = get_oanda_client(api_key, account_id)
-            import oandapyV20.endpoints.accounts as accounts
-            r = accounts.AccountSummary(accountID=account_id)
-            client.request(r)
-            return {"status": "success", "message": f"Connessione OANDA stabilita! Status: {r.response['account']['alias']}"}
             
         elif service == 'elevenlabs':
             # Simple ping with headers
