@@ -497,13 +497,15 @@ class BotState:
     def add_log(self, message: str):
         print(message)
         timestamp = datetime.now().strftime("%H:%M:%S")
-        self.logs.insert(0, f"[{timestamp}] {message}")
+        already_timestamped = isinstance(message, str) and len(message) >= 10 and message[0] == "[" and message[9] == "]"
+        rendered_message = message if already_timestamped else f"[{timestamp}] {message}"
+        self.logs.insert(0, rendered_message)
         if len(self.logs) > 50:
             self.logs = self.logs[:50]
         self.save_state()
         
         # Invia la notifica su Telegram
-        send_telegram_message(f"[{timestamp}] {message}")
+        send_telegram_message(rendered_message)
         
     def save_state(self):
         save_db({

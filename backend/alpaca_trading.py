@@ -226,6 +226,18 @@ class AlpacaEngine:
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         self.bot_state.add_log(f"[{timestamp}] 📈 ALPACA: {message}")
 
+    def _normalize_llm_confidence(self, raw_confidence):
+        try:
+            confidence = float(raw_confidence)
+        except (TypeError, ValueError):
+            return 3
+
+        if confidence <= 1:
+            confidence *= 5
+
+        confidence = round(confidence)
+        return max(1, min(int(confidence), 5))
+
     def predict_pattern_with_groq(self, symbol, close_prices):
         # Legacy stub — redirects to the real implementation below
         return self.predict_pattern_with_ai(symbol, close_prices)
@@ -300,7 +312,8 @@ class AlpacaEngine:
                 data = {}
                 
             prediction = data.get("prediction", "UP").strip().upper()
-            self._log(f"🧠 AI Predictor per {symbol}: {prediction} (Confidenza: {data.get('confidence')}/5) - {data.get('reason')}")
+            confidence = self._normalize_llm_confidence(data.get("confidence", 3))
+            self._log(f"🧠 AI Predictor per {symbol}: {prediction} (Confidenza: {confidence}/5) - {data.get('reason')}")
             return prediction
         except Exception as e:
             self._log(f"Errore LLM Pattern Predictor per {symbol}: {e}")
@@ -385,7 +398,7 @@ class AlpacaEngine:
                 data = {}
                 
             sentiment = data.get("sentiment", "NEUTRAL").strip().upper()
-            confidence = int(data.get("confidence", 3))
+            confidence = self._normalize_llm_confidence(data.get("confidence", 3))
             reason = data.get('reason', 'Nessun motivo fornito')
             return sentiment, confidence, reason
         except Exception as e:
