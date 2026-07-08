@@ -1520,21 +1520,6 @@ function OmniApp() {
         {testResults['alpaca'] && <div style={{ color: testResults['alpaca'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['alpaca']}</div>}
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(66, 133, 244, 0.4)', background: 'linear-gradient(135deg, rgba(66,133,244,0.08) 0%, rgba(15,157,88,0.08) 100%)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ fontSize: '1.3rem' }}>🧠</span> Google Gemini AI
-            {savedKeys['GEMINI_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Attivo</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Non configurato</span>}
-          </h3>
-          <button onClick={() => testConnection('gemini')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', background: 'linear-gradient(135deg, #4285f4, #0f9d58)', border: 'none', ...demoActionStyle }}>Test Connessione</button>
-        </div>
-        <div style={{ fontSize: '0.85rem', color: '#94a3b8', marginBottom: '1rem', padding: '0.75rem', background: 'rgba(66,133,244,0.1)', borderRadius: '6px', borderLeft: '3px solid #4285f4' }}>
-          💡 Cervello principale del bot. Gemini 1.5 Flash ha priorità su Groq. Ottieni la chiave gratis su <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#4285f4' }}>aistudio.google.com</a>
-        </div>
-        <input type="password" placeholder="Gemini API Key (AIza...)" value={apiKeys.gemini_key || ''} onChange={e => setApiKeys({...apiKeys, gemini_key: e.target.value})} style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(66,133,244,0.3)', borderRadius: '6px', color: '#fff', boxSizing: 'border-box' }} />
-        {testResults['gemini'] && <div style={{ color: testResults['gemini'].includes('stabilita') ? '#10b981' : '#f59e0b', fontSize: '0.8rem', marginTop: '0.5rem' }}>{testResults['gemini']}</div>}
-      </div>
-
       <div className="card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>OANDA (Forex Market) {savedKeys['OANDA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
