@@ -90,6 +90,15 @@ class CapitalManager:
     def save(self):
         with open(self._file, 'w') as f:
             json.dump(asdict(self.config), f, indent=2)
+
+    def _get_phase_elapsed_days(self) -> int:
+        if not self.config.phase_start_date:
+            return 0
+        try:
+            started_at = datetime.fromisoformat(self.config.phase_start_date)
+        except ValueError:
+            return 0
+        return max(1, (datetime.now() - started_at).days + 1)
             
     def get_current_mode(self) -> TradingMode:
         return TradingMode(self.config.mode)
@@ -126,8 +135,7 @@ class CapitalManager:
             return True, "Nessun criterio definito, procedi con cautela"
             
         # Verifica criteri
-        days = (datetime.now() - datetime.fromisoformat(self.config.phase_start_date)).days \
-               if self.config.phase_start_date else 0
+        days = self._get_phase_elapsed_days()
                
         checks = []
         checks.append((days >= criteria.min_days, f"Giorni: {days}/{criteria.min_days}"))
@@ -221,6 +229,7 @@ class CapitalManager:
             "can_advance": can_advance,
             "advance_message": advance_msg,
             "phase_start": self.config.phase_start_date,
+            "phase_days": self._get_phase_elapsed_days(),
             "next_checklist": self._get_checklist()
         }
         
@@ -231,8 +240,7 @@ class CapitalManager:
         if not criteria:
             return {}
             
-        days = (datetime.now() - datetime.fromisoformat(self.config.phase_start_date)).days \
-               if self.config.phase_start_date else 0
+        days = self._get_phase_elapsed_days()
         win_rate = (self.config.winning_trades / self.config.total_trades * 100) \
                    if self.config.total_trades > 0 else 0
         profit_factor = abs(self.config.total_profit / self.config.total_loss) \
