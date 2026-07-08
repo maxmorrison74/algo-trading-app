@@ -3244,6 +3244,12 @@ function OmniApp() {
         text: 'Interfaccia premium, controllo dei moduli e struttura multi-step preparano meglio demo, trattative e clienti high-ticket.',
       },
     ];
+    const landingExecutiveMetrics = [
+      { label: 'Enterprise posture', value: 'Boardroom-ready' },
+      { label: 'Access model', value: 'Private & controlled' },
+      { label: 'Security layer', value: 'Passkey / Vault' },
+      { label: 'Commercial motion', value: 'High-ticket guided' },
+    ];
     const landingFeatures = [
       {
         icon: '🧠',
@@ -3323,6 +3329,10 @@ function OmniApp() {
         <div className="sales-landing">
           <div className="sales-bg-animation" />
           <div className="sales-bg-animation sales-bg-animation--second" />
+          <div className="sales-topbar">
+            <span className="sales-topbar-label">Enterprise Preview</span>
+            <span className="sales-topbar-text">Aureo OS evolve da dashboard premium a control room executive per percorsi high-ticket.</span>
+          </div>
 
           <nav className="sales-nav">
             <a href="#landing-top" className="sales-logo">
@@ -3358,7 +3368,7 @@ function OmniApp() {
               <div className="sales-hero-content">
                 <div className="sales-badge">⚡ Executive Trading Experience</div>
                 <h1>
-                  La <span>Control Room Operativa</span> che alza il livello del prodotto
+                  La <span>Control Room Operativa</span> che fa sembrare Aureo un prodotto enterprise
                 </h1>
                 <p>
                   AUREO OS è un ambiente premium che unisce dashboard, AI, trading, DeFi e sicurezza in un’esperienza autorevole, pensata per clienti ad alto valore, demo commerciali forti e percorsi enterprise assistiti.
@@ -3387,36 +3397,61 @@ function OmniApp() {
               </div>
 
               <div className="sales-hero-visual">
-                <div className="sales-phone-mockup">
-                  <div className="sales-phone-notch" />
-                  <div className="sales-phone-screen">
-                    <div className="sales-app-header">
-                      <div>
-                        <div className="sales-app-title">AUREO OS</div>
-                        <div className="sales-app-subtitle">Premium Control Room</div>
-                      </div>
-                      <div className="sales-app-balance">$100,900</div>
+                <div className="sales-boardroom-shell">
+                  <div className="sales-boardroom-header">
+                    <div>
+                      <div className="sales-boardroom-kicker">Enterprise Control Surface</div>
+                      <div className="sales-boardroom-title">AUREO OS / Executive Overview</div>
                     </div>
-                    <div className="sales-balance-chart">
-                      <div className="sales-chart-line" />
-                    </div>
-                    <div className="sales-bot-status">
-                      <span className="sales-status-dot" />
-                      <span>Sistema attivo • dashboard, AI e security sincronizzati</span>
-                    </div>
-                    {[
-                      { label: 'AI Guided Investment', meta: 'Segnale live • Budget allocato', value: '+$1,240' },
-                      { label: 'DeFi Arbitrage', meta: 'Spread monitorato • 4 venue', value: '+$420' },
-                      { label: 'Security Vault', meta: 'Chiavi protette • accesso biometrico', value: 'SAFE' },
-                    ].map((item) => (
-                      <div key={item.label} className="sales-trade-card">
-                        <div className="sales-trade-info">
-                          <h4>{item.label}</h4>
-                          <span>{item.meta}</span>
-                        </div>
-                        <div className={`sales-trade-profit ${item.value === 'SAFE' ? 'sales-trade-profit--neutral' : ''}`}>{item.value}</div>
+                    <div className="sales-boardroom-status">Private Demo</div>
+                  </div>
+
+                  <div className="sales-boardroom-grid">
+                    {landingExecutiveMetrics.map((item) => (
+                      <div key={item.label} className="sales-boardroom-metric">
+                        <div className="sales-boardroom-metric-label">{item.label}</div>
+                        <div className="sales-boardroom-metric-value">{item.value}</div>
                       </div>
                     ))}
+                  </div>
+
+                  <div className="sales-phone-mockup">
+                    <div className="sales-phone-notch" />
+                    <div className="sales-phone-screen">
+                      <div className="sales-app-header">
+                        <div>
+                          <div className="sales-app-title">AUREO OS</div>
+                          <div className="sales-app-subtitle">Premium Control Room</div>
+                        </div>
+                        <div className="sales-app-balance">$100,900</div>
+                      </div>
+                      <div className="sales-balance-chart">
+                        <div className="sales-chart-line" />
+                      </div>
+                      <div className="sales-bot-status">
+                        <span className="sales-status-dot" />
+                        <span>Sistema attivo • dashboard, AI e security sincronizzati</span>
+                      </div>
+                      {[
+                        { label: 'AI Guided Investment', meta: 'Segnale live • Budget allocato', value: '+$1,240' },
+                        { label: 'DeFi Arbitrage', meta: 'Spread monitorato • 4 venue', value: '+$420' },
+                        { label: 'Security Vault', meta: 'Chiavi protette • accesso biometrico', value: 'SAFE' },
+                      ].map((item) => (
+                        <div key={item.label} className="sales-trade-card">
+                          <div className="sales-trade-info">
+                            <h4>{item.label}</h4>
+                            <span>{item.meta}</span>
+                          </div>
+                          <div className={`sales-trade-profit ${item.value === 'SAFE' ? 'sales-trade-profit--neutral' : ''}`}>{item.value}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="sales-boardroom-footer">
+                    <div className="sales-boardroom-chip">Governance-ready</div>
+                    <div className="sales-boardroom-chip">Security-first</div>
+                    <div className="sales-boardroom-chip">Executive UX</div>
                   </div>
                 </div>
                 <div className="sales-float-card sales-float-card--top">
