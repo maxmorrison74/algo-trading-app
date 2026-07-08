@@ -223,6 +223,8 @@ POOL_TICKERS = [
 
 # Aggiunti ETF BRICS (Brazil, China, India, South Africa) e Crypto Base + Meme
 DEFAULT_TARGET_SYMBOLS = ["TSLA", "NVDA", "PLTR", "SOFI", "MARA", "AMD", "AAPL", "EWZ", "FXI", "INDA", "EZA", "BTC/USD", "ETH/USD", "SOL/USD", "DOGE/USD", "SHIB/USD", "LINK/USD"]
+PREFERRED_CRYPTO_SYMBOLS = ["BTC/USD", "ETH/USD", "SOL/USD"]
+MIN_CRYPTO_WATCHLIST = 3
 STOCK_UNIVERSE = [ticker for ticker in POOL_TICKERS if "/" not in ticker] + [
     "AAPL", "AMD", "AMZN", "AVGO", "META", "MSFT", "MARA", "MU", "NFLX",
     "NVDA", "QQQ", "SMCI", "SPY", "TSLA", "UBER"
@@ -441,12 +443,33 @@ def rank_stock_universe(max_symbols: int = 7):
 
 
 def refresh_target_symbols(max_symbols: int = 7):
-    selected_symbols, ranked_rows = rank_stock_universe(max_symbols=max_symbols)
-    bot_state.target_symbols = selected_symbols or DEFAULT_TARGET_SYMBOLS[:max_symbols]
+    min_crypto = min(MIN_CRYPTO_WATCHLIST, max_symbols)
+    stock_slots = max(0, max_symbols - min_crypto)
+
+    selected_symbols, ranked_rows = rank_stock_universe(max_symbols=stock_slots)
+
+    crypto_symbols = PREFERRED_CRYPTO_SYMBOLS[:min_crypto]
+    crypto_rows = [
+        {
+            "symbol": symbol,
+            "price": None,
+            "score": None,
+            "selection_reason": "Crypto core mantenuta sempre attiva in watchlist",
+        }
+        for symbol in crypto_symbols
+    ]
+
+    combined_symbols = list(dict.fromkeys((selected_symbols or []) + crypto_symbols))
+    combined_ranked_rows = ranked_rows + crypto_rows
+
+    if not combined_symbols:
+        combined_symbols = DEFAULT_TARGET_SYMBOLS[:max_symbols]
+
+    bot_state.target_symbols = combined_symbols[:max_symbols]
     bot_state.symbol_selection = {
         "updated_at": datetime.now().isoformat(),
-        "method": "momentum_liquidity_volatility",
-        "ranked": ranked_rows,
+        "method": "momentum_liquidity_volatility_plus_crypto_core",
+        "ranked": combined_ranked_rows[:max_symbols],
     }
     bot_state.save_state()
     return bot_state.target_symbols

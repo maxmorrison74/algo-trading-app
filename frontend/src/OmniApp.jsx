@@ -2133,7 +2133,7 @@ function OmniApp() {
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
                       <div style={{ color: '#e2e8f0', fontWeight: 'bold' }}>{row.symbol}</div>
                       <div style={{ color: '#06b6d4', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                        score {Number(row.score || 0).toFixed(3)}
+                        {row.score == null ? 'crypto core' : `score ${Number(row.score || 0).toFixed(3)}`}
                       </div>
                     </div>
                     <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.25rem' }}>
