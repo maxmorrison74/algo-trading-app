@@ -1676,20 +1676,32 @@ function OmniApp() {
         
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '2rem', marginBottom: '1.5rem' }}>
           <div>
-            <label style={{ display: 'block', color: '#cbd5e1', marginBottom: '0.5rem', fontSize: '0.9rem' }}>Trailing Stop Dinamico (ATR)</label>
-            <div style={{ display: 'flex', gap: '1rem' }}>
-              <button 
-                className={`btn ${apiKeys.dynamic_atr_stop ? 'btn-start' : 'btn-outline'}`}
-                onClick={() => setApiKeys({...apiKeys, dynamic_atr_stop: true})}
-                style={{ flex: 1 }}
-              >Attivo</button>
-              <button 
-                className={`btn ${!apiKeys.dynamic_atr_stop ? 'btn-stop' : 'btn-outline'}`}
-                onClick={() => setApiKeys({...apiKeys, dynamic_atr_stop: false})}
-                style={{ flex: 1 }}
-              >Spento</button>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+              <div>
+                <label style={{ display: 'block', color: '#cbd5e1', marginBottom: '0.35rem', fontSize: '0.9rem' }}>Trailing Stop Dinamico (ATR)</label>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.45 }}>
+                  Regola il trailing stop automaticamente in base alla volatilità del momento.
+                </div>
+              </div>
+              <div className={`badge ${apiKeys.dynamic_atr_stop ? 'badge-active' : 'badge-idle'}`} style={{ fontSize: '0.82rem' }}>
+                {apiKeys.dynamic_atr_stop ? 'ACCESO' : 'SPENTO'}
+              </div>
             </div>
-            <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem' }}>Regola il trailing stop automaticamente in base alla volatilità del momento.</p>
+            <button
+              type="button"
+              className={`risk-toggle-switch ${apiKeys.dynamic_atr_stop ? 'is-on' : 'is-off'}`}
+              onClick={() => setApiKeys({ ...apiKeys, dynamic_atr_stop: !apiKeys.dynamic_atr_stop })}
+              aria-pressed={!!apiKeys.dynamic_atr_stop}
+              title="Attiva o disattiva il trailing stop dinamico"
+            >
+              <span className="risk-toggle-switch-track">
+                <span className="risk-toggle-switch-thumb"></span>
+              </span>
+              <span className="risk-toggle-switch-label">{apiKeys.dynamic_atr_stop ? 'ON' : 'OFF'}</span>
+            </button>
+            <div style={{ marginTop: '0.75rem', color: apiKeys.dynamic_atr_stop ? '#10b981' : '#94a3b8', fontWeight: 700, letterSpacing: '0.04em' }}>
+              {apiKeys.dynamic_atr_stop ? 'PROTEZIONE DINAMICA ATTIVA' : 'PROTEZIONE DINAMICA DISATTIVA'}
+            </div>
           </div>
           
           <div style={{ opacity: apiKeys.dynamic_atr_stop ? 0.5 : 1.0, pointerEvents: apiKeys.dynamic_atr_stop ? 'none' : 'auto' }}>
