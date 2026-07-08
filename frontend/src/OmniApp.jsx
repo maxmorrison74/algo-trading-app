@@ -3390,7 +3390,7 @@ function OmniApp() {
 
           <nav className="sales-nav">
             <a href="#landing-top" className="sales-logo">
-              <img src="/aureo-icon.png" alt="Aureo" />
+              <img src="/aureoos-logo.png" alt="Aureo OS" />
               <span>AUREO OS</span>
             </a>
             <div className="sales-nav-links">
@@ -3703,7 +3703,7 @@ function OmniApp() {
             <section className="sales-cta">
               <div className="sales-cta-box">
                 <div className="sales-cta-content">
-                  <img src="/aureo-logo.jpg" alt="Aureo OS" className="sales-cta-logo" />
+                  <img src="/aureoos-logo.png" alt="Aureo OS" className="sales-cta-logo" />
                   <h2>Presenta Aureo come una private operating interface, non come una semplice webapp</h2>
                   <p>Questa direzione rende più chiaro il salto: meno sensazione retail, più percezione di piattaforma executive per demo private e clienti high-ticket.</p>
                   <div className="sales-trust-row">
@@ -3723,7 +3723,7 @@ function OmniApp() {
               <div className="sales-footer-grid">
                 <div className="sales-footer-brand">
                   <a href="#landing-top" className="sales-logo">
-                    <img src="/aureo-icon.png" alt="Aureo" />
+                    <img src="/aureoos-logo.png" alt="Aureo OS" />
                     <span>AUREO OS</span>
                   </a>
                   <p>Dashboard, AI, trading, DeFi e security in un’unica esperienza premium pensata per controllo, chiarezza e presenza.</p>
@@ -3758,7 +3758,7 @@ function OmniApp() {
     return (
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <div className="card" style={{ textAlign: 'center', width: '400px', padding: '3rem 2rem' }}>
-          <img src="/aureo-logo.jpg" alt="AUREO" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
+          <img src="/aureoos-logo.png" alt="Aureo OS" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
           <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>Ponte di Comando Autenticato</p>
           <form onSubmit={handleLogin}>
             <input 
@@ -3815,7 +3815,7 @@ function OmniApp() {
       <div className="sidebar">
         <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div className="sidebar-brand-row" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
-            <img src="/aureo-icon.png" alt="Aureo Icon" style={{ height: '36px', objectFit: 'contain' }} />
+            <img src="/aureoos-logo.png" alt="Aureo OS" style={{ height: '36px', objectFit: 'contain' }} />
             <h1 className="sidebar-brand-wordmark" style={{ margin: 0, fontSize: '1.5rem', background: 'linear-gradient(90deg, #d4af37, #f3e5ab)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '2px' }}>
               AUREO
             </h1>
