@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useState, useEffect } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import heroAsset from './assets/hero.png';
 const ChartsStudio = lazy(() => import('./ChartsStudio'));
@@ -583,6 +583,23 @@ function OmniApp() {
   const [manualSymbol, setManualSymbol] = useState("");
   const [manualAmount, setManualAmount] = useState(100);
   const [manualQuote, setManualQuote] = useState(null);
+  const positionsEntries = useMemo(() => Object.entries(status.positions || {}), [status.positions]);
+  const tableDataBySymbol = useMemo(
+    () => Object.fromEntries((status.table_data || []).map((row) => [row.symbol, row])),
+    [status.table_data]
+  );
+  const sortedSurebets = useMemo(
+    () => [...(status.active_surebets || [])].sort((a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)),
+    [status.active_surebets]
+  );
+  const visibleValueBets = useMemo(
+    () => (status.value_bets || []).slice(0, numValueBets),
+    [status.value_bets, numValueBets]
+  );
+  const aiEarnings = useMemo(
+    () => (status.ai_videos || []).reduce((acc, video) => acc + (video.earnings || 0), 0),
+    [status.ai_videos]
+  );
   const [manualLoading, setManualLoading] = useState(false);
   const [manualMessage, setManualMessage] = useState("");
 
@@ -888,6 +905,7 @@ function OmniApp() {
     const pollingMs = getStatusPollingMs(activeTab);
 
     const fetchStatus = async () => {
+      if (typeof document !== 'undefined' && document.hidden) return;
       try {
         const res = await authFetch(`/api/status?scope=${scope}&t=${Date.now()}`);
         const data = await res.json();
@@ -906,15 +924,25 @@ function OmniApp() {
     };
     fetchStatus();
     const interval = setInterval(fetchStatus, pollingMs);
-    return () => clearInterval(interval);
+    const handleVisibilityChange = () => {
+      if (typeof document !== 'undefined' && !document.hidden) {
+        fetchStatus();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [activeTab]);
 
   useEffect(() => {
-    if (!selectedSymbol) return;
+    if (!selectedSymbol || !['trading', 'charts'].includes(activeTab)) return;
+    const controller = new AbortController();
     const fetchChart = async () => {
       try {
         const safeSym = encodeURIComponent(selectedSymbol);
-        const res = await fetch(`/api/chart-data/${safeSym}?timeframe=${timeframe}`);
+        const res = await fetch(`/api/chart-data/${safeSym}?timeframe=${timeframe}`, { signal: controller.signal });
         const data = await res.json();
         if (Array.isArray(data)) {
           setChartData(data);
@@ -922,11 +950,13 @@ function OmniApp() {
           setChartData([]);
         }
       } catch (err) {
+        if (err?.name === 'AbortError') return;
         setChartData([]);
       }
     };
     fetchChart();
-  }, [selectedSymbol, timeframe]);
+    return () => controller.abort();
+  }, [selectedSymbol, timeframe, activeTab]);
 
   const completeAuthenticatedSession = (token, role = 'user', status = 'active') => {
     setIsAuthenticated(true);
@@ -1784,7 +1814,6 @@ function OmniApp() {
   );
 
   const renderHomeView = () => {
-    const aiEarnings = status.ai_videos?.reduce((acc, v) => acc + (v.earnings || 0), 0) || 0;
     const initialCash = status.initial_cash || 1000;
     const virtualCash = Number(status.portfolio_value || 1000);
     const tradingProfit = virtualCash - initialCash;
@@ -2134,11 +2163,12 @@ function OmniApp() {
       <div className="dashboard-grid" style={{ marginTop: "2rem" }}>
         <div className="card col-span-6">
           <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Portafoglio Corrente</h3>
-          {Object.entries(status.positions || {}).length === 0 ? (
+          {positionsEntries.length === 0 ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nessuna posizione aperta. Il bot sta scansionando...</p>
           ) : (
-            Object.entries(status.positions).map(([sym, p]) => (
-              <div key={sym} style={{ display: 'flex', flexDirection: 'column', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', marginBottom: '0.5rem' }}>
+            positionsEntries.map(([sym, p]) => {
+              const symbolTableRow = tableDataBySymbol[sym];
+              return <div key={sym} style={{ display: 'flex', flexDirection: 'column', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', marginBottom: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ fontWeight: 'bold' }}>{sym} {p.side === 'short' ? '(SHORT)' : ''}</span>
                   {p === "LIQUID" ? (
@@ -2150,26 +2180,26 @@ function OmniApp() {
                   )}
                 </div>
                 {/* AI Sentiment Integration */}
-                {status.table_data && status.table_data.find(r => r.symbol === sym) && (
+                {symbolTableRow && (
                   <div style={{ fontSize: '0.8rem', marginTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.4rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>📊 Indicatori:</span>
                       <span style={{ color: '#e2e8f0', fontFamily: 'monospace' }}>
-                        {status.table_data.find(r => r.symbol === sym).prediction}
+                        {symbolTableRow.prediction}
                       </span>
                     </div>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>🧠 AI Sentiment:</span>
                       <span>
-                        {status.table_data.find(r => r.symbol === sym).sentiment === 'BULLISH' && <span style={{ color: '#10b981', fontWeight: 'bold' }}>🟢 BULLISH (+15% Boost)</span>}
-                        {status.table_data.find(r => r.symbol === sym).sentiment === 'BEARISH' && <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🔴 BEARISH (VETO Attivo)</span>}
-                        {status.table_data.find(r => r.symbol === sym).sentiment === 'NEUTRAL' && <span style={{ color: 'var(--text-secondary)' }}>⚪ NEUTRAL</span>}
+                        {symbolTableRow.sentiment === 'BULLISH' && <span style={{ color: '#10b981', fontWeight: 'bold' }}>🟢 BULLISH (+15% Boost)</span>}
+                        {symbolTableRow.sentiment === 'BEARISH' && <span style={{ color: '#ef4444', fontWeight: 'bold' }}>🔴 BEARISH (VETO Attivo)</span>}
+                        {symbolTableRow.sentiment === 'NEUTRAL' && <span style={{ color: 'var(--text-secondary)' }}>⚪ NEUTRAL</span>}
                       </span>
                     </div>
                   </div>
                 )}
               </div>
-            ))
+            })
           )}
           <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem', marginTop: '2rem' }}>Impostazioni IA</h3>
           <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -2266,9 +2296,6 @@ function OmniApp() {
   );
 
   const renderSportsArbitrageView = () => {
-    const sortedSurebets = [...(status.active_surebets || [])].sort(
-      (a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)
-    );
     return (
     <div className="module-content module-content--sports">
       <div className="header module-page-header sports-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
@@ -2542,8 +2569,8 @@ function OmniApp() {
       </div>
 
       <div className="sentiment-cards-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem' }}>
-        {status.value_bets && status.value_bets.length > 0 ? (
-          status.value_bets.slice(0, numValueBets).map(vb => (
+        {visibleValueBets.length > 0 ? (
+          visibleValueBets.map(vb => (
             <div key={vb.id} style={{
               background: 'rgba(15, 23, 42, 0.6)',
               backdropFilter: 'blur(10px)',
@@ -2823,7 +2850,7 @@ function OmniApp() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ color: '#e2e8f0', margin: 0 }}>Coda e Pubblicazioni</h3>
               <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '0.5rem 1rem', borderRadius: '20px', fontWeight: 'bold' }}>
-                Totale Generato (Oggi): +${Number(status.ai_videos?.reduce((acc, v) => acc + (v.earnings || 0), 0) || 0).toFixed(2)}
+                Totale Generato (Oggi): +${Number(aiEarnings || 0).toFixed(2)}
               </div>
             </div>
             
