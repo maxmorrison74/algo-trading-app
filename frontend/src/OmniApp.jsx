@@ -3230,6 +3230,20 @@ function OmniApp() {
       'Passkey & secure access',
       'Multi-device executive experience',
     ];
+    const landingEnterpriseBlocks = [
+      {
+        title: 'Governance',
+        text: 'Attivazione controllata, percorsi separati e onboarding assistito per una percezione più matura del prodotto.',
+      },
+      {
+        title: 'Security',
+        text: 'Passkey, vault chiavi e accessi protetti aiutano Aureo a presentarsi come piattaforma seria e non improvvisata.',
+      },
+      {
+        title: 'Readiness',
+        text: 'Interfaccia premium, controllo dei moduli e struttura multi-step preparano meglio demo, trattative e clienti high-ticket.',
+      },
+    ];
     const landingFeatures = [
       {
         icon: '🧠',
@@ -3427,6 +3441,21 @@ function OmniApp() {
                   <article key={item.title} className="sales-feature-card">
                     <div className="sales-feature-icon">{item.icon}</div>
                     <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="sales-section sales-section--enterprise">
+              <div className="sales-section-header">
+                <h2>Executive posture per clienti più grandi</h2>
+                <p>Aureo non deve sembrare soltanto bello: deve sembrare governabile, sicuro e pronto a una conversazione enterprise.</p>
+              </div>
+              <div className="sales-enterprise-grid">
+                {landingEnterpriseBlocks.map((item) => (
+                  <article key={item.title} className="sales-enterprise-card">
+                    <div className="sales-enterprise-card-kicker">{item.title}</div>
                     <p>{item.text}</p>
                   </article>
                 ))}

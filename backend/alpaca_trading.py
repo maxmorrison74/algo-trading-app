@@ -5,7 +5,6 @@ import datetime
 import threading
 import pandas as pd
 from groq import Groq
-# Gemini viene chiamato via HTTP diretto (nessun SDK per evitare conflitti)
 import alpaca_trade_api as tradeapi
 from alpaca_trade_api.stream import Stream
 from ensemble_ml import EnsembleTradingModel
@@ -92,56 +91,22 @@ class AlpacaEngine:
                 self.bot_state.modules["trading"] = False
                 self.bot_state.save_state()
                 
-        # Priority: Gemini > Kimi > Groq
-        gemini_key = user_keys.get("gemini_key", "").strip(' \t\n\r"\'')
-        if not gemini_key:
-            try:
-                keys_file = os.path.join(os.path.dirname(__file__), ".env.keys")
-                with open(keys_file, "r") as f:
-                    for line in f:
-                        if "GEMINI_KEY=" in line:
-                            gemini_key = line.strip().split("=", 1)[1].strip(' \t\n\r"\'')
-            except Exception:
-                pass
-
-        if gemini_key:
-            try:
-                # Verifica chiave con una chiamata test minima
-                import requests as _req
-                _test = _req.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={gemini_key}",
-                    json={"contents": [{"parts": [{"text": "Hi"}]}]},
-                    timeout=10
-                )
-                if _test.status_code == 200:
-                    self._gemini_key = gemini_key
-                    self.llm_provider = "gemini"
-                    self.llm_enabled = True
-                    self._log("🧠 AI Predictor: Google Gemini 2.0 Flash attivato come cervello principale!")
-                else:
-                    self._log(f"⚠️ Gemini test fallito ({_test.status_code}). Provo con Groq...")
-                    gemini_key = None
-            except Exception as e:
-                self._log(f"⚠️ Errore init Gemini: {e}. Provo con Groq...")
-                gemini_key = None
-
-        if not gemini_key:
-            kimi_key = ""
-            if isinstance(user_keys, dict):
-                kimi_key = user_keys.get("kimi_key", "").strip(' \t\n\r"\'')
-            if kimi_key:
-                self.kimi_key = kimi_key
-                self.llm_provider = "kimi"
-                self.llm_enabled = True
-                self._log("🧠 AI Predictor: Kimi (Moonshot) attivato.")
-            elif groq_key:
-                self.model = Groq(api_key=groq_key)
-                self.llm_provider = "groq"
-                self.llm_enabled = True
-                self._log("Modulo AI Sentiment basato su notizie in tempo reale abilitato (Groq LLaMA3).")
+        kimi_key = ""
+        if isinstance(user_keys, dict):
+            kimi_key = user_keys.get("kimi_key", "").strip(' \t\n\r"\'')
+        if kimi_key:
+            self.kimi_key = kimi_key
+            self.llm_provider = "kimi"
+            self.llm_enabled = True
+            self._log("🧠 AI Predictor: Kimi (Moonshot) attivato.")
+        elif groq_key:
+            self.model = Groq(api_key=groq_key)
+            self.llm_provider = "groq"
+            self.llm_enabled = True
+            self._log("Modulo AI Sentiment basato su notizie in tempo reale abilitato (Groq LLaMA3).")
         
         if not self.llm_enabled:
-            self._log("Avviso: Nessuna chiave AI (Gemini/Groq/Kimi) trovata. Trading solo su Analisi Tecnica e LSTM.")
+            self._log("Avviso: Nessuna chiave AI (Groq/Kimi) trovata. Trading solo su Analisi Tecnica e LSTM.")
             
         # I modelli LSTM verranno caricati dinamicamente da get_ml_model per evitare OOM sul VPS
         
@@ -260,24 +225,7 @@ class AlpacaEngine:
                 f"}}"
             )
             
-            if getattr(self, 'llm_provider', 'groq') == "gemini":
-                import json, requests as _req
-                prompt_text = (
-                    f"Sei un analista finanziario quantitativo. Analizza il micro-trend di {symbol} negli ultimi 5 minuti. "
-                    f"Il trend è {trend}. "
-                    f"Rispondi SOLO in formato JSON valido, senza markdown:\n"
-                    f"{{\"prediction\": \"UP\" oppure \"DOWN\", \"confidence\": numero da 1 a 5, \"reason\": \"breve motivazione\"}}"
-                )
-                resp = _req.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self._gemini_key}",
-                    json={"contents": [{"parts": [{"text": prompt_text}]}]},
-                    timeout=15
-                )
-                text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                start = text.find('{')
-                end = text.rfind('}') + 1
-                data = json.loads(text[start:end]) if start != -1 else {}
-            elif getattr(self, 'llm_provider', 'groq') == "kimi":
+            if getattr(self, 'llm_provider', 'groq') == "kimi":
                 headers = {
                     "Authorization": f"Bearer {self.kimi_key}",
                     "Content-Type": "application/json"
@@ -345,24 +293,7 @@ class AlpacaEngine:
                 f"}}"
             )
                 
-            if getattr(self, 'llm_provider', 'groq') == "gemini":
-                import json, requests as _req
-                prompt_text = (
-                    f"Sei un analista finanziario. Analizza il sentiment di queste notizie su {symbol}.\n"
-                    f"Notizie:\n" + "\n".join(f"- {n}" for n in headlines) +
-                    f"\n\nRispondi SOLO in JSON valido, senza markdown:\n"
-                    f"{{\"sentiment\": \"BULLISH\" | \"BEARISH\" | \"NEUTRAL\", \"confidence\": numero 1-5, \"reason\": \"breve motivazione\"}}"
-                )
-                resp = _req.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self._gemini_key}",
-                    json={"contents": [{"parts": [{"text": prompt_text}]}]},
-                    timeout=15
-                )
-                text = resp.json()["candidates"][0]["content"]["parts"][0]["text"].strip()
-                start = text.find('{')
-                end = text.rfind('}') + 1
-                data = json.loads(text[start:end]) if start != -1 else {}
-            elif getattr(self, 'llm_provider', 'groq') == "kimi":
+            if getattr(self, 'llm_provider', 'groq') == "kimi":
                 import requests
                 headers = {
                     "Authorization": f"Bearer {self.kimi_key}",

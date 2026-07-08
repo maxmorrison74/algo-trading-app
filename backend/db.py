@@ -241,7 +241,6 @@ def get_api_keys(user_id: str):
         "kraken_key": decrypt_value(row.get('kraken_key', '')),
         "kraken_secret": decrypt_value(row.get('kraken_secret', '')),
         "groq_key": decrypt_value(row.get('groq_key', '')),
-        "gemini_key": decrypt_value(row.get('gemini_key', '')),
         "elevenlabs_key": decrypt_value(row.get('elevenlabs_key', '')),
         "theodds_key": decrypt_value(row.get('theodds_key', '')),
         "newsapi_key": decrypt_value(row.get('newsapi_key', '')),

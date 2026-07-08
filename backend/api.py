@@ -2293,7 +2293,6 @@ class KeysRequest(BaseModel):
     elevenlabs_key: str = ""
     theodds_key: str = ""
     groq_key: str = ""
-    gemini_key: str = ""
     newsapi_key: str = ""
     google_cloud_json: str = ""
     trailing_stop_base_pct: float = 2.5
@@ -2334,7 +2333,6 @@ def get_keys(user: dict = Depends(require_user)):
             # Se l'utente non è admin, usa le AI keys dal suo DB
             if user.get("role") != "admin":
                 if user_keys.get("groq_key"): keys["GROQ_KEY"] = user_keys["groq_key"][:4] + "***"
-                if user_keys.get("gemini_key"): keys["GEMINI_KEY"] = user_keys["gemini_key"][:4] + "***"
                 if user_keys.get("elevenlabs_key"): keys["ELEVENLABS_KEY"] = user_keys["elevenlabs_key"][:4] + "***"
                 if user_keys.get("theodds_key"): keys["THEODDS_KEY"] = user_keys["theodds_key"][:4] + "***"
                 if user_keys.get("newsapi_key"): keys["NEWSAPI_KEY"] = user_keys["newsapi_key"][:4] + "***"
@@ -2364,7 +2362,6 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
             kraken_key=merge_user_key(req.kraken_key, user_keys.get("kraken_key")),
             kraken_secret=merge_user_key(req.kraken_secret, user_keys.get("kraken_secret")),
             groq_key=merge_user_key(req.groq_key, user_keys.get("groq_key")),
-            gemini_key=merge_user_key(req.gemini_key, user_keys.get("gemini_key")),
             elevenlabs_key=merge_user_key(req.elevenlabs_key, user_keys.get("elevenlabs_key")),
             theodds_key=merge_user_key(req.theodds_key, user_keys.get("theodds_key")),
             newsapi_key=merge_user_key(req.newsapi_key, user_keys.get("newsapi_key"))
@@ -2388,17 +2385,15 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
             new_elevenlabs_key = merge_global("ELEVENLABS_KEY", req.elevenlabs_key)
             new_theodds_key = merge_global("THEODDS_KEY", req.theodds_key)
             new_groq_key = merge_global("GROQ_KEY", req.groq_key)
-            new_gemini_key = merge_global("GEMINI_KEY", req.gemini_key)
             new_newsapi_key = merge_global("NEWSAPI_KEY", req.newsapi_key)
             
             with open(API_KEYS_FILE, "w") as f:
                 for k, v in existing.items():
-                    if k not in ["ELEVENLABS_KEY", "THEODDS_KEY", "GROQ_KEY", "GEMINI_KEY", "NEWSAPI_KEY"]:
+                    if k not in ["ELEVENLABS_KEY", "THEODDS_KEY", "GROQ_KEY", "NEWSAPI_KEY"]:
                         f.write(f"{k}={v}\n")
                 if new_elevenlabs_key: f.write(f"ELEVENLABS_KEY={new_elevenlabs_key}\n")
                 if new_theodds_key: f.write(f"THEODDS_KEY={new_theodds_key}\n")
                 if new_groq_key: f.write(f"GROQ_KEY={new_groq_key}\n")
-                if new_gemini_key: f.write(f"GEMINI_KEY={new_gemini_key}\n")
                 if new_newsapi_key: f.write(f"NEWSAPI_KEY={new_newsapi_key}\n")
                 
             if req.google_cloud_json and "***" not in req.google_cloud_json:
@@ -2419,7 +2414,6 @@ class TestConnectionRequest(BaseModel):
     theodds_key: str = ""
     newsapi_key: str = ""
     groq_key: str = ""
-    gemini_key: str = ""
     binance_key: str = ""
     binance_secret: str = ""
     kraken_key: str = ""
@@ -2460,7 +2454,6 @@ def test_connection(req: TestConnectionRequest, user: dict = Depends(require_use
     if req.newsapi_key and "***" not in req.newsapi_key: keys['NEWSAPI_KEY'] = req.newsapi_key
     if req.theodds_key and "***" not in req.theodds_key: keys['THEODDS_KEY'] = req.theodds_key
     if req.groq_key and "***" not in req.groq_key: keys['GROQ_KEY'] = req.groq_key
-    if req.gemini_key and "***" not in req.gemini_key: keys['GEMINI_KEY'] = req.gemini_key
     
 
     service = req.service.lower()
@@ -2551,24 +2544,6 @@ def test_connection(req: TestConnectionRequest, user: dict = Depends(require_use
                     return {"status": "success", "message": f"Connessione Groq stabilita! Modello: {model_name}"}
             except Exception as e:
                 return {"status": "error", "message": f"Errore Groq: {str(e)}"}
-        elif service == 'gemini':
-            api_key = keys.get("GEMINI_KEY", "")
-            if not api_key:
-                return {"status": "error", "message": "Chiave Google Gemini mancante."}
-            try:
-                import requests as _req
-                resp = _req.post(
-                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={api_key}",
-                    json={"contents": [{"parts": [{"text": "Hi"}]}]},
-                    timeout=10
-                )
-                if resp.status_code == 200:
-                    return {"status": "success", "message": "✅ Connessione Google Gemini 2.0 Flash stabilita!"}
-                else:
-                    return {"status": "error", "message": f"Errore Gemini: HTTP {resp.status_code} — chiave non valida?"}
-            except Exception as e:
-                return {"status": "error", "message": f"Errore Gemini: {str(e)}"}
-                
         else:
             # Fallback for others
             return {"status": "success", "message": f"Simulazione test: Connessione a {service.upper()} riuscita!"}
