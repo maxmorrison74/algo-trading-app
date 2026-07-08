@@ -243,36 +243,82 @@ const CapitalPhase = () => {
   }, []);
   
   if (!capital || !capital.mode) return <div className="card col-span-12" style={{ padding: '2rem', textAlign: 'center', color: '#f59e0b' }}>Caricamento Capital Manager (o Backend Offline)...</div>;
+
+  const modeLabelMap = {
+    paper: 'Paper',
+    micro_live: 'Micro Live',
+    small_live: 'Small Live',
+    full_live: 'Full Live',
+  };
+
+  const formatChecklistLabel = (key) => {
+    const labels = {
+      days: 'Track record',
+      trades: 'Operazioni',
+      win_rate: 'Win rate',
+      profit_factor: 'Profit factor',
+      drawdown: 'Drawdown',
+    };
+    return labels[key] || key.replace('_', ' ');
+  };
   
   return (
-    <div className="card col-span-6">
-      <div className="card-title">💰 Gestione Capitale</div>
-      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-        <div>Modalità: <strong style={{ color: '#F5A623' }}>{capital.mode.toUpperCase()}</strong></div>
-        <div>Capitale: €{capital.current_capital}</div>
+    <div className="card col-span-6 capital-phase-card">
+      <div className="capital-phase-header">
+        <div>
+          <div className="card-title">💰 Gestione Capitale</div>
+          <div className="capital-phase-subtitle">Controllo progressione, rischio e maturazione del track record.</div>
+        </div>
+        <div className={`capital-phase-badge capital-phase-badge--${capital.can_advance ? 'ready' : 'building'}`}>
+          {capital.can_advance ? 'Pronto al passaggio' : 'In costruzione'}
+        </div>
       </div>
-      <div style={{ opacity: 0.7, fontSize: 12, marginTop: 4 }}>Max per trade: {capital.trade_limit_pct}%</div>
-      
-      <div style={{marginTop: '1rem'}}>
-        <div style={{ fontSize: 12, marginBottom: 8, opacity: 0.8 }}>Checklist per avanzare:</div>
+
+      <div className="capital-phase-hero">
+        <div>
+          <div className="capital-phase-label">Capitale attuale</div>
+          <div className="capital-phase-value">€{Number(capital.current_capital || 0).toFixed(2)}</div>
+        </div>
+        <div className="capital-phase-mode-card">
+          <div className="capital-phase-label">Modalità</div>
+          <div className="capital-phase-mode">{modeLabelMap[capital.mode] || capital.mode.toUpperCase()}</div>
+        </div>
+      </div>
+
+      <div className="capital-phase-stats">
+        <div className="capital-phase-stat">
+          <span>Max per trade</span>
+          <strong>{capital.trade_limit_pct}%</strong>
+        </div>
+        <div className="capital-phase-stat">
+          <span>Giorni fase</span>
+          <strong>{capital.phase_days || capital.next_checklist?.days?.current || 0}</strong>
+        </div>
+        <div className="capital-phase-stat">
+          <span>Operazioni</span>
+          <strong>{capital.total_trades || 0}</strong>
+        </div>
+      </div>
+
+      <div className="capital-phase-checklist">
+        <div className="capital-phase-section-title">Checklist avanzamento</div>
         {capital.next_checklist && Object.entries(capital.next_checklist).map(([key, val]) => (
-          <div key={key} style={{
-            display: 'flex', justifyContent: 'space-between', padding: '0.4rem 0.6rem',
-            background: val.ok ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
-            borderRadius: '6px', marginBottom: '0.4rem', fontSize: 12
-          }}>
-            <span style={{ textTransform: 'capitalize' }}>{key.replace('_', ' ')}: {val.current}/{val.required}</span>
-            <span>{val.ok ? '✅' : '❌'}</span>
+          <div key={key} className={`capital-phase-check-item capital-phase-check-item--${val.ok ? 'ok' : 'pending'}`}>
+            <div>
+              <div className="capital-phase-check-label">{formatChecklistLabel(key)}</div>
+              <div className="capital-phase-check-progress">{val.current}/{val.required}</div>
+            </div>
+            <div className="capital-phase-check-icon">{val.ok ? '✓' : '•'}</div>
           </div>
         ))}
       </div>
-      
+
       {capital.can_advance && (
         <button 
           onClick={() => authFetch('/api/capital/advance', {method: 'POST'})}
-          style={{ background: '#10B981', color: 'white', padding: '0.75rem', borderRadius: '8px', marginTop: '1rem', width: '100%', cursor: 'pointer' }}
+          className="capital-phase-advance"
         >
-          🚀 AVANZA FASE
+          🚀 Avanza fase
         </button>
       )}
     </div>
