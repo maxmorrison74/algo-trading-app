@@ -1865,7 +1865,7 @@ function OmniApp() {
           </div>
         </div>
 
-        <div className="card" style={{ marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(56,189,248,0.16) 0%, rgba(139,92,246,0.08) 50%, rgba(0,0,0,0) 100%)' }}>
+        <div className="card charts-hero-card" style={{ marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(56,189,248,0.16) 0%, rgba(139,92,246,0.08) 50%, rgba(0,0,0,0) 100%)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
             <div>
               <div className="card-title">Live Market Canvas</div>
@@ -1891,7 +1891,7 @@ function OmniApp() {
             </div>
             <div className="badge badge-ai">{status.modules?.trading ? 'Stream live attivo' : 'Stream in attesa'}</div>
           </div>
-          <div style={{ height: '340px', background: 'rgba(0,0,0,0.28)', borderRadius: '14px', padding: '1rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="charts-canvas-frame" style={{ height: '340px', background: 'rgba(0,0,0,0.28)', borderRadius: '14px', padding: '1rem', border: '1px solid rgba(255,255,255,0.06)' }}>
             {liveChartData.length === 0 ? (
               <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
                 Nessun dato grafico disponibile per il simbolo selezionato.
@@ -1917,7 +1917,7 @@ function OmniApp() {
         </div>
 
         <div className="dashboard-grid">
-          <div className="card col-span-6">
+          <div className="card col-span-6 charts-card">
             <div className="card-title">Equity Progression</div>
             <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Ultimi trade chiusi trasformati in curva equity.</div>
             <div style={{ height: '280px' }}>
@@ -1933,7 +1933,7 @@ function OmniApp() {
             </div>
           </div>
 
-          <div className="card col-span-6">
+          <div className="card col-span-6 charts-card">
             <div className="card-title">Capital Allocation</div>
             <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Mix attuale tra cash e posizioni aperte.</div>
             <div style={{ height: '280px' }}>
@@ -1951,7 +1951,7 @@ function OmniApp() {
             </div>
           </div>
 
-          <div className="card col-span-6">
+          <div className="card col-span-6 charts-card">
             <div className="card-title">Watchlist Momentum Scores</div>
             <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Titoli selezionati dal ranking dinamico.</div>
             <div style={{ height: '280px' }}>
@@ -1973,7 +1973,7 @@ function OmniApp() {
             </div>
           </div>
 
-          <div className="card col-span-6">
+          <div className="card col-span-6 charts-card">
             <div className="card-title">Open Positions Heat</div>
             <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>P/L non realizzato sulle posizioni correnti.</div>
             <div style={{ height: '280px' }}>
@@ -1999,7 +1999,7 @@ function OmniApp() {
             </div>
           </div>
 
-          <div className="card col-span-12">
+          <div className="card col-span-12 charts-card charts-summary-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
               <div>
                 <div className="card-title">Trade Flow Summary</div>
