@@ -3815,7 +3815,7 @@ function OmniApp() {
           <div className="sidebar-brand-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
             <img src="/aureoos-logo.png" alt="Aureo OS" style={{ width: '200px', maxWidth: '100%', height: 'auto', objectFit: 'contain' }} />
           </div>
-          <div className="sidebar-brand-tagline" style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.5rem', letterSpacing: '1px', textAlign: 'center' }}>CRYPTO & INVESTMENT TRADING</div>
+          <div className="sidebar-brand-tagline" style={{ width: '200px', maxWidth: '100%', fontSize: '0.7rem', color: '#888', marginTop: '0.5rem', letterSpacing: '1px', textAlign: 'center' }}>CRYPTO & INVESTMENT TRADING</div>
         </div>
         
         <div className="sidebar-menu">
