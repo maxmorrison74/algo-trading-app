@@ -1401,6 +1401,30 @@ function OmniApp() {
     }
   };
 
+  const persistAtrSettings = async (nextValues) => {
+    try {
+      const res = await authFetch('/api/keys', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(nextValues)
+      });
+      const resData = await res.json();
+      if (!res.ok) {
+        throw new Error(resData.detail || 'Errore salvataggio impostazioni ATR');
+      }
+      const refetchRes = await authFetch('/api/keys?t=' + Date.now());
+      const data = await refetchRes.json();
+      setSavedKeys(data);
+      setApiKeys(prev => ({
+        ...prev,
+        dynamic_atr_stop: data.DYNAMIC_ATR_STOP ?? nextValues.dynamic_atr_stop,
+        trailing_stop_base_pct: data.TRAILING_STOP_BASE_PCT ?? nextValues.trailing_stop_base_pct,
+      }));
+    } catch (err) {
+      alert('Errore durante il salvataggio ATR: ' + err.message);
+    }
+  };
+
   
   useEffect(() => {
     if (activeTab === 'settings') {
@@ -1780,7 +1804,11 @@ function OmniApp() {
             </div>
             <ToggleSwitch
               checked={!!apiKeys.dynamic_atr_stop}
-              onChange={() => setApiKeys({ ...apiKeys, dynamic_atr_stop: !apiKeys.dynamic_atr_stop })}
+              onChange={() => {
+                const nextValues = { ...apiKeys, dynamic_atr_stop: !apiKeys.dynamic_atr_stop };
+                setApiKeys(nextValues);
+                persistAtrSettings(nextValues);
+              }}
               title="Attiva o disattiva il trailing stop dinamico"
             />
             <div style={{ marginTop: '0.75rem', color: apiKeys.dynamic_atr_stop ? '#10b981' : '#94a3b8', fontWeight: 700, letterSpacing: '0.04em' }}>
@@ -1798,7 +1826,9 @@ function OmniApp() {
               max="5.0" 
               step="0.1" 
               value={apiKeys.trailing_stop_base_pct || 2.5} 
-              onChange={e => setApiKeys({...apiKeys, trailing_stop_base_pct: parseFloat(e.target.value)})} 
+              onChange={e => setApiKeys({...apiKeys, trailing_stop_base_pct: parseFloat(e.target.value)})}
+              onMouseUp={() => persistAtrSettings(apiKeys)}
+              onTouchEnd={() => persistAtrSettings(apiKeys)}
               style={{ width: '100%', cursor: 'pointer', accentColor: '#ef4444' }} 
             />
             <p style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: '0.5rem' }}>Se il dinamico è spento, usa questa percentuale fissa per proteggere i profitti.</p>
