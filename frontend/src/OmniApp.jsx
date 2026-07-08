@@ -189,6 +189,30 @@ class ErrorBoundary extends React.Component {
   }
 }
 
+const ToggleSwitch = ({
+  checked,
+  onChange,
+  disabled = false,
+  busy = false,
+  labelOn = 'ON',
+  labelOff = 'OFF',
+  title,
+}) => (
+  <button
+    type="button"
+    className={`risk-toggle-switch ${checked ? 'is-on' : 'is-off'} ${busy ? 'is-busy' : ''}`}
+    onClick={onChange}
+    disabled={disabled || busy}
+    aria-pressed={checked}
+    title={title}
+  >
+    <span className="risk-toggle-switch-track">
+      <span className="risk-toggle-switch-thumb"></span>
+    </span>
+    <span className="risk-toggle-switch-label">{checked ? labelOn : labelOff}</span>
+  </button>
+);
+
 const RiskStatus = () => {
   const [risk, setRisk] = useState(null);
   const [isTogglingRisk, setIsTogglingRisk] = useState(false);
@@ -281,19 +305,13 @@ const RiskStatus = () => {
           <div className={`badge ${meta.badgeClass}`} style={{ fontSize: '0.9rem', fontWeight: 800 }}>
             {meta.label}
           </div>
-          <button
-            type="button"
-            className={`risk-toggle-switch ${riskEnabled ? 'is-on' : 'is-off'} ${isTogglingRisk ? 'is-busy' : ''}`}
-            onClick={handleRiskToggle}
-            disabled={userRole !== 'admin' || isTogglingRisk}
-            aria-pressed={riskEnabled}
+          <ToggleSwitch
+            checked={riskEnabled}
+            onChange={handleRiskToggle}
+            disabled={userRole !== 'admin'}
+            busy={isTogglingRisk}
             title={userRole === 'admin' ? 'Attiva o disattiva Risk Management' : 'Solo admin'}
-          >
-            <span className="risk-toggle-switch-track">
-              <span className="risk-toggle-switch-thumb"></span>
-            </span>
-            <span className="risk-toggle-switch-label">{riskEnabled ? 'ON' : 'OFF'}</span>
-          </button>
+          />
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
@@ -1687,18 +1705,11 @@ function OmniApp() {
                 {apiKeys.dynamic_atr_stop ? 'ACCESO' : 'SPENTO'}
               </div>
             </div>
-            <button
-              type="button"
-              className={`risk-toggle-switch ${apiKeys.dynamic_atr_stop ? 'is-on' : 'is-off'}`}
-              onClick={() => setApiKeys({ ...apiKeys, dynamic_atr_stop: !apiKeys.dynamic_atr_stop })}
-              aria-pressed={!!apiKeys.dynamic_atr_stop}
+            <ToggleSwitch
+              checked={!!apiKeys.dynamic_atr_stop}
+              onChange={() => setApiKeys({ ...apiKeys, dynamic_atr_stop: !apiKeys.dynamic_atr_stop })}
               title="Attiva o disattiva il trailing stop dinamico"
-            >
-              <span className="risk-toggle-switch-track">
-                <span className="risk-toggle-switch-thumb"></span>
-              </span>
-              <span className="risk-toggle-switch-label">{apiKeys.dynamic_atr_stop ? 'ON' : 'OFF'}</span>
-            </button>
+            />
             <div style={{ marginTop: '0.75rem', color: apiKeys.dynamic_atr_stop ? '#10b981' : '#94a3b8', fontWeight: 700, letterSpacing: '0.04em' }}>
               {apiKeys.dynamic_atr_stop ? 'PROTEZIONE DINAMICA ATTIVA' : 'PROTEZIONE DINAMICA DISATTIVA'}
             </div>
@@ -2500,10 +2511,15 @@ function OmniApp() {
         transition: 'all 0.3s'
       }}>
         {/* Toggle on/off */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem', flexWrap: 'wrap' }}>
           <span style={{ fontWeight: 'bold', color: '#e2e8f0', fontSize: '0.95rem' }}>🤖 Auto-Bet</span>
-          <div
-            onClick={isDemoMode ? undefined : async () => {
+          <div className={`badge ${status.auto_bet_enabled ? 'badge-gold' : 'badge-idle'}`} style={{ fontSize: '0.82rem' }}>
+            {status.auto_bet_enabled ? 'ATTIVO' : 'DISATTIVO'}
+          </div>
+          <ToggleSwitch
+            checked={!!status.auto_bet_enabled}
+            disabled={isDemoMode}
+            onChange={async () => {
               const newVal = !status.auto_bet_enabled;
               setStatus(prev => ({ ...prev, auto_bet_enabled: newVal }));
               await authFetch('/api/auto-bet-settings', {
@@ -2512,37 +2528,8 @@ function OmniApp() {
                 body: JSON.stringify({ enabled: newVal })
               });
             }}
-            style={{
-              width: '52px', height: '28px',
-              background: status.auto_bet_enabled
-                ? 'linear-gradient(90deg, #d4af37, #f3e5ab)'
-                : 'rgba(255,255,255,0.15)',
-              borderRadius: '14px',
-              cursor: isDemoMode ? 'not-allowed' : 'pointer',
-              position: 'relative',
-              transition: 'background 0.3s',
-              flexShrink: 0,
-              opacity: isDemoMode ? 0.5 : 1
-            }}
-          >
-            <div style={{
-              position: 'absolute',
-              top: '3px',
-              left: status.auto_bet_enabled ? '26px' : '3px',
-              width: '22px', height: '22px',
-              background: '#fff',
-              borderRadius: '50%',
-              transition: 'left 0.3s',
-              boxShadow: '0 1px 4px rgba(0,0,0,0.4)'
-            }} />
-          </div>
-          <span style={{
-            fontSize: '0.8rem',
-            fontWeight: 'bold',
-            color: status.auto_bet_enabled ? '#d4af37' : '#64748b'
-          }}>
-            {status.auto_bet_enabled ? 'ATTIVO' : 'DISATTIVO'}
-          </span>
+            title={isDemoMode ? 'Non disponibile in demo mode' : 'Attiva o disattiva Auto-Bet'}
+          />
         </div>
 
         {/* Slider soglia */}
@@ -2733,16 +2720,20 @@ function OmniApp() {
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', fontSize: '0.9rem' }}>Segnali di mercato dall'analisi del sentiment globale (Crypto & Stock)</div>
         </div>
         
-        <div className="sentiment-header-controls" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <button 
-            className={`toggle-btn ${status.modules?.ai_sports_sentiment ? 'active' : ''}`}
-            onClick={() => toggleModule('ai_sports_sentiment')}
-            {...demoActionButtonProps()}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', ...demoActionStyle }}
-          >
-            <div className="toggle-switch"></div>
-            {status.modules?.ai_sports_sentiment ? 'Radar Attivo' : 'Radar Spento'}
-          </button>
+        <div className="sentiment-header-controls" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
+            <div className={`badge ${status.modules?.ai_sports_sentiment ? 'badge-ai' : 'badge-idle'}`} style={{ fontSize: '0.82rem' }}>
+              {status.modules?.ai_sports_sentiment ? 'RADAR ATTIVO' : 'RADAR SPENTO'}
+            </div>
+            <ToggleSwitch
+              checked={!!status.modules?.ai_sports_sentiment}
+              disabled={isDemoMode}
+              onChange={() => toggleModule('ai_sports_sentiment')}
+              labelOn="ON"
+              labelOff="OFF"
+              title={isDemoMode ? 'Non disponibile in demo mode' : 'Attiva o disattiva il radar sentiment'}
+            />
+          </div>
         
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '0.8rem 1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.1)' }}>
             <span style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Mostra:</span>
