@@ -1520,20 +1520,6 @@ function OmniApp() {
         {testResults['alpaca'] && <div style={{ color: testResults['alpaca'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['alpaca']}</div>}
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>OANDA (Forex Market) {savedKeys['OANDA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
-          <button onClick={() => testConnection('oanda')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
-          <input type="password" placeholder="API Key / Access Token" value={apiKeys.oanda_key || ''} onChange={e => setApiKeys({...apiKeys, oanda_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
-          <input type="password" placeholder="Account ID (es. 101-004-...)" value={apiKeys.oanda_account || ''} onChange={e => setApiKeys({...apiKeys, oanda_account: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
-        </div>
-        {testResults['oanda'] && <div style={{ color: testResults['oanda'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['oanda']}</div>}
-      </div>
-
-
-
       <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
         <h3 style={{ margin: 0, color: '#ef4444', marginBottom: '1.5rem', display: 'flex', alignItems: 'center' }}>
           <span style={{ marginRight: '0.5rem' }}>🛡️</span> Risk Management
