@@ -3502,13 +3502,13 @@ function OmniApp() {
     <div className="omni-app">
       <div className="sidebar">
         <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
+          <div className="sidebar-brand-row" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <img src="/aureo-icon.png" alt="Aureo Icon" style={{ height: '36px', objectFit: 'contain' }} />
-            <h1 style={{ margin: 0, fontSize: '1.5rem', background: 'linear-gradient(90deg, #d4af37, #f3e5ab)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '2px' }}>
+            <h1 className="sidebar-brand-wordmark" style={{ margin: 0, fontSize: '1.5rem', background: 'linear-gradient(90deg, #d4af37, #f3e5ab)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '2px' }}>
               AUREO
             </h1>
           </div>
-          <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.5rem', letterSpacing: '1px', textAlign: 'center' }}>CRYPTO & INVESTMENT TRADING</div>
+          <div className="sidebar-brand-tagline" style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.5rem', letterSpacing: '1px', textAlign: 'center' }}>CRYPTO & INVESTMENT TRADING</div>
         </div>
         
         <div className="sidebar-menu">
@@ -3552,7 +3552,7 @@ function OmniApp() {
             </button>
           )}
 
-          <div style={{ marginTop: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
+          <div className="sidebar-user-pill" style={{ marginTop: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
             👤 {email}
           </div>
 
@@ -3582,7 +3582,7 @@ function OmniApp() {
 
         {/* Missing Keys Banner */}
         {(!apiKeys.alpaca_key && userRole !== 'admin' && !isDemoMode) && (
-          <div style={{
+          <div className="setup-banner" style={{
             background: 'linear-gradient(90deg, #f59e0b, #d97706)',
             color: '#fff', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -3593,6 +3593,7 @@ function OmniApp() {
             </div>
             <button 
               onClick={() => setActiveTab('settings')}
+              className="setup-banner-button"
               style={{
                 background: '#fff', color: '#d97706', border: 'none', padding: '0.5rem 1rem',
                 borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer'
