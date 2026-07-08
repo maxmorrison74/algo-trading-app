@@ -229,15 +229,19 @@ def get_api_keys(user_id: str):
     
     if not row:
         return None
-        
+    
+    # Converti sqlite3.Row in dict per usare .get() con default
+    row = dict(row)
+    
     return {
-        "alpaca_key": decrypt_value(row['alpaca_key']),
-        "alpaca_secret": decrypt_value(row['alpaca_secret']),
-        "binance_key": decrypt_value(row['binance_key']),
-        "binance_secret": decrypt_value(row['binance_secret']),
+        "alpaca_key": decrypt_value(row.get('alpaca_key', '')),
+        "alpaca_secret": decrypt_value(row.get('alpaca_secret', '')),
+        "binance_key": decrypt_value(row.get('binance_key', '')),
+        "binance_secret": decrypt_value(row.get('binance_secret', '')),
         "kraken_key": decrypt_value(row.get('kraken_key', '')),
         "kraken_secret": decrypt_value(row.get('kraken_secret', '')),
         "groq_key": decrypt_value(row.get('groq_key', '')),
+        "gemini_key": decrypt_value(row.get('gemini_key', '')),
         "elevenlabs_key": decrypt_value(row.get('elevenlabs_key', '')),
         "theodds_key": decrypt_value(row.get('theodds_key', '')),
         "newsapi_key": decrypt_value(row.get('newsapi_key', '')),
