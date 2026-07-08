@@ -206,19 +206,61 @@ const RiskStatus = () => {
     red: '#EF4444',
     black: '#000000'
   };
+
+  const statusMeta = {
+    green: {
+      label: 'ACCESO',
+      title: 'Protezione attiva',
+      description: 'Il controllo rischio è attivo e il trading è consentito.',
+      badgeClass: 'badge-active'
+    },
+    yellow: {
+      label: 'ACCESO',
+      title: 'Protezione attiva con avviso',
+      description: 'Il controllo rischio è attivo, ma siamo vicini a un limite.',
+      badgeClass: 'badge-gold'
+    },
+    red: {
+      label: 'SPENTO',
+      title: 'Trading bloccato',
+      description: 'Il controllo rischio è attivo e ha fermato nuove operazioni.',
+      badgeClass: 'badge-danger'
+    },
+    black: {
+      label: 'SPENTO',
+      title: 'Circuit breaker attivo',
+      description: 'Il controllo rischio ha spento il trading fino a nuovo sblocco.',
+      badgeClass: 'badge-danger'
+    }
+  };
+
+  const meta = statusMeta[risk.status] || statusMeta.red;
+  const statusColor = statusColors[risk.status] || '#555';
   
   return (
-    <div className="card col-span-6" style={{ border: `2px solid ${statusColors[risk.status] || '#555'}` }}>
-      <div className="card-title">🛡️ Risk Manager</div>
-      <div style={{color: statusColors[risk.status] || '#fff', fontSize: '1.5rem', fontWeight: 'bold'}}>
-        {risk.status.toUpperCase()}
+    <div className="card col-span-6" style={{ border: `2px solid ${statusColor}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem' }}>
+        <div>
+          <div className="card-title">🛡️ Risk Management</div>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>{meta.title}</div>
+        </div>
+        <div className={`badge ${meta.badgeClass}`} style={{ fontSize: '0.9rem', fontWeight: 800 }}>
+          {meta.label}
+        </div>
       </div>
-      <div style={{ opacity: 0.8, marginTop: 4 }}>{risk.reason}</div>
-      <div style={{marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem'}}>
-        <div>Equity: ${risk.equity}</div>
-        <div>Daily P&L: {risk.daily_pnl_pct}%</div>
-        <div>Drawdown: {risk.max_drawdown_pct}%</div>
-        <div>Posizioni aperte: {risk.open_positions}</div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
+        <span style={{ width: '12px', height: '12px', borderRadius: '999px', background: statusColor, boxShadow: `0 0 12px ${statusColor}` }}></span>
+        <div style={{ color: statusColor, fontSize: '1.3rem', fontWeight: 'bold', letterSpacing: '0.04em' }}>
+          {risk.can_trade ? 'OPERATIVO' : 'BLOCCATO'}
+        </div>
+      </div>
+      <div style={{ opacity: 0.92 }}>{meta.description}</div>
+      <div style={{ opacity: 0.8, marginTop: 6 }}>{risk.reason}</div>
+      <div style={{marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem'}}>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Equity <strong style={{ color: 'var(--text-primary)' }}>${risk.equity}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Daily P&L <strong style={{ color: 'var(--text-primary)' }}>{risk.daily_pnl_pct}%</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Drawdown <strong style={{ color: 'var(--text-primary)' }}>{risk.max_drawdown_pct}%</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Posizioni aperte <strong style={{ color: 'var(--text-primary)' }}>{risk.open_positions}</strong></div>
       </div>
       {risk.status === 'black' && (
         <button 
