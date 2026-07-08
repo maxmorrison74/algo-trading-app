@@ -223,6 +223,7 @@ class CapitalManager:
             "current_capital": round(self.config.current_capital, 2),
             "trade_limit_pct": self.get_trade_size_limit() * 100,
             "total_trades": self.config.total_trades,
+            "winning_trades": self.config.winning_trades,
             "win_rate": round(win_rate, 2),
             "profit_factor": round(profit_factor, 2),
             "max_drawdown": round(self.config.max_drawdown, 2),
@@ -249,7 +250,7 @@ class CapitalManager:
         return {
             "days": {"current": days, "required": criteria.min_days, "ok": days >= criteria.min_days},
             "trades": {"current": self.config.total_trades, "required": criteria.min_trades, "ok": self.config.total_trades >= criteria.min_trades},
-            "win_rate": {"current": round(win_rate, 1), "required": criteria.min_win_rate, "ok": win_rate >= criteria.min_win_rate},
+            "win_rate": {"current": round(win_rate, 1), "required": criteria.min_win_rate, "ok": win_rate >= criteria.min_win_rate, "wins": self.config.winning_trades, "closed": self.config.total_trades},
             "profit_factor": {"current": round(profit_factor, 2), "required": criteria.min_profit_factor, "ok": profit_factor >= criteria.min_profit_factor},
             "drawdown": {"current": round(self.config.max_drawdown, 1), "required": criteria.max_drawdown, "ok": self.config.max_drawdown <= criteria.max_drawdown}
         }

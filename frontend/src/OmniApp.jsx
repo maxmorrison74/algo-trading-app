@@ -261,6 +261,18 @@ const CapitalPhase = () => {
     };
     return labels[key] || key.replace('_', ' ');
   };
+
+  const formatChecklistProgress = (key, val) => {
+    if (key === 'win_rate') {
+      const wins = val.wins || 0;
+      const closed = val.closed || 0;
+      return `${val.current}% / ${val.required}%${closed ? ` · ${wins}/${closed} vincenti` : ''}`;
+    }
+    if (key === 'drawdown') {
+      return `${val.current}% / ${val.required}% max`;
+    }
+    return `${val.current}/${val.required}`;
+  };
   
   return (
     <div className="card col-span-6 capital-phase-card">
@@ -295,8 +307,9 @@ const CapitalPhase = () => {
           <strong>{capital.phase_days || capital.next_checklist?.days?.current || 0}</strong>
         </div>
         <div className="capital-phase-stat">
-          <span>Operazioni</span>
-          <strong>{capital.total_trades || 0}</strong>
+          <span>Win rate</span>
+          <strong>{Number(capital.win_rate || 0).toFixed(1)}%</strong>
+          <small>{capital.winning_trades || 0}/{capital.total_trades || 0} vincenti</small>
         </div>
       </div>
 
@@ -306,7 +319,7 @@ const CapitalPhase = () => {
           <div key={key} className={`capital-phase-check-item capital-phase-check-item--${val.ok ? 'ok' : 'pending'}`}>
             <div>
               <div className="capital-phase-check-label">{formatChecklistLabel(key)}</div>
-              <div className="capital-phase-check-progress">{val.current}/{val.required}</div>
+              <div className="capital-phase-check-progress">{formatChecklistProgress(key, val)}</div>
             </div>
             <div className="capital-phase-check-icon">{val.ok ? '✓' : '•'}</div>
           </div>
