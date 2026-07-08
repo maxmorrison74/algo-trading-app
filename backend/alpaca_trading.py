@@ -156,12 +156,14 @@ class AlpacaEngine:
         if symbol in self.ml_models:
             return self.ml_models[symbol]
             
-        # Per evitare OOM, teniamo solo un modello in memoria alla volta
-        self.ml_models.clear()
-        try:
-            K.clear_session()
-            gc.collect()
-        except: pass
+        # Per evitare OOM ma mantenere la cache, teniamo fino a 15 modelli in memoria
+        if len(self.ml_models) > 15:
+            oldest = next(iter(self.ml_models))
+            del self.ml_models[oldest]
+            try:
+                K.clear_session()
+                gc.collect()
+            except: pass
         
         base_dir = os.path.dirname(os.path.abspath(__file__))
         models_dir = os.path.join(base_dir, "models")
