@@ -3391,7 +3391,6 @@ function OmniApp() {
           <nav className="sales-nav">
             <a href="#landing-top" className="sales-logo">
               <img src="/aureoos-logo.png" alt="Aureo OS" />
-              <span>AUREO OS</span>
             </a>
             <div className="sales-nav-links">
               <a href="#landing-features">Funzionalità</a>
@@ -3724,7 +3723,6 @@ function OmniApp() {
                 <div className="sales-footer-brand">
                   <a href="#landing-top" className="sales-logo">
                     <img src="/aureoos-logo.png" alt="Aureo OS" />
-                    <span>AUREO OS</span>
                   </a>
                   <p>Dashboard, AI, trading, DeFi e security in un’unica esperienza premium pensata per controllo, chiarezza e presenza.</p>
                 </div>
@@ -3816,9 +3814,6 @@ function OmniApp() {
         <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div className="sidebar-brand-row" style={{ display: 'flex', alignItems: 'center', gap: '0.8rem' }}>
             <img src="/aureoos-logo.png" alt="Aureo OS" style={{ height: '36px', objectFit: 'contain' }} />
-            <h1 className="sidebar-brand-wordmark" style={{ margin: 0, fontSize: '1.5rem', background: 'linear-gradient(90deg, #d4af37, #f3e5ab)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', letterSpacing: '2px' }}>
-              AUREO
-            </h1>
           </div>
           <div className="sidebar-brand-tagline" style={{ fontSize: '0.7rem', color: '#888', marginTop: '0.5rem', letterSpacing: '1px', textAlign: 'center' }}>CRYPTO & INVESTMENT TRADING</div>
         </div>
