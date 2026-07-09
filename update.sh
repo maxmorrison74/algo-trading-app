@@ -1,7 +1,49 @@
 #!/bin/bash
 set -e
 
+cleanup_safe_artifacts() {
+    echo "🧹 Pulizia safe di cache e artefatti temporanei..."
+
+    local reclaimed_targets=0
+
+    if [ -d "frontend/dist" ]; then
+        rm -rf frontend/dist
+        echo "   • Rimossa build frontend precedente"
+        reclaimed_targets=$((reclaimed_targets + 1))
+    fi
+
+    find backend -type d -name "__pycache__" -prune -exec rm -rf {} + 2>/dev/null || true
+    find backend -type f -name "*.pyc" -delete 2>/dev/null || true
+    echo "   • Ripuliti cache Python"
+
+    if [ -d "frontend/node_modules/.vite" ]; then
+        rm -rf frontend/node_modules/.vite
+        echo "   • Rimossa cache Vite locale"
+        reclaimed_targets=$((reclaimed_targets + 1))
+    fi
+
+    if command -v npm >/dev/null 2>&1; then
+        npm cache clean --force >/dev/null 2>&1 || true
+        echo "   • Ripulita cache npm"
+    fi
+
+    if [ -x "backend/venv/bin/python" ]; then
+        backend/venv/bin/python -m pip cache purge >/dev/null 2>&1 || true
+        echo "   • Ripulita cache pip"
+    fi
+
+    find . -type f \( -name "*.tmp" -o -name "*.temp" \) -mtime +7 -delete 2>/dev/null || true
+    echo "   • Rimossi temporanei vecchi"
+
+    if [ "$reclaimed_targets" -eq 0 ]; then
+        echo "   • Nessun artefatto grosso da eliminare in workspace"
+    fi
+}
+
 echo "🔄 Avviando aggiornamento del bot..."
+
+echo "0) Pulizia preventiva..."
+cleanup_safe_artifacts
 
 echo "1) Aggiornamento codice da GitHub..."
 git pull origin main
