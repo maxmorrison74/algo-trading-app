@@ -127,25 +127,23 @@ cd backend
 cd ..
 
 # Riavvio del server
-echo "4) Riavvio backend..."
-pkill -f 'uvicorn api:app' || true
-sleep 2
-
+echo "4) Riavvio backend via PM2..."
 mkdir -p logs
 
-echo "🚀 Avvio backend con nohup..."
-cd backend
-nohup ./venv/bin/python -m uvicorn api:app --host 0.0.0.0 --port 8000 >> ../logs/api-out.log 2>> ../logs/api-error.log &
-cd ..
+if pm2 describe algotrading-api >/dev/null 2>&1; then
+    pm2 restart algotrading-api
+else
+    pm2 start ecosystem.config.js
+fi
 
 echo "5) Verifica avvio backend su 127.0.0.1:8000..."
 BACKEND_OK=0
-for i in {1..20}; do
+for i in {1..60}; do
     if curl -fsS http://127.0.0.1:8000/api/status >/dev/null 2>&1; then
         BACKEND_OK=1
         break
     fi
-    sleep 1
+    sleep 2
 done
 
 if [ "$BACKEND_OK" -ne 1 ]; then
