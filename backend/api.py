@@ -1793,36 +1793,58 @@ def reset_simulation(req: Request, _: str = Depends(require_admin)):
 def get_chart_data(symbol: str, timeframe: str = "1M"):
     try:
         sym = get_yf_symbol(symbol)
-        
+
+        def get_time_format_for_interval(current_interval: str) -> str:
+            if current_interval == "5m":
+                return "%H:%M"
+            if current_interval == "15m":
+                return "%d/%m %H:%M"
+            if current_interval == "1h":
+                return "%d/%m"
+            if current_interval == "1d":
+                return "%b '%y"
+            if current_interval == "1wk":
+                return "%Y"
+            return "%d/%m"
+
         if timeframe == "1D":
             period = "1d"
             interval = "5m"
-            time_format = "%H:%M"
+            fallback_queries = [("5d", "15m"), ("1mo", "1h")]
         elif timeframe == "1W":
             period = "5d"
             interval = "15m"
-            time_format = "%d/%m %H:%M"
+            fallback_queries = [("1mo", "1h"), ("3mo", "1d")]
         elif timeframe == "1M":
             period = "1mo"
             interval = "1h"
-            time_format = "%d/%m"
+            fallback_queries = [("3mo", "1d"), ("6mo", "1d")]
         elif timeframe == "1Y":
             period = "1y"
             interval = "1d"
-            time_format = "%b '%y"
+            fallback_queries = [("2y", "1d"), ("5y", "1wk")]
         elif timeframe == "ALL":
             period = "max"
             interval = "1wk"
-            time_format = "%Y"
+            fallback_queries = [("5y", "1wk"), ("2y", "1d")]
         else:
             period = "1mo"
             interval = "1h"
-            time_format = "%d/%m"
+            fallback_queries = [("3mo", "1d")]
+        time_format = get_time_format_for_interval(interval)
 
         try:
             import yfinance as yf
             ticker = yf.Ticker(sym)
-            df = ticker.history(interval=interval, period=period)
+            df = ticker.history(interval=interval, period=period, prepost=True)
+            if df.empty:
+                for fallback_period, fallback_interval in fallback_queries:
+                    df = ticker.history(interval=fallback_interval, period=fallback_period, prepost=True)
+                    if not df.empty:
+                        interval = fallback_interval
+                        period = fallback_period
+                        time_format = get_time_format_for_interval(interval)
+                        break
         except Exception as e:
             print(f"Errore in yfinance per {sym}: {e}")
             import pandas as pd
