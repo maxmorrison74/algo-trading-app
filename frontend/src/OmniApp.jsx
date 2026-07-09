@@ -1,7 +1,7 @@
-import React, { Suspense, lazy, useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import heroAsset from './assets/hero.png';
-const ChartsStudio = lazy(() => import('./ChartsStudio'));
+import ChartsStudio from './ChartsStudio';
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
 const DEMO_MODE_KEY = 'omni_demo_mode';
@@ -3941,20 +3941,14 @@ function OmniApp() {
         {activeTab === 'settings' && renderSettingsView()}
         {activeTab === 'trading' && renderTradingView()}
         {activeTab === 'charts' && (
-          <Suspense fallback={
-            <div className="card" style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-              Caricamento Charts Studio…
-            </div>
-          }>
-            <ChartsStudio
-              chartData={chartData}
-              selectedSymbol={selectedSymbol}
-              setSelectedSymbol={setSelectedSymbol}
-              status={status}
-              timeframe={timeframe}
-              setTimeframe={setTimeframe}
-            />
-          </Suspense>
+          <ChartsStudio
+            chartData={chartData}
+            selectedSymbol={selectedSymbol}
+            setSelectedSymbol={setSelectedSymbol}
+            status={status}
+            timeframe={timeframe}
+            setTimeframe={setTimeframe}
+          />
         )}
         {activeTab === 'sports_arb' && renderSportsArbitrageView()}
         {activeTab === 'value_bets' && renderValueBetsView()}
