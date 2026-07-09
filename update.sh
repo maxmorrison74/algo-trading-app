@@ -7,6 +7,33 @@ print_disk_snapshot() {
     df -h . | awk 'NR==1 || NR==2 { print "   " $0 }'
 }
 
+start_disk_guard() {
+    echo "🛡️ Avvio demone controllo spazio disco..."
+
+    mkdir -p logs
+
+    if [ -f "disk-guard.pid" ]; then
+        local old_pid
+        old_pid="$(cat disk-guard.pid 2>/dev/null || true)"
+        if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+            kill "$old_pid" 2>/dev/null || true
+            sleep 1
+        fi
+        rm -f disk-guard.pid
+    fi
+
+    pkill -f '/disk_guard.sh' 2>/dev/null || true
+
+    nohup ./disk_guard.sh >> logs/disk-guard-launch.log 2>&1 &
+    sleep 1
+
+    if [ -f "disk-guard.pid" ]; then
+        echo "   • Disk guard attivo con PID $(cat disk-guard.pid)"
+    else
+        echo "   • Avvio disk guard richiesto"
+    fi
+}
+
 cleanup_safe_artifacts() {
     echo "🧹 Pulizia safe lato server di cache, log e artefatti temporanei..."
 
@@ -131,6 +158,9 @@ if [ "$BACKEND_OK" -ne 1 ]; then
 fi
 
 echo "✅ Backend raggiungibile su 127.0.0.1:8000"
+
+echo "6) Avvio monitor spazio disco..."
+start_disk_guard
 
 echo "✅ Update complete! Server gestito da PM2."
 echo "ℹ️  Usa 'pm2 monit' per vedere i log e le risorse in tempo reale."
