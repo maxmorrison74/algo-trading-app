@@ -1,8 +1,14 @@
 #!/bin/bash
 set -e
 
+print_disk_snapshot() {
+    local label="$1"
+    echo "💽 Spazio disco ${label}:"
+    df -h . | awk 'NR==1 || NR==2 { print "   " $0 }'
+}
+
 cleanup_safe_artifacts() {
-    echo "🧹 Pulizia safe di cache e artefatti temporanei..."
+    echo "🧹 Pulizia safe lato server di cache, log e artefatti temporanei..."
 
     local reclaimed_targets=0
 
@@ -32,6 +38,35 @@ cleanup_safe_artifacts() {
         echo "   • Ripulita cache pip"
     fi
 
+    if [ -d "$HOME/.npm" ]; then
+        rm -rf "$HOME/.npm/_cacache" 2>/dev/null || true
+        echo "   • Ripulita cache npm utente"
+    fi
+
+    if [ -d "$HOME/.cache/pip" ]; then
+        rm -rf "$HOME/.cache/pip" 2>/dev/null || true
+        echo "   • Ripulita cache pip utente"
+    fi
+
+    if [ -d "$HOME/.cache" ]; then
+        find "$HOME/.cache" -mindepth 1 -maxdepth 1 \
+            ! -name "huggingface" \
+            ! -name "codex-runtimes" \
+            -exec rm -rf {} + 2>/dev/null || true
+        echo "   • Ripulite cache utente non critiche"
+    fi
+
+    if [ -d "logs" ]; then
+        find logs -type f -name "*.log" -size +50M -exec sh -c '> "$1"' _ {} \; 2>/dev/null || true
+        find logs -type f \( -name "*.log.*" -o -name "*.gz" \) -delete 2>/dev/null || true
+        echo "   • Ripuliti log applicativi pesanti"
+    fi
+
+    if [ -d "$HOME/.pm2/logs" ]; then
+        find "$HOME/.pm2/logs" -type f -name "*.log" -size +20M -exec sh -c '> "$1"' _ {} \; 2>/dev/null || true
+        echo "   • Alleggeriti log PM2"
+    fi
+
     find . -type f \( -name "*.tmp" -o -name "*.temp" \) -mtime +7 -delete 2>/dev/null || true
     echo "   • Rimossi temporanei vecchi"
 
@@ -42,8 +77,12 @@ cleanup_safe_artifacts() {
 
 echo "🔄 Avviando aggiornamento del bot..."
 
+print_disk_snapshot "prima della pulizia"
+
 echo "0) Pulizia preventiva..."
 cleanup_safe_artifacts
+
+print_disk_snapshot "dopo la pulizia"
 
 echo "1) Aggiornamento codice da GitHub..."
 git pull origin main
