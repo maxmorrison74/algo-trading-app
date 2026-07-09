@@ -1247,9 +1247,28 @@ def get_stock_quote(symbol: str, user_id: str = "admin"):
     try:
         alpaca = get_user_alpaca_engine(user_id).alpaca_rest
         if alpaca:
-            bar = alpaca.get_latest_trade(symbol)
-            if bar:
-                return {"symbol": symbol, "price": float(bar.price)}
+            try:
+                trade = alpaca.get_latest_trade(symbol)
+                if trade and getattr(trade, "price", None):
+                    return {"symbol": symbol, "price": float(trade.price)}
+            except Exception:
+                pass
+
+            try:
+                latest_bar = alpaca.get_latest_bar(symbol)
+                if latest_bar and getattr(latest_bar, "c", None):
+                    return {"symbol": symbol, "price": float(latest_bar.c)}
+            except Exception:
+                pass
+
+            try:
+                bars = alpaca.get_bars(symbol, tradeapi.TimeFrame.Day, limit=2).df
+                if not bars.empty:
+                    close_col = "close" if "close" in bars.columns else "Close"
+                    last_price = bars[close_col].dropna().iloc[-1]
+                    return {"symbol": symbol, "price": float(last_price)}
+            except Exception:
+                pass
     except Exception as e:
         pass
         
@@ -1257,10 +1276,22 @@ def get_stock_quote(symbol: str, user_id: str = "admin"):
     try:
         import yfinance as yf
         ticker = yf.Ticker(symbol)
-        data = ticker.history(period="1d")
-        if not data.empty:
-            price = data['Close'].iloc[-1]
-            return {"symbol": symbol, "price": float(price)}
+        try:
+            fast_info = getattr(ticker, "fast_info", None)
+            if fast_info:
+                for key in ("lastPrice", "regularMarketPrice", "previousClose"):
+                    value = fast_info.get(key) if hasattr(fast_info, "get") else None
+                    if value:
+                        return {"symbol": symbol, "price": float(value)}
+        except Exception:
+            pass
+
+        for period in ("1d", "5d", "1mo"):
+            data = ticker.history(period=period, interval="1d", prepost=True)
+            if not data.empty:
+                close_col = "Close" if "Close" in data.columns else data.columns[-1]
+                price = data[close_col].dropna().iloc[-1]
+                return {"symbol": symbol, "price": float(price)}
     except Exception as e:
         pass
         
