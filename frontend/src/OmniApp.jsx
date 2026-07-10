@@ -2321,6 +2321,29 @@ function OmniApp() {
         {testResults['alpaca'] && <div style={{ color: testResults['alpaca'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['alpaca']}</div>}
       </div>
 
+      <div className="card" style={{ marginBottom: '2rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>
+            Telegram Alerts
+            {savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID']
+              ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span>
+              : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}
+          </h3>
+          <button onClick={() => testConnection('telegram')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Telegram</button>
+        </div>
+        <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
+          Utile come canale secondario per alert critici e messaggi operativi. Inserisci token del bot e chat id personale.
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <input type="password" placeholder="Telegram Bot Token" value={apiKeys.telegram_bot_token} onChange={e => setApiKeys({...apiKeys, telegram_bot_token: e.target.value})} style={{ flex: 1, minWidth: '240px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
+          <input type="password" placeholder="Telegram Chat ID" value={apiKeys.telegram_chat_id} onChange={e => setApiKeys({...apiKeys, telegram_chat_id: e.target.value})} style={{ flex: 1, minWidth: '240px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
+        </div>
+        <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.86rem', lineHeight: 1.5 }}>
+          Dopo aver scritto al bot su Telegram, recupera il tuo chat id da `getUpdates` e incollalo qui.
+        </div>
+        {testResults['telegram'] && <div style={{ color: testResults['telegram'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['telegram']}</div>}
+      </div>
+
       <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
         <h3 style={{ margin: 0, color: '#ef4444', marginBottom: '1.5rem', display: 'flex', alignItems: 'center' }}>
           <span style={{ marginRight: '0.5rem' }}>🛡️</span> Risk Management

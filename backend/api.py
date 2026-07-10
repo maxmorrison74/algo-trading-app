@@ -2819,6 +2819,20 @@ def test_connection(req: TestConnectionRequest, user: dict = Depends(require_use
                 return {"status": "success", "message": f"Connessione Alpaca stabilita! Status: {account.status}"}
             else:
                 return {"status": "error", "message": "Account Alpaca non attivo."}
+        elif service == 'telegram':
+            bot_token = keys.get("TELEGRAM_BOT_TOKEN", "")
+            chat_id = keys.get("TELEGRAM_CHAT_ID", "")
+            if not bot_token or not chat_id:
+                return {"status": "error", "message": "Credenziali Telegram mancanti."}
+            url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+            payload = {
+                "chat_id": chat_id,
+                "text": "Test Telegram riuscito: Aureo OS può inviarti alert critici.",
+            }
+            res = requests.post(url, json=payload, timeout=4)
+            if res.status_code == 200:
+                return {"status": "success", "message": "Connessione Telegram riuscita! Messaggio inviato."}
+            return {"status": "error", "message": f"Telegram ha risposto con errore: {res.text}"}
         elif service == 'pushover':
             app_token = keys.get("PUSHOVER_APP_TOKEN", "")
             user_key = keys.get("PUSHOVER_USER_KEY", "")
