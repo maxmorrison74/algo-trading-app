@@ -481,18 +481,17 @@ const ToggleSwitch = ({
   </button>
 );
 
-const RiskStatus = () => {
-  const [risk, setRisk] = useState(null);
+const RiskStatus = ({ riskSnapshot, status }) => {
+  const [risk, setRisk] = useState(riskSnapshot || null);
   const [isTogglingRisk, setIsTogglingRisk] = useState(false);
   const userRole = localStorage.getItem('USER_ROLE') || 'user';
-  
+
   useEffect(() => {
-    const fetchRisk = () => authFetch('/api/risk/status').then(r => r.json()).then(setRisk).catch(e => console.error(e));
-    fetchRisk();
-    const interval = setInterval(fetchRisk, 5000);
-    return () => clearInterval(interval);
-  }, []);
-  
+    if (riskSnapshot) {
+      setRisk(riskSnapshot);
+    }
+  }, [riskSnapshot]);
+
   if (!risk || !risk.status) return <div className="card col-span-12" style={{ padding: '2rem', textAlign: 'center', color: '#f59e0b' }}>Caricamento Risk Manager (o Backend Offline)...</div>;
   
   const statusColors = {
@@ -642,6 +641,62 @@ const RiskStatus = () => {
           🛑 EMERGENCY STOP
         </button>
       )}
+    </div>
+  );
+};
+
+const EnginePulseCard = ({ status, risk, cryptoEngine }) => {
+  const runtimeHealth = status?.runtime_health || {};
+  const runtimeStatus = runtimeHealth?.status || 'green';
+  const riskEnabled = risk?.enabled !== false;
+  const riskState = !riskEnabled ? 'disabled' : (risk?.can_trade ? 'ready' : 'blocked');
+  const scannerOn = !!status?.modules?.trading;
+  const marketOpen = !!status?.market_open;
+  const statusMap = {
+    green: { label: 'Runtime stabile', tone: '#10b981' },
+    yellow: { label: 'Runtime da osservare', tone: '#f59e0b' },
+    red: { label: 'Runtime critico', tone: '#ef4444' },
+    ready: { label: 'Risk operativo', tone: '#10b981' },
+    blocked: { label: 'Risk blocca ingressi', tone: '#ef4444' },
+    disabled: { label: 'Risk disattivato', tone: '#94a3b8' },
+    on: { label: 'Scanner attivo', tone: '#10b981' },
+    off: { label: 'Scanner fermo', tone: '#94a3b8' },
+    market_open: { label: 'Mercato aperto', tone: '#10b981' },
+    market_closed: { label: 'Mercato chiuso', tone: '#f59e0b' },
+  };
+
+  const pulseItems = [
+    { title: 'Runtime', value: statusMap[runtimeStatus]?.label || 'Runtime', tone: statusMap[runtimeStatus]?.tone || '#64748b', detail: runtimeHealth?.summary || 'Nessun riepilogo runtime disponibile.' },
+    { title: 'Risk Engine', value: statusMap[riskState]?.label || 'Risk', tone: statusMap[riskState]?.tone || '#64748b', detail: risk?.reason || 'Nessun blocco attivo.' },
+    { title: 'Scanner', value: scannerOn ? statusMap.on.label : statusMap.off.label, tone: scannerOn ? statusMap.on.tone : statusMap.off.tone, detail: scannerOn ? 'Il motore sta valutando nuovi setup.' : 'Finché resta spento non parte alcuna scansione.' },
+    { title: 'Crypto Engine', value: cryptoEngine?.title || 'Crypto Engine', tone: cryptoEngine?.tone || '#64748b', detail: cryptoEngine?.subtitle || 'Nessun dato crypto disponibile.' },
+  ];
+
+  return (
+    <div className="card col-span-12" style={{ border: '1px solid rgba(56, 189, 248, 0.22)', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(9, 15, 32, 0.92))' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+        <div>
+          <div className="card-title">⚙️ Engine Pulse</div>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+            Lettura rapida dello stato operativo reale prima di guardare segnali, ordini e performance.
+          </div>
+        </div>
+        <div className={`badge ${marketOpen ? 'badge-active' : 'badge-gold'}`} style={{ fontSize: '0.82rem' }}>
+          {marketOpen ? statusMap.market_open.label : statusMap.market_closed.label}
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
+        {pulseItems.map((item) => (
+          <div key={item.title} style={{ padding: '1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${item.tone}33` }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.42rem' }}>{item.title}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.45rem' }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: item.tone, boxShadow: `0 0 14px ${item.tone}` }}></span>
+              <div style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 800 }}>{item.value}</div>
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', lineHeight: 1.5 }}>{item.detail}</div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };
@@ -2394,6 +2449,10 @@ function OmniApp() {
         </div>
       </div>
 
+      <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
+        <EnginePulseCard status={status} risk={status.risk} cryptoEngine={cryptoEngine} />
+      </div>
+
       {cryptoEngine.level !== 'hidden' && (
         <div
           className="card trading-crypto-engine-card"
@@ -2525,7 +2584,7 @@ function OmniApp() {
                     </div>
                   )) : (
                     <div style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.45 }}>
-                      Nessun log crypto recente disponibile: il motore sta ancora accumulando segnali.
+                      Nessun segnale crypto recente: motore attivo, in attesa di setup validi o di nuovi cicli di analisi.
                     </div>
                   )}
                 </div>
@@ -2722,7 +2781,7 @@ function OmniApp() {
 
 
       <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
-        <RiskStatus />
+        <RiskStatus riskSnapshot={status.risk} status={status} />
         <CapitalPhase />
       </div>
 

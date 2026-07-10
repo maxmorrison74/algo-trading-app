@@ -1238,6 +1238,7 @@ def get_status(user_id="admin", scope: str = "core"):
             "dynamic_atr_stop": getattr(bot_state, "dynamic_atr_stop", True),
             "trailing_stop_base_pct": getattr(bot_state, "trailing_stop_base_pct", 2.5),
             "runtime_health": build_runtime_health_snapshot(bot_state),
+            "risk": get_risk_manager(initial_capital=bot_state.virtual_cash).get_status(),
         }
         if scope in {"trading", "charts", "full"}:
             response.update({
