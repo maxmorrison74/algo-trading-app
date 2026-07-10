@@ -320,6 +320,206 @@ const deriveCryptoSymbolStates = (status = {}) => {
 const getCryptoSymbolStateMap = (status = {}) =>
   Object.fromEntries(deriveCryptoSymbolStates(status).map((item) => [item.symbol, item]));
 
+const parsePredictionMetrics = (prediction = '') => {
+  const text = String(prediction || '');
+  const take = (regex) => {
+    const match = text.match(regex);
+    return match ? Number(match[1]) : null;
+  };
+  return {
+    lstm: take(/LSTM:\s*([-\d.]+)%/i),
+    rsi: take(/RSI\(1M\):\s*([-\d.]+)/i),
+    macd: take(/MACD:\s*([-\d.]+)/i),
+    vwap: take(/VWAP:\s*([-\d.]+)/i),
+  };
+};
+
+const deriveSystemHealthSnapshot = ({ status = {}, risk = {}, savedKeys = {}, isBackendOnline = true, cryptoEngine = null }) => {
+  const runtimeHealth = status?.runtime_health || {};
+  const alertArmed = !!((savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY) || (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID));
+  const riskEnabled = risk?.enabled !== false;
+  const scannerOn = !!status?.modules?.trading;
+  const positionsUsagePct = Number(risk?.positions_usage_pct || 0);
+  let score = 100;
+  const warnings = [];
+  const strengths = [];
+
+  if (!isBackendOnline) {
+    score -= 34;
+    warnings.push('Backend non raggiungibile: la piattaforma non ha piena telemetria.');
+  } else {
+    strengths.push('Backend online e raggiungibile.');
+  }
+
+  const runtimeStatus = String(runtimeHealth?.status || 'green').toLowerCase();
+  if (runtimeStatus === 'red') {
+    score -= 22;
+    warnings.push(runtimeHealth?.summary || 'Runtime critico: c’è almeno un servizio da verificare.');
+  } else if (runtimeStatus === 'yellow') {
+    score -= 10;
+    warnings.push(runtimeHealth?.summary || 'Runtime da osservare: non tutto è perfettamente allineato.');
+  } else {
+    strengths.push(runtimeHealth?.summary || 'Runtime stabile.');
+  }
+
+  if (!scannerOn) {
+    score -= 12;
+    warnings.push('Scanner fermo: finché resta spento non nasceranno nuovi setup.');
+  } else {
+    strengths.push('Scanner attivo e in ascolto del mercato.');
+  }
+
+  if (!riskEnabled) {
+    score -= 16;
+    warnings.push('Risk management disattivato: operatività meno protetta.');
+  } else if (risk?.can_trade === false) {
+    score -= 10;
+    warnings.push(risk?.reason || 'Risk engine attivo ma sta bloccando nuovi ingressi.');
+  } else {
+    strengths.push('Risk engine operativo e pronto a filtrare gli ingressi.');
+  }
+
+  if (!alertArmed) {
+    score -= 8;
+    warnings.push('Notifiche non armate: potresti perderti un evento critico.');
+  } else {
+    strengths.push('Canali alert pronti.');
+  }
+
+  if (positionsUsagePct >= 100) {
+    score -= 8;
+    warnings.push('Capienza posizioni piena: prima di entrare serve liberare uno slot.');
+  } else if (positionsUsagePct >= 80) {
+    score -= 4;
+    warnings.push('Capienza posizioni quasi satura.');
+  } else {
+    strengths.push('Capienza posizioni ancora disponibile.');
+  }
+
+  if (cryptoEngine?.level === 'active' || cryptoEngine?.level === 'watching' || cryptoEngine?.level === 'guarded') {
+    strengths.push('Crypto engine vivo e monitorato.');
+  }
+
+  const normalized = Math.max(0, Math.min(100, Math.round(score)));
+  const label = normalized >= 88 ? 'Elite' : normalized >= 72 ? 'Strong' : normalized >= 55 ? 'Guarded' : 'Fragile';
+  const tone = normalized >= 88 ? '#10b981' : normalized >= 72 ? '#38bdf8' : normalized >= 55 ? '#f59e0b' : '#ef4444';
+
+  return {
+    score: normalized,
+    label,
+    tone,
+    warnings: warnings.slice(0, 4),
+    strengths: strengths.slice(0, 4),
+  };
+};
+
+const deriveEntryReadiness = ({ status = {}, risk = {}, symbol = '', row = null }) => {
+  const normalizedSymbol = String(symbol || '').toUpperCase();
+  const logs = Array.isArray(status?.logs) ? status.logs : [];
+  const positions = status?.positions || {};
+  const riskEnabled = risk?.enabled !== false;
+  const isCrypto = normalizedSymbol.includes('/');
+  const symbolLogs = normalizedSymbol
+    ? logs.filter((line) => String(line || '').toUpperCase().includes(normalizedSymbol)).slice(0, 10)
+    : [];
+  const blockers = [];
+  const watchItems = [];
+  const greenLights = [];
+  let score = 100;
+
+  if (!normalizedSymbol) {
+    blockers.push('Nessun simbolo selezionato: scegli un asset per leggere la readiness.');
+    score -= 45;
+  }
+
+  if (!status?.modules?.trading) {
+    blockers.push('Scanner spento: il motore non sta cercando ingressi.');
+    score -= 30;
+  } else {
+    greenLights.push('Scanner attivo.');
+  }
+
+  if (!isCrypto && status?.market_open === false) {
+    blockers.push('Mercato azionario chiuso: il setup può maturare ma non eseguirsi.');
+    score -= 18;
+  } else if (!isCrypto) {
+    greenLights.push('Mercato azionario aperto.');
+  }
+
+  if (!riskEnabled) {
+    blockers.push('Risk management spento: meglio riattivarlo prima di forzare ingressi.');
+    score -= 16;
+  } else if (risk?.can_trade === false) {
+    blockers.push(risk?.reason || 'Risk engine attivo ma sta bloccando nuovi ordini.');
+    score -= 18;
+  } else {
+    greenLights.push('Risk engine pronto.');
+  }
+
+  if (normalizedSymbol && positions[normalizedSymbol] && positions[normalizedSymbol] !== 'LIQUID') {
+    blockers.push(`Esiste già una posizione aperta su ${normalizedSymbol}.`);
+    score -= 22;
+  }
+
+  if (row?.sentiment === 'BEARISH') {
+    blockers.push('Sentiment AI bearish: il layer AI sta raffreddando l’ingresso.');
+    score -= 14;
+  } else if (row?.sentiment === 'BULLISH') {
+    greenLights.push('Sentiment AI bullish.');
+  }
+
+  const metrics = parsePredictionMetrics(row?.prediction || '');
+  if (metrics.lstm !== null) {
+    if (metrics.lstm >= 55) greenLights.push(`LSTM sopra soglia (${metrics.lstm.toFixed(1)}%).`);
+    else {
+      watchItems.push(`LSTM ancora prudente (${metrics.lstm.toFixed(1)}%).`);
+      score -= 8;
+    }
+  }
+  if (metrics.rsi !== null) {
+    if (metrics.rsi >= 35 && metrics.rsi <= 70) greenLights.push(`RSI bilanciato (${metrics.rsi.toFixed(1)}).`);
+    else watchItems.push(`RSI fuori fascia ideale (${metrics.rsi.toFixed(1)}).`);
+  }
+  if (metrics.macd !== null && metrics.macd < 0) {
+    watchItems.push(`MACD ancora debole (${metrics.macd.toFixed(2)}).`);
+    score -= 5;
+  }
+
+  const hasVeto = symbolLogs.some((line) => /AI VETO|LSTM VETO|RISK FILTER|SKIP SHORT/i.test(String(line || '')));
+  const hasNoSetup = symbolLogs.some((line) => /nessun setup tecnico valido|volatilità troppo bassa/i.test(String(line || '')));
+  const hasRecentAction = symbolLogs.some((line) => /BUY|SELL|ORDINE|ATTIVATO/i.test(String(line || '')));
+
+  if (hasVeto) {
+    blockers.push('Uno dei filtri ha appena bocciato il setup.');
+    score -= 12;
+  }
+  if (hasNoSetup) {
+    watchItems.push('Il mercato non sta offrendo ancora un setup pulito.');
+    score -= 8;
+  }
+  if (hasRecentAction) {
+    greenLights.push('C’è attività recente sul simbolo.');
+  }
+
+  if (!blockers.length && !watchItems.length) {
+    greenLights.push('Nessun freno evidente: il motore aspetta solo conferma esecutiva.');
+  }
+
+  const normalized = Math.max(0, Math.min(100, Math.round(score)));
+  const label = normalized >= 78 ? 'Pronto' : normalized >= 58 ? 'In osservazione' : 'Frenato';
+  const tone = normalized >= 78 ? '#10b981' : normalized >= 58 ? '#f59e0b' : '#ef4444';
+
+  return {
+    score: normalized,
+    label,
+    tone,
+    blockers: blockers.slice(0, 4),
+    watchItems: watchItems.slice(0, 4),
+    greenLights: greenLights.slice(0, 4),
+    recentLogs: symbolLogs.slice(0, 4),
+  };
+};
+
 const SymbolTabButton = ({ sym, selected, onClick, cryptoState }) => (
   <button
     className={`tab-btn ${selected ? 'active-tab' : ''}`}
@@ -602,6 +802,7 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   const uiParsed = uiRaw ? (() => { try { return JSON.parse(uiRaw); } catch { return null; } })() : null;
   const [isDraggingBar, setIsDraggingBar] = useState(false);
   const [isHoveringBar, setIsHoveringBar] = useState(false);
+  const [showAlertsPanel, setShowAlertsPanel] = useState(false);
   const [snapEdge, setSnapEdge] = useState('center');
   const [displayMode, setDisplayMode] = useState(uiParsed?.displayMode === 'compact' ? 'compact' : 'expanded');
   const [isMuted, setIsMuted] = useState(uiParsed?.isMuted === true);
@@ -732,6 +933,17 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
     setSnapEdge(resolveSnapEdge(barOffset));
   }, [barOffset, resolveSnapEdge]);
 
+  useEffect(() => {
+    if (!showAlertsPanel) return;
+    const handlePointerDown = (event) => {
+      if (barRef.current && !barRef.current.contains(event.target)) {
+        setShowAlertsPanel(false);
+      }
+    };
+    window.addEventListener('pointerdown', handlePointerDown);
+    return () => window.removeEventListener('pointerdown', handlePointerDown);
+  }, [showAlertsPanel]);
+
   const handleDragStart = (event) => {
     if (typeof window === 'undefined') return;
     const startX = event.clientX;
@@ -802,11 +1014,12 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
           className={`bottom-reminder-status-dot ${topAlert ? 'is-alert' : 'is-clear'}`}
           title={topAlert ? topAlert.label : 'Tutti i sistemi principali sono stabili'}
           aria-label={topAlert ? topAlert.label : 'Stato stabile'}
-          onClick={topAlert ? handlePriorityJump : undefined}
+          onClick={() => setShowAlertsPanel((prev) => !prev)}
         />
         <span
           className={`bottom-reminder-alert-count ${alertCount > 0 ? 'has-alerts' : 'is-clear'}`}
           title={alertCount > 0 ? `${alertCount} alert attivi` : 'Nessun alert attivo'}
+          onClick={() => setShowAlertsPanel((prev) => !prev)}
         >
           {alertCount}
         </span>
@@ -840,6 +1053,37 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
           </button>
         </div>
       </div>
+      {showAlertsPanel ? (
+        <div className="bottom-reminder-alert-panel">
+          <div className="bottom-reminder-alert-panel-title">Alert attivi</div>
+          {criticalAlerts.length ? (
+            <div className="bottom-reminder-alert-list">
+              {criticalAlerts.map((alert, index) => (
+                <button
+                  key={`${alert.label}-${index}`}
+                  type="button"
+                  className="bottom-reminder-alert-item"
+                  style={{ '--alert-tone': alert.tone }}
+                  onClick={() => {
+                    setShowAlertsPanel(false);
+                    if (typeof alert.action === 'function') alert.action();
+                  }}
+                >
+                  <span className="bottom-reminder-alert-item-dot" />
+                  <span className="bottom-reminder-alert-item-text">
+                    <strong>{alert.label}</strong>
+                    <small>Tocca per aprire la sezione collegata</small>
+                  </span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div className="bottom-reminder-alert-empty">
+              Nessun alert critico attivo. Il sistema è stabile.
+            </div>
+          )}
+        </div>
+      ) : null}
       {topAlert ? (
         <button
           type="button"
@@ -1081,6 +1325,110 @@ const EnginePulseCard = ({ status, risk, cryptoEngine }) => {
     </div>
   );
 };
+
+const SystemHealthCard = ({ snapshot }) => (
+  <div className="card col-span-4" style={{ border: `1px solid ${snapshot.tone}33`, background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(9, 15, 32, 0.9))' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.8rem', marginBottom: '1rem' }}>
+      <div>
+        <div className="card-title">Health Score</div>
+        <div style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>Quanto il sistema è pronto a girare bene adesso.</div>
+      </div>
+      <div className="badge" style={{ borderColor: `${snapshot.tone}55`, color: snapshot.tone, background: `${snapshot.tone}12` }}>
+        {snapshot.label}
+      </div>
+    </div>
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: '0.5rem', marginBottom: '0.85rem' }}>
+      <span style={{ color: snapshot.tone, fontSize: '2.3rem', fontWeight: 900, lineHeight: 1 }}>{snapshot.score}</span>
+      <span style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>/100</span>
+    </div>
+    <div style={{ height: 10, borderRadius: 999, background: 'rgba(255,255,255,0.06)', overflow: 'hidden', marginBottom: '1rem' }}>
+      <div style={{ width: `${snapshot.score}%`, height: '100%', background: `linear-gradient(90deg, ${snapshot.tone}, ${snapshot.tone}CC)`, boxShadow: `0 0 16px ${snapshot.tone}55` }} />
+    </div>
+    <div style={{ display: 'grid', gap: '0.75rem' }}>
+      <div>
+        <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.35rem' }}>Punti forti</div>
+        <div style={{ display: 'grid', gap: '0.4rem' }}>
+          {snapshot.strengths.map((item, index) => (
+            <div key={index} style={{ color: '#cbd5e1', fontSize: '0.85rem', display: 'flex', gap: '0.45rem' }}>
+              <span style={{ color: '#10b981', fontWeight: 800 }}>✓</span>
+              <span>{item}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div>
+        <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.35rem' }}>Da tenere d’occhio</div>
+        <div style={{ display: 'grid', gap: '0.4rem' }}>
+          {snapshot.warnings.length ? snapshot.warnings.map((item, index) => (
+            <div key={index} style={{ color: '#cbd5e1', fontSize: '0.85rem', display: 'flex', gap: '0.45rem' }}>
+              <span style={{ color: '#f59e0b', fontWeight: 800 }}>!</span>
+              <span>{item}</span>
+            </div>
+          )) : (
+            <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>Nessuna fragilità evidente in questo momento.</div>
+          )}
+        </div>
+      </div>
+    </div>
+  </div>
+);
+
+const EntryReadinessCard = ({ readiness, symbol }) => (
+  <div className="card col-span-8" style={{ border: `1px solid ${readiness.tone}33`, background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(9, 15, 32, 0.9))' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+      <div>
+        <div className="card-title">Perché non entra</div>
+        <div style={{ color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+          Diagnosi operativa su {symbol || 'nessun simbolo selezionato'} per capire cosa manca al prossimo ingresso.
+        </div>
+      </div>
+      <div className="badge" style={{ borderColor: `${readiness.tone}55`, color: readiness.tone, background: `${readiness.tone}12` }}>
+        {readiness.label} · {readiness.score}/100
+      </div>
+    </div>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
+      <div style={{ padding: '0.9rem', borderRadius: '14px', background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.18)' }}>
+        <div style={{ color: '#fecaca', fontWeight: 800, marginBottom: '0.5rem' }}>Blocker veri</div>
+        <div style={{ display: 'grid', gap: '0.4rem' }}>
+          {readiness.blockers.length ? readiness.blockers.map((item, index) => (
+            <div key={index} style={{ color: '#e2e8f0', fontSize: '0.84rem', lineHeight: 1.45 }}>{item}</div>
+          )) : <div style={{ color: '#94a3b8', fontSize: '0.84rem' }}>Nessun blocco duro individuato.</div>}
+        </div>
+      </div>
+      <div style={{ padding: '0.9rem', borderRadius: '14px', background: 'rgba(245, 158, 11, 0.08)', border: '1px solid rgba(245, 158, 11, 0.18)' }}>
+        <div style={{ color: '#fde68a', fontWeight: 800, marginBottom: '0.5rem' }}>Fattori da maturare</div>
+        <div style={{ display: 'grid', gap: '0.4rem' }}>
+          {readiness.watchItems.length ? readiness.watchItems.map((item, index) => (
+            <div key={index} style={{ color: '#e2e8f0', fontSize: '0.84rem', lineHeight: 1.45 }}>{item}</div>
+          )) : <div style={{ color: '#94a3b8', fontSize: '0.84rem' }}>Non emergono segnali intermedi da maturare.</div>}
+        </div>
+      </div>
+      <div style={{ padding: '0.9rem', borderRadius: '14px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.18)' }}>
+        <div style={{ color: '#bbf7d0', fontWeight: 800, marginBottom: '0.5rem' }}>Cosa è già allineato</div>
+        <div style={{ display: 'grid', gap: '0.4rem' }}>
+          {readiness.greenLights.length ? readiness.greenLights.map((item, index) => (
+            <div key={index} style={{ color: '#e2e8f0', fontSize: '0.84rem', lineHeight: 1.45 }}>{item}</div>
+          )) : <div style={{ color: '#94a3b8', fontSize: '0.84rem' }}>Ancora niente di solido da evidenziare.</div>}
+        </div>
+      </div>
+    </div>
+    <div style={{ marginTop: '0.9rem', padding: '0.9rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+      <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.45rem' }}>Ultimi log sul simbolo</div>
+      <div style={{ display: 'grid', gap: '0.45rem' }}>
+        {readiness.recentLogs.length ? readiness.recentLogs.map((line, index) => (
+          <div key={index} style={{ padding: '0.55rem 0.7rem', borderRadius: '10px', background: 'rgba(0,0,0,0.18)', border: `1px solid ${classifyTradingLog(line).border}` }}>
+            <div style={{ color: classifyTradingLog(line).tone, fontSize: '0.72rem', fontWeight: 800, marginBottom: '0.18rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+              {classifyTradingLog(line).label}
+            </div>
+            <div style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.45 }}>{line}</div>
+          </div>
+        )) : (
+          <div style={{ color: '#94a3b8', fontSize: '0.84rem' }}>Nessun log specifico recente: il motore potrebbe essere in semplice attesa di conferme.</div>
+        )}
+      </div>
+    </div>
+  </div>
+);
 
 const CapitalPhase = () => {
   const [capital, setCapital] = useState(null);
@@ -1444,6 +1792,14 @@ function OmniApp() {
   const cryptoEngineDetails = useMemo(() => deriveCryptoEngineDetails(status), [status]);
   const cryptoSymbolStates = useMemo(() => deriveCryptoSymbolStates(status), [status]);
   const cryptoSymbolStateMap = useMemo(() => getCryptoSymbolStateMap(status), [status]);
+  const systemHealthSnapshot = useMemo(
+    () => deriveSystemHealthSnapshot({ status, risk: status.risk, savedKeys, isBackendOnline, cryptoEngine }),
+    [status, savedKeys, isBackendOnline, cryptoEngine]
+  );
+  const entryReadiness = useMemo(
+    () => deriveEntryReadiness({ status, risk: status.risk, symbol: selectedSymbol, row: tableDataBySymbol[selectedSymbol] }),
+    [status, selectedSymbol, tableDataBySymbol]
+  );
   const sortedSurebets = useMemo(
     () => [...(status.active_surebets || [])].sort((a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)),
     [status.active_surebets]
@@ -2920,6 +3276,11 @@ function OmniApp() {
 
       <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
         <EnginePulseCard status={status} risk={status.risk} cryptoEngine={cryptoEngine} />
+      </div>
+
+      <div className="dashboard-grid" style={{ marginTop: '1rem' }}>
+        <SystemHealthCard snapshot={systemHealthSnapshot} />
+        <EntryReadinessCard readiness={entryReadiness} symbol={selectedSymbol} />
       </div>
 
       {cryptoEngine.level !== 'hidden' && (

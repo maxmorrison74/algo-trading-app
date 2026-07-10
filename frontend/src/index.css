@@ -1097,6 +1097,7 @@ body {
   background: rgba(255,255,255,0.05);
   color: #e2e8f0;
   flex: 0 0 auto;
+  cursor: pointer;
 }
 
 .bottom-reminder-alert-count.has-alerts {
@@ -1110,6 +1111,90 @@ body {
   border-color: rgba(16, 185, 129, 0.25);
   background: rgba(16, 185, 129, 0.12);
   color: #bbf7d0;
+}
+
+.bottom-reminder-alert-panel {
+  position: absolute;
+  bottom: calc(100% + 0.75rem);
+  right: 0.35rem;
+  width: min(360px, calc(100vw - 2rem));
+  padding: 0.85rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(11, 15, 25, 0.96);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+  z-index: 4;
+}
+
+.bottom-reminder-alert-panel-title {
+  color: #f8fafc;
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.65rem;
+}
+
+.bottom-reminder-alert-list {
+  display: grid;
+  gap: 0.55rem;
+}
+
+.bottom-reminder-alert-item {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--alert-tone) 28%, rgba(255,255,255,0.08));
+  background: color-mix(in srgb, var(--alert-tone) 10%, rgba(255,255,255,0.02));
+  color: #e2e8f0;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.bottom-reminder-alert-item:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.18);
+}
+
+.bottom-reminder-alert-item-dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-top: 0.22rem;
+  border-radius: 999px;
+  background: var(--alert-tone);
+  flex: 0 0 auto;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--alert-tone) 55%, transparent);
+}
+
+.bottom-reminder-alert-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.22rem;
+}
+
+.bottom-reminder-alert-item-text strong {
+  color: #f8fafc;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.bottom-reminder-alert-item-text small {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  line-height: 1.4;
+}
+
+.bottom-reminder-alert-empty {
+  color: #94a3b8;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  padding: 0.15rem 0;
 }
 
 .bottom-reminder-chip {
