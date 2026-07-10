@@ -593,7 +593,26 @@ const AlertReadinessCard = ({ savedKeys = {}, runtimeHealth = {}, lastVaultSync 
   );
 };
 
+const BOTTOM_BAR_STORAGE_KEY = 'aureo_bottom_bar_offset';
+
 const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel, activeTab }) => {
+  const barRef = React.useRef(null);
+  const dragRef = React.useRef(null);
+  const [isDraggingBar, setIsDraggingBar] = useState(false);
+  const [barOffset, setBarOffset] = useState(() => {
+    if (typeof window === 'undefined') return { x: 0, y: 0 };
+    try {
+      const raw = window.localStorage.getItem(BOTTOM_BAR_STORAGE_KEY);
+      if (!raw) return { x: 0, y: 0 };
+      const parsed = JSON.parse(raw);
+      return {
+        x: Number(parsed?.x || 0),
+        y: Number(parsed?.y || 0),
+      };
+    } catch {
+      return { x: 0, y: 0 };
+    }
+  });
   const runtimeHealth = status?.runtime_health || {};
   const marketOpen = !!status?.market_open;
   const tradingOn = !!status?.modules?.trading;
@@ -615,8 +634,74 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
     { label: 'Vista', value: TAB_TITLES[activeTab] || 'AUREO', tone: '#a78bfa' },
   ];
 
+  const clampBarOffset = React.useCallback((candidate) => {
+    if (typeof window === 'undefined' || !barRef.current) return candidate;
+    const width = barRef.current.offsetWidth;
+    const height = barRef.current.offsetHeight;
+    const desktopCompact = window.innerWidth <= 1024;
+    const baseLeft = desktopCompact ? 256 : 304;
+    const minX = 12 - baseLeft;
+    const maxX = window.innerWidth - 12 - (baseLeft + width);
+    const minY = -Math.max(0, window.innerHeight - height - 88);
+    return {
+      x: Math.max(minX, Math.min(maxX, candidate.x)),
+      y: Math.max(minY, Math.min(0, candidate.y)),
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(BOTTOM_BAR_STORAGE_KEY, JSON.stringify(barOffset));
+  }, [barOffset]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const handleResize = () => setBarOffset((prev) => clampBarOffset(prev));
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [clampBarOffset]);
+
+  const handleDragStart = (event) => {
+    if (typeof window === 'undefined') return;
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const startOffset = { ...barOffset };
+    setIsDraggingBar(true);
+    document.body.style.userSelect = 'none';
+
+    const handleMove = (moveEvent) => {
+      setBarOffset(clampBarOffset({
+        x: startOffset.x + (moveEvent.clientX - startX),
+        y: startOffset.y + (moveEvent.clientY - startY),
+      }));
+    };
+
+    const handleUp = () => {
+      setIsDraggingBar(false);
+      document.body.style.userSelect = '';
+      window.removeEventListener('pointermove', handleMove);
+      window.removeEventListener('pointerup', handleUp);
+    };
+
+    window.addEventListener('pointermove', handleMove);
+    window.addEventListener('pointerup', handleUp, { once: true });
+  };
+
   return (
-    <div className="bottom-reminder-bar">
+    <div
+      ref={barRef}
+      className={`bottom-reminder-bar ${isDraggingBar ? 'is-dragging' : ''}`}
+      style={{ transform: `translate3d(${barOffset.x}px, ${barOffset.y}px, 0)` }}
+    >
+      <div
+        ref={dragRef}
+        className="bottom-reminder-handle"
+        onPointerDown={handleDragStart}
+        title="Trascina la barra"
+      >
+        <span className="bottom-reminder-handle-dots">⋮⋮</span>
+        <span>Trascina</span>
+      </div>
       {items.map((item) => (
         <div key={item.label} className="bottom-reminder-pill">
           <span className="bottom-reminder-label">{item.label}</span>
