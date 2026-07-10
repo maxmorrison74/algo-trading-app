@@ -593,6 +593,40 @@ const AlertReadinessCard = ({ savedKeys = {}, runtimeHealth = {}, lastVaultSync 
   );
 };
 
+const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel, activeTab }) => {
+  const runtimeHealth = status?.runtime_health || {};
+  const marketOpen = !!status?.market_open;
+  const tradingOn = !!status?.modules?.trading;
+  const riskEnabled = risk?.enabled !== false;
+  const riskState = !riskEnabled ? 'Off' : (risk?.can_trade ? 'Ready' : 'Blocked');
+  const cryptoCount = Object.entries(status?.positions || {}).filter(([sym, pos]) => String(sym).includes('/') && pos !== 'LIQUID').length;
+  const livePnl = Number(status?.profit || 0);
+  const alertArmed = (savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY) || (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID);
+
+  const items = [
+    { label: 'Backend', value: isBackendOnline ? 'Online' : 'Offline', tone: isBackendOnline ? '#10b981' : '#ef4444' },
+    { label: 'Sync', value: syncLabel || '—', tone: '#94a3b8' },
+    { label: 'Mercato', value: marketOpen ? 'Aperto' : 'Chiuso', tone: marketOpen ? '#10b981' : '#f59e0b' },
+    { label: 'Scanner', value: tradingOn ? 'Attivo' : 'Fermo', tone: tradingOn ? '#10b981' : '#94a3b8' },
+    { label: 'Risk', value: riskState, tone: riskState === 'Ready' ? '#10b981' : riskState === 'Blocked' ? '#ef4444' : '#94a3b8' },
+    { label: 'Crypto', value: `${cryptoCount} live`, tone: cryptoCount > 0 ? '#38bdf8' : '#94a3b8' },
+    { label: 'P&L', value: `${livePnl >= 0 ? '+' : ''}$${livePnl.toFixed(2)}`, tone: livePnl >= 0 ? '#10b981' : '#ef4444' },
+    { label: 'Alert', value: alertArmed ? 'Armati' : 'Da armare', tone: alertArmed ? '#10b981' : '#f59e0b' },
+    { label: 'Vista', value: TAB_TITLES[activeTab] || 'AUREO', tone: '#a78bfa' },
+  ];
+
+  return (
+    <div className="bottom-reminder-bar">
+      {items.map((item) => (
+        <div key={item.label} className="bottom-reminder-pill">
+          <span className="bottom-reminder-label">{item.label}</span>
+          <span className="bottom-reminder-value" style={{ color: item.tone }}>{item.value}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
 const RiskStatus = ({ riskSnapshot, status }) => {
   const [risk, setRisk] = useState(riskSnapshot || null);
   const [isTogglingRisk, setIsTogglingRisk] = useState(false);
@@ -4846,6 +4880,14 @@ function OmniApp() {
         {activeTab === 'value_bets' && renderValueBetsView()}
         {activeTab === 'ai_content' && renderAIContentView()}
         {BILLING_ENABLED && activeTab === 'saas' && renderSaaSView()}
+        <BottomReminderBar
+          status={status}
+          risk={status.risk}
+          savedKeys={savedKeys}
+          isBackendOnline={isBackendOnline}
+          syncLabel={syncLabel}
+          activeTab={activeTab}
+        />
       </div>
     </div>
 
