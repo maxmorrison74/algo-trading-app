@@ -1081,6 +1081,37 @@ body {
     0 0 14px rgba(239, 68, 68, 0.42);
 }
 
+.bottom-reminder-alert-count {
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.32rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.62rem;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: 0;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(255,255,255,0.05);
+  color: #e2e8f0;
+  flex: 0 0 auto;
+}
+
+.bottom-reminder-alert-count.has-alerts {
+  border-color: rgba(239, 68, 68, 0.34);
+  background: rgba(239, 68, 68, 0.14);
+  color: #fecaca;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.16);
+}
+
+.bottom-reminder-alert-count.is-clear {
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.12);
+  color: #bbf7d0;
+}
+
 .bottom-reminder-chip {
   border: 1px solid rgba(148, 163, 184, 0.2);
   background: rgba(255,255,255,0.04);

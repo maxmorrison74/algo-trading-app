@@ -638,6 +638,8 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
     !alertArmed ? { label: 'Alerts not armed', tone: '#f59e0b', action: onOpenSecurity } : null,
   ].filter(Boolean);
   const topAlert = criticalAlerts[0] || null;
+  const alertCount = criticalAlerts.length;
+  const alertLevel = alertCount >= 2 ? 'High Priority' : alertCount === 1 ? 'Attention' : 'Stable';
 
   const items = [
     { label: 'Backend', value: isBackendOnline ? 'Online' : 'Offline', tone: isBackendOnline ? '#10b981' : '#ef4444' },
@@ -794,7 +796,7 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
         </span>
         <span className="bottom-reminder-handle-text">
           <strong>Info Bar</strong>
-          <small>{topAlert ? topAlert.label : 'Live Status Dock'}</small>
+          <small>{topAlert ? `${alertLevel} · ${topAlert.label}` : 'Live Status Dock'}</small>
         </span>
         <span
           className={`bottom-reminder-status-dot ${topAlert ? 'is-alert' : 'is-clear'}`}
@@ -802,6 +804,12 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
           aria-label={topAlert ? topAlert.label : 'Stato stabile'}
           onClick={topAlert ? handlePriorityJump : undefined}
         />
+        <span
+          className={`bottom-reminder-alert-count ${alertCount > 0 ? 'has-alerts' : 'is-clear'}`}
+          title={alertCount > 0 ? `${alertCount} alert attivi` : 'Nessun alert attivo'}
+        >
+          {alertCount}
+        </span>
         <div className="bottom-reminder-handle-actions">
           <button
             type="button"
