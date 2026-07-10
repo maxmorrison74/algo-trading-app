@@ -595,7 +595,7 @@ const AlertReadinessCard = ({ savedKeys = {}, runtimeHealth = {}, lastVaultSync 
 
 const BOTTOM_BAR_STORAGE_KEY = 'aureo_bottom_bar_offset';
 
-const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel, activeTab }) => {
+const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel, activeTab, onOpenHealth, onOpenSecurity, onOpenTrading }) => {
   const barRef = React.useRef(null);
   const dragRef = React.useRef(null);
   const uiRaw = typeof window !== 'undefined' ? window.localStorage.getItem(`${BOTTOM_BAR_STORAGE_KEY}:ui`) : null;
@@ -629,13 +629,13 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   const livePnl = Number(status?.profit || 0);
   const alertArmed = (savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY) || (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID);
   const criticalAlerts = [
-    !isBackendOnline ? { label: 'Backend offline', tone: '#ef4444' } : null,
+    !isBackendOnline ? { label: 'Backend offline', tone: '#ef4444', action: onOpenHealth } : null,
     runtimeHealth?.api_status && String(runtimeHealth.api_status).toLowerCase() !== 'online'
-      ? { label: 'API unstable', tone: '#ef4444' }
+      ? { label: 'API unstable', tone: '#ef4444', action: onOpenHealth }
       : null,
-    tradingOn && !riskEnabled ? { label: 'Risk off', tone: '#f59e0b' } : null,
-    tradingOn && riskEnabled && risk?.can_trade === false ? { label: 'Trading blocked', tone: '#ef4444' } : null,
-    !alertArmed ? { label: 'Alerts not armed', tone: '#f59e0b' } : null,
+    tradingOn && !riskEnabled ? { label: 'Risk off', tone: '#f59e0b', action: onOpenTrading } : null,
+    tradingOn && riskEnabled && risk?.can_trade === false ? { label: 'Trading blocked', tone: '#ef4444', action: onOpenTrading } : null,
+    !alertArmed ? { label: 'Alerts not armed', tone: '#f59e0b', action: onOpenSecurity } : null,
   ].filter(Boolean);
   const topAlert = criticalAlerts[0] || null;
 
@@ -763,6 +763,12 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
     window.addEventListener('pointerup', handleUp, { once: true });
   };
 
+  const handlePriorityJump = () => {
+    if (typeof topAlert?.action === 'function') {
+      topAlert.action();
+    }
+  };
+
   return (
     <div
       ref={barRef}
@@ -794,6 +800,7 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
           className={`bottom-reminder-status-dot ${topAlert ? 'is-alert' : 'is-clear'}`}
           title={topAlert ? topAlert.label : 'Tutti i sistemi principali sono stabili'}
           aria-label={topAlert ? topAlert.label : 'Stato stabile'}
+          onClick={topAlert ? handlePriorityJump : undefined}
         />
         <div className="bottom-reminder-handle-actions">
           <button
@@ -826,10 +833,16 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
         </div>
       </div>
       {topAlert ? (
-        <div className="bottom-reminder-priority" style={{ '--priority-tone': topAlert.tone }}>
+        <button
+          type="button"
+          className="bottom-reminder-priority"
+          style={{ '--priority-tone': topAlert.tone }}
+          onClick={handlePriorityJump}
+          title={`Apri la sezione per gestire: ${topAlert.label}`}
+        >
           <span className="bottom-reminder-priority-dot" />
           <span>{topAlert.label}</span>
-        </div>
+        </button>
       ) : null}
       {visibleItems.map((item) => (
         <div key={item.label} className="bottom-reminder-pill">
@@ -5101,6 +5114,9 @@ function OmniApp() {
           isBackendOnline={isBackendOnline}
           syncLabel={syncLabel}
           activeTab={activeTab}
+          onOpenHealth={() => openDevelopSection('health')}
+          onOpenSecurity={() => openDevelopSection('security')}
+          onOpenTrading={() => setActiveTab('trading')}
         />
       </div>
     </div>

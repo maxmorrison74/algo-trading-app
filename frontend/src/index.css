@@ -1064,6 +1064,7 @@ body {
   border-radius: 999px;
   flex: 0 0 auto;
   box-shadow: 0 0 0 1px rgba(255,255,255,0.08);
+  cursor: pointer;
 }
 
 .bottom-reminder-status-dot.is-clear {
@@ -1118,6 +1119,13 @@ body {
   font-weight: 700;
   letter-spacing: 0.04em;
   flex: 0 0 auto;
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
+}
+
+.bottom-reminder-priority:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
 }
 
 .bottom-reminder-priority-dot {
