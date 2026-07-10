@@ -273,6 +273,9 @@ class RiskManager:
                 "total_pnl": round(self.state.total_pnl, 2),
                 "max_drawdown_pct": round(self.state.max_drawdown_pct, 2),
                 "open_positions": self.state.open_positions,
+                "max_open_positions": self.limits.max_open_positions,
+                "positions_remaining": max(0, self.limits.max_open_positions - self.state.open_positions),
+                "positions_usage_pct": round((self.state.open_positions / self.limits.max_open_positions) * 100, 1) if self.limits.max_open_positions else 0,
                 "trades_today": self.state.trades_today,
                 "initial_capital": self.initial_capital,
                 "alerts": self.state.alerts[:10],  # Solo ultimi 10

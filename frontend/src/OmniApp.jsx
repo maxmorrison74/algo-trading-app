@@ -531,6 +531,17 @@ const RiskStatus = () => {
   };
 
   const riskEnabled = risk.enabled !== false;
+  const maxOpenPositions = Number(risk.max_open_positions || 0);
+  const openPositions = Number(risk.open_positions || 0);
+  const positionsUsagePct = Number(risk.positions_usage_pct || 0);
+  const positionsRemaining = Number(risk.positions_remaining || 0);
+  const positionsProgressColor = !riskEnabled
+    ? '#64748B'
+    : openPositions >= maxOpenPositions && maxOpenPositions > 0
+      ? '#EF4444'
+      : positionsUsagePct >= 80
+        ? '#F59E0B'
+        : '#10B981';
   const meta = riskEnabled
     ? (statusMeta[risk.status] || statusMeta.red)
     : {
@@ -598,11 +609,30 @@ const RiskStatus = () => {
       </div>
       <div style={{ opacity: 0.92 }}>{meta.description}</div>
       <div style={{ opacity: 0.8, marginTop: 6 }}>{risk.reason}</div>
+      <div style={{ marginTop: '1rem', padding: '0.9rem 1rem', borderRadius: '14px', background: 'rgba(15, 23, 42, 0.72)', border: `1px solid ${positionsProgressColor}33` }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.55rem', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Capienza posizioni</div>
+            <div style={{ color: 'var(--text-primary)', fontSize: '1.15rem', fontWeight: 800 }}>
+              {openPositions}/{maxOpenPositions || '—'} conteggiate dal Risk Engine
+            </div>
+          </div>
+          <div className={`badge ${positionsRemaining === 0 && riskEnabled ? 'badge-danger' : positionsRemaining <= 1 && riskEnabled ? 'badge-gold' : 'badge-active'}`} style={{ fontSize: '0.82rem' }}>
+            {positionsRemaining > 0 ? `${positionsRemaining} slot liberi` : 'Limite raggiunto'}
+          </div>
+        </div>
+        <div style={{ height: '10px', borderRadius: '999px', background: 'rgba(148, 163, 184, 0.16)', overflow: 'hidden', marginBottom: '0.55rem' }}>
+          <div style={{ width: `${Math.min(100, positionsUsagePct)}%`, height: '100%', borderRadius: '999px', background: `linear-gradient(90deg, ${positionsProgressColor}, ${positionsProgressColor}CC)`, boxShadow: `0 0 18px ${positionsProgressColor}55` }} />
+        </div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.88rem', lineHeight: 1.5 }}>
+          Questo limite conta solo le posizioni realmente gestite da Aureo. Se il valore arriva al massimo, il bot non apre nuove operazioni finché non si libera uno slot.
+        </div>
+      </div>
       <div style={{marginTop: '1rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem'}}>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Equity <strong style={{ color: 'var(--text-primary)' }}>${risk.equity}</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Daily P&L <strong style={{ color: 'var(--text-primary)' }}>{risk.daily_pnl_pct}%</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Drawdown <strong style={{ color: 'var(--text-primary)' }}>{risk.max_drawdown_pct}%</strong></div>
-        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Posizioni aperte <strong style={{ color: 'var(--text-primary)' }}>{risk.open_positions}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Trade oggi <strong style={{ color: 'var(--text-primary)' }}>{risk.trades_today}</strong></div>
       </div>
       {risk.status === 'black' && (
         <button 
