@@ -534,17 +534,21 @@ const AlertReadinessCard = ({ savedKeys = {}, runtimeHealth = {}, lastVaultSync 
   const channels = [
     {
       name: 'Telegram',
-      ready: !!(savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID']),
-      detail: savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID']
-        ? 'Canale di messaggistica configurato.'
-        : 'Manca token o chat id.',
+      ready: !!(savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID'] && savedKeys['TELEGRAM_ALERTS_ENABLED'] !== false),
+      detail: !(savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID'])
+        ? 'Manca token o chat id.'
+        : savedKeys['TELEGRAM_ALERTS_ENABLED'] === false
+          ? 'Canale configurato ma disattivato via switch.'
+          : 'Canale di messaggistica configurato.',
     },
     {
       name: 'Pushover',
-      ready: !!(savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY']),
-      detail: savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY']
-        ? 'Push critici pronti per iPhone e Apple Watch.'
-        : 'Manca app token o user key.',
+      ready: !!(savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY'] && savedKeys['PUSHOVER_ALERTS_ENABLED'] !== false),
+      detail: !(savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY'])
+        ? 'Manca app token o user key.'
+        : savedKeys['PUSHOVER_ALERTS_ENABLED'] === false
+          ? 'Canale configurato ma disattivato via switch.'
+          : 'Push critici pronti per iPhone e Apple Watch.',
     },
   ];
   const readyCount = channels.filter((channel) => channel.ready).length;
@@ -1129,7 +1133,7 @@ function OmniApp() {
   
   const [numValueBets, setNumValueBets] = useState(9);
   const [placedBets, setPlacedBets] = useState({});
-  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', elevenlabs_key:'', theodds_key:'', groq_key:'', newsapi_key:'', google_cloud_json:'', telegram_bot_token:'', telegram_chat_id:'', pushover_app_token:'', pushover_user_key:''});
+  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', elevenlabs_key:'', theodds_key:'', groq_key:'', newsapi_key:'', google_cloud_json:'', telegram_bot_token:'', telegram_chat_id:'', pushover_app_token:'', pushover_user_key:'', telegram_alerts_enabled:true, pushover_alerts_enabled:true});
   const [testResults, setTestResults] = useState({});
   const [savedKeys, setSavedKeys] = useState({});
   const [lastVaultSync, setLastVaultSync] = useState('');
@@ -2036,6 +2040,8 @@ function OmniApp() {
             telegram_chat_id: data.TELEGRAM_CHAT_ID || '',
             pushover_app_token: data.PUSHOVER_APP_TOKEN || '',
             pushover_user_key: data.PUSHOVER_USER_KEY || '',
+            telegram_alerts_enabled: data.TELEGRAM_ALERTS_ENABLED ?? true,
+            pushover_alerts_enabled: data.PUSHOVER_ALERTS_ENABLED ?? true,
             dynamic_atr_stop: data.DYNAMIC_ATR_STOP ?? true,
             trailing_stop_base_pct: data.TRAILING_STOP_BASE_PCT ?? 2.5
           }));
@@ -2384,6 +2390,22 @@ function OmniApp() {
         <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
           Utile come canale secondario per alert critici e messaggi operativi. Inserisci token del bot e chat id personale.
         </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ color: '#cbd5e1', fontSize: '0.92rem', fontWeight: 600 }}>Invio Telegram</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '0.25rem' }}>
+              Attiva o sospendi gli alert Telegram senza rimuovere token e chat id.
+            </div>
+          </div>
+          <ToggleSwitch
+            checked={!!apiKeys.telegram_alerts_enabled}
+            onChange={() => setApiKeys({ ...apiKeys, telegram_alerts_enabled: !apiKeys.telegram_alerts_enabled })}
+            disabled={isDemoMode}
+            labelOn="ON"
+            labelOff="OFF"
+            title="Attiva o disattiva Telegram"
+          />
+        </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <input type="password" placeholder="Telegram Bot Token" value={apiKeys.telegram_bot_token} onChange={e => setApiKeys({...apiKeys, telegram_bot_token: e.target.value})} style={{ flex: 1, minWidth: '240px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
           <input type="password" placeholder="Telegram Chat ID" value={apiKeys.telegram_chat_id} onChange={e => setApiKeys({...apiKeys, telegram_chat_id: e.target.value})} style={{ flex: 1, minWidth: '240px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
@@ -2469,6 +2491,22 @@ function OmniApp() {
         </div>
         <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
           Per alert critici al polso. Il server invia a Pushover, l’iPhone la riceve e Apple Watch la mostra subito.
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ color: '#cbd5e1', fontSize: '0.92rem', fontWeight: 600 }}>Invio Pushover</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '0.25rem' }}>
+              Attiva o sospendi le push critiche mantenendo le chiavi nel Vault.
+            </div>
+          </div>
+          <ToggleSwitch
+            checked={!!apiKeys.pushover_alerts_enabled}
+            onChange={() => setApiKeys({ ...apiKeys, pushover_alerts_enabled: !apiKeys.pushover_alerts_enabled })}
+            disabled={isDemoMode}
+            labelOn="ON"
+            labelOff="OFF"
+            title="Attiva o disattiva Pushover"
+          />
         </div>
         <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.9rem', lineHeight: 1.6 }}>
           Eventi inviati: auto-pause del bot, circuit breaker, chiusura forzata d’emergenza, disattivazione manuale del Risk Management.

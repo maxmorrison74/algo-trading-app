@@ -69,6 +69,12 @@ env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path)
 
 def send_telegram_message(message: str, user_id: str = "admin"):
+    try:
+        user_bot_state = get_user_bot_state(user_id)
+        if getattr(user_bot_state, "telegram_alerts_enabled", True) is False:
+            return
+    except Exception:
+        pass
     bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     
@@ -90,6 +96,12 @@ def send_telegram_message(message: str, user_id: str = "admin"):
         print(f"Errore invio Telegram: {e}")
 
 def send_pushover_message(message: str, user_id: str = "admin", title: str = "Aureo OS", priority: int = 0, sound: str = ""):
+    try:
+        user_bot_state = get_user_bot_state(user_id)
+        if getattr(user_bot_state, "pushover_alerts_enabled", True) is False:
+            return
+    except Exception:
+        pass
     app_token = os.getenv("PUSHOVER_APP_TOKEN", "")
     user_key = os.getenv("PUSHOVER_USER_KEY", "")
 
@@ -165,6 +177,8 @@ def load_db(user_id=None):
             "modules": {"trading": False, "sports_arb": False, "ai_content": False},
             "dynamic_atr_stop": True,
             "trailing_stop_base_pct": 2.5,
+            "telegram_alerts_enabled": True,
+            "pushover_alerts_enabled": True,
         }
 
 def save_db(state_dict, user_id=None):
@@ -629,6 +643,8 @@ class BotState:
         self.symbol_selection = db_data.get("symbol_selection", {"method": "static_default", "ranked": []})
         self.dynamic_atr_stop = db_data.get("dynamic_atr_stop", True)
         self.trailing_stop_base_pct = db_data.get("trailing_stop_base_pct", 2.5)
+        self.telegram_alerts_enabled = db_data.get("telegram_alerts_enabled", True)
+        self.pushover_alerts_enabled = db_data.get("pushover_alerts_enabled", True)
         self.runtime_health = db_data.get("runtime_health", {
             "status": "green",
             "summary": "In attesa avvio modulo trading",
@@ -703,6 +719,8 @@ class BotState:
             "symbol_selection": self.symbol_selection,
             "dynamic_atr_stop": self.dynamic_atr_stop,
             "trailing_stop_base_pct": self.trailing_stop_base_pct,
+            "telegram_alerts_enabled": self.telegram_alerts_enabled,
+            "pushover_alerts_enabled": self.pushover_alerts_enabled,
             "runtime_health": self.runtime_health,
         }, self.user_id)
 
@@ -2615,6 +2633,8 @@ class KeysRequest(BaseModel):
     google_cloud_json: str = ""
     trailing_stop_base_pct: float = 2.5
     dynamic_atr_stop: bool = True
+    telegram_alerts_enabled: bool = True
+    pushover_alerts_enabled: bool = True
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
     pushover_app_token: str = ""
@@ -2663,6 +2683,8 @@ def get_keys(user: dict = Depends(require_user)):
                 if user_keys.get("newsapi_key"): keys["NEWSAPI_KEY"] = user_keys["newsapi_key"][:4] + "***"
         keys["DYNAMIC_ATR_STOP"] = bool(getattr(user_bot_state, "dynamic_atr_stop", True))
         keys["TRAILING_STOP_BASE_PCT"] = float(getattr(user_bot_state, "trailing_stop_base_pct", 2.5))
+        keys["TELEGRAM_ALERTS_ENABLED"] = bool(getattr(user_bot_state, "telegram_alerts_enabled", True))
+        keys["PUSHOVER_ALERTS_ENABLED"] = bool(getattr(user_bot_state, "pushover_alerts_enabled", True))
                 
     except Exception as e:
         keys["ERROR"] = str(e)
@@ -2701,6 +2723,8 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
         )
         user_bot_state.dynamic_atr_stop = bool(req.dynamic_atr_stop)
         user_bot_state.trailing_stop_base_pct = float(req.trailing_stop_base_pct or 2.5)
+        user_bot_state.telegram_alerts_enabled = bool(req.telegram_alerts_enabled)
+        user_bot_state.pushover_alerts_enabled = bool(req.pushover_alerts_enabled)
         user_bot_state.save_state()
 
         # 2. Solo l'admin può salvare le chiavi globali AI in .env
