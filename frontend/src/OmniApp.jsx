@@ -2159,7 +2159,13 @@ function OmniApp() {
     if (!BILLING_ENABLED && activeTab === 'saas') {
       setActiveTab('home');
     }
-  }, [activeTab]);
+    if (activeTab === 'develop' && userRole !== 'admin') {
+      setActiveTab('home');
+    }
+    if (activeTab === 'saas' && userRole !== 'admin') {
+      setActiveTab('home');
+    }
+  }, [activeTab, userRole]);
 
   useEffect(() => {
     const supported = typeof window !== 'undefined' && !!window.PublicKeyCredential && !!navigator.credentials;
