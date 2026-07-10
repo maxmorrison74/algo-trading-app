@@ -10,6 +10,7 @@ const TAB_TITLES = {
   home: 'Dashboard',
   trading: 'Stock Market',
   charts: 'Charts',
+  develop: 'Develop',
   sports_arb: 'Sports SureBets',
   value_bets: 'AI Sentiment',
   ai_content: 'AI Content',
@@ -791,6 +792,29 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
     </div>
   );
 };
+
+const DevelopView = ({ status, isBackendOnline }) => (
+  <div className="module-content">
+    <div className="header" style={{ marginBottom: '2rem' }}>
+      <h2>🧪 Develop</h2>
+      <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+        Area tecnica riservata per salute runtime, diagnostica e osservabilità del motore.
+      </div>
+    </div>
+
+    <div className="dashboard-grid">
+      <RuntimeHealthCard runtimeHealth={status.runtime_health} isBackendOnline={isBackendOnline} />
+    </div>
+
+    <div className="card" style={{ marginTop: '1.5rem' }}>
+      <div className="card-title">Perché è qui</div>
+      <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+        Runtime Health è utile per controllo e debugging, ma non serve stare in primo piano durante l’uso operativo quotidiano.
+        In questa sezione possiamo aggiungere in futuro anche eventi critici, heartbeat, reconnect, errori broker e stato dei watchdog.
+      </div>
+    </div>
+  </div>
+);
 
 const OnboardingModal = ({ onClose, onGoToSettings }) => {
   return (
@@ -2642,7 +2666,6 @@ function OmniApp() {
       <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
         <RiskStatus />
         <CapitalPhase />
-        <RuntimeHealthCard runtimeHealth={status.runtime_health} isBackendOnline={isBackendOnline} />
       </div>
 
       <div className="chart-controls trading-chart-controls" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between' }}>
@@ -4344,6 +4367,12 @@ function OmniApp() {
             <span className="menu-icon">📉</span>
             <span className="menu-label">Charts</span>
           </div>
+          {userRole === 'admin' && (
+            <div className={`menu-item ${activeTab === 'develop' ? 'active' : ''}`} onClick={() => setActiveTab('develop')}>
+              <span className="menu-icon">🧪</span>
+              <span className="menu-label">Develop</span>
+            </div>
+          )}
           <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
             <span className="menu-icon">🔐</span>
             <span className="menu-label">Security</span>
@@ -4461,6 +4490,9 @@ function OmniApp() {
             timeframe={timeframe}
             setTimeframe={setTimeframe}
           />
+        )}
+        {activeTab === 'develop' && userRole === 'admin' && (
+          <DevelopView status={status} isBackendOnline={isBackendOnline} />
         )}
         {activeTab === 'sports_arb' && renderSportsArbitrageView()}
         {activeTab === 'value_bets' && renderValueBetsView()}
