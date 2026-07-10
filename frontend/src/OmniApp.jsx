@@ -601,9 +601,11 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   const uiRaw = typeof window !== 'undefined' ? window.localStorage.getItem(`${BOTTOM_BAR_STORAGE_KEY}:ui`) : null;
   const uiParsed = uiRaw ? (() => { try { return JSON.parse(uiRaw); } catch { return null; } })() : null;
   const [isDraggingBar, setIsDraggingBar] = useState(false);
+  const [isHoveringBar, setIsHoveringBar] = useState(false);
   const [snapEdge, setSnapEdge] = useState('center');
   const [displayMode, setDisplayMode] = useState(uiParsed?.displayMode === 'compact' ? 'compact' : 'expanded');
   const [isMuted, setIsMuted] = useState(uiParsed?.isMuted === true);
+  const [isAutoHideEnabled, setIsAutoHideEnabled] = useState(uiParsed?.isAutoHideEnabled === true);
   const [barOffset, setBarOffset] = useState(() => {
     if (typeof window === 'undefined') return { x: 0, y: 0 };
     try {
@@ -639,6 +641,7 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
     { label: 'Vista', value: TAB_TITLES[activeTab] || 'AUREO', tone: '#a78bfa' },
   ];
   const visibleItems = displayMode === 'compact' ? items.slice(0, 5) : items;
+  const isBarPeeked = !isAutoHideEnabled || isHoveringBar || isDraggingBar;
 
   const clampBarOffset = React.useCallback((candidate) => {
     if (typeof window === 'undefined' || !barRef.current) return candidate;
@@ -696,8 +699,9 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
     window.localStorage.setItem(`${BOTTOM_BAR_STORAGE_KEY}:ui`, JSON.stringify({
       displayMode,
       isMuted,
+      isAutoHideEnabled,
     }));
-  }, [displayMode, isMuted]);
+  }, [displayMode, isMuted, isAutoHideEnabled]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -752,8 +756,16 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   return (
     <div
       ref={barRef}
-      className={`bottom-reminder-bar ${isDraggingBar ? 'is-dragging' : ''} ${displayMode === 'compact' ? 'is-compact' : 'is-expanded'} ${isMuted ? 'is-muted' : ''} ${snapEdge === 'left' ? 'snap-left' : snapEdge === 'right' ? 'snap-right' : 'snap-center'}`}
+      className={`bottom-reminder-bar ${isDraggingBar ? 'is-dragging' : ''} ${displayMode === 'compact' ? 'is-compact' : 'is-expanded'} ${isMuted ? 'is-muted' : ''} ${isAutoHideEnabled ? 'is-auto-hide' : ''} ${isBarPeeked ? 'is-peeked' : 'is-docked'} ${snapEdge === 'left' ? 'snap-left' : snapEdge === 'right' ? 'snap-right' : 'snap-center'}`}
       style={{ transform: `translate3d(${barOffset.x}px, ${barOffset.y}px, 0)` }}
+      onMouseEnter={() => setIsHoveringBar(true)}
+      onMouseLeave={() => setIsHoveringBar(false)}
+      onFocus={() => setIsHoveringBar(true)}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) {
+          setIsHoveringBar(false);
+        }
+      }}
     >
       <div
         ref={dragRef}
@@ -786,6 +798,15 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
             title={isMuted ? 'Ripristina intensità normale' : 'Rendi la barra più discreta'}
           >
             {isMuted ? 'Solid' : 'Soft'}
+          </button>
+          <button
+            type="button"
+            className={`bottom-reminder-chip ${isAutoHideEnabled ? 'active' : ''}`}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => setIsAutoHideEnabled((prev) => !prev)}
+            title={isAutoHideEnabled ? 'Mantieni la barra sempre visibile' : 'Nascondi la barra finché non la sfiori'}
+          >
+            {isAutoHideEnabled ? 'Pinned' : 'Auto'}
           </button>
         </div>
       </div>

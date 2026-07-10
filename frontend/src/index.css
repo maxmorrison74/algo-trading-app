@@ -935,6 +935,15 @@ body {
   scrollbar-width: none;
 }
 
+.bottom-reminder-bar.is-auto-hide.is-docked {
+  bottom: -2.9rem;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.2);
+}
+
+.bottom-reminder-bar.is-auto-hide.is-peeked {
+  bottom: 1rem;
+}
+
 .bottom-reminder-bar.is-muted {
   background: rgba(11, 15, 25, 0.68);
   border-color: rgba(255,255,255,0.05);
@@ -986,6 +995,13 @@ body {
     0 0 0 1px rgba(14, 165, 233, 0.05) inset,
     0 0 24px rgba(34, 211, 238, 0.12);
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.bottom-reminder-bar.is-auto-hide.is-docked .bottom-reminder-handle {
+  box-shadow:
+    0 10px 22px rgba(2, 6, 23, 0.26),
+    0 0 0 1px rgba(14, 165, 233, 0.05) inset,
+    0 0 18px rgba(34, 211, 238, 0.1);
 }
 
 .bottom-reminder-bar.snap-left .bottom-reminder-handle,
