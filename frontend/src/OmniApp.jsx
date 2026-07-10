@@ -2596,9 +2596,33 @@ function OmniApp() {
           ) : (
             positionsEntries.map(([sym, p]) => {
               const symbolTableRow = tableDataBySymbol[sym];
+              const cryptoState = cryptoSymbolStateMap[sym];
               return <div key={sym} style={{ display: 'flex', flexDirection: 'column', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', marginBottom: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                  <span style={{ fontWeight: 'bold' }}>{sym} {p.side === 'short' ? '(SHORT)' : ''}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontWeight: 'bold' }}>
+                    <span>{sym} {p.side === 'short' ? '(SHORT)' : ''}</span>
+                    {cryptoState && (
+                      <span
+                        style={{
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '0.35rem',
+                          padding: '0.18rem 0.5rem',
+                          borderRadius: '999px',
+                          border: `1px solid ${cryptoState.border}`,
+                          background: cryptoState.bg,
+                          color: cryptoState.tone,
+                          fontSize: '0.72rem',
+                          fontWeight: 800,
+                          letterSpacing: '0.04em',
+                        }}
+                        title={cryptoState.reason}
+                      >
+                        <span style={{ width: 7, height: 7, borderRadius: '50%', background: cryptoState.tone, flexShrink: 0 }}></span>
+                        {cryptoState.label}
+                      </span>
+                    )}
+                  </span>
                   {p === "LIQUID" ? (
                     <span style={{ color: 'var(--text-secondary)' }}>IN ATTESA</span>
                   ) : (
@@ -2610,6 +2634,12 @@ function OmniApp() {
                 {/* AI Sentiment Integration */}
                 {symbolTableRow && (
                   <div style={{ fontSize: '0.8rem', marginTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.4rem' }}>
+                    {cryptoState && (
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span style={{ color: '#64748b' }}>⚙️ Stato crypto:</span>
+                        <span style={{ color: cryptoState.tone, fontWeight: 'bold' }}>{cryptoState.label} · {cryptoState.reason}</span>
+                      </div>
+                    )}
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span style={{ color: '#64748b' }}>📊 Indicatori:</span>
                       <span style={{ color: '#e2e8f0', fontFamily: 'monospace' }}>
