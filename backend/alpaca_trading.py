@@ -170,15 +170,15 @@ class AlpacaEngine:
             # Sincronizza Trailing Stops interni per eventuali posizioni orfane o chiuse
             try:
                 positions = self.alpaca_rest.list_positions()
-                risk = get_risk_manager(self.bot_state.virtual_cash)
-                risk.state.open_positions = len(positions)
-                risk._save_state()
                 active_symbols = set()
+                managed_positions_count = 0
                 for p in positions:
                     # Clean symbol (es. BTC/USD -> BTCUSD per coerenza interna)
                     sym_clean = p.symbol.replace('/', '')
                     # Mappiamo al symbol originale per la cronologia se esiste
                     sym = next((s for s in self.symbols if self.clean_sym(s) == sym_clean), sym_clean)
+                    if sym in self.symbols:
+                        managed_positions_count += 1
                     active_symbols.add(sym)
                     
                     if sym not in self.active_trails:
@@ -197,6 +197,9 @@ class AlpacaEngine:
                 for sym in list(self.active_trails.keys()):
                     if sym not in active_symbols:
                         del self.active_trails[sym]
+                risk = get_risk_manager(self.bot_state.virtual_cash)
+                risk.state.open_positions = managed_positions_count
+                risk._save_state()
             except Exception as e:
                 pass
                 
