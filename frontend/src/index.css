@@ -923,7 +923,7 @@ body {
   z-index: 35;
   display: flex;
   gap: 0.65rem;
-  padding: 0.8rem 0.9rem;
+  padding: 1.35rem 0.9rem 0.8rem;
   border-radius: 18px;
   border: 1px solid rgba(255,255,255,0.08);
   background: rgba(11, 15, 25, 0.84);
@@ -945,7 +945,7 @@ body {
 
 .bottom-reminder-handle {
   position: absolute;
-  top: -14px;
+  top: 0.45rem;
   left: 50%;
   transform: translateX(-50%);
   display: inline-flex;
