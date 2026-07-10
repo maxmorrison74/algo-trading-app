@@ -14,9 +14,7 @@ const TAB_TITLES = {
   sports_arb: 'Sports SureBets',
   value_bets: 'AI Sentiment',
   ai_content: 'AI Content',
-  settings: 'Security & API',
   saas: 'SaaS & Billing',
-  guide: '📖 Guida Setup',
 };
 
 const DEMO_BILLING_OVERVIEW = {
@@ -793,26 +791,48 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
   );
 };
 
-const DevelopView = ({ status, isBackendOnline }) => (
+const DevelopView = ({ status, isBackendOnline, developSection, setDevelopSection, renderSettingsView, renderGuideView }) => (
   <div className="module-content">
     <div className="header" style={{ marginBottom: '2rem' }}>
       <h2>🧪 Develop</h2>
       <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-        Area tecnica riservata per salute runtime, diagnostica e osservabilità del motore.
+        Area interna per setup, salute runtime, diagnostica e strumenti non prettamente operativi.
       </div>
     </div>
 
-    <div className="dashboard-grid">
-      <RuntimeHealthCard runtimeHealth={status.runtime_health} isBackendOnline={isBackendOnline} />
+    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+      {[
+        { id: 'health', label: 'Runtime Health' },
+        { id: 'security', label: 'Security & API' },
+        { id: 'guide', label: 'Guida Setup' },
+      ].map((item) => (
+        <button
+          key={item.id}
+          className={`tab-btn ${developSection === item.id ? 'active-tab' : ''}`}
+          onClick={() => setDevelopSection(item.id)}
+        >
+          {item.label}
+        </button>
+      ))}
     </div>
 
-    <div className="card" style={{ marginTop: '1.5rem' }}>
-      <div className="card-title">Perché è qui</div>
-      <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-        Runtime Health è utile per controllo e debugging, ma non serve stare in primo piano durante l’uso operativo quotidiano.
-        In questa sezione possiamo aggiungere in futuro anche eventi critici, heartbeat, reconnect, errori broker e stato dei watchdog.
-      </div>
-    </div>
+    {developSection === 'health' && (
+      <>
+        <div className="dashboard-grid">
+          <RuntimeHealthCard runtimeHealth={status.runtime_health} isBackendOnline={isBackendOnline} />
+        </div>
+        <div className="card" style={{ marginTop: '1.5rem' }}>
+          <div className="card-title">Perché è qui</div>
+          <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
+            Runtime Health è utile per controllo e debugging, ma non serve stare in primo piano durante l’uso operativo quotidiano.
+            In questa sezione possiamo aggiungere in futuro anche eventi critici, heartbeat, reconnect, errori broker e stato dei watchdog.
+          </div>
+        </div>
+      </>
+    )}
+
+    {developSection === 'security' && renderSettingsView()}
+    {developSection === 'guide' && renderGuideView()}
   </div>
 );
 
@@ -1145,7 +1165,7 @@ function OmniApp() {
       text: 'L\'AI scandaglia news, tweet e flussi di mercato per prevedere i movimenti istituzionali e suggerirti scommesse di valore altissimo.'
     },
     {
-      targetTab: 'settings',
+      targetTab: 'develop',
       title: 'Sicurezza Totale',
       text: 'Aureo OS è un vero e proprio caveau. Nessuna password insicura: accesso biometrico Passkey e chiavi API crittografate end-to-end.'
     }
@@ -1193,6 +1213,7 @@ function OmniApp() {
   const [userStatus, setUserStatus] = useState(localStorage.getItem('USER_STATUS') || 'active');
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
+  const [developSection, setDevelopSection] = useState('health');
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [lastStatusSync, setLastStatusSync] = useState(null);
   const [passkeySupported, setPasskeySupported] = useState(false);
@@ -1200,6 +1221,10 @@ function OmniApp() {
   const [passkeyStatus, setPasskeyStatus] = useState({ supported: false, configured: false, credentials_count: 0, credentials: [] });
   const [passkeyMessage, setPasskeyMessage] = useState('');
   const activeTabLabel = TAB_TITLES[activeTab] || 'AUREO';
+  const openDevelopSection = (section = 'health') => {
+    setDevelopSection(section);
+    setActiveTab('develop');
+  };
   const demoActionButtonProps = (disabled = false) => (
     isDemoMode
       ? { disabled: true, title: 'Non disponibile in demo mode' }
@@ -1761,7 +1786,7 @@ function OmniApp() {
 
   
   useEffect(() => {
-    if (activeTab === 'settings') {
+    if (activeTab === 'develop' && developSection === 'security') {
       if (isDemoMode) {
         setSavedKeys({});
         return;
@@ -1797,7 +1822,7 @@ function OmniApp() {
       };
       fetchKeys();
     }
-  }, [activeTab, isDemoMode]);
+  }, [activeTab, isDemoMode, developSection]);
 
   useEffect(() => {
     if (activeTab !== 'saas') return;
@@ -1824,11 +1849,11 @@ function OmniApp() {
   }, [activeTab, isDemoMode]);
 
   useEffect(() => {
-    if (!isAuthenticated || isDemoMode || activeTab !== 'settings') {
+    if (!isAuthenticated || isDemoMode || activeTab !== 'develop' || developSection !== 'security') {
       return;
     }
     fetchPasskeyStatus();
-  }, [activeTab, isAuthenticated, isDemoMode]);
+  }, [activeTab, isAuthenticated, isDemoMode, developSection]);
 
   useEffect(() => {
     if (isAuthenticated && !isDemoMode && userRole !== 'admin') {
@@ -2037,7 +2062,7 @@ function OmniApp() {
               {/* CTA */}
               <button
                 className="btn btn-outline"
-                onClick={() => setActiveTab('settings')}
+                onClick={() => openDevelopSection('security')}
                 style={{ width: '100%', padding: '0.6rem', fontSize: '0.9rem', borderColor: platform.color, color: platform.color }}
               >
                 🔐 Vai a Security per inserire la chiave →
@@ -2235,7 +2260,7 @@ function OmniApp() {
               <h3 style={{ margin: '0 0 0.5rem 0' }}>⚠️ Broker non collegato</h3>
               <p style={{ margin: 0, opacity: 0.9 }}>Per operare sui mercati finanziari, devi prima inserire le tue chiavi API di Alpaca.</p>
             </div>
-            <button onClick={() => setActiveTab('settings')} className="btn" style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white' }}>Collega ora ➔</button>
+            <button onClick={() => openDevelopSection('security')} className="btn" style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white' }}>Collega ora ➔</button>
           </div>
         )}
 
@@ -4368,25 +4393,17 @@ function OmniApp() {
             <span className="menu-label">Charts</span>
           </div>
           {userRole === 'admin' && (
-            <div className={`menu-item ${activeTab === 'develop' ? 'active' : ''}`} onClick={() => setActiveTab('develop')}>
+            <div className={`menu-item ${activeTab === 'develop' ? 'active' : ''}`} onClick={() => openDevelopSection('health')}>
               <span className="menu-icon">🧪</span>
               <span className="menu-label">Develop</span>
             </div>
           )}
-          <div className={`menu-item ${activeTab === 'settings' ? 'active' : ''}`} onClick={() => setActiveTab('settings')}>
-            <span className="menu-icon">🔐</span>
-            <span className="menu-label">Security</span>
-          </div>
           {BILLING_ENABLED && userRole === 'admin' && (
             <div className={`menu-item ${activeTab === 'saas' ? 'active' : ''}`} onClick={() => setActiveTab('saas')}>
               <span className="menu-icon">💳</span>
               <span className="menu-label">Billing</span>
             </div>
           )}
-          <div className={`menu-item ${activeTab === 'guide' ? 'active' : ''}`} onClick={() => setActiveTab('guide')}>
-            <span className="menu-icon">📖</span>
-            <span className="menu-label">Guida Setup</span>
-          </div>
         </div>
         
         <div className="sidebar-footer">
@@ -4423,7 +4440,7 @@ function OmniApp() {
             onClose={() => setShowOnboarding(false)} 
             onGoToSettings={() => {
               setShowOnboarding(false);
-              setActiveTab('settings');
+              openDevelopSection('security');
             }}
           />
         )}
@@ -4440,7 +4457,7 @@ function OmniApp() {
               <strong>Azione Richiesta:</strong> Configura le tue API Key per iniziare a operare sui mercati.
             </div>
             <button 
-              onClick={() => setActiveTab('settings')}
+              onClick={() => openDevelopSection('security')}
               className="setup-banner-button"
               style={{
                 background: '#fff', color: '#d97706', border: 'none', padding: '0.5rem 1rem',
@@ -4479,7 +4496,6 @@ function OmniApp() {
           </button>
         </div>
         {activeTab === 'home' && renderHomeView()}
-        {activeTab === 'settings' && renderSettingsView()}
         {activeTab === 'trading' && renderTradingView()}
         {activeTab === 'charts' && (
           <ChartsStudio
@@ -4492,13 +4508,19 @@ function OmniApp() {
           />
         )}
         {activeTab === 'develop' && userRole === 'admin' && (
-          <DevelopView status={status} isBackendOnline={isBackendOnline} />
+          <DevelopView
+            status={status}
+            isBackendOnline={isBackendOnline}
+            developSection={developSection}
+            setDevelopSection={setDevelopSection}
+            renderSettingsView={renderSettingsView}
+            renderGuideView={renderGuideView}
+          />
         )}
         {activeTab === 'sports_arb' && renderSportsArbitrageView()}
         {activeTab === 'value_bets' && renderValueBetsView()}
         {activeTab === 'ai_content' && renderAIContentView()}
         {BILLING_ENABLED && activeTab === 'saas' && renderSaaSView()}
-        {activeTab === 'guide' && renderGuideView()}
       </div>
     </div>
 
