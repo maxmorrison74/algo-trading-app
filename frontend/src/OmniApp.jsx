@@ -628,6 +628,16 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   const cryptoCount = Object.entries(status?.positions || {}).filter(([sym, pos]) => String(sym).includes('/') && pos !== 'LIQUID').length;
   const livePnl = Number(status?.profit || 0);
   const alertArmed = (savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY) || (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID);
+  const criticalAlerts = [
+    !isBackendOnline ? { label: 'Backend offline', tone: '#ef4444' } : null,
+    runtimeHealth?.api_status && String(runtimeHealth.api_status).toLowerCase() !== 'online'
+      ? { label: 'API unstable', tone: '#ef4444' }
+      : null,
+    tradingOn && !riskEnabled ? { label: 'Risk off', tone: '#f59e0b' } : null,
+    tradingOn && riskEnabled && risk?.can_trade === false ? { label: 'Trading blocked', tone: '#ef4444' } : null,
+    !alertArmed ? { label: 'Alerts not armed', tone: '#f59e0b' } : null,
+  ].filter(Boolean);
+  const topAlert = criticalAlerts[0] || null;
 
   const items = [
     { label: 'Backend', value: isBackendOnline ? 'Online' : 'Offline', tone: isBackendOnline ? '#10b981' : '#ef4444' },
@@ -778,8 +788,13 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
         </span>
         <span className="bottom-reminder-handle-text">
           <strong>Info Bar</strong>
-          <small>Live Status Dock</small>
+          <small>{topAlert ? topAlert.label : 'Live Status Dock'}</small>
         </span>
+        <span
+          className={`bottom-reminder-status-dot ${topAlert ? 'is-alert' : 'is-clear'}`}
+          title={topAlert ? topAlert.label : 'Tutti i sistemi principali sono stabili'}
+          aria-label={topAlert ? topAlert.label : 'Stato stabile'}
+        />
         <div className="bottom-reminder-handle-actions">
           <button
             type="button"
@@ -810,6 +825,12 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
           </button>
         </div>
       </div>
+      {topAlert ? (
+        <div className="bottom-reminder-priority" style={{ '--priority-tone': topAlert.tone }}>
+          <span className="bottom-reminder-priority-dot" />
+          <span>{topAlert.label}</span>
+        </div>
+      ) : null}
       {visibleItems.map((item) => (
         <div key={item.label} className="bottom-reminder-pill">
           <span className="bottom-reminder-label">{item.label}</span>
