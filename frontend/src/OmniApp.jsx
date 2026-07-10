@@ -318,6 +318,40 @@ const deriveCryptoSymbolStates = (status = {}) => {
   });
 };
 
+const getCryptoSymbolStateMap = (status = {}) =>
+  Object.fromEntries(deriveCryptoSymbolStates(status).map((item) => [item.symbol, item]));
+
+const SymbolTabButton = ({ sym, selected, onClick, cryptoState }) => (
+  <button
+    className={`tab-btn ${selected ? 'active-tab' : ''}`}
+    onClick={onClick}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '0.45rem',
+      ...(cryptoState ? {
+        borderColor: cryptoState.border,
+        boxShadow: selected ? `0 0 0 1px ${cryptoState.border} inset` : 'none',
+      } : {}),
+    }}
+    title={cryptoState ? `${cryptoState.label} • ${cryptoState.reason}` : sym}
+  >
+    <span>{sym}</span>
+    {cryptoState && (
+      <span
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: cryptoState.tone,
+          boxShadow: `0 0 10px ${cryptoState.tone}`,
+          flexShrink: 0,
+        }}
+      ></span>
+    )}
+  </button>
+);
+
 const authFetch = async (input, init = {}) => {
   const headers = new Headers(init.headers || {});
   const token = getAuthToken();
@@ -802,6 +836,7 @@ function OmniApp() {
   const cryptoEngine = useMemo(() => deriveCryptoEngineState(status), [status]);
   const cryptoEngineDetails = useMemo(() => deriveCryptoEngineDetails(status), [status]);
   const cryptoSymbolStates = useMemo(() => deriveCryptoSymbolStates(status), [status]);
+  const cryptoSymbolStateMap = useMemo(() => getCryptoSymbolStateMap(status), [status]);
   const sortedSurebets = useMemo(
     () => [...(status.active_surebets || [])].sort((a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)),
     [status.active_surebets]
@@ -2519,7 +2554,13 @@ function OmniApp() {
       <div className="chart-controls trading-chart-controls" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between' }}>
         <div className="trading-symbol-tabs" style={{ display: 'flex', gap: '0.5rem' }}>
           {status.symbols?.map(sym => (
-            <button key={sym} className={`tab-btn ${selectedSymbol === sym ? 'active-tab' : ''}`} onClick={() => setSelectedSymbol(sym)}>{sym}</button>
+            <SymbolTabButton
+              key={sym}
+              sym={sym}
+              selected={selectedSymbol === sym}
+              onClick={() => setSelectedSymbol(sym)}
+              cryptoState={cryptoSymbolStateMap[sym]}
+            />
           ))}
         </div>
         <div className="trading-timeframe-tabs" style={{ display: 'flex', gap: '0.5rem' }}>

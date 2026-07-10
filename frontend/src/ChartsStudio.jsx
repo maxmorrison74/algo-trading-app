@@ -17,6 +17,72 @@ import {
   YAxis,
 } from 'recharts';
 
+const deriveCryptoSymbolStates = (status = {}) => {
+  const symbols = Array.isArray(status.symbols) ? status.symbols : [];
+  const logs = Array.isArray(status.logs) ? status.logs : [];
+  const positions = status.positions || {};
+  const cryptoSymbols = symbols.filter((sym) => String(sym).includes('/'));
+
+  return Object.fromEntries(
+    cryptoSymbols.map((symbol) => {
+      const symbolLogs = logs.filter((line) => String(line || '').includes(symbol));
+      const latest = symbolLogs[0] || '';
+      const hasOpenPosition = positions[symbol] && positions[symbol] !== 'LIQUID';
+
+      if (!status.modules?.trading) {
+        return [symbol, { label: 'Pausa', tone: '#94a3b8', border: 'rgba(148, 163, 184, 0.35)', reason: 'Scanner spento' }];
+      }
+      if (hasOpenPosition) {
+        return [symbol, { label: 'Open', tone: '#10b981', border: 'rgba(16, 185, 129, 0.35)', reason: 'Posizione aperta' }];
+      }
+      if (latest.includes('ORDINE') || latest.includes('FAST SCALP')) {
+        return [symbol, { label: 'Ready', tone: '#10b981', border: 'rgba(16, 185, 129, 0.35)', reason: 'Attività recente' }];
+      }
+      if (latest.includes('volatilità troppo bassa')) {
+        return [symbol, { label: 'Flat', tone: '#38bdf8', border: 'rgba(56, 189, 248, 0.35)', reason: 'Mercato piatto' }];
+      }
+      if (latest.includes('nessun setup tecnico valido')) {
+        return [symbol, { label: 'Watch', tone: '#a78bfa', border: 'rgba(167, 139, 250, 0.35)', reason: 'In osservazione' }];
+      }
+      if (latest.includes('AI VETO') || latest.includes('LSTM VETO') || latest.includes('RISK FILTER') || latest.includes('SKIP SHORT')) {
+        return [symbol, { label: 'Veto', tone: '#f59e0b', border: 'rgba(245, 158, 11, 0.35)', reason: 'Filtro attivo' }];
+      }
+      return [symbol, { label: 'Sync', tone: '#64748b', border: 'rgba(100, 116, 139, 0.35)', reason: 'In attesa dati' }];
+    })
+  );
+};
+
+const SymbolTabButton = ({ sym, selected, onClick, cryptoState }) => (
+  <button
+    className={`tab-btn ${selected ? 'active-tab' : ''}`}
+    onClick={onClick}
+    style={{
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '0.45rem',
+      ...(cryptoState ? {
+        borderColor: cryptoState.border,
+        boxShadow: selected ? `0 0 0 1px ${cryptoState.border} inset` : 'none',
+      } : {}),
+    }}
+    title={cryptoState ? `${cryptoState.label} • ${cryptoState.reason}` : sym}
+  >
+    <span>{sym}</span>
+    {cryptoState && (
+      <span
+        style={{
+          width: 8,
+          height: 8,
+          borderRadius: '50%',
+          background: cryptoState.tone,
+          boxShadow: `0 0 10px ${cryptoState.tone}`,
+          flexShrink: 0,
+        }}
+      ></span>
+    )}
+  </button>
+);
+
 export default function ChartsStudio({
   chartData = [],
   selectedSymbol,
@@ -25,6 +91,7 @@ export default function ChartsStudio({
   timeframe,
   setTimeframe,
 }) {
+  const cryptoSymbolStateMap = deriveCryptoSymbolStates(status);
   const tradeHistory = status.trade_history || [];
   const liveChartData = Array.isArray(chartData) ? chartData.slice(-36) : [];
   const positions = Object.entries(status.positions || {})
@@ -88,9 +155,13 @@ export default function ChartsStudio({
           </div>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {status.symbols?.slice(0, 8).map((sym) => (
-              <button key={sym} className={`tab-btn ${selectedSymbol === sym ? 'active-tab' : ''}`} onClick={() => setSelectedSymbol(sym)}>
-                {sym}
-              </button>
+              <SymbolTabButton
+                key={sym}
+                sym={sym}
+                selected={selectedSymbol === sym}
+                onClick={() => setSelectedSymbol(sym)}
+                cryptoState={cryptoSymbolStateMap[sym]}
+              />
             ))}
           </div>
         </div>
