@@ -935,6 +935,16 @@ body {
   scrollbar-width: none;
 }
 
+.bottom-reminder-bar.is-muted {
+  background: rgba(11, 15, 25, 0.68);
+  border-color: rgba(255,255,255,0.05);
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
+}
+
+.bottom-reminder-bar.is-compact {
+  gap: 0.5rem;
+}
+
 .bottom-reminder-bar.snap-left,
 .bottom-reminder-bar.snap-right {
   border-color: rgba(34, 211, 238, 0.18);
@@ -1025,6 +1035,38 @@ body {
   line-height: 1.05;
 }
 
+.bottom-reminder-handle-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-left: 0.2rem;
+}
+
+.bottom-reminder-chip {
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: rgba(255,255,255,0.04);
+  color: rgba(226, 232, 240, 0.86);
+  border-radius: 999px;
+  padding: 0.22rem 0.46rem;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 160ms ease;
+}
+
+.bottom-reminder-chip:hover {
+  border-color: rgba(34, 211, 238, 0.28);
+  color: #f8fafc;
+}
+
+.bottom-reminder-chip.active {
+  background: rgba(34, 211, 238, 0.14);
+  border-color: rgba(34, 211, 238, 0.34);
+  color: #67e8f9;
+}
+
 .bottom-reminder-handle-text strong {
   color: #f8fafc;
   font-size: 0.68rem;
@@ -1060,6 +1102,16 @@ body {
   flex-direction: column;
   gap: 0.18rem;
   flex: 0 0 auto;
+}
+
+.bottom-reminder-bar.is-compact .bottom-reminder-pill {
+  min-width: 102px;
+  padding: 0.52rem 0.62rem;
+}
+
+.bottom-reminder-bar.is-muted .bottom-reminder-pill {
+  background: rgba(255,255,255,0.02);
+  border-color: rgba(255,255,255,0.04);
 }
 
 .bottom-reminder-label {
