@@ -150,6 +150,16 @@ class RiskManager:
             if previous != self.state.enabled:
                 action = "attivato" if self.state.enabled else "disattivato"
                 self._add_alert(f"🛡️ Risk Management {action} manualmente")
+                if not self.state.enabled:
+                    try:
+                        from api import send_critical_alert_once
+                        send_critical_alert_once(
+                            event_key="risk_disabled",
+                            message="⚠️ Risk Management disattivato manualmente.\nIl bot può continuare a operare senza il kill switch di protezione.",
+                            cooldown_seconds=1800,
+                        )
+                    except Exception:
+                        pass
             self._save_state()
             
     def _trigger_circuit_breaker(self, reason: str):
@@ -159,6 +169,15 @@ class RiskManager:
         self.state.circuit_breaker_until = until.isoformat()
         self.state.status = "black"
         self._add_alert(f"⛔ CIRCUIT BREAKER: {reason}. Stop per {self.limits.circuit_breaker_cooldown_hours}h")
+        try:
+            from api import send_critical_alert_once
+            send_critical_alert_once(
+                event_key=f"circuit_breaker:{reason}",
+                message=f"⛔ Circuit breaker attivato\nMotivo: {reason}\nStop operativo per {self.limits.circuit_breaker_cooldown_hours} ore.",
+                cooldown_seconds=3600,
+            )
+        except Exception:
+            pass
         self._save_state()
         
     def update_equity(self, new_equity: float):
@@ -263,6 +282,15 @@ class RiskManager:
     def close_all_positions(self, callback=None):
         """Chiudi tutte le posizioni (emergenza)"""
         self._add_alert("🚨 EMERGENZA: Chiusura forzata tutte le posizioni")
+        try:
+            from api import send_critical_alert_once
+            send_critical_alert_once(
+                event_key="emergency_close_all",
+                message="🚨 Chiusura forzata di emergenza eseguita su tutte le posizioni.",
+                cooldown_seconds=900,
+            )
+        except Exception:
+            pass
         if callback:
             callback()
         self.state.open_positions = 0

@@ -263,8 +263,13 @@ class AlpacaEngine:
         )
         self._log(f"🛑 AUTO-PAUSE DI SICUREZZA: {reason}")
         try:
-            from api import send_critical_alert
-            send_critical_alert(f"🛑 Auto-pause bot trading\nMotivo: {reason}", user_id=getattr(self, 'user_id', 'admin'))
+            from api import send_critical_alert_once
+            send_critical_alert_once(
+                event_key=f"auto_pause:{reason}",
+                message=f"🛑 Auto-pause bot trading\nMotivo: {reason}",
+                user_id=getattr(self, 'user_id', 'admin'),
+                cooldown_seconds=1800,
+            )
         except Exception:
             pass
 

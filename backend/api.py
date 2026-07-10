@@ -122,12 +122,22 @@ def send_critical_alert(message: str, user_id: str = "admin", title: str = "Aure
     send_telegram_message(message, user_id=user_id)
     send_pushover_message(message, user_id=user_id, title=title, priority=1, sound="persistent")
 
+def send_critical_alert_once(event_key: str, message: str, user_id: str = "admin", title: str = "Aureo OS Critical", cooldown_seconds: int = 900):
+    now = time.time()
+    cache_key = f"{user_id}:{event_key}"
+    last_sent_at = CRITICAL_ALERT_CACHE.get(cache_key, 0.0)
+    if now - last_sent_at < max(0, cooldown_seconds):
+        return
+    CRITICAL_ALERT_CACHE[cache_key] = now
+    send_critical_alert(message, user_id=user_id, title=title)
+
 # Importiamo il modello
 from data_loader import fetch_historical_data
 
 DB_FILE_PREFIX = "bot_db"
 db_lock = threading.Lock()
 SYMBOL_RANK_CACHE_TTL_SECONDS = 300
+CRITICAL_ALERT_CACHE = {}
 symbol_rank_cache = {"expires_at": 0.0, "max_symbols": 0, "result": ([], [])}
 
 def get_db_file(user_id=None):

@@ -2223,6 +2223,9 @@ function OmniApp() {
         <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
           Per alert critici al polso. Il server invia a Pushover, l’iPhone la riceve e Apple Watch la mostra subito.
         </div>
+        <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.9rem', lineHeight: 1.6 }}>
+          Eventi inviati: auto-pause del bot, circuit breaker, chiusura forzata d’emergenza, disattivazione manuale del Risk Management.
+        </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <input type="password" placeholder="Pushover App Token" value={apiKeys.pushover_app_token} onChange={e => setApiKeys({...apiKeys, pushover_app_token: e.target.value})} style={{ flex: 1, minWidth: '240px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
           <input type="password" placeholder="Pushover User Key" value={apiKeys.pushover_user_key} onChange={e => setApiKeys({...apiKeys, pushover_user_key: e.target.value})} style={{ flex: 1, minWidth: '240px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
