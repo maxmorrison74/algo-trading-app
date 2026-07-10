@@ -916,12 +916,13 @@ body {
 }
 
 .bottom-reminder-bar {
-  position: sticky;
+  position: fixed;
+  left: calc(280px + 1.5rem);
+  right: 1.5rem;
   bottom: 1rem;
   z-index: 35;
   display: flex;
   gap: 0.65rem;
-  margin-top: 1.4rem;
   padding: 0.8rem 0.9rem;
   border-radius: 18px;
   border: 1px solid rgba(255,255,255,0.08);
@@ -1785,6 +1786,11 @@ input:focus, textarea:focus, select:focus {
   .main-content { padding: 2rem; }
   .header h2 { font-size: 1.9rem; }
   .dashboard-grid { gap: 1.2rem; }
+  .bottom-reminder-bar {
+    left: calc(240px + 1rem);
+    right: 1rem;
+    bottom: 0.85rem;
+  }
 }
 
 @media (max-width: 768px), (max-height: 560px) and (orientation: landscape) {
