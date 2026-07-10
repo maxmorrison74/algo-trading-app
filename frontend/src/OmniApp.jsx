@@ -697,10 +697,10 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
         ref={dragRef}
         className="bottom-reminder-handle"
         onPointerDown={handleDragStart}
-        title="Trascina la barra"
+        title="Sposta la Control Room"
       >
-        <span className="bottom-reminder-handle-dots">⋮⋮</span>
-        <span>Trascina</span>
+        <span className="bottom-reminder-handle-dots">✦</span>
+        <span>Control Room</span>
       </div>
       {items.map((item) => (
         <div key={item.label} className="bottom-reminder-pill">

@@ -951,23 +951,25 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
-  padding: 0.35rem 0.7rem;
+  padding: 0.38rem 0.82rem;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.08);
-  background: rgba(11, 15, 25, 0.92);
-  color: var(--text-secondary);
+  border: 1px solid rgba(56, 189, 248, 0.18);
+  background: linear-gradient(135deg, rgba(11, 15, 25, 0.96), rgba(17, 24, 39, 0.9));
+  color: #dbeafe;
   font-size: 0.72rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   cursor: grab;
   user-select: none;
+  box-shadow: 0 10px 25px rgba(2, 6, 23, 0.28);
 }
 
 .bottom-reminder-handle-dots {
-  color: #38bdf8;
-  letter-spacing: -0.08em;
-  font-size: 0.82rem;
+  color: #22d3ee;
+  letter-spacing: 0;
+  font-size: 0.8rem;
+  line-height: 1;
 }
 
 .bottom-reminder-pill {
