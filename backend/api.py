@@ -1895,6 +1895,16 @@ def get_chart_data(symbol: str, timeframe: str = "1M"):
                             return float(latest_bar.c)
                     except Exception:
                         pass
+
+                    try:
+                        latest_daily_bars = alpaca.get_bars(cleaned_symbol, tradeapi.TimeFrame.Day, limit=2).df
+                        if not latest_daily_bars.empty:
+                            close_col = "close" if "close" in latest_daily_bars.columns else "Close"
+                            close_series = latest_daily_bars[close_col].dropna()
+                            if not close_series.empty:
+                                return float(close_series.iloc[-1])
+                    except Exception:
+                        pass
             except Exception:
                 pass
 
