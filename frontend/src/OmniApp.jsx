@@ -285,6 +285,39 @@ const deriveCryptoEngineDetails = (status = {}) => {
   };
 };
 
+const deriveCryptoSymbolStates = (status = {}) => {
+  const symbols = Array.isArray(status.symbols) ? status.symbols : [];
+  const logs = Array.isArray(status.logs) ? status.logs : [];
+  const positions = status.positions || {};
+  const cryptoSymbols = symbols.filter((sym) => String(sym).includes('/'));
+
+  return cryptoSymbols.map((symbol) => {
+    const symbolLogs = logs.filter((line) => String(line || '').includes(symbol));
+    const latest = symbolLogs[0] || '';
+    const hasOpenPosition = positions[symbol] && positions[symbol] !== 'LIQUID';
+
+    if (!status.modules?.trading) {
+      return { symbol, label: 'Pausa', tone: '#94a3b8', bg: 'rgba(148, 163, 184, 0.14)', border: 'rgba(148, 163, 184, 0.35)', reason: 'Scanner spento' };
+    }
+    if (hasOpenPosition) {
+      return { symbol, label: 'Open', tone: '#10b981', bg: 'rgba(16, 185, 129, 0.14)', border: 'rgba(16, 185, 129, 0.35)', reason: 'Posizione aperta' };
+    }
+    if (latest.includes('ORDINE') || latest.includes('FAST SCALP')) {
+      return { symbol, label: 'Ready', tone: '#10b981', bg: 'rgba(16, 185, 129, 0.14)', border: 'rgba(16, 185, 129, 0.35)', reason: 'Attività recente' };
+    }
+    if (latest.includes('volatilità troppo bassa')) {
+      return { symbol, label: 'Flat', tone: '#38bdf8', bg: 'rgba(56, 189, 248, 0.14)', border: 'rgba(56, 189, 248, 0.35)', reason: 'Mercato piatto' };
+    }
+    if (latest.includes('nessun setup tecnico valido')) {
+      return { symbol, label: 'Watch', tone: '#a78bfa', bg: 'rgba(167, 139, 250, 0.14)', border: 'rgba(167, 139, 250, 0.35)', reason: 'In osservazione' };
+    }
+    if (latest.includes('AI VETO') || latest.includes('LSTM VETO') || latest.includes('RISK FILTER') || latest.includes('SKIP SHORT')) {
+      return { symbol, label: 'Veto', tone: '#f59e0b', bg: 'rgba(245, 158, 11, 0.14)', border: 'rgba(245, 158, 11, 0.35)', reason: 'Filtro attivo' };
+    }
+    return { symbol, label: 'Sync', tone: '#64748b', bg: 'rgba(100, 116, 139, 0.14)', border: 'rgba(100, 116, 139, 0.35)', reason: 'In attesa dati' };
+  });
+};
+
 const authFetch = async (input, init = {}) => {
   const headers = new Headers(init.headers || {});
   const token = getAuthToken();
@@ -768,6 +801,7 @@ function OmniApp() {
   );
   const cryptoEngine = useMemo(() => deriveCryptoEngineState(status), [status]);
   const cryptoEngineDetails = useMemo(() => deriveCryptoEngineDetails(status), [status]);
+  const cryptoSymbolStates = useMemo(() => deriveCryptoSymbolStates(status), [status]);
   const sortedSurebets = useMemo(
     () => [...(status.active_surebets || [])].sort((a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)),
     [status.active_surebets]
@@ -2153,7 +2187,6 @@ function OmniApp() {
       {cryptoEngine.level !== 'hidden' && (
         <div
           className="card trading-crypto-engine-card"
-          onClick={() => setShowCryptoEngineDetails((prev) => !prev)}
           style={{
             marginTop: '1.35rem',
             marginBottom: '1rem',
@@ -2163,7 +2196,6 @@ function OmniApp() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
             gap: '1rem',
             alignItems: 'stretch',
-            cursor: 'pointer',
           }}
         >
           <div>
@@ -2186,9 +2218,21 @@ function OmniApp() {
               >
                 {cryptoEngine.badge}
               </span>
-              <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginLeft: 'auto' }}>
+              <button
+                onClick={() => setShowCryptoEngineDetails((prev) => !prev)}
+                style={{
+                  marginLeft: 'auto',
+                  background: 'rgba(0,0,0,0.18)',
+                  border: `1px solid ${cryptoEngine.border}`,
+                  color: 'var(--text-muted)',
+                  borderRadius: '999px',
+                  padding: '0.35rem 0.7rem',
+                  fontSize: '0.78rem',
+                  cursor: 'pointer',
+                }}
+              >
                 {showCryptoEngineDetails ? 'Nascondi dettagli ↑' : 'Mostra dettagli ↓'}
-              </span>
+              </button>
             </div>
             <div style={{ color: '#f8fafc', fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.35rem' }}>
               {cryptoEngine.title}
@@ -2196,6 +2240,28 @@ function OmniApp() {
             <div style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.5 }}>
               {cryptoEngine.subtitle}
             </div>
+            {cryptoSymbolStates.length > 0 && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem', marginTop: '0.9rem' }}>
+                {cryptoSymbolStates.map((item) => (
+                  <div
+                    key={item.symbol}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.45rem',
+                      padding: '0.45rem 0.65rem',
+                      borderRadius: '999px',
+                      border: `1px solid ${item.border}`,
+                      background: item.bg,
+                    }}
+                  >
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: item.tone }}></span>
+                    <span style={{ color: '#e2e8f0', fontSize: '0.8rem', fontWeight: 700 }}>{item.symbol}</span>
+                    <span style={{ color: item.tone, fontSize: '0.75rem', fontWeight: 700 }}>{item.label}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div
             style={{
