@@ -26,6 +26,10 @@ class AlpacaEngine:
         self.ml_models = {}
         self.active_trails = {}
         self._skip_log_cache = {}
+        self.last_bar_received_at = None
+        self.last_sync_at = None
+        self.sync_failures = 0
+        self.reconnect_attempts = 0
         
         # Start async loop thread for streaming
         self._stream_thread = None
@@ -154,10 +158,21 @@ class AlpacaEngine:
         try:
             account = self.alpaca_rest.get_account()
             self.bot_state.virtual_cash = float(account.portfolio_value)
+            self.last_sync_at = time.time()
+            self.sync_failures = 0
+            self._runtime_health(
+                status="green",
+                summary="Portfolio sincronizzato",
+                last_sync_at=datetime.datetime.now().isoformat(),
+                sync_failures=0,
+            )
             
             # Sincronizza Trailing Stops interni per eventuali posizioni orfane o chiuse
             try:
                 positions = self.alpaca_rest.list_positions()
+                risk = get_risk_manager(self.bot_state.virtual_cash)
+                risk.state.open_positions = len(positions)
+                risk._save_state()
                 active_symbols = set()
                 for p in positions:
                     # Clean symbol (es. BTC/USD -> BTCUSD per coerenza interna)
@@ -186,6 +201,13 @@ class AlpacaEngine:
                 pass
                 
         except Exception as e:
+            self.sync_failures += 1
+            self._runtime_health(
+                status="yellow" if self.sync_failures < 3 else "red",
+                summary=f"Errore sync portfolio ({self.sync_failures})",
+                last_error=str(e),
+                sync_failures=self.sync_failures,
+            )
             self._log(f"❌ ERRORE: Chiavi Alpaca non valide o account non autorizzato. {e}")
             raise e
 
@@ -215,6 +237,28 @@ class AlpacaEngine:
 
         confidence = round(confidence)
         return max(1, min(int(confidence), 5))
+
+    def _runtime_health(self, persist=False, **kwargs):
+        now_iso = datetime.datetime.now().isoformat()
+        payload = {
+            "last_heartbeat_at": now_iso,
+            **kwargs,
+        }
+        self.bot_state.set_runtime_health(persist=persist, **payload)
+
+    def _auto_pause(self, reason: str):
+        self.running = False
+        self.bot_state.modules["trading"] = False
+        self._runtime_health(
+            persist=True,
+            status="red",
+            auto_paused=True,
+            auto_pause_reason=reason,
+            summary=reason,
+            websocket_connected=False,
+            last_error=reason,
+        )
+        self._log(f"🛑 AUTO-PAUSE DI SICUREZZA: {reason}")
 
     def predict_pattern_with_groq(self, symbol, close_prices):
         # Legacy stub — redirects to the real implementation below
@@ -421,6 +465,14 @@ class AlpacaEngine:
     async def on_bar(self, bar):
         sym = bar.symbol
         if sym not in self.symbols: return
+        self.last_bar_received_at = time.time()
+        self._runtime_health(
+            status="green",
+            summary=f"Feed attivo su {sym}",
+            last_bar_at=datetime.datetime.now().isoformat(),
+            websocket_connected=True,
+            reconnect_attempts=0,
+        )
         
         current_price = bar.close
         
@@ -790,23 +842,49 @@ class AlpacaEngine:
                 
                 self._log(f"📡 WebSocket Connesso: in attesa di stream tick-by-tick ({len(stock_symbols)} stocks, {len(crypto_symbols)} crypto)...")
                 reconnect_attempts = 0
+                self.reconnect_attempts = 0
+                self._runtime_health(
+                    status="green",
+                    summary="WebSocket connesso",
+                    websocket_connected=True,
+                    reconnect_attempts=0,
+                )
                 self.alpaca_stream.run()
             except ValueError as ve:
                 if "auth failed" in str(ve).lower():
-                    self._log("❌ ERRORE CRITICO: Chiavi Alpaca rifiutate dal server WS. Disattivo modulo Trading.")
-                    self.running = False
-                    self.bot_state.modules["trading"] = False
-                    self.bot_state.save_state()
+                    self._auto_pause("Chiavi Alpaca rifiutate dal WebSocket")
                     break
                 else:
                     self._log(f"❌ WebSocket errore: {ve}")
+                    self._runtime_health(
+                        status="yellow",
+                        summary="WebSocket in errore",
+                        websocket_connected=False,
+                        last_error=str(ve),
+                    )
             except Exception as e:
                 if self.running:
                     self._log(f"❌ WebSocket disconnesso ({e}). Tentativo di riconnessione in corso...")
+                    self._runtime_health(
+                        status="yellow",
+                        summary="WebSocket disconnesso",
+                        websocket_connected=False,
+                        last_error=str(e),
+                    )
             
             if self.running and self.bot_state.modules.get("trading", False):
                 reconnect_attempts += 1
+                self.reconnect_attempts = reconnect_attempts
                 backoff = min(60, 2 ** reconnect_attempts)
+                self._runtime_health(
+                    status="yellow" if reconnect_attempts < 6 else "red",
+                    summary=f"Riconnessione WebSocket ({reconnect_attempts})",
+                    websocket_connected=False,
+                    reconnect_attempts=reconnect_attempts,
+                )
+                if reconnect_attempts >= 6:
+                    self._auto_pause("Troppi tentativi di riconnessione WebSocket")
+                    break
                 self._log(f"🔄 Auto-Reconnect WebSocket tra {backoff} secondi... (Tentativo {reconnect_attempts})")
                 time.sleep(backoff)
 
@@ -815,13 +893,22 @@ class AlpacaEngine:
         try:
             self.running = True
             uid = getattr(self, 'user_id', 'admin')
+            self._runtime_health(
+                persist=True,
+                status="yellow",
+                summary="Avvio motore trading",
+                websocket_connected=False,
+                auto_paused=False,
+                auto_pause_reason=None,
+                last_error=None,
+                sync_failures=0,
+                reconnect_attempts=0,
+            )
             self.init_clients(uid)
             
             if not self.alpaca_rest:
                 self._log("Mancano chiavi Alpaca valide. Il modulo si ferma.")
-                self.running = False
-                self.bot_state.modules["trading"] = False
-                self.bot_state.save_state()
+                self._auto_pause("Chiavi Alpaca mancanti o non valide")
                 return
                 
             self.prefill_history()
@@ -830,6 +917,13 @@ class AlpacaEngine:
             can_trade, reason = risk.can_trade()
             if not can_trade:
                 self._log(f"⛔ {reason}")
+                self._runtime_health(
+                    persist=True,
+                    status="red",
+                    summary=reason,
+                    auto_paused=True,
+                    auto_pause_reason=reason,
+                )
                 self.running = False
                 return
                 
@@ -842,18 +936,47 @@ class AlpacaEngine:
                 time.sleep(60)
                 try:
                     self.sync_portfolio()
+                    health_warnings = []
+                    now_ts = time.time()
+                    if self.last_bar_received_at and (now_ts - self.last_bar_received_at) > 900:
+                        health_warnings.append("Feed dati fermo oltre soglia di sicurezza")
+                    if self.sync_failures >= 2:
+                        health_warnings.append(f"Sync portfolio instabile ({self.sync_failures})")
+                    if health_warnings:
+                        self._runtime_health(
+                            status="yellow",
+                            summary=health_warnings[0],
+                            warnings=health_warnings,
+                            reconnect_attempts=self.reconnect_attempts,
+                            sync_failures=self.sync_failures,
+                        )
+                    else:
+                        self._runtime_health(
+                            status="green",
+                            summary="Motore trading stabile",
+                            warnings=[],
+                            websocket_connected=True,
+                            reconnect_attempts=self.reconnect_attempts,
+                            sync_failures=self.sync_failures,
+                        )
+                    if self.last_bar_received_at and (now_ts - self.last_bar_received_at) > 1200:
+                        self._auto_pause("Feed dati assente da oltre 20 minuti")
+                        break
                 except Exception:
-                    self.running = False
-                    self.bot_state.modules["trading"] = False
-                    self.bot_state.save_state()
+                    if self.sync_failures >= 3:
+                        self._auto_pause("Sync portfolio fallito ripetutamente")
+                        break
                     
             # Chiusura
             self.running = False
             if self.alpaca_stream:
                 self.alpaca_stream.stop()
+            self._runtime_health(
+                persist=True,
+                websocket_connected=False,
+                summary="Motore Alpaca fermato",
+            )
             self._log("Motore Alpaca Fermato.")
         except Exception as e:
             self._log(f"💥 CRASH CRITICO nel motore Alpaca: {e}")
-            self.running = False
-            self.bot_state.modules["trading"] = False
-            self.bot_state.save_state()
+            self._auto_pause(f"Crash critico motore Alpaca: {e}")

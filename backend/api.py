@@ -213,7 +213,25 @@ def advance_phase(_: str = Depends(require_admin)):
 
 @app.get("/health")
 def health_check():
-    return {"status": "ok", "timestamp": datetime.now().isoformat()}
+    bot_state = get_user_bot_state("admin")
+    runtime = build_runtime_health_snapshot(bot_state)
+    risk = get_risk_manager(initial_capital=bot_state.virtual_cash).get_status()
+    if runtime.get("auto_paused") or runtime.get("status") == "red" or not risk.get("can_trade", True):
+        status_label = "degraded"
+    elif runtime.get("status") == "yellow":
+        status_label = "warning"
+    else:
+        status_label = "ok"
+    return {
+        "status": status_label,
+        "timestamp": datetime.now().isoformat(),
+        "runtime": runtime,
+        "risk": {
+            "status": risk.get("status"),
+            "can_trade": risk.get("can_trade"),
+            "reason": risk.get("reason"),
+        }
+    }
 
 app.include_router(routers_ai_invest.router)
 
@@ -228,6 +246,51 @@ try:
     alpaca = tradeapi.REST(API_KEY, API_SECRET, BASE_URL, api_version='v2')
 except Exception as e:
     alpaca = None
+
+def build_runtime_health_snapshot(bot_state):
+    health = dict(getattr(bot_state, "runtime_health", {}) or {})
+    now_ts = time.time()
+
+    def age_seconds(iso_value):
+        if not iso_value:
+            return None
+        try:
+            return max(0, int(now_ts - datetime.fromisoformat(iso_value).timestamp()))
+        except Exception:
+            return None
+
+    health["heartbeat_age_sec"] = age_seconds(health.get("last_heartbeat_at"))
+    health["last_bar_age_sec"] = age_seconds(health.get("last_bar_at"))
+    health["last_sync_age_sec"] = age_seconds(health.get("last_sync_at"))
+    health["is_trading_enabled"] = bool(bot_state.modules.get("trading"))
+
+    if not health.get("is_trading_enabled"):
+        health["status"] = health.get("status") or "green"
+        health["summary"] = health.get("summary") or "Modulo trading fermo"
+        return health
+
+    if health.get("auto_paused"):
+        health["status"] = "red"
+        if not health.get("summary"):
+            health["summary"] = "Auto-pause attivata per sicurezza"
+        return health
+
+    warnings = list(health.get("warnings", []) or [])
+    if (health.get("last_bar_age_sec") or 0) > 900:
+        warnings.insert(0, "Feed dati fermo da oltre 15 minuti")
+    if int(health.get("sync_failures") or 0) >= 2:
+        warnings.insert(0, f"Sync portfolio instabile ({health.get('sync_failures')} errori)")
+    if int(health.get("reconnect_attempts") or 0) >= 3:
+        warnings.insert(0, f"WebSocket in riconnessione ({health.get('reconnect_attempts')} tentativi)")
+
+    health["warnings"] = warnings[:10]
+    if warnings and health.get("status") == "green":
+        health["status"] = "yellow"
+        health["summary"] = health.get("summary") or warnings[0]
+    elif not warnings and health.get("status") != "red":
+        health["status"] = "green"
+        health["summary"] = health.get("summary") or "Motore operativo stabile"
+    return health
 
 # Pool di ticker volatili molto scambiati, ideali per lo scanning
 POOL_TICKERS = [
@@ -523,6 +586,20 @@ class BotState:
         self.symbol_selection = db_data.get("symbol_selection", {"method": "static_default", "ranked": []})
         self.dynamic_atr_stop = db_data.get("dynamic_atr_stop", True)
         self.trailing_stop_base_pct = db_data.get("trailing_stop_base_pct", 2.5)
+        self.runtime_health = db_data.get("runtime_health", {
+            "status": "green",
+            "summary": "In attesa avvio modulo trading",
+            "websocket_connected": False,
+            "last_heartbeat_at": None,
+            "last_bar_at": None,
+            "last_sync_at": None,
+            "last_error": None,
+            "sync_failures": 0,
+            "reconnect_attempts": 0,
+            "auto_paused": False,
+            "auto_pause_reason": None,
+            "warnings": [],
+        })
         default_modules = {
             "trading": False,
             "sports_arb": False,
@@ -548,6 +625,25 @@ class BotState:
         
         # Invia la notifica su Telegram
         send_telegram_message(rendered_message)
+
+    def set_runtime_health(self, persist: bool = False, **kwargs):
+        current = dict(getattr(self, "runtime_health", {}) or {})
+        warnings = kwargs.pop("warnings", None)
+        current.update(kwargs)
+        if warnings is not None:
+            current["warnings"] = list(warnings)[:10]
+        self.runtime_health = current
+        if persist:
+            self.save_state()
+
+    def add_runtime_warning(self, warning: str, persist: bool = False):
+        current = dict(getattr(self, "runtime_health", {}) or {})
+        warnings = list(current.get("warnings", []) or [])
+        warnings.insert(0, warning)
+        current["warnings"] = warnings[:10]
+        self.runtime_health = current
+        if persist:
+            self.save_state()
         
     def save_state(self):
         save_db({
@@ -564,6 +660,7 @@ class BotState:
             "symbol_selection": self.symbol_selection,
             "dynamic_atr_stop": self.dynamic_atr_stop,
             "trailing_stop_base_pct": self.trailing_stop_base_pct,
+            "runtime_health": self.runtime_health,
         }, self.user_id)
 
     def close_trade(self, symbol: str, side: str, profit_usd: float, profit_pct: float):
@@ -1097,6 +1194,7 @@ def get_status(user_id="admin", scope: str = "core"):
             "auto_bet_threshold": bot_state.auto_bet_threshold,
             "dynamic_atr_stop": getattr(bot_state, "dynamic_atr_stop", True),
             "trailing_stop_base_pct": getattr(bot_state, "trailing_stop_base_pct", 2.5),
+            "runtime_health": build_runtime_health_snapshot(bot_state),
         }
         if scope in {"trading", "charts", "full"}:
             response.update({

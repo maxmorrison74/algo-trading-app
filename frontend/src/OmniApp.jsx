@@ -723,6 +723,75 @@ const CapitalPhase = () => {
   );
 };
 
+const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
+  const statusColorMap = {
+    green: '#10b981',
+    yellow: '#f59e0b',
+    red: '#ef4444',
+  };
+  const runtimeStatus = runtimeHealth?.status || (isBackendOnline ? 'green' : 'red');
+  const statusColor = statusColorMap[runtimeStatus] || '#64748b';
+  const warnings = Array.isArray(runtimeHealth?.warnings) ? runtimeHealth.warnings : [];
+
+  const formatAge = (seconds) => {
+    if (seconds == null) return '—';
+    if (seconds < 60) return `${seconds}s`;
+    const mins = Math.floor(seconds / 60);
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    return `${hours}h`;
+  };
+
+  return (
+    <div className="card col-span-12" style={{ border: `2px solid ${statusColor}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+        <div>
+          <div className="card-title">🧭 Runtime Health</div>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+            Stato automatico del motore quando lo lasci correre da solo.
+          </div>
+        </div>
+        <div className={`badge ${runtimeStatus === 'green' ? 'badge-active' : runtimeStatus === 'yellow' ? 'badge-gold' : 'badge-danger'}`} style={{ fontSize: '0.9rem', fontWeight: 800 }}>
+          {(runtimeStatus || 'unknown').toUpperCase()}
+        </div>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', marginBottom: '0.75rem' }}>
+        <span style={{ width: '12px', height: '12px', borderRadius: '999px', background: statusColor, boxShadow: `0 0 12px ${statusColor}` }}></span>
+        <div style={{ color: statusColor, fontSize: '1.1rem', fontWeight: 'bold' }}>
+          {runtimeHealth?.summary || (isBackendOnline ? 'Backend online' : 'Backend offline')}
+        </div>
+      </div>
+      <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>WebSocket <strong style={{ color: 'var(--text-primary)' }}>{runtimeHealth?.websocket_connected ? 'ON' : 'OFF'}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Heartbeat <strong style={{ color: 'var(--text-primary)' }}>{formatAge(runtimeHealth?.heartbeat_age_sec)}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Ultimo feed <strong style={{ color: 'var(--text-primary)' }}>{formatAge(runtimeHealth?.last_bar_age_sec)}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Ultimo sync <strong style={{ color: 'var(--text-primary)' }}>{formatAge(runtimeHealth?.last_sync_age_sec)}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Reconnect <strong style={{ color: 'var(--text-primary)' }}>{Number(runtimeHealth?.reconnect_attempts || 0)}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Sync fail <strong style={{ color: 'var(--text-primary)' }}>{Number(runtimeHealth?.sync_failures || 0)}</strong></div>
+      </div>
+      {!!runtimeHealth?.auto_paused && (
+        <div style={{ marginTop: '0.85rem', color: '#ef4444', fontWeight: 'bold' }}>
+          Auto-pause attiva: {runtimeHealth?.auto_pause_reason || 'motivo non disponibile'}
+        </div>
+      )}
+      {runtimeHealth?.last_error && (
+        <div style={{ marginTop: '0.5rem', color: '#fca5a5' }}>
+          Ultimo errore: {runtimeHealth.last_error}
+        </div>
+      )}
+      {warnings.length > 0 && (
+        <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.45rem' }}>
+          {warnings.slice(0, 3).map((warning, index) => (
+            <div key={index} style={{ color: '#fbbf24', fontSize: '0.86rem' }}>
+              • {warning}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const OnboardingModal = ({ onClose, onGoToSettings }) => {
   return (
     <div style={{
@@ -2549,6 +2618,7 @@ function OmniApp() {
       <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
         <RiskStatus />
         <CapitalPhase />
+        <RuntimeHealthCard runtimeHealth={status.runtime_health} isBackendOnline={isBackendOnline} />
       </div>
 
       <div className="chart-controls trading-chart-controls" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between' }}>
