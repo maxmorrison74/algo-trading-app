@@ -950,26 +950,89 @@ body {
   transform: translateX(-50%);
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
-  padding: 0.38rem 0.82rem;
+  gap: 0.55rem;
+  padding: 0.42rem 0.95rem 0.42rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid rgba(56, 189, 248, 0.18);
-  background: linear-gradient(135deg, rgba(11, 15, 25, 0.96), rgba(17, 24, 39, 0.9));
-  color: #dbeafe;
-  font-size: 0.72rem;
+  border: 1px solid rgba(34, 211, 238, 0.22);
+  background: linear-gradient(135deg, rgba(11, 15, 25, 0.98), rgba(15, 23, 42, 0.94));
+  color: #e0f2fe;
+  font-size: 0.7rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  letter-spacing: 0.1em;
   cursor: grab;
   user-select: none;
-  box-shadow: 0 10px 25px rgba(2, 6, 23, 0.28);
+  box-shadow:
+    0 10px 25px rgba(2, 6, 23, 0.28),
+    0 0 0 1px rgba(14, 165, 233, 0.05) inset,
+    0 0 24px rgba(34, 211, 238, 0.12);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
-.bottom-reminder-handle-dots {
+.bottom-reminder-handle:hover {
+  border-color: rgba(34, 211, 238, 0.36);
+  box-shadow:
+    0 12px 28px rgba(2, 6, 23, 0.34),
+    0 0 0 1px rgba(14, 165, 233, 0.08) inset,
+    0 0 30px rgba(34, 211, 238, 0.18);
+}
+
+.bottom-reminder-handle-icon {
+  position: relative;
+  width: 1.55rem;
+  height: 1.55rem;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   color: #22d3ee;
-  letter-spacing: 0;
-  font-size: 0.8rem;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.2), rgba(15, 23, 42, 0.05));
+  box-shadow: 0 0 0 1px rgba(34, 211, 238, 0.18);
+}
+
+.bottom-reminder-handle-icon::after {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  border-radius: inherit;
+  border: 1px solid rgba(34, 211, 238, 0.16);
+  animation: infoBarPulse 2.8s ease-in-out infinite;
+}
+
+.bottom-reminder-handle-icon-core {
+  font-size: 0.65rem;
   line-height: 1;
+}
+
+.bottom-reminder-handle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.06rem;
+  line-height: 1.05;
+}
+
+.bottom-reminder-handle-text strong {
+  color: #f8fafc;
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.bottom-reminder-handle-text small {
+  color: rgba(186, 230, 253, 0.72);
+  font-size: 0.54rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+@keyframes infoBarPulse {
+  0%, 100% {
+    opacity: 0.35;
+    transform: scale(0.92);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
 }
 
 .bottom-reminder-pill {

@@ -699,8 +699,13 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
         onPointerDown={handleDragStart}
         title="Sposta la Info Bar"
       >
-        <span className="bottom-reminder-handle-dots">✦</span>
-        <span>Info Bar</span>
+        <span className="bottom-reminder-handle-icon" aria-hidden="true">
+          <span className="bottom-reminder-handle-icon-core">◉</span>
+        </span>
+        <span className="bottom-reminder-handle-text">
+          <strong>Info Bar</strong>
+          <small>Live Status Dock</small>
+        </span>
       </div>
       {items.map((item) => (
         <div key={item.label} className="bottom-reminder-pill">
