@@ -513,7 +513,24 @@ const classifyTradingLog = (line = '') => {
   return { label: 'Telemetria', tone: '#94a3b8', border: 'rgba(148, 163, 184, 0.25)' };
 };
 
-const AlertReadinessCard = ({ savedKeys = {}, runtimeHealth = {} }) => {
+const classifyCryptoLog = (line = '') => {
+  const text = String(line || '');
+  if (text.includes('BUY') || text.includes('SCALP BUY') || text.includes('ORDINE')) {
+    return { label: 'Ingresso', tone: '#10b981', border: 'rgba(16, 185, 129, 0.35)' };
+  }
+  if (text.includes('SELL') || text.includes('SCALP SELL') || text.includes('AUTO-EXIT') || text.includes('posizione chiusa')) {
+    return { label: 'Exit', tone: '#38bdf8', border: 'rgba(56, 189, 248, 0.35)' };
+  }
+  if (text.includes('AI VETO') || text.includes('LSTM VETO')) {
+    return { label: 'Filtro AI', tone: '#f59e0b', border: 'rgba(245, 158, 11, 0.35)' };
+  }
+  if (text.includes('RISK FILTER') || text.includes('Posizione già aperta') || text.includes('SKIP SHORT')) {
+    return { label: 'Filtro Risk', tone: '#ef4444', border: 'rgba(239, 68, 68, 0.35)' };
+  }
+  return { label: 'Monitoraggio', tone: '#a78bfa', border: 'rgba(167, 139, 250, 0.35)' };
+};
+
+const AlertReadinessCard = ({ savedKeys = {}, runtimeHealth = {}, lastVaultSync = '' }) => {
   const channels = [
     {
       name: 'Telegram',
@@ -559,6 +576,9 @@ const AlertReadinessCard = ({ savedKeys = {}, runtimeHealth = {} }) => {
             <div style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', lineHeight: 1.5 }}>{channel.detail}</div>
           </div>
         ))}
+      </div>
+      <div style={{ marginTop: '0.9rem', color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+        Ultimo aggiornamento Vault: {lastVaultSync || 'non ancora sincronizzato'}
       </div>
       {!!runtimeHealth?.auto_paused && (
         <div style={{ marginTop: '0.9rem', color: '#fca5a5', fontSize: '0.88rem' }}>
@@ -964,7 +984,7 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
   );
 };
 
-const DevelopView = ({ status, isBackendOnline, savedKeys, developSection, setDevelopSection, renderSettingsView, renderGuideView }) => (
+const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, developSection, setDevelopSection, renderSettingsView, renderGuideView }) => (
   <div className="module-content">
     <div className="header" style={{ marginBottom: '2rem' }}>
       <h2>🧪 Develop</h2>
@@ -994,7 +1014,7 @@ const DevelopView = ({ status, isBackendOnline, savedKeys, developSection, setDe
         <div className="dashboard-grid">
           <RuntimeHealthCard runtimeHealth={status.runtime_health} isBackendOnline={isBackendOnline} />
         </div>
-        <AlertReadinessCard savedKeys={savedKeys} runtimeHealth={status.runtime_health} />
+        <AlertReadinessCard savedKeys={savedKeys} runtimeHealth={status.runtime_health} lastVaultSync={lastVaultSync} />
         <div className="card" style={{ marginTop: '1.5rem' }}>
           <div className="card-title">Perché è qui</div>
           <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
@@ -1086,6 +1106,7 @@ function OmniApp() {
   const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', elevenlabs_key:'', theodds_key:'', groq_key:'', newsapi_key:'', google_cloud_json:'', telegram_bot_token:'', telegram_chat_id:'', pushover_app_token:'', pushover_user_key:''});
   const [testResults, setTestResults] = useState({});
   const [savedKeys, setSavedKeys] = useState({});
+  const [lastVaultSync, setLastVaultSync] = useState('');
   const [timeframe, setTimeframe] = useState('1D');
   const [chartData, setChartData] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState(null);
@@ -1929,6 +1950,7 @@ function OmniApp() {
       const refetchRes = await authFetch('/api/keys');
       const data = await refetchRes.json();
       setSavedKeys(data);
+      setLastVaultSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
     } catch(err) {
       alert('Errore durante il salvataggio: ' + err.message);
     }
@@ -1948,6 +1970,7 @@ function OmniApp() {
       const refetchRes = await authFetch('/api/keys?t=' + Date.now());
       const data = await refetchRes.json();
       setSavedKeys(data);
+      setLastVaultSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
       setApiKeys(prev => ({
         ...prev,
         dynamic_atr_stop: data.DYNAMIC_ATR_STOP ?? nextValues.dynamic_atr_stop,
@@ -1973,6 +1996,7 @@ function OmniApp() {
             alert("Errore critico dal backend nel leggere le chiavi: " + data.ERROR);
           }
           setSavedKeys(data);
+          setLastVaultSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
           // PRE-POPULATE I CAMPI DI TESTO CON I PALLINI (o la stringa mascherata)
           setApiKeys(prev => ({
             ...prev,
@@ -2691,8 +2715,23 @@ function OmniApp() {
                 <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.65rem' }}>Ultimi segnali crypto</div>
                 <div style={{ display: 'grid', gap: '0.55rem' }}>
                   {cryptoEngineDetails.recentLogs.length > 0 ? cryptoEngineDetails.recentLogs.map((line, index) => (
-                    <div key={index} style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.45 }}>
-                      {line}
+                    <div
+                      key={index}
+                      style={{
+                        padding: '0.55rem 0.7rem',
+                        borderRadius: '10px',
+                        border: `1px solid ${classifyCryptoLog(line).border}`,
+                        background: 'rgba(255,255,255,0.02)',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.22rem', flexWrap: 'wrap' }}>
+                        <span style={{ color: classifyCryptoLog(line).tone, fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                          {classifyCryptoLog(line).label}
+                        </span>
+                      </div>
+                      <div style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.45 }}>
+                        {line}
+                      </div>
                     </div>
                   )) : (
                     <div style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.45 }}>
@@ -4732,6 +4771,7 @@ function OmniApp() {
             status={status}
             isBackendOnline={isBackendOnline}
             savedKeys={savedKeys}
+            lastVaultSync={lastVaultSync}
             developSection={developSection}
             setDevelopSection={setDevelopSection}
             renderSettingsView={renderSettingsView}
