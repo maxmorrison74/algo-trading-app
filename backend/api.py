@@ -1877,6 +1877,53 @@ def get_chart_data(symbol: str, timeframe: str = "1M"):
                 })
             return synthetic
 
+        def resolve_reference_price(raw_symbol: str):
+            cleaned_symbol = raw_symbol.upper().strip()
+            try:
+                alpaca = get_user_alpaca_engine("admin").alpaca_rest
+                if alpaca:
+                    try:
+                        trade = alpaca.get_latest_trade(cleaned_symbol)
+                        if trade and getattr(trade, "price", None):
+                            return float(trade.price)
+                    except Exception:
+                        pass
+
+                    try:
+                        latest_bar = alpaca.get_latest_bar(cleaned_symbol)
+                        if latest_bar and getattr(latest_bar, "c", None):
+                            return float(latest_bar.c)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            try:
+                import yfinance as yf
+                ticker = yf.Ticker(cleaned_symbol)
+
+                try:
+                    fast_info = getattr(ticker, "fast_info", None)
+                    if fast_info:
+                        for key in ("lastPrice", "regularMarketPrice", "previousClose"):
+                            value = fast_info.get(key) if hasattr(fast_info, "get") else None
+                            if value:
+                                return float(value)
+                except Exception:
+                    pass
+
+                for quote_period in ("1d", "5d", "1mo"):
+                    quote_df = ticker.history(period=quote_period, interval="1d", prepost=True)
+                    if not quote_df.empty:
+                        close_col = "Close" if "Close" in quote_df.columns else quote_df.columns[-1]
+                        close_series = quote_df[close_col].dropna()
+                        if not close_series.empty:
+                            return float(close_series.iloc[-1])
+            except Exception:
+                pass
+
+            return None
+
         if timeframe == "1D":
             period = "1d"
             interval = "5m"
@@ -1952,12 +1999,10 @@ def get_chart_data(symbol: str, timeframe: str = "1M"):
                 pass
 
         if df.empty:
-            try:
-                quote = get_stock_quote(symbol, "admin")
-                if "price" in quote and quote["price"]:
-                    return build_synthetic_chart_data(float(quote["price"]), timeframe)
-            except Exception:
-                pass
+            reference_price = resolve_reference_price(symbol)
+            if reference_price:
+                print(f"[chart-data] synthetic fallback for {symbol} @ {reference_price}")
+                return build_synthetic_chart_data(reference_price, timeframe)
             return []
         
         # Limitiamo a 100 punti per leggibilità
