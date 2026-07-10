@@ -259,6 +259,11 @@ class AlpacaEngine:
             last_error=reason,
         )
         self._log(f"🛑 AUTO-PAUSE DI SICUREZZA: {reason}")
+        try:
+            from api import send_critical_alert
+            send_critical_alert(f"🛑 Auto-pause bot trading\nMotivo: {reason}", user_id=getattr(self, 'user_id', 'admin'))
+        except Exception:
+            pass
 
     def predict_pattern_with_groq(self, symbol, close_prices):
         # Legacy stub — redirects to the real implementation below

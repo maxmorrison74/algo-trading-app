@@ -71,6 +71,10 @@ def init_db():
             elevenlabs_key TEXT,
             theodds_key TEXT,
             newsapi_key TEXT,
+            telegram_bot_token TEXT,
+            telegram_chat_id TEXT,
+            pushover_app_token TEXT,
+            pushover_user_key TEXT,
             oanda_key TEXT,
             oanda_account TEXT,
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
@@ -85,6 +89,10 @@ def init_db():
         "ALTER TABLE api_keys ADD COLUMN elevenlabs_key TEXT",
         "ALTER TABLE api_keys ADD COLUMN theodds_key TEXT",
         "ALTER TABLE api_keys ADD COLUMN newsapi_key TEXT",
+        "ALTER TABLE api_keys ADD COLUMN telegram_bot_token TEXT",
+        "ALTER TABLE api_keys ADD COLUMN telegram_chat_id TEXT",
+        "ALTER TABLE api_keys ADD COLUMN pushover_app_token TEXT",
+        "ALTER TABLE api_keys ADD COLUMN pushover_user_key TEXT",
         "ALTER TABLE api_keys ADD COLUMN kraken_key TEXT",
         "ALTER TABLE api_keys ADD COLUMN kraken_secret TEXT",
         "ALTER TABLE api_keys ADD COLUMN oanda_key TEXT",
@@ -181,7 +189,7 @@ def update_subscription(user_id: str, expires_at: str):
     conn.close()
 
 # API Keys Operations
-def save_api_keys(user_id: str, alpaca_key: str = "", alpaca_secret: str = "", binance_key: str = "", binance_secret: str = "", kraken_key: str = "", kraken_secret: str = "", groq_key: str = "", gemini_key: str = "", elevenlabs_key: str = "", theodds_key: str = "", newsapi_key: str = "", oanda_key: str = "", oanda_account: str = ""):
+def save_api_keys(user_id: str, alpaca_key: str = "", alpaca_secret: str = "", binance_key: str = "", binance_secret: str = "", kraken_key: str = "", kraken_secret: str = "", groq_key: str = "", gemini_key: str = "", elevenlabs_key: str = "", theodds_key: str = "", newsapi_key: str = "", telegram_bot_token: str = "", telegram_chat_id: str = "", pushover_app_token: str = "", pushover_user_key: str = "", oanda_key: str = "", oanda_account: str = ""):
     conn = get_db_connection()
     cursor = conn.cursor()
     
@@ -192,6 +200,7 @@ def save_api_keys(user_id: str, alpaca_key: str = "", alpaca_secret: str = "", b
             SET alpaca_key = ?, alpaca_secret = ?, binance_key = ?, binance_secret = ?,
                 kraken_key = ?, kraken_secret = ?,
                 groq_key = ?, gemini_key = ?, elevenlabs_key = ?, theodds_key = ?, newsapi_key = ?,
+                telegram_bot_token = ?, telegram_chat_id = ?, pushover_app_token = ?, pushover_user_key = ?,
                 oanda_key = ?, oanda_account = ?
             WHERE user_id = ?
         """, (
@@ -200,13 +209,15 @@ def save_api_keys(user_id: str, alpaca_key: str = "", alpaca_secret: str = "", b
             encrypt_value(kraken_key), encrypt_value(kraken_secret),
             encrypt_value(groq_key), encrypt_value(gemini_key), encrypt_value(elevenlabs_key),
             encrypt_value(theodds_key), encrypt_value(newsapi_key),
+            encrypt_value(telegram_bot_token), encrypt_value(telegram_chat_id),
+            encrypt_value(pushover_app_token), encrypt_value(pushover_user_key),
             encrypt_value(oanda_key), encrypt_value(oanda_account),
             user_id
         ))
     else:
         cursor.execute("""
-            INSERT INTO api_keys (user_id, alpaca_key, alpaca_secret, binance_key, binance_secret, kraken_key, kraken_secret, groq_key, gemini_key, elevenlabs_key, theodds_key, newsapi_key, oanda_key, oanda_account)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO api_keys (user_id, alpaca_key, alpaca_secret, binance_key, binance_secret, kraken_key, kraken_secret, groq_key, gemini_key, elevenlabs_key, theodds_key, newsapi_key, telegram_bot_token, telegram_chat_id, pushover_app_token, pushover_user_key, oanda_key, oanda_account)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             user_id,
             encrypt_value(alpaca_key), encrypt_value(alpaca_secret),
@@ -214,6 +225,8 @@ def save_api_keys(user_id: str, alpaca_key: str = "", alpaca_secret: str = "", b
             encrypt_value(kraken_key), encrypt_value(kraken_secret),
             encrypt_value(groq_key), encrypt_value(gemini_key), encrypt_value(elevenlabs_key),
             encrypt_value(theodds_key), encrypt_value(newsapi_key),
+            encrypt_value(telegram_bot_token), encrypt_value(telegram_chat_id),
+            encrypt_value(pushover_app_token), encrypt_value(pushover_user_key),
             encrypt_value(oanda_key), encrypt_value(oanda_account)
         ))
         
@@ -244,6 +257,10 @@ def get_api_keys(user_id: str):
         "elevenlabs_key": decrypt_value(row.get('elevenlabs_key', '')),
         "theodds_key": decrypt_value(row.get('theodds_key', '')),
         "newsapi_key": decrypt_value(row.get('newsapi_key', '')),
+        "telegram_bot_token": decrypt_value(row.get('telegram_bot_token', '')),
+        "telegram_chat_id": decrypt_value(row.get('telegram_chat_id', '')),
+        "pushover_app_token": decrypt_value(row.get('pushover_app_token', '')),
+        "pushover_user_key": decrypt_value(row.get('pushover_user_key', '')),
         "oanda_key": decrypt_value(row.get('oanda_key', '')),
         "oanda_account": decrypt_value(row.get('oanda_account', ''))
     }

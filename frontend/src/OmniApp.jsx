@@ -865,7 +865,7 @@ function OmniApp() {
   
   const [numValueBets, setNumValueBets] = useState(9);
   const [placedBets, setPlacedBets] = useState({});
-  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', elevenlabs_key:'', theodds_key:'', groq_key:'', newsapi_key:'', google_cloud_json:''});
+  const [apiKeys, setApiKeys] = useState({alpaca_key:'', alpaca_secret:'', elevenlabs_key:'', theodds_key:'', groq_key:'', newsapi_key:'', google_cloud_json:'', telegram_bot_token:'', telegram_chat_id:'', pushover_app_token:'', pushover_user_key:''});
   const [testResults, setTestResults] = useState({});
   const [savedKeys, setSavedKeys] = useState({});
   const [timeframe, setTimeframe] = useState('1D');
@@ -1759,6 +1759,10 @@ function OmniApp() {
             theodds_key: data.THEODDS_KEY || '',
             groq_key: data.GROQ_KEY || '',
             newsapi_key: data.NEWSAPI_KEY || '',
+            telegram_bot_token: data.TELEGRAM_BOT_TOKEN || '',
+            telegram_chat_id: data.TELEGRAM_CHAT_ID || '',
+            pushover_app_token: data.PUSHOVER_APP_TOKEN || '',
+            pushover_user_key: data.PUSHOVER_USER_KEY || '',
             dynamic_atr_stop: data.DYNAMIC_ATR_STOP ?? true,
             trailing_stop_base_pct: data.TRAILING_STOP_BASE_PCT ?? 2.5
           }));
@@ -2155,6 +2159,26 @@ function OmniApp() {
           <input type="password" placeholder="Groq API Key" value={apiKeys.groq_key} onChange={e => setApiKeys({...apiKeys, groq_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
         </div>
         {testResults['groq'] && <div style={{ color: testResults['groq'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['groq']}</div>}
+      </div>
+
+      <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.22)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>
+            Pushover (iPhone / Apple Watch)
+            {savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY']
+              ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span>
+              : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}
+          </h3>
+          <button onClick={() => testConnection('pushover')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Pushover</button>
+        </div>
+        <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
+          Per alert critici al polso. Il server invia a Pushover, l’iPhone la riceve e Apple Watch la mostra subito.
+        </div>
+        <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+          <input type="password" placeholder="Pushover App Token" value={apiKeys.pushover_app_token} onChange={e => setApiKeys({...apiKeys, pushover_app_token: e.target.value})} style={{ flex: 1, minWidth: '240px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
+          <input type="password" placeholder="Pushover User Key" value={apiKeys.pushover_user_key} onChange={e => setApiKeys({...apiKeys, pushover_user_key: e.target.value})} style={{ flex: 1, minWidth: '240px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
+        </div>
+        {testResults['pushover'] && <div style={{ color: testResults['pushover'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['pushover']}</div>}
       </div>
 
       <div style={{ textAlign: 'right' }}>

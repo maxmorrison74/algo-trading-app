@@ -89,6 +89,39 @@ def send_telegram_message(message: str, user_id: str = "admin"):
     except Exception as e:
         print(f"Errore invio Telegram: {e}")
 
+def send_pushover_message(message: str, user_id: str = "admin", title: str = "Aureo OS", priority: int = 0, sound: str = ""):
+    app_token = os.getenv("PUSHOVER_APP_TOKEN", "")
+    user_key = os.getenv("PUSHOVER_USER_KEY", "")
+
+    keys = db.get_api_keys(user_id) or {}
+    app_token = keys.get("pushover_app_token") or app_token
+    user_key = keys.get("pushover_user_key") or user_key
+
+    if not app_token or not user_key:
+        print("Pushover non configurato in .env o Vault")
+        return
+
+    payload = {
+        "token": app_token,
+        "user": user_key,
+        "message": message[:1024],
+        "title": title[:250],
+        "priority": max(-2, min(2, int(priority))),
+    }
+    if sound:
+        payload["sound"] = sound
+
+    try:
+        res = requests.post("https://api.pushover.net/1/messages.json", data=payload, timeout=3)
+        if res.status_code != 200:
+            print(f"Errore da Pushover: {res.text}")
+    except Exception as e:
+        print(f"Errore invio Pushover: {e}")
+
+def send_critical_alert(message: str, user_id: str = "admin", title: str = "Aureo OS Critical"):
+    send_telegram_message(message, user_id=user_id)
+    send_pushover_message(message, user_id=user_id, title=title, priority=1, sound="persistent")
+
 # Importiamo il modello
 from data_loader import fetch_historical_data
 
@@ -2573,6 +2606,8 @@ class KeysRequest(BaseModel):
     dynamic_atr_stop: bool = True
     telegram_bot_token: str = ""
     telegram_chat_id: str = ""
+    pushover_app_token: str = ""
+    pushover_user_key: str = ""
     binance_key: str = ""
     binance_secret: str = ""
     kraken_key: str = ""
@@ -2605,6 +2640,10 @@ def get_keys(user: dict = Depends(require_user)):
             if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = user_keys["binance_secret"][:4] + "***"
             if user_keys.get("kraken_key"): keys["KRAKEN_KEY"] = user_keys["kraken_key"][:4] + "***"
             if user_keys.get("kraken_secret"): keys["KRAKEN_SECRET"] = user_keys["kraken_secret"][:4] + "***"
+            if user_keys.get("telegram_bot_token"): keys["TELEGRAM_BOT_TOKEN"] = user_keys["telegram_bot_token"][:4] + "***"
+            if user_keys.get("telegram_chat_id"): keys["TELEGRAM_CHAT_ID"] = user_keys["telegram_chat_id"][:4] + "***"
+            if user_keys.get("pushover_app_token"): keys["PUSHOVER_APP_TOKEN"] = user_keys["pushover_app_token"][:4] + "***"
+            if user_keys.get("pushover_user_key"): keys["PUSHOVER_USER_KEY"] = user_keys["pushover_user_key"][:4] + "***"
             # Se l'utente non è admin, usa le AI keys dal suo DB
             if user.get("role") != "admin":
                 if user_keys.get("groq_key"): keys["GROQ_KEY"] = user_keys["groq_key"][:4] + "***"
@@ -2643,6 +2682,11 @@ def save_keys(req: KeysRequest, user: dict = Depends(require_user)):
             elevenlabs_key=merge_user_key(req.elevenlabs_key, user_keys.get("elevenlabs_key")),
             theodds_key=merge_user_key(req.theodds_key, user_keys.get("theodds_key")),
             newsapi_key=merge_user_key(req.newsapi_key, user_keys.get("newsapi_key"))
+            ,
+            telegram_bot_token=merge_user_key(req.telegram_bot_token, user_keys.get("telegram_bot_token")),
+            telegram_chat_id=merge_user_key(req.telegram_chat_id, user_keys.get("telegram_chat_id")),
+            pushover_app_token=merge_user_key(req.pushover_app_token, user_keys.get("pushover_app_token")),
+            pushover_user_key=merge_user_key(req.pushover_user_key, user_keys.get("pushover_user_key")),
         )
         user_bot_state.dynamic_atr_stop = bool(req.dynamic_atr_stop)
         user_bot_state.trailing_stop_base_pct = float(req.trailing_stop_base_pct or 2.5)
@@ -2695,6 +2739,10 @@ class TestConnectionRequest(BaseModel):
     theodds_key: str = ""
     newsapi_key: str = ""
     groq_key: str = ""
+    telegram_bot_token: str = ""
+    telegram_chat_id: str = ""
+    pushover_app_token: str = ""
+    pushover_user_key: str = ""
     binance_key: str = ""
     binance_secret: str = ""
     kraken_key: str = ""
@@ -2719,6 +2767,10 @@ def test_connection(req: TestConnectionRequest, user: dict = Depends(require_use
         if user_keys.get("alpaca_secret"): keys["ALPACA_SECRET"] = user_keys["alpaca_secret"]
         if user_keys.get("binance_key"): keys["BINANCE_KEY"] = user_keys["binance_key"]
         if user_keys.get("binance_secret"): keys["BINANCE_SECRET"] = user_keys["binance_secret"]
+        if user_keys.get("telegram_bot_token"): keys["TELEGRAM_BOT_TOKEN"] = user_keys["telegram_bot_token"]
+        if user_keys.get("telegram_chat_id"): keys["TELEGRAM_CHAT_ID"] = user_keys["telegram_chat_id"]
+        if user_keys.get("pushover_app_token"): keys["PUSHOVER_APP_TOKEN"] = user_keys["pushover_app_token"]
+        if user_keys.get("pushover_user_key"): keys["PUSHOVER_USER_KEY"] = user_keys["pushover_user_key"]
         if user.get("role") != "admin":
             if user_keys.get("groq_key"): keys["GROQ_KEY"] = user_keys["groq_key"]
             if user_keys.get("elevenlabs_key"): keys["ELEVENLABS_KEY"] = user_keys["elevenlabs_key"]
@@ -2735,6 +2787,10 @@ def test_connection(req: TestConnectionRequest, user: dict = Depends(require_use
     if req.newsapi_key and "***" not in req.newsapi_key: keys['NEWSAPI_KEY'] = req.newsapi_key
     if req.theodds_key and "***" not in req.theodds_key: keys['THEODDS_KEY'] = req.theodds_key
     if req.groq_key and "***" not in req.groq_key: keys['GROQ_KEY'] = req.groq_key
+    if req.telegram_bot_token and "***" not in req.telegram_bot_token: keys['TELEGRAM_BOT_TOKEN'] = req.telegram_bot_token
+    if req.telegram_chat_id and "***" not in req.telegram_chat_id: keys['TELEGRAM_CHAT_ID'] = req.telegram_chat_id
+    if req.pushover_app_token and "***" not in req.pushover_app_token: keys['PUSHOVER_APP_TOKEN'] = req.pushover_app_token
+    if req.pushover_user_key and "***" not in req.pushover_user_key: keys['PUSHOVER_USER_KEY'] = req.pushover_user_key
     
 
     service = req.service.lower()
@@ -2752,6 +2808,22 @@ def test_connection(req: TestConnectionRequest, user: dict = Depends(require_use
                 return {"status": "success", "message": f"Connessione Alpaca stabilita! Status: {account.status}"}
             else:
                 return {"status": "error", "message": "Account Alpaca non attivo."}
+        elif service == 'pushover':
+            app_token = keys.get("PUSHOVER_APP_TOKEN", "")
+            user_key = keys.get("PUSHOVER_USER_KEY", "")
+            if not app_token or not user_key:
+                return {"status": "error", "message": "Credenziali Pushover mancanti."}
+            payload = {
+                "token": app_token,
+                "user": user_key,
+                "title": "Aureo OS Test",
+                "message": "Test Pushover riuscito: il bot può avvisarti su iPhone / Apple Watch.",
+                "priority": 0,
+            }
+            res = requests.post("https://api.pushover.net/1/messages.json", data=payload, timeout=4)
+            if res.status_code == 200:
+                return {"status": "success", "message": "Connessione Pushover riuscita! Notifica inviata."}
+            return {"status": "error", "message": f"Pushover ha risposto con errore: {res.text}"}
                 
         elif service == 'binance':
             import ccxt
