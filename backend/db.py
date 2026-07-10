@@ -4,17 +4,23 @@ import json
 from datetime import datetime
 from cryptography.fernet import Fernet
 import bcrypt
+from dotenv import load_dotenv
 
 DB_PATH = os.path.join(os.path.dirname(__file__), "users.db")
+ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
+
+# Load backend .env before resolving encryption settings,
+# otherwise a restart can generate a different key and make
+# previously stored secrets unreadable.
+load_dotenv(dotenv_path=ENV_PATH)
 
 # Encryption key for API keys
 ENCRYPTION_KEY = os.getenv("SAAS_ENCRYPTION_KEY")
 if not ENCRYPTION_KEY:
     # If not set, generate one and save it for development
     ENCRYPTION_KEY = Fernet.generate_key().decode()
-    env_path = os.path.join(os.path.dirname(__file__), ".env")
-    if os.path.exists(env_path):
-        with open(env_path, "a") as f:
+    if os.path.exists(ENV_PATH):
+        with open(ENV_PATH, "a") as f:
             f.write(f"\nSAAS_ENCRYPTION_KEY={ENCRYPTION_KEY}\n")
     os.environ["SAAS_ENCRYPTION_KEY"] = ENCRYPTION_KEY
 
