@@ -25,6 +25,7 @@ class AlpacaEngine:
         self.history_buffers = {sym: pd.DataFrame() for sym in self.symbols}
         self.ml_models = {}
         self.active_trails = {}
+        self._skip_log_cache = {}
         
         # Start async loop thread for streaming
         self._stream_thread = None
@@ -191,6 +192,17 @@ class AlpacaEngine:
     def _log(self, message):
         timestamp = datetime.datetime.now().strftime("%H:%M:%S")
         self.bot_state.add_log(f"[{timestamp}] 📈 ALPACA: {message}")
+
+    def _get_time_in_force(self, symbol):
+        return 'gtc' if '/' in symbol else 'day'
+
+    def _log_throttled_skip(self, symbol, reason_key, message, cooldown_seconds=900):
+        now = time.time()
+        cache_key = f"{symbol}:{reason_key}"
+        last_logged_at = self._skip_log_cache.get(cache_key, 0)
+        if now - last_logged_at >= cooldown_seconds:
+            self._skip_log_cache[cache_key] = now
+            self._log(message)
 
     def _normalize_llm_confidence(self, raw_confidence):
         try:
@@ -400,7 +412,7 @@ class AlpacaEngine:
                 qty=qty,
                 side=side,
                 type='market',
-                time_in_force='day'
+                time_in_force=self._get_time_in_force(symbol)
             )
             self._log(f"✅ POSIZIONE CHIUSA su {symbol} (Market Order).")
         except Exception as e:
@@ -555,6 +567,12 @@ class AlpacaEngine:
         # Filtro "Anti-Noia" (Volatilità Estrema Richiesta)
         atr_percent = atr / current_price
         if atr_percent < 0.0008: # Se il prezzo si muove meno dello 0.08% al minuto in media, ignoriamo (mercato piatto)
+             if "/" in symbol:
+                 self._log_throttled_skip(
+                     symbol,
+                     "flat_market",
+                     f"ℹ️ CRYPTO CHECK {symbol}: feed ok, ma volatilità troppo bassa ({atr_percent*100:.3f}% ATR/price). Nessun ingresso forzato."
+                 )
              return
         
         # Check Long (Mean Reversion O Breakout Momentum O MACD Crossover)
@@ -591,6 +609,12 @@ class AlpacaEngine:
                 self.execute_trade(symbol, current_price, "SHORT", atr, lstm_prob)
             else:
                 self._log(f"🧠 AI VETO: Groq non conferma DOWN. Scalp annullato.")
+        elif "/" in symbol:
+            self._log_throttled_skip(
+                symbol,
+                "no_setup",
+                f"ℹ️ CRYPTO CHECK {symbol}: feed ok, nessun setup tecnico valido in questo momento."
+            )
 
     def is_shortable(self, symbol):
         if not hasattr(self, "_shortable_cache"):
@@ -697,6 +721,7 @@ class AlpacaEngine:
         
         try:
             is_fractional = (qty % 1 != 0)
+            time_in_force = self._get_time_in_force(symbol)
             
             if is_fractional:
                 # Alpaca NON supporta order_class='trailing_stop' per ordini frazionati.
@@ -705,9 +730,9 @@ class AlpacaEngine:
                     qty=qty,
                     side=alpaca_side,
                     type='market',
-                    time_in_force='day'
+                    time_in_force=time_in_force
                 )
-                self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Ordine Semplice - No Trailing Stop per le Frazioni)")
+                self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Ordine Semplice - No Trailing Stop per le Frazioni, TIF {time_in_force.upper()})")
             else:
                 qty = int(qty)
                 # Ordine a Mercato Semplice (Alpaca non supporta trailing stop come OTO class in questo formato)
@@ -716,9 +741,9 @@ class AlpacaEngine:
                     qty=qty,
                     side=alpaca_side,
                     type='market',
-                    time_in_force='day'
+                    time_in_force=time_in_force
                 )
-                self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Ordine Semplice a Mercato)")
+                self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Ordine Semplice a Mercato, TIF {time_in_force.upper()})")
             
             # Registra il trailing stop in memoria!
             self.active_trails[symbol] = {
