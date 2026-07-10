@@ -803,6 +803,7 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   const [isDraggingBar, setIsDraggingBar] = useState(false);
   const [isHoveringBar, setIsHoveringBar] = useState(false);
   const [showAlertsPanel, setShowAlertsPanel] = useState(false);
+  const [showMissionControl, setShowMissionControl] = useState(false);
   const [snapEdge, setSnapEdge] = useState('center');
   const [displayMode, setDisplayMode] = useState(uiParsed?.displayMode === 'compact' ? 'compact' : 'expanded');
   const [isMuted, setIsMuted] = useState(uiParsed?.isMuted === true);
@@ -829,6 +830,10 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   const cryptoCount = Object.entries(status?.positions || {}).filter(([sym, pos]) => String(sym).includes('/') && pos !== 'LIQUID').length;
   const livePnl = Number(status?.profit || 0);
   const alertArmed = (savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY) || (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID);
+  const cryptoEngine = deriveCryptoEngineState(status);
+  const systemHealthSnapshot = deriveSystemHealthSnapshot({ status, risk, savedKeys, isBackendOnline, cryptoEngine });
+  const recentMissionLogs = (Array.isArray(status?.logs) ? status.logs : []).slice(0, 5);
+  const focusSymbols = (Array.isArray(status?.symbols) ? status.symbols : []).slice(0, 6);
   const criticalAlerts = [
     !isBackendOnline ? { label: 'Backend offline', tone: '#ef4444', action: onOpenHealth } : null,
     runtimeHealth?.api_status && String(runtimeHealth.api_status).toLowerCase() !== 'online'
@@ -934,15 +939,16 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   }, [barOffset, resolveSnapEdge]);
 
   useEffect(() => {
-    if (!showAlertsPanel) return;
+    if (!showAlertsPanel && !showMissionControl) return;
     const handlePointerDown = (event) => {
       if (barRef.current && !barRef.current.contains(event.target)) {
         setShowAlertsPanel(false);
+        setShowMissionControl(false);
       }
     };
     window.addEventListener('pointerdown', handlePointerDown);
     return () => window.removeEventListener('pointerdown', handlePointerDown);
-  }, [showAlertsPanel]);
+  }, [showAlertsPanel, showMissionControl]);
 
   const handleDragStart = (event) => {
     if (typeof window === 'undefined') return;
@@ -1026,6 +1032,18 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
         <div className="bottom-reminder-handle-actions">
           <button
             type="button"
+            className={`bottom-reminder-chip ${showMissionControl ? 'active' : ''}`}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={() => {
+              setShowAlertsPanel(false);
+              setShowMissionControl((prev) => !prev);
+            }}
+            title="Apri Mission Control"
+          >
+            MC
+          </button>
+          <button
+            type="button"
             className={`bottom-reminder-chip ${displayMode === 'compact' ? 'active' : ''}`}
             onPointerDown={(event) => event.stopPropagation()}
             onClick={() => setDisplayMode((prev) => (prev === 'compact' ? 'expanded' : 'compact'))}
@@ -1082,6 +1100,58 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
               Nessun alert critico attivo. Il sistema è stabile.
             </div>
           )}
+        </div>
+      ) : null}
+      {showMissionControl ? (
+        <div className="bottom-reminder-mission-panel">
+          <div className="bottom-reminder-mission-header">
+            <div>
+              <div className="bottom-reminder-mission-title">Mission Control</div>
+              <div className="bottom-reminder-mission-subtitle">Panoramica rapida di salute, runtime e ultimi eventi.</div>
+            </div>
+            <div className="bottom-reminder-mission-score" style={{ '--mission-tone': systemHealthSnapshot.tone }}>
+              <strong>{systemHealthSnapshot.score}</strong>
+              <span>{systemHealthSnapshot.label}</span>
+            </div>
+          </div>
+          <div className="bottom-reminder-mission-grid">
+            <div className="bottom-reminder-mission-card">
+              <div className="bottom-reminder-mission-card-title">Stato live</div>
+              <div className="bottom-reminder-mission-checks">
+                <div><span>Backend</span><strong style={{ color: isBackendOnline ? '#10b981' : '#ef4444' }}>{isBackendOnline ? 'Online' : 'Offline'}</strong></div>
+                <div><span>Risk</span><strong style={{ color: riskState === 'Ready' ? '#10b981' : riskState === 'Blocked' ? '#ef4444' : '#94a3b8' }}>{riskState}</strong></div>
+                <div><span>Scanner</span><strong style={{ color: tradingOn ? '#10b981' : '#94a3b8' }}>{tradingOn ? 'Attivo' : 'Fermo'}</strong></div>
+                <div><span>Mercato</span><strong style={{ color: marketOpen ? '#10b981' : '#f59e0b' }}>{marketOpen ? 'Aperto' : 'Chiuso'}</strong></div>
+                <div><span>Crypto</span><strong style={{ color: cryptoEngine.tone }}>{cryptoEngine.badge}</strong></div>
+                <div><span>Alert</span><strong style={{ color: alertArmed ? '#10b981' : '#f59e0b' }}>{alertArmed ? 'Armati' : 'Da armare'}</strong></div>
+              </div>
+            </div>
+            <div className="bottom-reminder-mission-card">
+              <div className="bottom-reminder-mission-card-title">Focus operativo</div>
+              <div className="bottom-reminder-mission-tags">
+                {focusSymbols.length ? focusSymbols.map((symbol) => (
+                  <span key={symbol} className="bottom-reminder-mission-tag">{symbol}</span>
+                )) : <span className="bottom-reminder-mission-empty">Nessun simbolo in focus.</span>}
+              </div>
+              <div className="bottom-reminder-mission-note">
+                {systemHealthSnapshot.warnings[0] || systemHealthSnapshot.strengths[0] || 'Nessuna nota operativa al momento.'}
+              </div>
+            </div>
+            <div className="bottom-reminder-mission-card">
+              <div className="bottom-reminder-mission-card-title">Eventi recenti</div>
+              <div className="bottom-reminder-mission-events">
+                {recentMissionLogs.length ? recentMissionLogs.map((line, index) => {
+                  const meta = classifyTradingLog(line);
+                  return (
+                    <div key={index} className="bottom-reminder-mission-event" style={{ '--event-tone': meta.tone }}>
+                      <span className="bottom-reminder-mission-event-label">{meta.label}</span>
+                      <span className="bottom-reminder-mission-event-text">{line}</span>
+                    </div>
+                  );
+                }) : <div className="bottom-reminder-mission-empty">Nessun evento recente disponibile.</div>}
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
       {topAlert ? (

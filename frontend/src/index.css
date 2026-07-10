@@ -1197,6 +1197,161 @@ body {
   padding: 0.15rem 0;
 }
 
+.bottom-reminder-mission-panel {
+  position: absolute;
+  bottom: calc(100% + 0.75rem);
+  right: 0.35rem;
+  width: min(760px, calc(100vw - 2rem));
+  padding: 1rem;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(11, 15, 25, 0.97);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 20px 46px rgba(0, 0, 0, 0.34);
+  z-index: 4;
+}
+
+.bottom-reminder-mission-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 0.95rem;
+}
+
+.bottom-reminder-mission-title {
+  color: #f8fafc;
+  font-size: 0.98rem;
+  font-weight: 900;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.bottom-reminder-mission-subtitle {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  margin-top: 0.22rem;
+}
+
+.bottom-reminder-mission-score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 0.55rem 0.75rem;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--mission-tone) 26%, rgba(255,255,255,0.08));
+  background: color-mix(in srgb, var(--mission-tone) 10%, rgba(255,255,255,0.02));
+}
+
+.bottom-reminder-mission-score strong {
+  color: var(--mission-tone);
+  font-size: 1.45rem;
+  line-height: 1;
+  font-weight: 900;
+}
+
+.bottom-reminder-mission-score span {
+  color: #cbd5e1;
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-top: 0.2rem;
+}
+
+.bottom-reminder-mission-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.bottom-reminder-mission-card {
+  padding: 0.9rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.03);
+}
+
+.bottom-reminder-mission-card-title {
+  color: #e2e8f0;
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 0.65rem;
+}
+
+.bottom-reminder-mission-checks {
+  display: grid;
+  gap: 0.45rem;
+}
+
+.bottom-reminder-mission-checks div {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.8rem;
+  color: #94a3b8;
+  font-size: 0.8rem;
+}
+
+.bottom-reminder-mission-checks strong {
+  font-size: 0.8rem;
+}
+
+.bottom-reminder-mission-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  margin-bottom: 0.7rem;
+}
+
+.bottom-reminder-mission-tag {
+  padding: 0.34rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  background: rgba(56, 189, 248, 0.1);
+  color: #67e8f9;
+  font-size: 0.74rem;
+  font-weight: 700;
+}
+
+.bottom-reminder-mission-note,
+.bottom-reminder-mission-empty {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.bottom-reminder-mission-events {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.bottom-reminder-mission-event {
+  padding: 0.6rem 0.7rem;
+  border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--event-tone) 25%, rgba(255,255,255,0.08));
+  background: rgba(0,0,0,0.16);
+}
+
+.bottom-reminder-mission-event-label {
+  display: block;
+  color: var(--event-tone);
+  font-size: 0.68rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.18rem;
+}
+
+.bottom-reminder-mission-event-text {
+  display: block;
+  color: #cbd5e1;
+  font-size: 0.76rem;
+  line-height: 1.45;
+}
+
 .bottom-reminder-chip {
   border: 1px solid rgba(148, 163, 184, 0.2);
   background: rgba(255,255,255,0.04);
@@ -1365,6 +1520,7 @@ body {
   .col-span-5,
   .col-span-7,
   .col-span-8 { grid-column: span 12; }
+  .bottom-reminder-mission-grid { grid-template-columns: 1fr; }
 
   .landing-hero-grid,
   .landing-stats-grid,
@@ -2145,6 +2301,7 @@ input:focus, textarea:focus, select:focus {
     right: 1rem;
     bottom: 0.85rem;
   }
+  .bottom-reminder-mission-panel { width: min(680px, calc(100vw - 2rem)); }
 }
 
 @media (max-width: 768px), (max-height: 560px) and (orientation: landscape) {
