@@ -10,7 +10,7 @@ const TAB_TITLES = {
   home: 'Dashboard',
   trading: 'Stock Market',
   charts: 'Charts',
-  develop: 'Develop',
+  develop: 'Engine Room',
   sports_arb: 'Sports SureBets',
   value_bets: 'AI Sentiment',
   ai_content: 'AI Content',
@@ -987,17 +987,43 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
 const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, developSection, setDevelopSection, renderSettingsView, renderGuideView }) => (
   <div className="module-content">
     <div className="header" style={{ marginBottom: '2rem' }}>
-      <h2>🧪 Develop</h2>
+      <h2>⚙️ Engine Room</h2>
       <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-        Area interna per setup, salute runtime, diagnostica e strumenti non prettamente operativi.
+        Cabina di controllo interna per runtime, alert, sicurezza operativa e setup dell’infrastruttura Aureo.
+      </div>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem', marginBottom: '1.4rem' }}>
+      <div style={{ padding: '0.95rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Runtime</div>
+        <div style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 800 }}>{(status?.runtime_health?.status || 'green').toUpperCase()}</div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '0.35rem' }}>{status?.runtime_health?.summary || 'Nessun riepilogo runtime disponibile.'}</div>
+      </div>
+      <div style={{ padding: '0.95rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Canali alert</div>
+        <div style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 800 }}>
+          {savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY'] ? 'Pushover OK' : 'Pushover da verificare'}
+        </div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '0.35rem' }}>
+          {savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID'] ? 'Telegram armato' : 'Telegram opzionale o incompleto'}
+        </div>
+      </div>
+      <div style={{ padding: '0.95rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(167, 139, 250, 0.2)' }}>
+        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Sezione attiva</div>
+        <div style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 800 }}>
+          {developSection === 'health' ? 'Health Console' : developSection === 'security' ? 'Security Vault' : 'Setup Guide'}
+        </div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '0.35rem' }}>
+          Ultimo sync Vault: {lastVaultSync || 'non ancora sincronizzato'}
+        </div>
       </div>
     </div>
 
     <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
       {[
-        { id: 'health', label: 'Runtime Health' },
-        { id: 'security', label: 'Security & API' },
-        { id: 'guide', label: 'Guida Setup' },
+        { id: 'health', label: 'Health Console' },
+        { id: 'security', label: 'Security Vault' },
+        { id: 'guide', label: 'Setup Guide' },
       ].map((item) => (
         <button
           key={item.id}
@@ -1019,7 +1045,7 @@ const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, develo
           <div className="card-title">Perché è qui</div>
           <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
             Runtime Health è utile per controllo e debugging, ma non serve stare in primo piano durante l’uso operativo quotidiano.
-            In questa sezione possiamo aggiungere in futuro anche eventi critici, heartbeat, reconnect, errori broker e stato dei watchdog.
+            Qui concentriamo il lato infrastrutturale: heartbeat, reconnect, alert, canali di emergenza e stato dei watchdog.
           </div>
         </div>
       </>
@@ -4653,8 +4679,8 @@ function OmniApp() {
           </div>
           {userRole === 'admin' && (
             <div className={`menu-item ${activeTab === 'develop' ? 'active' : ''}`} onClick={() => openDevelopSection('health')}>
-              <span className="menu-icon">🧪</span>
-              <span className="menu-label">Develop</span>
+              <span className="menu-icon">⚙️</span>
+              <span className="menu-label">Engine Room</span>
             </div>
           )}
           {BILLING_ENABLED && userRole === 'admin' && (
