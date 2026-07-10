@@ -599,6 +599,7 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   const barRef = React.useRef(null);
   const dragRef = React.useRef(null);
   const [isDraggingBar, setIsDraggingBar] = useState(false);
+  const [snapEdge, setSnapEdge] = useState('center');
   const [barOffset, setBarOffset] = useState(() => {
     if (typeof window === 'undefined') return { x: 0, y: 0 };
     try {
@@ -649,6 +650,37 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
     };
   }, []);
 
+  const resolveSnapEdge = React.useCallback((candidate) => {
+    if (typeof window === 'undefined' || !barRef.current) return 'center';
+    const width = barRef.current.offsetWidth;
+    const desktopCompact = window.innerWidth <= 1024;
+    const baseLeft = desktopCompact ? 256 : 304;
+    const left = baseLeft + candidate.x;
+    const rightGap = window.innerWidth - (left + width);
+    const threshold = 72;
+    if (left <= threshold) return 'left';
+    if (rightGap <= threshold) return 'right';
+    return 'center';
+  }, []);
+
+  const applySnapEdge = React.useCallback((candidate) => {
+    if (typeof window === 'undefined' || !barRef.current) return candidate;
+    const width = barRef.current.offsetWidth;
+    const desktopCompact = window.innerWidth <= 1024;
+    const baseLeft = desktopCompact ? 256 : 304;
+    const snapped = clampBarOffset(candidate);
+    const edge = resolveSnapEdge(snapped);
+    const minX = 12 - baseLeft;
+    const maxX = window.innerWidth - 12 - (baseLeft + width);
+    if (edge === 'left') {
+      return { ...snapped, x: minX };
+    }
+    if (edge === 'right') {
+      return { ...snapped, x: maxX };
+    }
+    return snapped;
+  }, [clampBarOffset, resolveSnapEdge]);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
     window.localStorage.setItem(BOTTOM_BAR_STORAGE_KEY, JSON.stringify(barOffset));
@@ -656,10 +688,20 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const handleResize = () => setBarOffset((prev) => clampBarOffset(prev));
+    const handleResize = () => {
+      setBarOffset((prev) => {
+        const next = clampBarOffset(prev);
+        setSnapEdge(resolveSnapEdge(next));
+        return next;
+      });
+    };
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [clampBarOffset]);
+  }, [clampBarOffset, resolveSnapEdge]);
+
+  useEffect(() => {
+    setSnapEdge(resolveSnapEdge(barOffset));
+  }, [barOffset, resolveSnapEdge]);
 
   const handleDragStart = (event) => {
     if (typeof window === 'undefined') return;
@@ -670,15 +712,22 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
     document.body.style.userSelect = 'none';
 
     const handleMove = (moveEvent) => {
-      setBarOffset(clampBarOffset({
+      const next = clampBarOffset({
         x: startOffset.x + (moveEvent.clientX - startX),
         y: startOffset.y + (moveEvent.clientY - startY),
-      }));
+      });
+      setSnapEdge(resolveSnapEdge(next));
+      setBarOffset(next);
     };
 
     const handleUp = () => {
       setIsDraggingBar(false);
       document.body.style.userSelect = '';
+      setBarOffset((prev) => {
+        const snapped = applySnapEdge(prev);
+        setSnapEdge(resolveSnapEdge(snapped));
+        return snapped;
+      });
       window.removeEventListener('pointermove', handleMove);
       window.removeEventListener('pointerup', handleUp);
     };
@@ -690,7 +739,7 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   return (
     <div
       ref={barRef}
-      className={`bottom-reminder-bar ${isDraggingBar ? 'is-dragging' : ''}`}
+      className={`bottom-reminder-bar ${isDraggingBar ? 'is-dragging' : ''} ${snapEdge === 'left' ? 'snap-left' : snapEdge === 'right' ? 'snap-right' : 'snap-center'}`}
       style={{ transform: `translate3d(${barOffset.x}px, ${barOffset.y}px, 0)` }}
     >
       <div
