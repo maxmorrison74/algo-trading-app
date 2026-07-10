@@ -229,6 +229,62 @@ const deriveCryptoEngineState = (status = {}) => {
   };
 };
 
+const deriveCryptoEngineDetails = (status = {}) => {
+  const symbols = Array.isArray(status.symbols) ? status.symbols : [];
+  const logs = Array.isArray(status.logs) ? status.logs : [];
+  const positions = status.positions || {};
+  const cryptoSymbols = symbols.filter((sym) => String(sym).includes('/'));
+  const cryptoPositions = Object.entries(positions)
+    .filter(([sym, pos]) => String(sym).includes('/') && pos !== 'LIQUID')
+    .map(([sym]) => sym);
+
+  const recentCryptoLogs = logs.filter((line) => {
+    const rendered = String(line || '');
+    return cryptoSymbols.some((sym) => rendered.includes(sym)) || rendered.includes('crypto');
+  }).slice(0, 6);
+
+  const reasons = [];
+
+  if (!status.modules?.trading) {
+    reasons.push('Scanner trading spento: finché resta in pausa, le crypto non possono aprire operazioni.');
+  }
+  if (cryptoSymbols.length === 0) {
+    reasons.push('Nessuna crypto presente nella watchlist corrente.');
+  }
+  if (recentCryptoLogs.some((line) => line.includes('volatilità troppo bassa'))) {
+    reasons.push('Mercato troppo piatto: il motore evita ingressi forzati quando manca movimento reale.');
+  }
+  if (recentCryptoLogs.some((line) => line.includes('nessun setup tecnico valido'))) {
+    reasons.push('Nessun setup tecnico pulito: indicatori e pattern non sono ancora allineati.');
+  }
+  if (recentCryptoLogs.some((line) => line.includes('LSTM VETO'))) {
+    reasons.push('Filtro LSTM prudente: la probabilità del movimento non supera la soglia minima.');
+  }
+  if (recentCryptoLogs.some((line) => line.includes('AI VETO'))) {
+    reasons.push('Conferma AI mancante: il motore non entra se il sentiment o il pattern non convincono.');
+  }
+  if (recentCryptoLogs.some((line) => line.includes('RISK FILTER'))) {
+    reasons.push('Protezione rischio attiva: il sistema sta evitando duplicazioni o condizioni non sicure.');
+  }
+  if (recentCryptoLogs.some((line) => line.includes('SKIP SHORT'))) {
+    reasons.push('Short crypto bloccati: su Alpaca le crypto vengono trattate solo lato acquisto.');
+  }
+  if (cryptoPositions.length > 0) {
+    reasons.push(`Posizioni crypto già aperte: ${cryptoPositions.join(' • ')}.`);
+  }
+
+  if (!reasons.length) {
+    reasons.push('Il motore è pronto: sta solo aspettando dati e conferme sufficienti per esporsi.');
+  }
+
+  return {
+    reasons: reasons.slice(0, 5),
+    recentLogs: recentCryptoLogs,
+    cryptoSymbols,
+    cryptoPositions,
+  };
+};
+
 const authFetch = async (input, init = {}) => {
   const headers = new Headers(init.headers || {});
   const token = getAuthToken();
@@ -669,6 +725,7 @@ function OmniApp() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [selectedCrypto, setSelectedCrypto] = useState('USDT');
   const [txid, setTxid] = useState('');
+  const [showCryptoEngineDetails, setShowCryptoEngineDetails] = useState(false);
   
   const [numValueBets, setNumValueBets] = useState(9);
   const [placedBets, setPlacedBets] = useState({});
@@ -710,6 +767,7 @@ function OmniApp() {
     [status.table_data]
   );
   const cryptoEngine = useMemo(() => deriveCryptoEngineState(status), [status]);
+  const cryptoEngineDetails = useMemo(() => deriveCryptoEngineDetails(status), [status]);
   const sortedSurebets = useMemo(
     () => [...(status.active_surebets || [])].sort((a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)),
     [status.active_surebets]
@@ -2095,6 +2153,7 @@ function OmniApp() {
       {cryptoEngine.level !== 'hidden' && (
         <div
           className="card trading-crypto-engine-card"
+          onClick={() => setShowCryptoEngineDetails((prev) => !prev)}
           style={{
             marginTop: '1.35rem',
             marginBottom: '1rem',
@@ -2104,6 +2163,7 @@ function OmniApp() {
             gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
             gap: '1rem',
             alignItems: 'stretch',
+            cursor: 'pointer',
           }}
         >
           <div>
@@ -2125,6 +2185,9 @@ function OmniApp() {
                 }}
               >
                 {cryptoEngine.badge}
+              </span>
+              <span style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginLeft: 'auto' }}>
+                {showCryptoEngineDetails ? 'Nascondi dettagli ↑' : 'Mostra dettagli ↓'}
               </span>
             </div>
             <div style={{ color: '#f8fafc', fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.35rem' }}>
@@ -2156,6 +2219,43 @@ function OmniApp() {
               </div>
             </div>
           </div>
+          {showCryptoEngineDetails && (
+            <div
+              style={{
+                gridColumn: '1 / -1',
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+                gap: '0.9rem',
+                marginTop: '0.15rem',
+              }}
+            >
+              <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.65rem' }}>Perché adesso non entra</div>
+                <div style={{ display: 'grid', gap: '0.55rem' }}>
+                  {cryptoEngineDetails.reasons.map((reason, index) => (
+                    <div key={index} style={{ color: '#cbd5e1', fontSize: '0.88rem', lineHeight: 1.45, display: 'flex', gap: '0.55rem' }}>
+                      <span style={{ color: cryptoEngine.tone, fontWeight: 700 }}>•</span>
+                      <span>{reason}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.65rem' }}>Ultimi segnali crypto</div>
+                <div style={{ display: 'grid', gap: '0.55rem' }}>
+                  {cryptoEngineDetails.recentLogs.length > 0 ? cryptoEngineDetails.recentLogs.map((line, index) => (
+                    <div key={index} style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.45 }}>
+                      {line}
+                    </div>
+                  )) : (
+                    <div style={{ color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.45 }}>
+                      Nessun log crypto recente disponibile: il motore sta ancora accumulando segnali.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
