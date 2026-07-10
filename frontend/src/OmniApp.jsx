@@ -481,6 +481,94 @@ const ToggleSwitch = ({
   </button>
 );
 
+const classifyTradingLog = (line = '') => {
+  const text = String(line || '');
+  if (
+    text.includes('CRASH') ||
+    text.includes('ERRORE') ||
+    text.includes('AUTO-PAUSE') ||
+    text.includes('CIRCUIT BREAKER')
+  ) {
+    return { label: 'Critico', tone: '#ef4444', border: 'rgba(239, 68, 68, 0.35)' };
+  }
+  if (
+    text.includes('BUY') ||
+    text.includes('SELL') ||
+    text.includes('ATTIVATO') ||
+    text.includes('CHIUSO') ||
+    text.includes('ORDINE')
+  ) {
+    return { label: 'Azione eseguita', tone: '#10b981', border: 'rgba(16, 185, 129, 0.35)' };
+  }
+  if (
+    text.includes('VETO') ||
+    text.includes('RISK FILTER') ||
+    text.includes('SKIP') ||
+    text.includes('nessun setup tecnico valido') ||
+    text.includes('volatilità troppo bassa') ||
+    text.includes('Posizione già aperta')
+  ) {
+    return { label: 'Motivo di skip', tone: '#f59e0b', border: 'rgba(245, 158, 11, 0.35)' };
+  }
+  return { label: 'Telemetria', tone: '#94a3b8', border: 'rgba(148, 163, 184, 0.25)' };
+};
+
+const AlertReadinessCard = ({ savedKeys = {}, runtimeHealth = {} }) => {
+  const channels = [
+    {
+      name: 'Telegram',
+      ready: !!(savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID']),
+      detail: savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID']
+        ? 'Canale di messaggistica configurato.'
+        : 'Manca token o chat id.',
+    },
+    {
+      name: 'Pushover',
+      ready: !!(savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY']),
+      detail: savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY']
+        ? 'Push critici pronti per iPhone e Apple Watch.'
+        : 'Manca app token o user key.',
+    },
+  ];
+  const readyCount = channels.filter((channel) => channel.ready).length;
+  const alertReady = readyCount > 0;
+
+  return (
+    <div className="card" style={{ marginTop: '1.5rem', border: `1px solid ${alertReady ? 'rgba(16,185,129,0.28)' : 'rgba(239,68,68,0.28)'}` }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <div>
+          <div className="card-title">📣 Alert critici</div>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+            Verifica rapida dei canali usati per auto-pause, circuit breaker ed emergenze.
+          </div>
+        </div>
+        <div className={`badge ${alertReady ? 'badge-active' : 'badge-danger'}`}>
+          {alertReady ? 'PRONTI' : 'NON ARMATI'}
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
+        {channels.map((channel) => (
+          <div key={channel.name} style={{ padding: '0.95rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${channel.ready ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)'}` }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.45rem' }}>
+              <span style={{ width: 10, height: 10, borderRadius: '50%', background: channel.ready ? '#10b981' : '#ef4444', boxShadow: `0 0 14px ${channel.ready ? '#10b981' : '#ef4444'}` }}></span>
+              <div style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 800 }}>{channel.name}</div>
+            </div>
+            <div style={{ color: channel.ready ? '#10b981' : '#fca5a5', fontSize: '0.82rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+              {channel.ready ? 'Presente nel Vault' : 'Configurazione incompleta'}
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', lineHeight: 1.5 }}>{channel.detail}</div>
+          </div>
+        ))}
+      </div>
+      {!!runtimeHealth?.auto_paused && (
+        <div style={{ marginTop: '0.9rem', color: '#fca5a5', fontSize: '0.88rem' }}>
+          Ultimo evento grave registrato: {runtimeHealth?.auto_pause_reason || 'auto-pause attiva'}
+        </div>
+      )}
+    </div>
+  );
+};
+
 const RiskStatus = ({ riskSnapshot, status }) => {
   const [risk, setRisk] = useState(riskSnapshot || null);
   const [isTogglingRisk, setIsTogglingRisk] = useState(false);
@@ -876,7 +964,7 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
   );
 };
 
-const DevelopView = ({ status, isBackendOnline, developSection, setDevelopSection, renderSettingsView, renderGuideView }) => (
+const DevelopView = ({ status, isBackendOnline, savedKeys, developSection, setDevelopSection, renderSettingsView, renderGuideView }) => (
   <div className="module-content">
     <div className="header" style={{ marginBottom: '2rem' }}>
       <h2>🧪 Develop</h2>
@@ -906,6 +994,7 @@ const DevelopView = ({ status, isBackendOnline, developSection, setDevelopSectio
         <div className="dashboard-grid">
           <RuntimeHealthCard runtimeHealth={status.runtime_health} isBackendOnline={isBackendOnline} />
         </div>
+        <AlertReadinessCard savedKeys={savedKeys} runtimeHealth={status.runtime_health} />
         <div className="card" style={{ marginTop: '1.5rem' }}>
           <div className="card-title">Perché è qui</div>
           <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
@@ -2977,7 +3066,23 @@ function OmniApp() {
           <div className="terminal-window">
               <>
                 {status.logs?.map((l, i) => (
-                  <div key={i} style={{ marginBottom: '0.3rem', color: l.includes('ERRORE') || l.includes('CRASH') ? '#ef4444' : l.includes('ATTIVATO') ? '#10b981' : 'rgba(255,255,255,0.7)' }}>{l}</div>
+                  <div
+                    key={i}
+                    style={{
+                      marginBottom: '0.45rem',
+                      padding: '0.55rem 0.7rem',
+                      borderRadius: '10px',
+                      border: `1px solid ${classifyTradingLog(l).border}`,
+                      background: 'rgba(255,255,255,0.02)',
+                    }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
+                      <span style={{ color: classifyTradingLog(l).tone, fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        {classifyTradingLog(l).label}
+                      </span>
+                    </div>
+                    <div style={{ color: 'rgba(255,255,255,0.78)' }}>{l}</div>
+                  </div>
                 ))}
                 {(!status.logs || status.logs.length === 0) && <div style={{ color: 'var(--text-secondary)' }}>Nessun evento registrato. Avvia il trading IA per iniziare la scansione del mercato...</div>}
               </>
@@ -4603,6 +4708,7 @@ function OmniApp() {
           <DevelopView
             status={status}
             isBackendOnline={isBackendOnline}
+            savedKeys={savedKeys}
             developSection={developSection}
             setDevelopSection={setDevelopSection}
             renderSettingsView={renderSettingsView}
