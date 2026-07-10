@@ -2541,9 +2541,9 @@ function OmniApp() {
             </div>
           </div>
 
-          {/* Leaderboard Moduli */}
+          {/* Strategy Board */}
           <div className="card col-span-6">
-            <h3 className="card-title" style={{ marginBottom: '1.5rem' }}>🏆 Leaderboard Moduli</h3>
+            <h3 className="card-title" style={{ marginBottom: '1.5rem' }}>🏆 Strategy Board</h3>
             
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.3)', padding: '1rem', borderRadius: '8px' }}>
@@ -2573,11 +2573,11 @@ function OmniApp() {
     <div className="module-content module-content--trading">
       <div className="header module-page-header trading-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2>ALGO-TRADING ENGINE</h2>
+          <h2>Trading Command</h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: status.market_open ? '#10b981' : '#f59e0b' }}></div>
-              Market {status.market_open ? 'Open' : 'Closed'}
+              Mercato {status.market_open ? 'aperto' : 'chiuso'}
             </span>
             {status.alpaca_info && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderLeft: '1px solid var(--border)', paddingLeft: '1rem' }}>
@@ -2775,7 +2775,7 @@ function OmniApp() {
       {/* MANUAL TRADING TERMINAL */}
       <div className="card trading-manual-card" style={{ marginTop: '2rem', marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
         <h3 style={{ margin: '0 0 1rem 0', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>🎯</span> Terminale Azionario Manuale
+          <span>🎯</span> Stock Execution Console
         </h3>
         <div className="trading-manual-row" style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
           <input 
@@ -2796,7 +2796,7 @@ function OmniApp() {
               
               <div style={{ width: '1px', height: '30px', background: 'rgba(255,255,255,0.2)' }}></div>
               
-              <span style={{ color: 'var(--text-secondary)' }}>Importo ($)</span>
+              <span style={{ color: 'var(--text-secondary)' }}>Ticket ($)</span>
               <input 
                 type="number" 
                 value={manualAmount} 
@@ -2839,7 +2839,7 @@ function OmniApp() {
               style={{ width: '120px', padding: '0.8rem', background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '6px', color: '#fff', fontSize: '1.1rem' }} 
             />
             <button className="btn btn-start trading-ai-action" onClick={() => generateAiProposals('balanced')} {...demoActionButtonProps(isAiLoading)} style={{ padding: '0.8rem 1.5rem', background: 'rgba(56, 189, 248, 0.2)', color: '#38bdf8', border: '1px solid #38bdf8', ...demoActionStyle }}>
-              {isAiLoading ? 'Analisi...' : 'Diversificate'}
+              {isAiLoading ? 'Analisi...' : 'Bilanciate'}
             </button>
             <button className="btn btn-start trading-ai-action" onClick={() => generateAiProposals('momentum')} {...demoActionButtonProps(isAiLoading)} style={{ padding: '0.8rem 1.5rem', background: '#10b981', color: '#000', border: '1px solid #10b981', ...demoActionStyle }}>
               {isAiLoading ? 'Analisi...' : 'Trend / Momentum'}
@@ -2919,39 +2919,39 @@ function OmniApp() {
 
       <div className="dashboard-grid" style={{ marginTop: "2rem" }}>
         <div className="card col-span-4">
-          <div className="card-title">Portafoglio Virtuale</div>
+          <div className="card-title">Equity Snapshot</div>
           <div className="portfolio-value">${Number(status.portfolio_value || 0).toFixed(2)}</div>
         </div>
         <div className="card col-span-4">
-          <div className="card-title">Capitale Investito</div>
+          <div className="card-title">Capital Deployed</div>
           <div className="portfolio-value">
             ${(Object.values(status.positions || {}).reduce((sum, p) => sum + (p !== "LIQUID" ? Math.abs(p.market_value || 0) : 0), 0)).toFixed(2)}
           </div>
         </div>
         <div className="card col-span-4">
-          <div className="card-title">Liquidità Libera</div>
+          <div className="card-title">Free Cash</div>
           <div className="portfolio-value" style={{ color: '#10b981' }}>${Number(status.cash || 0).toFixed(2)}</div>
         </div>
         <div className="card col-span-4">
-          <div className="card-title">P/L Tempo Reale</div>
+          <div className="card-title">Live P&L</div>
           <div className="portfolio-value" style={{ color: Number(status.profit || 0) >= 0 ? '#10b981' : '#ef4444' }}>
             {Number(status.profit || 0) >= 0 ? '+' : ''}{Number(status.profit || 0).toFixed(2)}
           </div>
         </div>
         <div className="card col-span-4">
-          <div className="card-title">Win Rate</div>
+          <div className="card-title">Strike Rate</div>
           <div className="portfolio-value" style={{ color: '#f59e0b' }}>{Number(status.win_rate || 0).toFixed(1)}%</div>
         </div>
         <div className="card col-span-4">
-          <div className="card-title">Profit Factor</div>
+          <div className="card-title">Edge Factor</div>
           <div className="portfolio-value" style={{ color: '#8b5cf6' }}>{Number(status.profit_factor || 0).toFixed(2)}</div>
         </div>
         <div className="card col-span-4">
-          <div className="card-title">Sharpe Ratio</div>
+          <div className="card-title">Sharpe Signal</div>
           <div className="portfolio-value" style={{ color: '#00d4aa' }}>{Number(status.sharpe_ratio || 0).toFixed(2)}</div>
         </div>
         <div className="card col-span-4">
-          <div className="card-title">Max Drawdown</div>
+          <div className="card-title">Risk Depth</div>
           <div className="portfolio-value" style={{ color: '#ef4444' }}>-{Number(status.max_drawdown || 0).toFixed(2)}%</div>
         </div>
       </div>
@@ -3150,7 +3150,7 @@ function OmniApp() {
         </div>
 
         <div className="card col-span-6">
-          <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Terminale Scansione</h3>
+          <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Scan Console</h3>
           <div className="terminal-window">
               <>
                 {status.logs?.map((l, i) => (
@@ -3172,7 +3172,7 @@ function OmniApp() {
                     <div style={{ color: 'rgba(255,255,255,0.78)' }}>{l}</div>
                   </div>
                 ))}
-                {(!status.logs || status.logs.length === 0) && <div style={{ color: 'var(--text-secondary)' }}>Nessun evento registrato. Avvia il trading IA per iniziare la scansione del mercato...</div>}
+                {(!status.logs || status.logs.length === 0) && <div style={{ color: 'var(--text-secondary)' }}>Nessun evento registrato. Avvia il motore per iniziare la scansione del mercato.</div>}
               </>
           </div>
         </div>
