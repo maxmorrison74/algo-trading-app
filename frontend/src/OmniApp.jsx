@@ -116,6 +116,119 @@ const getStatusPollingMs = (activeTab) => {
   }
 };
 
+const deriveCryptoEngineState = (status = {}) => {
+  const symbols = Array.isArray(status.symbols) ? status.symbols : [];
+  const logs = Array.isArray(status.logs) ? status.logs : [];
+  const positions = status.positions || {};
+  const cryptoSymbols = symbols.filter((sym) => String(sym).includes('/'));
+  const cryptoPositions = Object.entries(positions).filter(([sym, pos]) => String(sym).includes('/') && pos !== 'LIQUID');
+  const recentCryptoLogs = logs.filter((line) => {
+    const rendered = String(line || '');
+    return cryptoSymbols.some((sym) => rendered.includes(sym)) || rendered.includes('crypto');
+  }).slice(0, 20);
+
+  const hasFeedHeartbeat = recentCryptoLogs.some((line) => line.includes('CRYPTO CHECK')) || logs.some((line) => String(line).includes('WebSocket Connesso'));
+  const hasOrderActivity = recentCryptoLogs.some((line) => line.includes('ORDINE') || line.includes('FAST SCALP'));
+  const hasGuardedSkip = recentCryptoLogs.some((line) =>
+    line.includes('AI VETO') ||
+    line.includes('LSTM VETO') ||
+    line.includes('RISK FILTER') ||
+    line.includes('SKIP SHORT') ||
+    line.includes('volatilità troppo bassa') ||
+    line.includes('nessun setup tecnico valido')
+  );
+
+  if (!cryptoSymbols.length) {
+    return {
+      level: 'hidden',
+      title: 'Crypto Engine non in watchlist',
+      subtitle: 'Nessun asset crypto selezionato nella watchlist attuale.',
+      badge: 'OFF WATCHLIST',
+      tone: '#64748b',
+      border: 'rgba(100, 116, 139, 0.35)',
+      background: 'rgba(15, 23, 42, 0.55)',
+      monitoredCount: 0,
+      activeCount: 0,
+      lastEvent: 'Aggiungi almeno un simbolo crypto per monitorarlo.',
+    };
+  }
+
+  if (!status.modules?.trading) {
+    return {
+      level: 'off',
+      title: 'Crypto Engine in pausa',
+      subtitle: 'Il motore operativo è fermo: nessuna scansione o ingresso crypto in corso.',
+      badge: 'SCANNER OFF',
+      tone: '#94a3b8',
+      border: 'rgba(148, 163, 184, 0.35)',
+      background: 'rgba(15, 23, 42, 0.55)',
+      monitoredCount: cryptoSymbols.length,
+      activeCount: cryptoPositions.length,
+      lastEvent: recentCryptoLogs[0] || 'Riavvia lo scanner per riprendere la sorveglianza crypto.',
+    };
+  }
+
+  if (cryptoPositions.length > 0 || hasOrderActivity) {
+    return {
+      level: 'active',
+      title: 'Crypto Engine operativo',
+      subtitle: cryptoPositions.length > 0
+        ? 'Ci sono posizioni crypto aperte o appena gestite dal motore.'
+        : 'Il motore ha rilevato attività recente sulle crypto monitorate.',
+      badge: 'ATTIVO',
+      tone: '#10b981',
+      border: 'rgba(16, 185, 129, 0.45)',
+      background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.16), rgba(6, 182, 212, 0.08))',
+      monitoredCount: cryptoSymbols.length,
+      activeCount: cryptoPositions.length,
+      lastEvent: recentCryptoLogs[0] || 'Attività crypto rilevata di recente.',
+    };
+  }
+
+  if (hasGuardedSkip) {
+    return {
+      level: 'guarded',
+      title: 'Crypto Engine prudente ma sano',
+      subtitle: 'Il feed gira, ma i filtri di sicurezza stanno evitando ingressi deboli o poco puliti.',
+      badge: 'FILTRO ATTIVO',
+      tone: '#f59e0b',
+      border: 'rgba(245, 158, 11, 0.4)',
+      background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.14), rgba(30, 41, 59, 0.5))',
+      monitoredCount: cryptoSymbols.length,
+      activeCount: cryptoPositions.length,
+      lastEvent: recentCryptoLogs[0] || 'I controlli stanno proteggendo gli ingressi crypto.',
+    };
+  }
+
+  if (hasFeedHeartbeat) {
+    return {
+      level: 'watching',
+      title: 'Crypto Engine in sorveglianza',
+      subtitle: 'Le crypto sono monitorate correttamente e il motore è in attesa di un setup migliore.',
+      badge: 'MONITORING',
+      tone: '#38bdf8',
+      border: 'rgba(56, 189, 248, 0.4)',
+      background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.14), rgba(15, 23, 42, 0.5))',
+      monitoredCount: cryptoSymbols.length,
+      activeCount: cryptoPositions.length,
+      lastEvent: recentCryptoLogs[0] || 'Feed crypto attivo e in attesa di conferme.',
+    };
+  }
+
+  return {
+    level: 'warming',
+    title: 'Crypto Engine in attesa dati',
+    subtitle: 'La sezione è pronta, ma non ci sono ancora eventi crypto sufficienti per mostrare attività.',
+    badge: 'SYNC',
+    tone: '#a78bfa',
+    border: 'rgba(167, 139, 250, 0.4)',
+    background: 'linear-gradient(135deg, rgba(76, 29, 149, 0.18), rgba(15, 23, 42, 0.5))',
+    monitoredCount: cryptoSymbols.length,
+    activeCount: cryptoPositions.length,
+    lastEvent: 'Aspetto i prossimi cicli di scansione per confermare lo stato crypto.',
+  };
+};
+
 const authFetch = async (input, init = {}) => {
   const headers = new Headers(init.headers || {});
   const token = getAuthToken();
@@ -596,6 +709,7 @@ function OmniApp() {
     () => Object.fromEntries((status.table_data || []).map((row) => [row.symbol, row])),
     [status.table_data]
   );
+  const cryptoEngine = useMemo(() => deriveCryptoEngineState(status), [status]);
   const sortedSurebets = useMemo(
     () => [...(status.active_surebets || [])].sort((a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)),
     [status.active_surebets]
@@ -1977,6 +2091,73 @@ function OmniApp() {
             </button>
         </div>
       </div>
+
+      {cryptoEngine.level !== 'hidden' && (
+        <div
+          className="card trading-crypto-engine-card"
+          style={{
+            marginTop: '1.35rem',
+            marginBottom: '1rem',
+            border: `1px solid ${cryptoEngine.border}`,
+            background: cryptoEngine.background,
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
+            gap: '1rem',
+            alignItems: 'stretch',
+          }}
+        >
+          <div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '0.65rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+                <span style={{ width: 12, height: 12, borderRadius: '50%', background: cryptoEngine.tone, boxShadow: `0 0 18px ${cryptoEngine.tone}` }}></span>
+                <h3 style={{ margin: 0, color: '#e2e8f0', fontSize: '1.05rem' }}>Crypto Engine</h3>
+              </div>
+              <span
+                style={{
+                  padding: '0.3rem 0.7rem',
+                  borderRadius: '999px',
+                  fontSize: '0.72rem',
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  color: cryptoEngine.tone,
+                  background: 'rgba(0,0,0,0.18)',
+                  border: `1px solid ${cryptoEngine.border}`,
+                }}
+              >
+                {cryptoEngine.badge}
+              </span>
+            </div>
+            <div style={{ color: '#f8fafc', fontSize: '1.15rem', fontWeight: 700, marginBottom: '0.35rem' }}>
+              {cryptoEngine.title}
+            </div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.92rem', lineHeight: 1.5 }}>
+              {cryptoEngine.subtitle}
+            </div>
+          </div>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
+              gap: '0.85rem',
+            }}
+          >
+            <div style={{ padding: '0.9rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Watchlist</div>
+              <div style={{ color: '#f8fafc', fontSize: '1.35rem', fontWeight: 800 }}>{cryptoEngine.monitoredCount}</div>
+            </div>
+            <div style={{ padding: '0.9rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Posizioni aperte</div>
+              <div style={{ color: cryptoEngine.activeCount > 0 ? '#10b981' : '#e2e8f0', fontSize: '1.35rem', fontWeight: 800 }}>{cryptoEngine.activeCount}</div>
+            </div>
+            <div style={{ gridColumn: '1 / -1', padding: '0.9rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Ultimo segnale</div>
+              <div style={{ color: '#cbd5e1', fontSize: '0.88rem', lineHeight: 1.45 }}>
+                {cryptoEngine.lastEvent}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
 
       {/* MANUAL TRADING TERMINAL */}
