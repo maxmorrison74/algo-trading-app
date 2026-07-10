@@ -1960,7 +1960,7 @@ function OmniApp() {
 
   
   useEffect(() => {
-    if (activeTab === 'develop' && developSection === 'security') {
+    if (activeTab === 'develop') {
       if (isDemoMode) {
         setSavedKeys({});
         return;
