@@ -839,21 +839,37 @@ const ToggleSwitch = ({
 const classifyTradingLog = (line = '') => {
   const text = String(line || '');
   if (
+    text.includes('AUTO-PAUSE') ||
+    text.includes('CIRCUIT BREAKER') ||
     text.includes('CRASH') ||
     text.includes('ERRORE') ||
-    text.includes('AUTO-PAUSE') ||
-    text.includes('CIRCUIT BREAKER')
+    text.includes('backend offline')
   ) {
-    return { label: 'Critico', tone: '#ef4444', border: 'rgba(239, 68, 68, 0.35)' };
+    return { label: 'Criticità runtime', tone: '#ef4444', border: 'rgba(239, 68, 68, 0.35)', category: 'critical' };
+  }
+  if (
+    text.includes('CHIUSO') ||
+    text.includes('STOP LOSS') ||
+    text.includes('TAKE PROFIT') ||
+    text.includes('AUTO-EXIT')
+  ) {
+    return { label: 'Exit / gestione', tone: '#38bdf8', border: 'rgba(56, 189, 248, 0.35)', category: 'exit' };
   }
   if (
     text.includes('BUY') ||
     text.includes('SELL') ||
     text.includes('ATTIVATO') ||
-    text.includes('CHIUSO') ||
     text.includes('ORDINE')
   ) {
-    return { label: 'Azione eseguita', tone: '#10b981', border: 'rgba(16, 185, 129, 0.35)' };
+    return { label: 'Ordine / esecuzione', tone: '#10b981', border: 'rgba(16, 185, 129, 0.35)', category: 'execution' };
+  }
+  if (
+    text.includes('SETUP LONG') ||
+    text.includes('SETUP SHORT') ||
+    text.includes('BREAKOUT') ||
+    text.includes('MOMENTUM')
+  ) {
+    return { label: 'Setup trovato', tone: '#22c55e', border: 'rgba(34, 197, 94, 0.35)', category: 'setup' };
   }
   if (
     text.includes('VETO') ||
@@ -863,9 +879,17 @@ const classifyTradingLog = (line = '') => {
     text.includes('volatilità troppo bassa') ||
     text.includes('Posizione già aperta')
   ) {
-    return { label: 'Motivo di skip', tone: '#f59e0b', border: 'rgba(245, 158, 11, 0.35)' };
+    return { label: 'Setup scartato', tone: '#f59e0b', border: 'rgba(245, 158, 11, 0.35)', category: 'skip' };
   }
-  return { label: 'Telemetria', tone: '#94a3b8', border: 'rgba(148, 163, 184, 0.25)' };
+  return { label: 'Telemetria', tone: '#94a3b8', border: 'rgba(148, 163, 184, 0.25)', category: 'telemetry' };
+};
+
+const extractLogSymbol = (line = '', symbols = []) => {
+  const rendered = String(line || '').toUpperCase();
+  const match = symbols.find((symbol) => rendered.includes(String(symbol).toUpperCase()));
+  if (match) return match;
+  const generic = rendered.match(/\b[A-Z]{2,5}(?:\/USD)?\b/);
+  return generic ? generic[0] : '';
 };
 
 const classifyCryptoLog = (line = '') => {
@@ -3510,6 +3534,41 @@ function OmniAppInner() {
 
   const renderTradingView = () => (
     <div className="module-content module-content--trading">
+      {(() => {
+        const tradingLogs = Array.isArray(status.logs) ? status.logs : [];
+        const logSummary = tradingLogs.reduce((acc, line) => {
+          const meta = classifyTradingLog(line);
+          acc[meta.category] = (acc[meta.category] || 0) + 1;
+          return acc;
+        }, {});
+        const summaryCards = [
+          { key: 'setup', label: 'Setup trovati', value: logSummary.setup || 0, tone: '#22c55e' },
+          { key: 'skip', label: 'Setup scartati', value: logSummary.skip || 0, tone: '#f59e0b' },
+          { key: 'execution', label: 'Ordini / esecuzioni', value: logSummary.execution || 0, tone: '#10b981' },
+          { key: 'exit', label: 'Exit / gestione', value: logSummary.exit || 0, tone: '#38bdf8' },
+          { key: 'critical', label: 'Criticità', value: logSummary.critical || 0, tone: '#ef4444' },
+        ];
+        return (
+          <div className="card" style={{ marginBottom: '1rem', background: 'rgba(255,255,255,0.025)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div>
+                <div className="card-title">🧾 Trading Timeline</div>
+                <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                  Lettura rapida di cosa il motore sta trovando, scartando, eseguendo o chiudendo.
+                </div>
+              </div>
+            </div>
+            <div style={{ marginTop: '0.9rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
+              {summaryCards.map((item) => (
+                <div key={item.key} style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: `1px solid ${item.tone}33` }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>{item.label}</div>
+                  <div style={{ color: item.tone, fontSize: '1.35rem', fontWeight: 800 }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
       <div className="header module-page-header trading-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
           <h2>Trading Command</h2>
@@ -4152,23 +4211,34 @@ function OmniAppInner() {
           <div className="terminal-window">
               <>
                 {status.logs?.map((l, i) => (
+                  (() => {
+                    const meta = classifyTradingLog(l);
+                    const symbol = extractLogSymbol(l, status.symbols || []);
+                    return (
                   <div
                     key={i}
                     style={{
                       marginBottom: '0.45rem',
                       padding: '0.55rem 0.7rem',
                       borderRadius: '10px',
-                      border: `1px solid ${classifyTradingLog(l).border}`,
+                      border: `1px solid ${meta.border}`,
                       background: 'rgba(255,255,255,0.02)',
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.2rem', flexWrap: 'wrap' }}>
-                      <span style={{ color: classifyTradingLog(l).tone, fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
-                        {classifyTradingLog(l).label}
+                      <span style={{ color: meta.tone, fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                        {meta.label}
                       </span>
+                      {symbol && (
+                        <span style={{ color: '#cbd5e1', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.18rem 0.45rem', borderRadius: '999px', background: 'rgba(255,255,255,0.06)' }}>
+                          {symbol}
+                        </span>
+                      )}
                     </div>
                     <div style={{ color: 'rgba(255,255,255,0.78)' }}>{l}</div>
                   </div>
+                    );
+                  })()
                 ))}
                 {(!status.logs || status.logs.length === 0) && <div style={{ color: 'var(--text-secondary)' }}>Nessun evento registrato. Avvia il motore per iniziare la scansione del mercato.</div>}
               </>
