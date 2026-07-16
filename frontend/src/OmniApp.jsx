@@ -3823,7 +3823,7 @@ function OmniAppInner() {
 
       {opportunitySpotlight.spotlight && (
         <div
-          className="card"
+          className="card trading-spotlight-card"
           style={{
             marginTop: '1rem',
             border: `1px solid ${opportunitySpotlight.spotlight.headline.border}`,
@@ -3858,7 +3858,7 @@ function OmniAppInner() {
         </div>
       )}
 
-      <div className="card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
+      <div className="card trading-alert-center-card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div>
             <div className="card-title">🔔 Alert Center</div>
@@ -3917,7 +3917,7 @@ function OmniAppInner() {
         </div>
       </div>
 
-      <div className="card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
+      <div className="card trading-opportunities-card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div>
             <div className="card-title">🚀 Top Opportunities</div>
@@ -3944,12 +3944,13 @@ function OmniAppInner() {
             ))}
           </div>
         </div>
-        <div style={{ marginTop: '0.9rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
+        <div className="trading-opportunities-grid" style={{ marginTop: '0.9rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
           {topOpportunities.map((item) => (
             <button
               key={item.symbol}
               type="button"
               onClick={() => setSelectedSymbol(item.symbol)}
+              className="trading-opportunity-tile"
               style={{
                 textAlign: 'left',
                 padding: '0.95rem',
@@ -3984,7 +3985,7 @@ function OmniAppInner() {
 
       {selectedSymbol && (
         <div
-          className="card"
+          className="card trading-focus-card"
           style={{
             marginTop: '1rem',
             border: `1px solid ${deriveEntryHeadline(entryReadiness).border}`,
@@ -4016,7 +4017,7 @@ function OmniAppInner() {
       )}
 
       {selectedSymbol && (
-        <div className="card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.03)' }}>
+        <div className="card trading-drilldown-card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.03)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '1rem' }}>
             <div>
               <div className="card-title">🛰️ Symbol Drill-Down · {selectedSymbol}</div>
@@ -4029,7 +4030,7 @@ function OmniAppInner() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+          <div className="trading-drilldown-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
             <div style={{ padding: '0.85rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Stato live</div>
               <div style={{ color: symbolDrilldown.isOpen ? '#10b981' : symbolDrilldown.headline.tone, fontWeight: 800 }}>
@@ -4060,8 +4061,8 @@ function OmniAppInner() {
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.85rem' }}>
-            <div style={{ padding: '0.95rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="trading-drilldown-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.85rem' }}>
+            <div className="trading-drilldown-panel" style={{ padding: '0.95rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ color: '#e2e8f0', fontWeight: 800, marginBottom: '0.55rem' }}>Indicatori chiave</div>
               <div style={{ display: 'grid', gap: '0.35rem', color: '#cbd5e1', fontSize: '0.84rem' }}>
                 <div>LSTM: {symbolDrilldown.metrics.lstm == null ? 'n/d' : `${symbolDrilldown.metrics.lstm.toFixed(1)}%`}</div>
@@ -4072,7 +4073,7 @@ function OmniAppInner() {
               </div>
             </div>
 
-            <div style={{ padding: '0.95rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div className="trading-drilldown-panel" style={{ padding: '0.95rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ color: '#e2e8f0', fontWeight: 800, marginBottom: '0.55rem' }}>Storico recente del simbolo</div>
               {symbolDrilldown.recentTrades.length ? (
                 <div style={{ display: 'grid', gap: '0.45rem' }}>
@@ -4438,7 +4439,7 @@ function OmniAppInner() {
       </div>
 
       <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
-        <div className="card col-span-6">
+        <div className="card col-span-6 trading-performance-card">
           <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Performance per simbolo</h3>
           {tradePerformance.symbolRows.length === 0 ? (
             <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Ancora nessun trade chiuso: la classifica si popola appena Aureo completa le prime operazioni.</div>
@@ -4468,7 +4469,7 @@ function OmniAppInner() {
           )}
         </div>
 
-        <div className="card col-span-6">
+        <div className="card col-span-6 trading-history-card">
           <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Cronologia trade chiusi</h3>
           {tradePerformance.recentTrades.length === 0 ? (
             <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nessuna chiusura registrata al momento.</div>

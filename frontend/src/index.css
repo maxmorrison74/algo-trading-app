@@ -2306,6 +2306,46 @@ input:focus, textarea:focus, select:focus {
 
 @media (max-width: 768px), (max-height: 560px) and (orientation: landscape) {
   .omni-app { flex-direction: column; }
+
+  .trading-spotlight-card,
+  .trading-alert-center-card,
+  .trading-opportunities-card,
+  .trading-focus-card,
+  .trading-drilldown-card,
+  .trading-performance-card,
+  .trading-history-card {
+    margin-top: 0.9rem !important;
+  }
+
+  .trading-opportunities-grid,
+  .trading-drilldown-stats,
+  .trading-drilldown-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .trading-opportunity-tile {
+    width: 100%;
+  }
+
+  .trading-drilldown-panel,
+  .trading-opportunity-tile,
+  .trading-alert-center-card button[type="button"] {
+    min-width: 0;
+  }
+
+  .trading-alert-center-card .badge,
+  .trading-opportunities-card .tab-btn {
+    width: auto;
+  }
+
+  .trading-performance-card .card-title,
+  .trading-history-card .card-title,
+  .trading-drilldown-card .card-title,
+  .trading-opportunities-card .card-title,
+  .trading-alert-center-card .card-title,
+  .trading-spotlight-card .card-title {
+    line-height: 1.2;
+  }
   
   .sidebar {
     position: fixed; bottom: 0; left: 0; width: 100%; height: auto;
@@ -2567,6 +2607,27 @@ input:focus, textarea:focus, select:focus {
 }
 
 @media (max-width: 560px), (max-height: 430px) and (orientation: landscape) {
+  .trading-spotlight-card,
+  .trading-alert-center-card,
+  .trading-opportunities-card,
+  .trading-focus-card,
+  .trading-drilldown-card,
+  .trading-performance-card,
+  .trading-history-card {
+    padding: 0.9rem;
+  }
+
+  .trading-alert-center-card button[type="button"],
+  .trading-opportunities-card .tab-btn,
+  .trading-opportunity-tile,
+  .trading-spotlight-card .btn {
+    font-size: 0.78rem;
+  }
+
+  .trading-drilldown-panel {
+    padding: 0.8rem !important;
+  }
+
   .landing-page {
     width: min(100%, calc(100% - 1rem));
     padding: 0.75rem 0 2rem;
@@ -2755,6 +2816,17 @@ input:focus, textarea:focus, select:focus {
 }
 
 @media (max-width: 420px), (max-height: 380px) and (orientation: landscape) {
+  .trading-opportunities-card .tab-btn,
+  .trading-timeframe-tabs .tab-btn,
+  .trading-symbol-tabs .tab-btn {
+    padding: 0.55rem 0.72rem;
+  }
+
+  .trading-alert-center-card button[type="button"],
+  .trading-spotlight-card .btn {
+    min-height: 40px;
+  }
+
   .sidebar-menu {
     padding-left: 0.25rem;
     padding-right: 0.25rem;
