@@ -1861,6 +1861,8 @@ function OmniAppInner() {
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'user' });
   const [billingLead, setBillingLead] = useState({ company: '', contact_name: '', email: '', plan_id: 'pro', seats: 1 });
   const [userIsPaid, setUserIsPaid] = useState(false);
+  const [isBackendOnline, setIsBackendOnline] = useState(true);
+  const [lastStatusSync, setLastStatusSync] = useState(null);
   
   // AI Investment Hub state
   const [aiBudget, setAiBudget] = useState(500);
@@ -2158,8 +2160,6 @@ function OmniAppInner() {
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
   const [developSection, setDevelopSection] = useState('health');
-  const [isBackendOnline, setIsBackendOnline] = useState(true);
-  const [lastStatusSync, setLastStatusSync] = useState(null);
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [passkeyBusy, setPasskeyBusy] = useState(false);
   const [passkeyStatus, setPasskeyStatus] = useState({ supported: false, configured: false, credentials_count: 0, credentials: [] });
