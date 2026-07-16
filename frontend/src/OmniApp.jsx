@@ -368,9 +368,14 @@ const parsePredictionMetrics = (prediction = '') => {
   };
 };
 
+const hasArmedAlertChannel = (savedKeys = {}) => !!(
+  (savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY && savedKeys?.PUSHOVER_ALERTS_ENABLED !== false) ||
+  (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID && savedKeys?.TELEGRAM_ALERTS_ENABLED !== false)
+);
+
 const deriveSystemHealthSnapshot = ({ status = {}, risk = {}, savedKeys = {}, isBackendOnline = true, cryptoEngine = null }) => {
   const runtimeHealth = status?.runtime_health || {};
-  const alertArmed = !!((savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY) || (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID));
+  const alertArmed = hasArmedAlertChannel(savedKeys);
   const riskEnabled = risk?.enabled !== false;
   const scannerOn = !!status?.modules?.trading;
   const positionsUsagePct = Number(risk?.positions_usage_pct || 0);
@@ -450,10 +455,7 @@ const deriveSystemHealthSnapshot = ({ status = {}, risk = {}, savedKeys = {}, is
 const deriveOpsActionPlan = ({ status = {}, risk = {}, savedKeys = {}, isBackendOnline = true }) => {
   const runtimeHealth = asObject(status?.runtime_health);
   const actions = [];
-  const alertReady = !!(
-    (savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY && savedKeys?.PUSHOVER_ALERTS_ENABLED !== false) ||
-    (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID && savedKeys?.TELEGRAM_ALERTS_ENABLED !== false)
-  );
+  const alertReady = hasArmedAlertChannel(savedKeys);
 
   if (!isBackendOnline) {
     actions.push({
@@ -1154,7 +1156,7 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   const riskState = !riskEnabled ? 'Off' : (risk?.can_trade ? 'Ready' : 'Blocked');
   const cryptoCount = Object.entries(status?.positions || {}).filter(([sym, pos]) => String(sym).includes('/') && pos !== 'LIQUID').length;
   const livePnl = Number(status?.profit || 0);
-  const alertArmed = (savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY) || (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID);
+  const alertArmed = hasArmedAlertChannel(savedKeys);
   const cryptoEngine = deriveCryptoEngineState(status);
   const systemHealthSnapshot = deriveSystemHealthSnapshot({ status, risk, savedKeys, isBackendOnline, cryptoEngine });
   const recentMissionLogs = (Array.isArray(status?.logs) ? status.logs : []).slice(0, 5);
