@@ -96,6 +96,16 @@ const safeStorageRemove = (key) => {
   } catch {}
 };
 
+const parseJsonSafely = async (response, fallback = null) => {
+  try {
+    return await response.json();
+  } catch {
+    return fallback;
+  }
+};
+
+const asObject = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+
 const getAuthToken = () => safeStorageGet(AUTH_TOKEN_KEY, '');
 const isDemoSession = () => safeStorageGet(DEMO_MODE_KEY, '') === '1';
 
@@ -435,6 +445,87 @@ const deriveSystemHealthSnapshot = ({ status = {}, risk = {}, savedKeys = {}, is
     warnings: warnings.slice(0, 4),
     strengths: strengths.slice(0, 4),
   };
+};
+
+const deriveOpsActionPlan = ({ status = {}, risk = {}, savedKeys = {}, isBackendOnline = true }) => {
+  const runtimeHealth = asObject(status?.runtime_health);
+  const actions = [];
+  const alertReady = !!(
+    (savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY && savedKeys?.PUSHOVER_ALERTS_ENABLED !== false) ||
+    (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID && savedKeys?.TELEGRAM_ALERTS_ENABLED !== false)
+  );
+
+  if (!isBackendOnline) {
+    actions.push({
+      priority: 'critical',
+      title: 'Backend non raggiungibile',
+      detail: 'La piattaforma sta lavorando con telemetria incompleta e va riallineata subito.',
+    });
+  }
+
+  if (runtimeHealth?.auto_paused) {
+    actions.push({
+      priority: 'critical',
+      title: 'Auto-pause attiva',
+      detail: runtimeHealth?.auto_pause_reason || 'Il motore si è fermato per protezione.',
+    });
+  }
+
+  if (risk?.enabled === false) {
+    actions.push({
+      priority: 'high',
+      title: 'Risk management spento',
+      detail: 'Riattivalo prima di lasciare Aureo senza supervisione.',
+    });
+  } else if (risk?.can_trade === false) {
+    actions.push({
+      priority: 'high',
+      title: 'Risk engine in blocco',
+      detail: risk?.reason || 'I limiti attuali stanno impedendo nuovi ingressi.',
+    });
+  }
+
+  if (!status?.modules?.trading) {
+    actions.push({
+      priority: 'high',
+      title: 'Scanner fermo',
+      detail: 'Finché il motore trading è spento non nasceranno nuovi setup.',
+    });
+  }
+
+  if (!alertReady) {
+    actions.push({
+      priority: 'medium',
+      title: 'Alert non armati',
+      detail: 'Completa almeno Telegram o Pushover per ricevere eventi critici.',
+    });
+  }
+
+  if ((runtimeHealth?.heartbeat_age_sec ?? 0) > 300) {
+    actions.push({
+      priority: 'medium',
+      title: 'Heartbeat vecchio',
+      detail: 'Il motore non sta dando segnali recenti: controlla loop e sincronizzazione.',
+    });
+  }
+
+  if ((runtimeHealth?.last_bar_age_sec ?? 0) > 1200) {
+    actions.push({
+      priority: 'medium',
+      title: 'Feed dati fermo',
+      detail: 'I prezzi non si aggiornano da troppo: meglio verificare prima di fidarsi del runtime.',
+    });
+  }
+
+  if (!actions.length) {
+    actions.push({
+      priority: 'good',
+      title: 'Nessuna azione urgente',
+      detail: 'Sistema allineato: puoi lasciarlo lavorare con un buon margine di tranquillità.',
+    });
+  }
+
+  return actions.slice(0, 4);
 };
 
 const deriveEntryReadiness = ({ status = {}, risk = {}, symbol = '', row = null }) => {
@@ -813,6 +904,42 @@ const AlertReadinessCard = ({ savedKeys = {}, runtimeHealth = {}, lastVaultSync 
           Ultimo evento grave registrato: {runtimeHealth?.auto_pause_reason || 'auto-pause attiva'}
         </div>
       )}
+    </div>
+  );
+};
+
+const OpsActionCard = ({ actions = [] }) => {
+  const palette = {
+    critical: { tone: '#ef4444', bg: 'rgba(239,68,68,0.10)', border: 'rgba(239,68,68,0.24)', label: 'Critica' },
+    high: { tone: '#f59e0b', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.24)', label: 'Alta' },
+    medium: { tone: '#38bdf8', bg: 'rgba(56,189,248,0.10)', border: 'rgba(56,189,248,0.24)', label: 'Media' },
+    good: { tone: '#10b981', bg: 'rgba(16,185,129,0.10)', border: 'rgba(16,185,129,0.24)', label: 'OK' },
+  };
+
+  return (
+    <div className="card" style={{ marginTop: '1.5rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <div>
+          <div className="card-title">🎯 Azioni immediate</div>
+          <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+            Le priorità operative da sistemare per tenere Aureo stabile e pronto.
+          </div>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
+        {actions.map((action, index) => {
+          const meta = palette[action.priority] || palette.medium;
+          return (
+            <div key={`${action.title}-${index}`} style={{ padding: '0.95rem', borderRadius: '14px', background: meta.bg, border: `1px solid ${meta.border}` }}>
+              <div style={{ color: meta.tone, fontSize: '0.72rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.42rem' }}>
+                Priorità {meta.label}
+              </div>
+              <div style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 800, marginBottom: '0.4rem' }}>{action.title}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', lineHeight: 1.5 }}>{action.detail}</div>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
@@ -1669,6 +1796,7 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
         </div>
       </div>
       <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Trading runtime <strong style={{ color: 'var(--text-primary)' }}>{runtimeHealth?.is_trading_enabled ? 'ARMED' : 'PAUSED'}</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>WebSocket <strong style={{ color: 'var(--text-primary)' }}>{runtimeHealth?.websocket_connected ? 'ON' : 'OFF'}</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Heartbeat <strong style={{ color: 'var(--text-primary)' }}>{formatAge(runtimeHealth?.heartbeat_age_sec)}</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Ultimo feed <strong style={{ color: 'var(--text-primary)' }}>{formatAge(runtimeHealth?.last_bar_age_sec)}</strong></div>
@@ -1699,7 +1827,10 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
   );
 };
 
-const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, developSection, setDevelopSection, renderSettingsView, renderGuideView }) => (
+const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, developSection, setDevelopSection, renderSettingsView, renderGuideView }) => {
+  const opsActionPlan = deriveOpsActionPlan({ status, risk: status?.risk || {}, savedKeys, isBackendOnline });
+
+  return (
   <div className="module-content">
     <div className="header" style={{ marginBottom: '2rem' }}>
       <h2>⚙️ Engine Room</h2>
@@ -1755,6 +1886,7 @@ const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, develo
         <div className="dashboard-grid">
           <RuntimeHealthCard runtimeHealth={status.runtime_health} isBackendOnline={isBackendOnline} />
         </div>
+        <OpsActionCard actions={opsActionPlan} />
         <AlertReadinessCard savedKeys={savedKeys} runtimeHealth={status.runtime_health} lastVaultSync={lastVaultSync} />
         <div className="card" style={{ marginTop: '1.5rem' }}>
           <div className="card-title">Perché è qui</div>
@@ -1769,7 +1901,8 @@ const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, develo
     {developSection === 'security' && renderSettingsView()}
     {developSection === 'guide' && renderGuideView()}
   </div>
-);
+  );
+};
 
 const OnboardingModal = ({ onClose, onGoToSettings }) => {
   return (
@@ -2225,7 +2358,10 @@ function OmniAppInner() {
       if (typeof document !== 'undefined' && document.hidden) return;
       try {
         const res = await authFetch(`/api/status?scope=${scope}&t=${Date.now()}`);
-        const data = await res.json();
+        const data = await parseJsonSafely(res, null);
+        if (!res.ok || !data || typeof data !== 'object') {
+          throw new Error('Payload status non valido');
+        }
         if (!data.error) {
           setStatus(prev => ({ ...prev, ...data }));
           setIsBackendOnline(true);
@@ -2298,14 +2434,14 @@ function OmniAppInner() {
       try {
         const res = await authFetch('/api/user/me');
         if (res.ok) {
-          const data = await res.json();
+          const data = await parseJsonSafely(res, {});
           setUserIsPaid(data.is_paid || data.role === 'admin');
         }
         
         if (role !== 'admin' && !demo) {
           const keysRes = await authFetch('/api/keys');
           if (keysRes.ok) {
-            const keysData = await keysRes.json();
+            const keysData = await parseJsonSafely(keysRes, {});
             if (!keysData.ALPACA_KEY) {
               setShowOnboarding(true);
             }
@@ -2341,7 +2477,7 @@ function OmniAppInner() {
     if (userRole !== 'admin') return;
     try {
       const res = await authFetch('/api/passkeys/status?t=' + Date.now());
-      const data = await res.json();
+      const data = await parseJsonSafely(res, {});
       if (res.ok) {
         setPasskeyStatus({ ...data, supported: passkeySupported });
       }
@@ -2789,7 +2925,7 @@ function OmniAppInner() {
       setBillingLoading(true);
       try {
         const res = await authFetch('/api/saas/overview?t=' + Date.now());
-        const data = await res.json();
+        const data = await parseJsonSafely(res, {});
         if (res.ok) {
           setBillingOverview(data);
         } else {
@@ -2816,7 +2952,7 @@ function OmniAppInner() {
         try {
           const res = await authFetch('/api/keys');
           if (res.ok) {
-            const data = await res.json();
+            const data = await parseJsonSafely(res, {});
             if (!data.ALPACA_KEY) {
               setShowOnboarding(true);
             }
@@ -2829,7 +2965,7 @@ function OmniAppInner() {
 
   const refreshBillingOverview = async () => {
     const res = await authFetch('/api/saas/overview?t=' + Date.now());
-    const data = await res.json();
+    const data = await parseJsonSafely(res, {});
     if (!res.ok) {
       throw new Error(data.detail || 'Errore aggiornamento billing');
     }
