@@ -752,6 +752,18 @@ const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}
     .slice(0, 3);
 };
 
+const deriveOpportunitySpotlight = (opportunities = []) => {
+  const ready = opportunities.filter((item) => item.readiness?.score >= 78 && item.headline?.label === 'Pronto');
+  const warming = opportunities.filter((item) => item.readiness?.score >= 58 && item.readiness?.score < 78);
+  const spotlight = ready[0] || opportunities[0] || null;
+
+  return {
+    spotlight,
+    readyCount: ready.length,
+    warmingCount: warming.length,
+  };
+};
+
 const deriveSymbolDrilldown = ({ symbol = '', status = {}, row = null, readiness = null, tradePerformance = null, cryptoState = null }) => {
   const currentPosition = status?.positions?.[symbol];
   const isOpen = currentPosition && currentPosition !== 'LIQUID';
@@ -2146,6 +2158,7 @@ function OmniAppInner() {
   const [timeframe, setTimeframe] = useState('1D');
   const [chartData, setChartData] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState(null);
+  const [tradingViewFilter, setTradingViewFilter] = useState('all');
   const [aiIdea, setAiIdea] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
@@ -2188,6 +2201,7 @@ function OmniAppInner() {
     () => deriveTopOpportunities({ status, risk: status.risk, tableDataBySymbol }),
     [status, tableDataBySymbol]
   );
+  const opportunitySpotlight = useMemo(() => deriveOpportunitySpotlight(topOpportunities), [topOpportunities]);
   const systemHealthSnapshot = useMemo(
     () => deriveSystemHealthSnapshot({ status, risk: status.risk, savedKeys, isBackendOnline, cryptoEngine }),
     [status, savedKeys, isBackendOnline, cryptoEngine]
@@ -2207,6 +2221,20 @@ function OmniAppInner() {
     }),
     [selectedSymbol, status, tableDataBySymbol, entryReadiness, tradePerformance, cryptoSymbolStateMap]
   );
+  const filteredTradingSymbols = useMemo(() => {
+    const symbols = Array.isArray(status.symbols) ? status.symbols : [];
+    return symbols.filter((symbol) => {
+      if (tradingViewFilter === 'all') return true;
+      const row = tableDataBySymbol[symbol];
+      const readiness = deriveEntryReadiness({ status, risk: status.risk, symbol, row });
+      const isCrypto = String(symbol).includes('/');
+      if (tradingViewFilter === 'ready') return readiness.score >= 78;
+      if (tradingViewFilter === 'watch') return readiness.score >= 58 && readiness.score < 78;
+      if (tradingViewFilter === 'blocked') return readiness.score < 58;
+      if (tradingViewFilter === 'crypto') return isCrypto;
+      return true;
+    });
+  }, [status, tableDataBySymbol, tradingViewFilter]);
   const sortedSurebets = useMemo(
     () => [...(status.active_surebets || [])].sort((a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)),
     [status.active_surebets]
@@ -3732,6 +3760,43 @@ function OmniAppInner() {
         <EntryReadinessCard readiness={entryReadiness} symbol={selectedSymbol} />
       </div>
 
+      {opportunitySpotlight.spotlight && (
+        <div
+          className="card"
+          style={{
+            marginTop: '1rem',
+            border: `1px solid ${opportunitySpotlight.spotlight.headline.border}`,
+            background: opportunitySpotlight.spotlight.headline.bg,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <div>
+              <div className="card-title">✨ Opportunity Spotlight</div>
+              <div style={{ color: '#e2e8f0', marginTop: '0.3rem', fontSize: '0.95rem' }}>
+                {opportunitySpotlight.readyCount > 0
+                  ? `${opportunitySpotlight.readyCount} setup pronti: il simbolo più caldo ora è ${opportunitySpotlight.spotlight.symbol}.`
+                  : `${opportunitySpotlight.warmingCount} setup in maturazione: il focus migliore ora è ${opportunitySpotlight.spotlight.symbol}.`}
+              </div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem', fontSize: '0.84rem' }}>
+                {opportunitySpotlight.spotlight.headline.detail}
+              </div>
+            </div>
+            <button
+              className="btn"
+              type="button"
+              onClick={() => setSelectedSymbol(opportunitySpotlight.spotlight.symbol)}
+              style={{
+                background: 'rgba(0,0,0,0.18)',
+                border: `1px solid ${opportunitySpotlight.spotlight.headline.border}`,
+                color: opportunitySpotlight.spotlight.headline.tone,
+              }}
+            >
+              Apri {opportunitySpotlight.spotlight.symbol}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div>
@@ -3739,6 +3804,24 @@ function OmniAppInner() {
             <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
               I simboli più vicini a un ingresso pulito in questo momento.
             </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {[
+              { id: 'all', label: 'Tutti' },
+              { id: 'ready', label: 'Pronti' },
+              { id: 'watch', label: 'In maturazione' },
+              { id: 'blocked', label: 'Frenati' },
+              { id: 'crypto', label: 'Crypto' },
+            ].map((filter) => (
+              <button
+                key={filter.id}
+                type="button"
+                className={`tab-btn ${tradingViewFilter === filter.id ? 'active-tab' : ''}`}
+                onClick={() => setTradingViewFilter(filter.id)}
+              >
+                {filter.label}
+              </button>
+            ))}
           </div>
         </div>
         <div style={{ marginTop: '0.9rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
@@ -3848,6 +3931,12 @@ function OmniAppInner() {
             <div style={{ padding: '0.85rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)' }}>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Readiness</div>
               <div style={{ color: symbolDrilldown.headline.tone, fontWeight: 800 }}>{entryReadiness.score}/100</div>
+            </div>
+            <div style={{ padding: '0.85rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Segnali</div>
+              <div style={{ color: '#f8fafc', fontWeight: 800 }}>
+                {entryReadiness.greenLights.length} ok · {entryReadiness.watchItems.length} watch · {entryReadiness.blockers.length} block
+              </div>
             </div>
           </div>
 
@@ -4296,7 +4385,7 @@ function OmniAppInner() {
 
       <div className="chart-controls trading-chart-controls" style={{ marginTop: '2rem', display: 'flex', justifyContent: 'space-between' }}>
         <div className="trading-symbol-tabs" style={{ display: 'flex', gap: '0.5rem' }}>
-          {status.symbols?.map(sym => (
+          {filteredTradingSymbols.map(sym => (
             <SymbolTabButton
               key={sym}
               sym={sym}
@@ -4312,6 +4401,11 @@ function OmniAppInner() {
           ))}
         </div>
       </div>
+      {filteredTradingSymbols.length === 0 && (
+        <div style={{ marginTop: '0.9rem', color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+          Nessun simbolo corrisponde al filtro attivo.
+        </div>
+      )}
 
       <div className="chart-container" style={{ height: '300px', background: 'rgba(0,0,0,0.3)', borderRadius: '8px', padding: '1rem', marginTop: '1rem', position: 'relative' }}>
         {!status.modules?.trading ? (
