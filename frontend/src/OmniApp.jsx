@@ -675,6 +675,57 @@ const deriveEntryHeadline = (readiness) => {
   };
 };
 
+const deriveTradePerformance = (tradeHistory = []) => {
+  const trades = Array.isArray(tradeHistory) ? tradeHistory : [];
+  const bySymbol = {};
+
+  trades.forEach((trade) => {
+    const symbol = String(trade?.symbol || '').trim();
+    if (!symbol) return;
+    const profitUsd = Number(trade?.profit_usd || 0);
+    const profitPct = Number(trade?.profit_pct || 0);
+    if (!bySymbol[symbol]) {
+      bySymbol[symbol] = {
+        symbol,
+        trades: 0,
+        wins: 0,
+        losses: 0,
+        totalPnl: 0,
+        totalPct: 0,
+        lastDate: '',
+        lastSide: '',
+      };
+    }
+    const row = bySymbol[symbol];
+    row.trades += 1;
+    row.totalPnl += profitUsd;
+    row.totalPct += profitPct;
+    row.lastDate = trade?.date || row.lastDate;
+    row.lastSide = trade?.side || row.lastSide;
+    if (profitUsd > 0) row.wins += 1;
+    else if (profitUsd < 0) row.losses += 1;
+  });
+
+  const symbolRows = Object.values(bySymbol)
+    .map((row) => ({
+      ...row,
+      avgPct: row.trades ? row.totalPct / row.trades : 0,
+      winRate: row.trades ? (row.wins / row.trades) * 100 : 0,
+    }))
+    .sort((a, b) => b.totalPnl - a.totalPnl);
+
+  const recentTrades = [...trades].slice(-8).reverse();
+
+  return {
+    totalTrades: trades.length,
+    totalPnl: symbolRows.reduce((acc, row) => acc + row.totalPnl, 0),
+    bestSymbol: symbolRows[0] || null,
+    weakestSymbol: [...symbolRows].sort((a, b) => a.totalPnl - b.totalPnl)[0] || null,
+    symbolRows,
+    recentTrades,
+  };
+};
+
 const SymbolTabButton = ({ sym, selected, onClick, cryptoState }) => (
   <button
     className={`tab-btn ${selected ? 'active-tab' : ''}`}
@@ -2085,6 +2136,7 @@ function OmniAppInner() {
   const cryptoEngineDetails = useMemo(() => deriveCryptoEngineDetails(status), [status]);
   const cryptoSymbolStates = useMemo(() => deriveCryptoSymbolStates(status), [status]);
   const cryptoSymbolStateMap = useMemo(() => getCryptoSymbolStateMap(status), [status]);
+  const tradePerformance = useMemo(() => deriveTradePerformance(status.trade_history || []), [status.trade_history]);
   const systemHealthSnapshot = useMemo(
     () => deriveSystemHealthSnapshot({ status, risk: status.risk, savedKeys, isBackendOnline, cryptoEngine }),
     [status, savedKeys, isBackendOnline, cryptoEngine]
@@ -3989,6 +4041,66 @@ function OmniAppInner() {
         <div className="card col-span-4">
           <div className="card-title">Risk Depth</div>
           <div className="portfolio-value" style={{ color: '#ef4444' }}>-{Number(status.max_drawdown || 0).toFixed(2)}%</div>
+        </div>
+      </div>
+
+      <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
+        <div className="card col-span-6">
+          <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Performance per simbolo</h3>
+          {tradePerformance.symbolRows.length === 0 ? (
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Ancora nessun trade chiuso: la classifica si popola appena Aureo completa le prime operazioni.</div>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.6rem' }}>
+              {tradePerformance.symbolRows.slice(0, 6).map((row) => (
+                <div key={row.symbol} style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div>
+                      <div style={{ color: '#f8fafc', fontWeight: 800 }}>{row.symbol}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.2rem' }}>
+                        {row.trades} trade · win rate {row.winRate.toFixed(0)}% · ultimo evento {row.lastSide || 'n/d'}
+                      </div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ color: row.totalPnl >= 0 ? '#10b981' : '#ef4444', fontWeight: 800, fontSize: '1rem' }}>
+                        {row.totalPnl >= 0 ? '+' : ''}${row.totalPnl.toFixed(2)}
+                      </div>
+                      <div style={{ color: row.avgPct >= 0 ? '#38bdf8' : '#f59e0b', fontSize: '0.8rem' }}>
+                        avg {row.avgPct >= 0 ? '+' : ''}{row.avgPct.toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="card col-span-6">
+          <h3 style={{ color: '#e2e8f0', borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Cronologia trade chiusi</h3>
+          {tradePerformance.recentTrades.length === 0 ? (
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nessuna chiusura registrata al momento.</div>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.55rem' }}>
+              {tradePerformance.recentTrades.map((trade, index) => (
+                <div key={`${trade.symbol}-${trade.date}-${index}`} style={{ padding: '0.75rem 0.85rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ color: '#f8fafc', fontWeight: 800 }}>{trade.symbol} · {trade.side}</div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.2rem' }}>{trade.date || 'Data non disponibile'}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ color: Number(trade.profit_usd || 0) >= 0 ? '#10b981' : '#ef4444', fontWeight: 800 }}>
+                        {Number(trade.profit_usd || 0) >= 0 ? '+' : ''}${Number(trade.profit_usd || 0).toFixed(2)}
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                        {Number(trade.profit_pct || 0) >= 0 ? '+' : ''}{Number(trade.profit_pct || 0).toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
