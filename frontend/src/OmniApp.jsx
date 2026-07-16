@@ -3167,6 +3167,48 @@ function OmniAppInner() {
     }
   };
 
+  const refreshVaultKeys = React.useCallback(async ({ populateInputs = false, silent = false } = {}) => {
+    if (isDemoMode) {
+      setSavedKeys({});
+      return null;
+    }
+    try {
+      const res = await authFetch('/api/keys?t=' + Date.now());
+      const data = await res.json();
+      if (data.ERROR && !silent) {
+        alert("Errore critico dal backend nel leggere le chiavi: " + data.ERROR);
+      }
+      setSavedKeys(data);
+      setLastVaultSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      if (populateInputs) {
+        setApiKeys(prev => ({
+          ...prev,
+          alpaca_key: data.ALPACA_KEY || '',
+          alpaca_secret: data.ALPACA_SECRET || '',
+          elevenlabs_key: data.ELEVENLABS_KEY || '',
+          theodds_key: data.THEODDS_KEY || '',
+          groq_key: data.GROQ_KEY || '',
+          newsapi_key: data.NEWSAPI_KEY || '',
+          telegram_bot_token: data.TELEGRAM_BOT_TOKEN || '',
+          telegram_chat_id: data.TELEGRAM_CHAT_ID || '',
+          pushover_app_token: data.PUSHOVER_APP_TOKEN || '',
+          pushover_user_key: data.PUSHOVER_USER_KEY || '',
+          telegram_alerts_enabled: data.TELEGRAM_ALERTS_ENABLED ?? true,
+          pushover_alerts_enabled: data.PUSHOVER_ALERTS_ENABLED ?? true,
+          dynamic_atr_stop: data.DYNAMIC_ATR_STOP ?? true,
+          trailing_stop_base_pct: data.TRAILING_STOP_BASE_PCT ?? 2.5
+        }));
+      }
+      return data;
+    } catch (err) {
+      if (!silent) {
+        console.error("Error fetching keys", err);
+        alert("Errore di rete durante il caricamento delle chiavi dal Vault.");
+      }
+      return null;
+    }
+  }, [isDemoMode]);
+
   const saveKeys = async () => {
     try {
       const res = await authFetch('/api/keys', {
@@ -3178,11 +3220,7 @@ function OmniAppInner() {
         throw new Error(resData.detail || 'Errore sconosciuto dal server');
       }
       alert('Chiavi salvate con successo nel Vault Sicuro!');
-      // Refetch keys immediately so dots appear
-      const refetchRes = await authFetch('/api/keys');
-      const data = await refetchRes.json();
-      setSavedKeys(data);
-      setLastVaultSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      await refreshVaultKeys({ populateInputs: true, silent: true });
     } catch(err) {
       alert('Errore durante il salvataggio: ' + err.message);
     }
@@ -3199,10 +3237,7 @@ function OmniAppInner() {
       if (!res.ok) {
         throw new Error(resData.detail || 'Errore salvataggio impostazioni ATR');
       }
-      const refetchRes = await authFetch('/api/keys?t=' + Date.now());
-      const data = await refetchRes.json();
-      setSavedKeys(data);
-      setLastVaultSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
+      const data = await refreshVaultKeys({ populateInputs: true, silent: true });
       setApiKeys(prev => ({
         ...prev,
         dynamic_atr_stop: data.DYNAMIC_ATR_STOP ?? nextValues.dynamic_atr_stop,
@@ -3215,46 +3250,12 @@ function OmniAppInner() {
 
   
   useEffect(() => {
-    if (activeTab === 'develop') {
-      if (isDemoMode) {
-        setSavedKeys({});
-        return;
-      }
-      const fetchKeys = async () => {
-        try {
-          const res = await authFetch('/api/keys?t=' + Date.now());
-          const data = await res.json();
-          if (data.ERROR) {
-            alert("Errore critico dal backend nel leggere le chiavi: " + data.ERROR);
-          }
-          setSavedKeys(data);
-          setLastVaultSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
-          // PRE-POPULATE I CAMPI DI TESTO CON I PALLINI (o la stringa mascherata)
-          setApiKeys(prev => ({
-            ...prev,
-            alpaca_key: data.ALPACA_KEY || '',
-            alpaca_secret: data.ALPACA_SECRET || '',
-            elevenlabs_key: data.ELEVENLABS_KEY || '',
-            theodds_key: data.THEODDS_KEY || '',
-            groq_key: data.GROQ_KEY || '',
-            newsapi_key: data.NEWSAPI_KEY || '',
-            telegram_bot_token: data.TELEGRAM_BOT_TOKEN || '',
-            telegram_chat_id: data.TELEGRAM_CHAT_ID || '',
-            pushover_app_token: data.PUSHOVER_APP_TOKEN || '',
-            pushover_user_key: data.PUSHOVER_USER_KEY || '',
-            telegram_alerts_enabled: data.TELEGRAM_ALERTS_ENABLED ?? true,
-            pushover_alerts_enabled: data.PUSHOVER_ALERTS_ENABLED ?? true,
-            dynamic_atr_stop: data.DYNAMIC_ATR_STOP ?? true,
-            trailing_stop_base_pct: data.TRAILING_STOP_BASE_PCT ?? 2.5
-          }));
-        } catch(err) {
-          console.error("Error fetching keys", err);
-          alert("Errore di rete durante il caricamento delle chiavi dal Vault.");
-        }
-      };
-      fetchKeys();
+    if (!isAuthenticated || isDemoMode) {
+      if (isDemoMode) setSavedKeys({});
+      return;
     }
-  }, [activeTab, isDemoMode, developSection]);
+    refreshVaultKeys({ populateInputs: activeTab === 'develop', silent: activeTab !== 'develop' });
+  }, [isAuthenticated, isDemoMode, activeTab, refreshVaultKeys]);
 
   useEffect(() => {
     if (activeTab !== 'saas') return;
