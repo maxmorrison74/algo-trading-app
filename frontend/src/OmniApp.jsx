@@ -2159,6 +2159,7 @@ function OmniAppInner() {
   const [chartData, setChartData] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState(null);
   const [tradingViewFilter, setTradingViewFilter] = useState('all');
+  const [tradingAlerts, setTradingAlerts] = useState([]);
   const [aiIdea, setAiIdea] = useState(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
@@ -2235,6 +2236,7 @@ function OmniAppInner() {
       return true;
     });
   }, [status, tableDataBySymbol, tradingViewFilter]);
+  const readinessSnapshotRef = React.useRef({});
   const sortedSurebets = useMemo(
     () => [...(status.active_surebets || [])].sort((a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)),
     [status.active_surebets]
@@ -2616,6 +2618,65 @@ function OmniAppInner() {
     fetchChart();
     return () => controller.abort();
   }, [selectedSymbol, timeframe, activeTab]);
+
+  useEffect(() => {
+    const symbols = Array.isArray(status.symbols) ? status.symbols : [];
+    if (!symbols.length) return;
+
+    const nextSnapshot = {};
+    const newAlerts = [];
+
+    symbols.forEach((symbol) => {
+      const row = tableDataBySymbol[symbol];
+      const readiness = deriveEntryReadiness({ status, risk: status.risk, symbol, row });
+      const headline = deriveEntryHeadline(readiness);
+      const prev = readinessSnapshotRef.current[symbol];
+      nextSnapshot[symbol] = { score: readiness.score, label: headline.label };
+
+      if (!prev) return;
+
+      const becameReady = prev.score < 78 && readiness.score >= 78;
+      const recovered = prev.label === 'Frenato' && headline.label !== 'Frenato';
+      const becameBlocked = prev.label !== 'Frenato' && headline.label === 'Frenato';
+
+      if (becameReady) {
+        newAlerts.push({
+          id: `${symbol}-ready-${Date.now()}`,
+          symbol,
+          type: 'ready',
+          tone: '#10b981',
+          title: `${symbol} pronto`,
+          detail: headline.detail,
+          createdAt: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+        });
+      } else if (recovered) {
+        newAlerts.push({
+          id: `${symbol}-recovered-${Date.now()}`,
+          symbol,
+          type: 'recovered',
+          tone: '#38bdf8',
+          title: `${symbol} recupera trazione`,
+          detail: headline.detail,
+          createdAt: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+        });
+      } else if (becameBlocked) {
+        newAlerts.push({
+          id: `${symbol}-blocked-${Date.now()}`,
+          symbol,
+          type: 'blocked',
+          tone: '#ef4444',
+          title: `${symbol} frenato`,
+          detail: headline.detail,
+          createdAt: new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }),
+        });
+      }
+    });
+
+    readinessSnapshotRef.current = nextSnapshot;
+    if (newAlerts.length) {
+      setTradingAlerts((prev) => [...newAlerts, ...prev].slice(0, 12));
+    }
+  }, [status, tableDataBySymbol]);
 
   const completeAuthenticatedSession = (token, role = 'user', status = 'active') => {
     setIsAuthenticated(true);
@@ -3796,6 +3857,65 @@ function OmniAppInner() {
           </div>
         </div>
       )}
+
+      <div className="card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div>
+            <div className="card-title">🔔 Alert Center</div>
+            <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+              Movimenti recenti dei setup: chi diventa pronto, chi recupera, chi si blocca.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="badge badge-idle">{tradingAlerts.length} eventi</span>
+            {tradingAlerts.length > 0 && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setTradingAlerts([])}
+                style={{ background: 'rgba(255,255,255,0.06)' }}
+              >
+                Pulisci
+              </button>
+            )}
+          </div>
+        </div>
+        <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.65rem' }}>
+          {tradingAlerts.length ? tradingAlerts.map((alert) => (
+            <button
+              key={alert.id}
+              type="button"
+              onClick={() => setSelectedSymbol(alert.symbol)}
+              style={{
+                textAlign: 'left',
+                padding: '0.8rem 0.9rem',
+                borderRadius: '12px',
+                border: `1px solid ${alert.tone}44`,
+                background: 'rgba(0,0,0,0.16)',
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
+                  <span style={{ width: 9, height: 9, borderRadius: '50%', background: alert.tone, boxShadow: `0 0 12px ${alert.tone}` }}></span>
+                  <span style={{ color: alert.tone, fontWeight: 800 }}>{alert.title}</span>
+                  <span style={{ color: '#cbd5e1', fontSize: '0.78rem', padding: '0.16rem 0.45rem', borderRadius: '999px', background: 'rgba(255,255,255,0.06)' }}>
+                    {alert.symbol}
+                  </span>
+                </div>
+                <span style={{ color: 'var(--text-secondary)', fontSize: '0.76rem' }}>{alert.createdAt}</span>
+              </div>
+              <div style={{ color: '#94a3b8', fontSize: '0.82rem', marginTop: '0.35rem', lineHeight: 1.45 }}>
+                {alert.detail}
+              </div>
+            </button>
+          )) : (
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.88rem' }}>
+              Nessun cambio di stato rilevato in questa sessione. Gli alert compariranno quando un simbolo passa a pronto, recupera o si blocca.
+            </div>
+          )}
+        </div>
+      </div>
 
       <div className="card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
