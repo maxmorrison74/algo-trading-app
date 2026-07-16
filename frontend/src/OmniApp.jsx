@@ -3883,6 +3883,15 @@ function OmniAppInner() {
     const runtimeStatus = String(status.runtime_health?.status || (isBackendOnline ? 'green' : 'red')).toLowerCase();
     const runtimeTone = runtimeStatus === 'green' ? '#10b981' : runtimeStatus === 'yellow' ? '#f59e0b' : '#ef4444';
     const riskStatusLabel = status.risk?.enabled === false ? 'Risk OFF' : status.risk?.can_trade === false ? 'Risk in blocco' : 'Risk pronto';
+    const healthSnapshot = deriveSystemHealthSnapshot({ status, risk: status.risk || {}, savedKeys, isBackendOnline, cryptoEngine });
+    const alertArmed = hasArmedAlertChannel(savedKeys);
+    const marketTone = status.market_open ? '#10b981' : '#f59e0b';
+    const heroBadges = [
+      { label: `Runtime ${runtimeStatus.toUpperCase()}`, tone: runtimeTone, bg: `${runtimeTone}14` },
+      { label: status.market_open ? 'Mercato aperto' : 'Mercato chiuso', tone: marketTone, bg: `${marketTone}14` },
+      { label: alertArmed ? 'Alert armati' : 'Alert da armare', tone: alertArmed ? '#10b981' : '#f59e0b', bg: `${alertArmed ? '#10b981' : '#f59e0b'}14` },
+      { label: `Health ${healthSnapshot.score}/100`, tone: healthSnapshot.tone, bg: `${healthSnapshot.tone}14` },
+    ];
     const executiveCards = [
       {
         label: 'Capitale live',
@@ -3909,6 +3918,46 @@ function OmniAppInner() {
         tone: status.risk?.enabled === false ? '#ef4444' : status.risk?.can_trade === false ? '#f59e0b' : '#38bdf8',
       },
     ];
+    const spotlightItems = [
+      {
+        title: 'Missione corrente',
+        tone: runtimeTone,
+        text: status.risk?.can_trade === false
+          ? (status.risk?.reason || 'Il risk engine sta proteggendo il capitale e blocca nuovi ingressi.')
+          : `Aureo sta monitorando ${status.symbols?.[0] || 'la watchlist'} per il prossimo ingresso ad alta qualità.`,
+      },
+      {
+        title: 'Postura operativa',
+        tone: '#38bdf8',
+        text: status.alpaca_connected === false
+          ? 'Broker non collegato: il sistema è in vetrina ma non ancora pronto a eseguire davvero.'
+          : `${status.alpaca_info?.type || 'PAPER'} mode attiva · ${status.risk?.open_positions || 0} posizioni aperte · ${status.risk?.positions_remaining || 0} slot residui.`,
+      },
+      {
+        title: 'Alert esterni',
+        tone: alertArmed ? '#10b981' : '#f59e0b',
+        text: alertArmed
+          ? 'I canali esterni sono pronti: puoi ricevere eventi critici anche fuori dalla piattaforma.'
+          : 'Manca ancora un canale alert pienamente armato per il monitoraggio fuori piattaforma.',
+      },
+    ];
+    const priorityItems = [
+      {
+        title: 'Trading engine',
+        detail: status.modules?.trading ? 'Attivo: il motore sta scandagliando i mercati.' : 'In pausa: riattivalo per generare nuovi setup.',
+        tone: status.modules?.trading ? '#10b981' : '#94a3b8',
+      },
+      {
+        title: 'Runtime & sicurezza',
+        detail: status.runtime_health?.summary || (isBackendOnline ? 'Telemetria attiva e sotto controllo.' : 'Serve riallineare il backend.'),
+        tone: runtimeTone,
+      },
+      {
+        title: 'Capacità residua',
+        detail: `${status.risk?.positions_remaining || 0} slot ancora disponibili prima del limite operativo.`,
+        tone: (status.risk?.positions_remaining || 0) > 1 ? '#38bdf8' : '#f59e0b',
+      },
+    ];
     
     const pieData = [
       { name: 'Liquidità', value: virtualCash, color: 'var(--text-secondary)' },
@@ -3933,10 +3982,29 @@ function OmniAppInner() {
         )}
 
         {/* Big Number */}
-        <div className="hero-summary" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(0,0,0,0) 100%)', padding: '3rem', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.3)', textAlign: 'center', marginBottom: '2rem' }}>
-          <div className="hero-summary-label" style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', marginBottom: '1rem' }}>Net Worth Totale Stimato</div>
-          <div className="hero-summary-value" style={{ fontSize: '4.5rem', fontWeight: 'bold', color: '#10b981', textShadow: '0 0 20px rgba(16, 185, 129, 0.4)' }}>
-            ${totalWorth.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+        <div className="hero-summary home-hero-card" style={{ background: 'linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(0,0,0,0) 100%)', padding: '3rem', borderRadius: '16px', border: '1px solid rgba(16, 185, 129, 0.3)', marginBottom: '2rem' }}>
+          <div className="home-hero-top">
+            <div>
+              <div className="hero-summary-label" style={{ color: 'var(--text-secondary)', fontSize: '1.2rem', marginBottom: '1rem' }}>Net Worth Totale Stimato</div>
+              <div className="hero-summary-value" style={{ fontSize: '4.5rem', fontWeight: 'bold', color: '#10b981', textShadow: '0 0 20px rgba(16, 185, 129, 0.4)' }}>
+                ${totalWorth.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}
+              </div>
+            </div>
+            <div className="home-hero-badges">
+              {heroBadges.map((badge) => (
+                <div key={badge.label} className="badge" style={{ color: badge.tone, borderColor: `${badge.tone}55`, background: badge.bg }}>
+                  {badge.label}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="home-hero-strip">
+            {spotlightItems.map((item) => (
+              <div key={item.title} className="home-hero-spotlight" style={{ borderColor: `${item.tone}33` }}>
+                <span>{item.title}</span>
+                <strong style={{ color: item.tone }}>{item.text}</strong>
+              </div>
+            ))}
           </div>
         </div>
 
@@ -3960,32 +4028,14 @@ function OmniAppInner() {
           <div className="card col-span-6 home-overview-card" style={{ background: 'rgba(255,255,255,0.025)' }}>
             <h3 className="card-title" style={{ marginBottom: '1rem' }}>🧭 Executive Overview</h3>
             <div style={{ display: 'grid', gap: '0.75rem' }}>
-              <div style={{ padding: '0.95rem', borderRadius: '12px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${runtimeTone}33` }}>
-                <div style={{ color: runtimeTone, fontWeight: 800, marginBottom: '0.3rem' }}>
-                  {status.runtime_health?.summary || (isBackendOnline ? 'Runtime operativo' : 'Backend offline')}
+              {spotlightItems.map((item) => (
+                <div key={item.title} style={{ padding: '0.95rem', borderRadius: '12px', background: 'rgba(0,0,0,0.2)', border: `1px solid ${item.tone}33` }}>
+                  <div style={{ color: item.tone, fontWeight: 800, marginBottom: '0.3rem' }}>{item.title}</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.45 }}>
+                    {item.text}
+                  </div>
                 </div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.45 }}>
-                  {status.modules?.trading
-                    ? 'Scanner trading acceso e pronto a cercare nuove opportunità.'
-                    : 'Scanner trading fermo: nessun nuovo setup finché non lo riattivi.'}
-                </div>
-              </div>
-              <div style={{ padding: '0.95rem', borderRadius: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(56,189,248,0.2)' }}>
-                <div style={{ color: '#38bdf8', fontWeight: 800, marginBottom: '0.3rem' }}>Cosa conta adesso</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.45 }}>
-                  {status.risk?.can_trade === false
-                    ? (status.risk?.reason || 'Il risk engine sta limitando nuove aperture.')
-                    : `Focus su ${status.symbols?.[0] || 'watchlist'} e controllo continuo delle opportunità più vicine all’ingresso.`}
-                </div>
-              </div>
-              <div style={{ padding: '0.95rem', borderRadius: '12px', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(16,185,129,0.2)' }}>
-                <div style={{ color: '#10b981', fontWeight: 800, marginBottom: '0.3rem' }}>Postura del sistema</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.45 }}>
-                  {status.alpaca_connected === false
-                    ? 'Broker non collegato: Aureo può mostrare la control room ma non lavorare davvero sui mercati.'
-                    : `${status.alpaca_info?.type || 'PAPER'} mode attiva · ${status.risk?.open_positions || 0} posizioni aperte · ${status.risk?.positions_remaining || 0} slot residui.`}
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
@@ -4034,26 +4084,14 @@ function OmniAppInner() {
           <div className="card col-span-6 home-priority-card">
             <h3 className="card-title" style={{ marginBottom: '1rem' }}>🎯 Priorità operative</h3>
             <div style={{ display: 'grid', gap: '0.65rem' }}>
-              <div style={{ padding: '0.85rem', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ color: '#f8fafc', fontWeight: 700, marginBottom: '0.2rem' }}>Trading engine</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                  {status.modules?.trading ? 'Attivo: il motore sta scandagliando i mercati.' : 'In pausa: riattivalo per generare nuovi setup.'}
+              {priorityItems.map((item) => (
+                <div key={item.title} style={{ padding: '0.85rem', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${item.tone}22` }}>
+                  <div style={{ color: item.tone, fontWeight: 700, marginBottom: '0.2rem' }}>{item.title}</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
+                    {item.detail}
+                  </div>
                 </div>
-              </div>
-              <div style={{ padding: '0.85rem', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ color: '#f8fafc', fontWeight: 700, marginBottom: '0.2rem' }}>Alert & monitoraggio</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                  {savedKeys.PUSHOVER_APP_TOKEN || savedKeys.TELEGRAM_BOT_TOKEN
-                    ? 'Canali alert presenti: puoi ricevere segnali critici fuori dalla piattaforma.'
-                    : 'Manca almeno un canale alert ben armato per il monitoraggio fuori piattaforma.'}
-                </div>
-              </div>
-              <div style={{ padding: '0.85rem', borderRadius: '10px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
-                <div style={{ color: '#f8fafc', fontWeight: 700, marginBottom: '0.2rem' }}>Capacità residua</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>
-                  {status.risk?.positions_remaining || 0} slot ancora disponibili prima del limite operativo.
-                </div>
-              </div>
+              ))}
             </div>
           </div>
         </div>
