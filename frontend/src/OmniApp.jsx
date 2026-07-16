@@ -3443,20 +3443,84 @@ function OmniAppInner() {
       },
     ];
 
+    const readyCount = platforms.filter((platform) => platform.keyPresent).length;
+    const guideCards = [
+      {
+        label: 'Connessioni pronte',
+        value: `${readyCount}/${platforms.length}`,
+        detail: readyCount === platforms.length ? 'Base operativa completa.' : 'Completa i collegamenti per sbloccare tutto il potenziale.',
+        tone: readyCount === platforms.length ? '#10b981' : '#f59e0b',
+      },
+      {
+        label: 'Primo step consigliato',
+        value: 'Groq AI',
+        detail: 'Gratis, rapido e utile per arricchire subito i segnali.',
+        tone: '#10b981',
+      },
+      {
+        label: 'Secondo step',
+        value: 'Alpaca Paper',
+        detail: 'Ti fa testare Aureo sui mercati senza rischio reale.',
+        tone: '#38bdf8',
+      },
+      {
+        label: 'Destinazione finale',
+        value: 'Security Vault',
+        detail: 'Tutte le chiavi vanno inserite e testate lì.',
+        tone: '#a78bfa',
+      },
+    ];
+
     return (
-      <div className="module-content">
-        <div className="header" style={{ marginBottom: '2rem' }}>
-          <h2>📖 Guida Setup – Come Configurare Aureo OS</h2>
-          <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', lineHeight: 1.6 }}>
-            Segui questi passaggi per connettere i tuoi account ai mercati reali. Puoi configurare solo le piattaforme che vuoi usare.
+      <div className="module-content module-content--guide">
+        <div className="card guide-hero-card" style={{ marginBottom: '1.6rem' }}>
+          <div className="guide-hero-top">
+            <div>
+              <h2 style={{ margin: 0 }}>📖 Setup Guide</h2>
+              <div className="guide-hero-subtitle">
+                Segui questi passaggi per connettere Aureo ai mercati reali. Parti dal gratuito, valida il flusso, poi collega il broker.
+              </div>
+            </div>
+            <div className="guide-hero-badges">
+              <div className={`badge ${readyCount === platforms.length ? 'badge-active' : 'badge-gold'}`}>
+                {readyCount === platforms.length ? 'Setup completo' : 'Setup in corso'}
+              </div>
+              <div className="badge badge-ai">Percorso guidato</div>
+            </div>
+          </div>
+
+          <div className="guide-summary-grid">
+            {guideCards.map((card) => (
+              <div key={card.label} className="guide-summary-card" style={{ borderColor: `${card.tone}33` }}>
+                <span>{card.label}</span>
+                <strong style={{ color: card.tone }}>{card.value}</strong>
+                <small>{card.detail}</small>
+              </div>
+            ))}
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(480px, 1fr))', gap: '1.5rem' }}>
+        <div className="card guide-order-card" style={{ marginBottom: '1.6rem' }}>
+          <h3 style={{ color: '#10b981', marginBottom: '0.8rem' }}>✅ Ordine consigliato per iniziare</h3>
+          <div className="guide-order-grid">
+            {[
+              { n: 1, icon: '🤖', name: 'Groq AI', desc: 'Prima cosa — gratuito e immediato' },
+              { n: 2, icon: '🦙', name: 'Alpaca Paper', desc: 'Paper trading gratuito — zero rischi' },
+              { n: 3, icon: '🔐', name: 'Security Vault', desc: 'Inserisci, testa e salva le chiavi' },
+            ].map(item => (
+              <div key={item.n} className="guide-order-tile">
+                <div style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>{item.icon}</div>
+                <div style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.95rem' }}>Step {item.n}: {item.name}</div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.3rem', lineHeight: 1.45 }}>{item.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="guide-platform-grid">
           {platforms.map(platform => (
-            <div key={platform.id} className="card" style={{ border: `1px solid ${platform.border}`, background: platform.bg, padding: '1.5rem' }}>
-              {/* Header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1.2rem' }}>
+            <div key={platform.id} className="card guide-platform-card" style={{ border: `1px solid ${platform.border}`, background: platform.bg, padding: '1.5rem' }}>
+              <div className="guide-platform-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                   <span style={{ fontSize: '2rem' }}>{platform.icon}</span>
                   <div>
@@ -3475,10 +3539,9 @@ function OmniAppInner() {
                 </div>
               </div>
 
-              {/* Steps */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', marginBottom: '1rem' }}>
+              <div className="guide-step-stack">
                 {platform.steps.map(step => (
-                  <div key={step.n} style={{ display: 'flex', gap: '0.8rem', alignItems: 'flex-start' }}>
+                  <div key={step.n} className="guide-step-row">
                     <span style={{ minWidth: '24px', height: '24px', borderRadius: '50%', background: platform.color, color: '#000', fontWeight: 700, fontSize: '0.75rem', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: '1px' }}>
                       {step.n}
                     </span>
@@ -3487,12 +3550,10 @@ function OmniAppInner() {
                 ))}
               </div>
 
-              {/* Note */}
-              <div style={{ background: 'rgba(0,0,0,0.2)', borderRadius: '8px', padding: '0.7rem 1rem', fontSize: '0.82rem', color: '#94a3b8', lineHeight: 1.5, marginBottom: '1rem' }}>
+              <div className="guide-note-box">
                 💡 {platform.note}
               </div>
 
-              {/* CTA */}
               <button
                 className="btn btn-outline"
                 onClick={() => openDevelopSection('security')}
@@ -3502,23 +3563,6 @@ function OmniAppInner() {
               </button>
             </div>
           ))}
-        </div>
-
-        {/* Bottom tip */}
-        <div className="card" style={{ marginTop: '2rem', background: 'rgba(16,185,129,0.05)', border: '1px solid rgba(16,185,129,0.2)', padding: '1.5rem' }}>
-          <h3 style={{ color: '#10b981', marginBottom: '0.8rem' }}>✅ Ordine consigliato per iniziare</h3>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1rem' }}>
-            {[
-              { n: 1, icon: '🤖', name: 'Groq AI', desc: 'Prima cosa — gratuito e immediato' },
-              { n: 2, icon: '🦙', name: 'Alpaca', desc: 'Paper trading gratuito — zero rischi' },
-            ].map(item => (
-              <div key={item.n} style={{ textAlign: 'center', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px' }}>
-                <div style={{ fontSize: '1.8rem', marginBottom: '0.4rem' }}>{item.icon}</div>
-                <div style={{ color: '#e2e8f0', fontWeight: 600, fontSize: '0.9rem' }}>Step {item.n}: {item.name}</div>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '0.3rem' }}>{item.desc}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
     );
