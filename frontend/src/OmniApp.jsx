@@ -635,6 +635,46 @@ const deriveEntryReadiness = ({ status = {}, risk = {}, symbol = '', row = null 
   };
 };
 
+const deriveEntryHeadline = (readiness) => {
+  if (!readiness) {
+    return {
+      label: 'Nessun contesto',
+      detail: 'Seleziona un simbolo per leggere il contesto operativo.',
+      tone: '#64748b',
+      bg: 'rgba(100,116,139,0.14)',
+      border: 'rgba(100,116,139,0.35)',
+    };
+  }
+
+  if (readiness.blockers?.length) {
+    return {
+      label: 'Frenato',
+      detail: readiness.blockers[0],
+      tone: '#ef4444',
+      bg: 'rgba(239,68,68,0.14)',
+      border: 'rgba(239,68,68,0.35)',
+    };
+  }
+
+  if (readiness.watchItems?.length) {
+    return {
+      label: 'In maturazione',
+      detail: readiness.watchItems[0],
+      tone: '#f59e0b',
+      bg: 'rgba(245,158,11,0.14)',
+      border: 'rgba(245,158,11,0.35)',
+    };
+  }
+
+  return {
+    label: 'Pronto',
+    detail: readiness.greenLights?.[0] || 'Setup pulito: manca solo il momento esecutivo.',
+    tone: '#10b981',
+    bg: 'rgba(16,185,129,0.14)',
+    border: 'rgba(16,185,129,0.35)',
+  };
+};
+
 const SymbolTabButton = ({ sym, selected, onClick, cryptoState }) => (
   <button
     className={`tab-btn ${selected ? 'active-tab' : ''}`}
@@ -3519,6 +3559,39 @@ function OmniAppInner() {
         <EntryReadinessCard readiness={entryReadiness} symbol={selectedSymbol} />
       </div>
 
+      {selectedSymbol && (
+        <div
+          className="card"
+          style={{
+            marginTop: '1rem',
+            border: `1px solid ${deriveEntryHeadline(entryReadiness).border}`,
+            background: deriveEntryHeadline(entryReadiness).bg,
+          }}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div>
+              <div className="card-title">🎯 Focus su {selectedSymbol}</div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Sintesi rapida di cosa sta trattenendo o favorendo il prossimo ingresso.
+              </div>
+            </div>
+            <div
+              className="badge"
+              style={{
+                color: deriveEntryHeadline(entryReadiness).tone,
+                borderColor: deriveEntryHeadline(entryReadiness).border,
+                background: 'rgba(0,0,0,0.18)',
+              }}
+            >
+              {deriveEntryHeadline(entryReadiness).label} · {entryReadiness.score}/100
+            </div>
+          </div>
+          <div style={{ marginTop: '0.9rem', color: '#e2e8f0', fontSize: '0.95rem', lineHeight: 1.5 }}>
+            {deriveEntryHeadline(entryReadiness).detail}
+          </div>
+        </div>
+      )}
+
       {cryptoEngine.level !== 'hidden' && (
         <div
           className="card trading-crypto-engine-card"
@@ -3912,6 +3985,8 @@ function OmniAppInner() {
             positionsEntries.map(([sym, p]) => {
               const symbolTableRow = tableDataBySymbol[sym];
               const cryptoState = cryptoSymbolStateMap[sym];
+              const symbolReadiness = deriveEntryReadiness({ status, risk: status.risk, symbol: sym, row: symbolTableRow });
+              const symbolHeadline = deriveEntryHeadline(symbolReadiness);
               return <div key={sym} style={{ display: 'flex', flexDirection: 'column', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', marginBottom: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontWeight: 'bold' }}>
@@ -3939,13 +4014,32 @@ function OmniAppInner() {
                     )}
                   </span>
                   {p === "LIQUID" ? (
-                    <span style={{ color: 'var(--text-secondary)' }}>IN ATTESA</span>
+                    <span
+                      style={{
+                        color: symbolHeadline.tone,
+                        border: `1px solid ${symbolHeadline.border}`,
+                        background: symbolHeadline.bg,
+                        padding: '0.2rem 0.55rem',
+                        borderRadius: '999px',
+                        fontSize: '0.74rem',
+                        fontWeight: 800,
+                        letterSpacing: '0.04em',
+                      }}
+                      title={symbolHeadline.detail}
+                    >
+                      {symbolHeadline.label} · {symbolReadiness.score}
+                    </span>
                   ) : (
                     <span style={{ color: p.unrealized_pl >= 0 ? '#10b981' : '#ef4444' }}>
                       {p.unrealized_pl >= 0 ? '+' : ''}{Number(p.unrealized_pl || 0).toFixed(2)}$ ({Number(p.unrealized_plpc || 0).toFixed(2)}%)
                     </span>
                   )}
                 </div>
+                {p === "LIQUID" && (
+                  <div style={{ marginBottom: '0.45rem', color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.45 }}>
+                    {symbolHeadline.detail}
+                  </div>
+                )}
                 {/* AI Sentiment Integration */}
                 {symbolTableRow && (
                   <div style={{ fontSize: '0.8rem', marginTop: '0.4rem', display: 'flex', flexDirection: 'column', gap: '0.2rem', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '0.4rem' }}>
