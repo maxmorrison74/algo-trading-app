@@ -1834,7 +1834,7 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
   );
 };
 
-function OmniApp() {
+function OmniAppInner() {
   const [status, setStatus] = useState({});
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -5421,7 +5421,7 @@ function OmniApp() {
 
   // --- INTERFACCIA AUTENTICATA (ADMIN O USER ATTIVO) ---
   return (
-  <ErrorBoundary>
+    <>
     <div className="omni-app">
       <div className="sidebar">
         <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -5718,8 +5718,14 @@ function OmniApp() {
         </div>
       </div>
     )}
-  </ErrorBoundary>
+    </>
   );
 }
 
-export default OmniApp;
+export default function OmniApp() {
+  return (
+    <ErrorBoundary>
+      <OmniAppInner />
+    </ErrorBoundary>
+  );
+}
