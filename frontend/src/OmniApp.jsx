@@ -2049,55 +2049,76 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
 };
 
 const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, developSection, setDevelopSection, renderSettingsView, renderGuideView }) => {
-  const opsActionPlan = deriveOpsActionPlan({ status, risk: status?.risk || {}, savedKeys, isBackendOnline });
+  const risk = status?.risk || {};
+  const runtimeHealth = status?.runtime_health || {};
+  const cryptoEngine = deriveCryptoEngineState(status);
+  const opsActionPlan = deriveOpsActionPlan({ status, risk, savedKeys, isBackendOnline });
+  const systemHealthSnapshot = deriveSystemHealthSnapshot({ status, risk, savedKeys, isBackendOnline, cryptoEngine });
+  const alertArmed = hasArmedAlertChannel(savedKeys);
+  const channelSummary = [
+    savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY'] && savedKeys['PUSHOVER_ALERTS_ENABLED'] !== false ? 'Pushover live' : null,
+    savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID'] && savedKeys['TELEGRAM_ALERTS_ENABLED'] !== false ? 'Telegram live' : null,
+  ].filter(Boolean);
+  const runtimeTone = runtimeHealth?.status === 'red' ? '#ef4444' : runtimeHealth?.status === 'yellow' ? '#f59e0b' : '#10b981';
+  const activeSectionLabel = developSection === 'health' ? 'Health Console' : developSection === 'security' ? 'Security Vault' : 'Setup Guide';
 
   return (
-  <div className="module-content">
-    <div className="header" style={{ marginBottom: '2rem' }}>
-      <h2>⚙️ Engine Room</h2>
-      <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
-        Cabina di controllo interna per runtime, alert, sicurezza operativa e setup dell’infrastruttura Aureo.
+  <div className="module-content module-content--develop">
+    <div className="card develop-hero-card" style={{ marginBottom: '1.6rem' }}>
+      <div className="develop-hero-top">
+        <div>
+          <h2 style={{ margin: 0 }}>⚙️ Engine Room</h2>
+          <div className="develop-hero-subtitle">
+            Cabina di controllo interna per runtime, alert, sicurezza operativa e setup dell’infrastruttura Aureo.
+          </div>
+        </div>
+        <div className="develop-hero-badges">
+          <div className="badge" style={{ borderColor: `${systemHealthSnapshot.tone}55`, color: systemHealthSnapshot.tone, background: `${systemHealthSnapshot.tone}12` }}>
+            Health {systemHealthSnapshot.score}/100
+          </div>
+          <div className={`badge ${isBackendOnline ? 'badge-active' : 'badge-danger'}`}>
+            {isBackendOnline ? 'Backend online' : 'Backend offline'}
+          </div>
+        </div>
+      </div>
+
+      <div className="develop-summary-grid">
+        <div className="develop-summary-card" style={{ borderColor: `${runtimeTone}33` }}>
+          <span>Runtime</span>
+          <strong style={{ color: runtimeTone }}>{(runtimeHealth?.status || 'green').toUpperCase()}</strong>
+          <small>{runtimeHealth?.summary || 'Nessun riepilogo runtime disponibile.'}</small>
+        </div>
+        <div className="develop-summary-card" style={{ borderColor: `${alertArmed ? '#10b981' : '#f59e0b'}33` }}>
+          <span>Canali alert</span>
+          <strong style={{ color: alertArmed ? '#10b981' : '#f59e0b' }}>{alertArmed ? 'Armati' : 'Da armare'}</strong>
+          <small>{channelSummary.length ? channelSummary.join(' · ') : 'Serve almeno un canale attivo per gli eventi critici.'}</small>
+        </div>
+        <div className="develop-summary-card" style={{ borderColor: `${cryptoEngine?.tone || '#a78bfa'}33` }}>
+          <span>Crypto engine</span>
+          <strong style={{ color: cryptoEngine?.tone || '#a78bfa' }}>{cryptoEngine?.badge || 'SYNC'}</strong>
+          <small>{cryptoEngine?.subtitle || 'Nessun dato crypto disponibile.'}</small>
+        </div>
+        <div className="develop-summary-card" style={{ borderColor: 'rgba(167, 139, 250, 0.28)' }}>
+          <span>Sezione attiva</span>
+          <strong style={{ color: '#f8fafc' }}>{activeSectionLabel}</strong>
+          <small>Ultimo sync Vault: {lastVaultSync || 'non ancora sincronizzato'}</small>
+        </div>
       </div>
     </div>
 
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem', marginBottom: '1.4rem' }}>
-      <div style={{ padding: '0.95rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
-        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Runtime</div>
-        <div style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 800 }}>{(status?.runtime_health?.status || 'green').toUpperCase()}</div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '0.35rem' }}>{status?.runtime_health?.summary || 'Nessun riepilogo runtime disponibile.'}</div>
-      </div>
-      <div style={{ padding: '0.95rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
-        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Canali alert</div>
-        <div style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 800 }}>
-          {savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY'] ? 'Pushover OK' : 'Pushover da verificare'}
-        </div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '0.35rem' }}>
-          {savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID'] ? 'Telegram armato' : 'Telegram opzionale o incompleto'}
-        </div>
-      </div>
-      <div style={{ padding: '0.95rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(167, 139, 250, 0.2)' }}>
-        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Sezione attiva</div>
-        <div style={{ color: '#f8fafc', fontSize: '1rem', fontWeight: 800 }}>
-          {developSection === 'health' ? 'Health Console' : developSection === 'security' ? 'Security Vault' : 'Setup Guide'}
-        </div>
-        <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '0.35rem' }}>
-          Ultimo sync Vault: {lastVaultSync || 'non ancora sincronizzato'}
-        </div>
-      </div>
-    </div>
-
-    <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
+    <div className="develop-tabbar">
       {[
-        { id: 'health', label: 'Health Console' },
-        { id: 'security', label: 'Security Vault' },
-        { id: 'guide', label: 'Setup Guide' },
+        { id: 'health', label: 'Health Console', note: 'Runtime, watchdog e alert' },
+        { id: 'security', label: 'Security Vault', note: 'Chiavi, switch e canali' },
+        { id: 'guide', label: 'Setup Guide', note: 'Checklist e messa in opera' },
       ].map((item) => (
         <button
           key={item.id}
-          className={`tab-btn ${developSection === item.id ? 'active-tab' : ''}`}
+          className={`develop-tab ${developSection === item.id ? 'is-active' : ''}`}
           onClick={() => setDevelopSection(item.id)}
         >
-          {item.label}
+          <strong>{item.label}</strong>
+          <span>{item.note}</span>
         </button>
       ))}
     </div>
@@ -2105,15 +2126,21 @@ const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, develo
     {developSection === 'health' && (
       <>
         <div className="dashboard-grid">
-          <RuntimeHealthCard runtimeHealth={status.runtime_health} isBackendOnline={isBackendOnline} />
+          <EnginePulseCard status={status} risk={risk} cryptoEngine={cryptoEngine} />
+        </div>
+        <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
+          <SystemHealthCard snapshot={systemHealthSnapshot} />
+          <div className="col-span-8">
+            <RuntimeHealthCard runtimeHealth={runtimeHealth} isBackendOnline={isBackendOnline} />
+          </div>
         </div>
         <OpsActionCard actions={opsActionPlan} />
-        <AlertReadinessCard savedKeys={savedKeys} runtimeHealth={status.runtime_health} lastVaultSync={lastVaultSync} />
-        <div className="card" style={{ marginTop: '1.5rem' }}>
-          <div className="card-title">Perché è qui</div>
-          <div style={{ color: 'var(--text-secondary)', lineHeight: 1.6 }}>
-            Runtime Health è utile per controllo e debugging, ma non serve stare in primo piano durante l’uso operativo quotidiano.
-            Qui concentriamo il lato infrastrutturale: heartbeat, reconnect, alert, canali di emergenza e stato dei watchdog.
+        <AlertReadinessCard savedKeys={savedKeys} runtimeHealth={runtimeHealth} lastVaultSync={lastVaultSync} />
+        <div className="card develop-explainer-card" style={{ marginTop: '1.5rem' }}>
+          <div className="card-title">Perché questa sezione conta</div>
+          <div style={{ color: 'var(--text-secondary)', lineHeight: 1.65 }}>
+            Qui vivono heartbeat, reconnect, auto-pause, alert di emergenza e salute dei watchdog. In pratica:
+            è il posto giusto da controllare quando vuoi lasciare Aureo girare da solo con più serenità.
           </div>
         </div>
       </>
