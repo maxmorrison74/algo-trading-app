@@ -6,6 +6,7 @@ const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
 const DEMO_MODE_KEY = 'omni_demo_mode';
 const BILLING_ENABLED = true;
+const SYMBOL_REVIEW_HASH_PREFIX = '#review=';
 const TAB_TITLES = {
   home: 'Dashboard',
   trading: 'Stock Market',
@@ -106,6 +107,17 @@ const parseJsonSafely = async (response, fallback = null) => {
 };
 
 const asObject = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
+const sanitizeSymbolCode = (value = '') => String(value || '').trim().toUpperCase();
+const buildSymbolReviewHash = (symbol = '') => `${SYMBOL_REVIEW_HASH_PREFIX}${encodeURIComponent(sanitizeSymbolCode(symbol))}`;
+const getSymbolFromHash = (hash = '') => {
+  const value = String(hash || '').trim();
+  if (!value.startsWith(SYMBOL_REVIEW_HASH_PREFIX)) return '';
+  try {
+    return sanitizeSymbolCode(decodeURIComponent(value.slice(SYMBOL_REVIEW_HASH_PREFIX.length)));
+  } catch {
+    return sanitizeSymbolCode(value.slice(SYMBOL_REVIEW_HASH_PREFIX.length));
+  }
+};
 
 const getAuthToken = () => safeStorageGet(AUTH_TOKEN_KEY, '');
 const isDemoSession = () => safeStorageGet(DEMO_MODE_KEY, '') === '1';
@@ -2649,8 +2661,9 @@ function OmniAppInner() {
     setActiveTab('develop');
   };
   const openSymbolReview = React.useCallback((symbol, returnTab = activeTab) => {
-    if (!symbol) return;
-    setSelectedSymbol(symbol);
+    const safeSymbol = sanitizeSymbolCode(symbol);
+    if (!safeSymbol) return;
+    setSelectedSymbol(safeSymbol);
     if (returnTab && returnTab !== 'symbol_review') {
       setSymbolReviewReturnTab(returnTab);
     }
@@ -2680,6 +2693,37 @@ function OmniAppInner() {
       setActiveTab('home');
     }
   }, [activeTab, userRole]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncFromHash = () => {
+      const hashSymbol = getSymbolFromHash(window.location.hash);
+      if (hashSymbol) {
+        setSelectedSymbol(hashSymbol);
+        setActiveTab('symbol_review');
+      }
+    };
+    syncFromHash();
+    window.addEventListener('hashchange', syncFromHash);
+    return () => window.removeEventListener('hashchange', syncFromHash);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const nextHash = activeTab === 'symbol_review' && selectedSymbol
+      ? buildSymbolReviewHash(selectedSymbol)
+      : '';
+    if (nextHash) {
+      if (window.location.hash !== nextHash) {
+        window.history.replaceState(null, '', nextHash);
+      }
+      return;
+    }
+    if (window.location.hash.startsWith(SYMBOL_REVIEW_HASH_PREFIX)) {
+      const cleanUrl = `${window.location.pathname}${window.location.search}`;
+      window.history.replaceState(null, '', cleanUrl);
+    }
+  }, [activeTab, selectedSymbol]);
 
   useEffect(() => {
     const supported = typeof window !== 'undefined' && !!window.PublicKeyCredential && !!navigator.credentials;
@@ -2724,7 +2768,11 @@ function OmniAppInner() {
           setIsBackendOnline(true);
           setLastStatusSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }));
           if (data.symbols && data.symbols.length > 0) {
-            setSelectedSymbol(prev => (prev && data.symbols.includes(prev) ? prev : data.symbols[0]));
+            setSelectedSymbol(prev => {
+              const hashSymbol = typeof window !== 'undefined' ? getSymbolFromHash(window.location.hash) : '';
+              if (hashSymbol && data.symbols.includes(hashSymbol)) return hashSymbol;
+              return prev && data.symbols.includes(prev) ? prev : data.symbols[0];
+            });
           }
         }
       } catch (err) {
@@ -4150,6 +4198,24 @@ function OmniAppInner() {
     const headline = deriveEntryHeadline(entryReadiness);
     const currentRow = tableDataBySymbol[selectedSymbol] || null;
     const currentPosition = status.positions?.[selectedSymbol];
+    const safeSymbols = Array.isArray(status.symbols) ? status.symbols : [];
+    const symbolIndex = safeSymbols.indexOf(selectedSymbol);
+    const prevSymbol = symbolIndex > 0 ? safeSymbols[symbolIndex - 1] : null;
+    const nextSymbol = symbolIndex >= 0 && symbolIndex < safeSymbols.length - 1 ? safeSymbols[symbolIndex + 1] : null;
+    const relatedSymbols = safeSymbols.filter((symbol) => symbol !== selectedSymbol).slice(0, 5);
+    const actionHeadline = currentPosition && currentPosition !== 'LIQUID'
+      ? 'Posizione già aperta: qui la priorità è gestione, non ingresso.'
+      : entryReadiness.score >= 78
+        ? 'Setup vicino all’ingresso: il simbolo è maturo per una lettura finale.'
+        : entryReadiness.score >= 58
+          ? 'Simbolo in maturazione: serve ancora conferma prima di forzare un trade.'
+          : 'Setup frenato: meglio aspettare che il quadro si riallinei.';
+    const convictionTone = entryReadiness.score >= 78 ? '#10b981' : entryReadiness.score >= 58 ? '#38bdf8' : '#f59e0b';
+    const symbolStatusKpis = [
+      { label: 'Green lights', value: entryReadiness.greenLights.length, tone: '#10b981' },
+      { label: 'Watch items', value: entryReadiness.watchItems.length, tone: '#38bdf8' },
+      { label: 'Blockers', value: entryReadiness.blockers.length, tone: '#f59e0b' },
+    ];
     const reviewMetrics = [
       { label: 'Readiness', value: `${entryReadiness.score}/100`, tone: headline.tone },
       { label: 'Sentiment', value: symbolDrilldown.sentiment || 'NEUTRAL', tone: symbolDrilldown.sentiment === 'BULLISH' ? '#10b981' : symbolDrilldown.sentiment === 'BEARISH' ? '#ef4444' : '#94a3b8' },
@@ -4202,6 +4268,49 @@ function OmniAppInner() {
                 <strong style={{ color: item.tone }}>{item.value}</strong>
               </div>
             ))}
+          </div>
+        </div>
+
+        <div className="dashboard-grid" style={{ marginBottom: '1.2rem' }}>
+          <div className="card col-span-8 symbol-review-card">
+            <div className="card-title">Decision compass</div>
+            <div style={{ color: convictionTone, fontSize: '1.08rem', fontWeight: 800, marginTop: '0.55rem', marginBottom: '0.5rem' }}>
+              {actionHeadline}
+            </div>
+            <div style={{ color: 'var(--text-secondary)', lineHeight: 1.55 }}>
+              {headline.detail}
+            </div>
+            <div className="symbol-review-metrics" style={{ marginTop: '1rem' }}>
+              {symbolStatusKpis.map((item) => (
+                <div key={item.label} className="symbol-review-metric">
+                  <span>{item.label}</span>
+                  <strong style={{ color: item.tone }}>{item.value}</strong>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="card col-span-4 symbol-review-card">
+            <div className="card-title">Navigator</div>
+            <div className="symbol-review-nav-stack">
+              <button type="button" className="symbol-review-nav-btn" onClick={() => prevSymbol && openSymbolReview(prevSymbol, symbolReviewReturnTab)} disabled={!prevSymbol}>
+                <span>← Precedente</span>
+                <strong>{prevSymbol || 'Nessuno'}</strong>
+              </button>
+              <button type="button" className="symbol-review-nav-btn" onClick={() => nextSymbol && openSymbolReview(nextSymbol, symbolReviewReturnTab)} disabled={!nextSymbol}>
+                <span>Successivo →</span>
+                <strong>{nextSymbol || 'Nessuno'}</strong>
+              </button>
+            </div>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginTop: '0.95rem', marginBottom: '0.55rem' }}>
+              Simboli correlati
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.55rem' }}>
+              {relatedSymbols.length ? relatedSymbols.map((symbol) => (
+                <SymbolLinkButton key={symbol} symbol={symbol} onOpen={() => openSymbolReview(symbol, symbolReviewReturnTab)} variant="pill">
+                  {symbol}
+                </SymbolLinkButton>
+              )) : <div className="symbol-review-empty">Nessun altro simbolo disponibile.</div>}
+            </div>
           </div>
         </div>
 
