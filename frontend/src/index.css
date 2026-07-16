@@ -3878,3 +3878,189 @@ input:focus, textarea:focus, select:focus {
   .sales-float-card,
   .sales-hero-orb { display: none; }
 }
+
+.charts-hero-top,
+.charts-toolbar,
+.charts-overview-strip,
+.charts-insight-symbol-row,
+.charts-trade-row,
+.charts-hero-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.charts-overview-strip {
+  margin: 0 0 1rem;
+}
+
+.charts-overview-pill {
+  min-width: 180px;
+  flex: 1 1 180px;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: rgba(15, 23, 42, 0.58);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.charts-overview-pill span,
+.charts-insight-metric span,
+.charts-trade-row span,
+.charts-log-row,
+.charts-insight-sentiment {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+.charts-overview-pill strong,
+.charts-insight-metric strong,
+.charts-trade-row strong {
+  display: block;
+  margin-top: 0.3rem;
+  color: #f8fafc;
+  font-size: 1rem;
+}
+
+.charts-hero-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(300px, 0.9fr);
+  gap: 1.2rem;
+  align-items: stretch;
+}
+
+.charts-hero-main,
+.charts-insight-rail {
+  min-width: 0;
+}
+
+.charts-symbol-tabs,
+.charts-timeframe-tabs {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.charts-insight-rail {
+  display: grid;
+  gap: 1rem;
+}
+
+.charts-insight-card {
+  padding: 1rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.07);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.82), rgba(15, 23, 42, 0.62));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.charts-insight-symbol {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #f8fafc;
+}
+
+.charts-insight-chip {
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.charts-insight-grid,
+.charts-quick-metrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.charts-insight-metric {
+  padding: 0.8rem 0.85rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.charts-insight-summary {
+  margin-top: 1rem;
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.05);
+  color: #dbe4f0;
+  line-height: 1.55;
+}
+
+.charts-empty-state {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  text-align: center;
+}
+
+.charts-empty-state--compact {
+  min-height: 96px;
+  height: auto;
+  justify-content: flex-start;
+  text-align: left;
+}
+
+.charts-log-stack {
+  display: grid;
+  gap: 0.65rem;
+  margin-top: 0.8rem;
+}
+
+.charts-log-row,
+.charts-trade-row {
+  padding: 0.8rem 0.9rem;
+  border-radius: 12px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.05);
+}
+
+.charts-log-row {
+  line-height: 1.45;
+}
+
+@media (max-width: 1200px) {
+  .charts-hero-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px), (max-height: 560px) and (orientation: landscape) {
+  .charts-symbol-tabs,
+  .charts-timeframe-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.2rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .charts-symbol-tabs .tab-btn,
+  .charts-timeframe-tabs .tab-btn {
+    white-space: nowrap;
+    min-width: max-content;
+  }
+
+  .charts-overview-pill,
+  .charts-insight-grid,
+  .charts-quick-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-canvas-frame {
+    height: 280px !important;
+  }
+}

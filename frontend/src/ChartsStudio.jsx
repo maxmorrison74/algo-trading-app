@@ -83,6 +83,11 @@ const SymbolTabButton = ({ sym, selected, onClick, cryptoState }) => (
   </button>
 );
 
+const parseMetricValue = (prediction = '', label) => {
+  const match = String(prediction || '').match(new RegExp(`${label}:\\s*(-?\\d+(?:\\.\\d+)?)`, 'i'));
+  return match ? Number(match[1]) : null;
+};
+
 export default function ChartsStudio({
   chartData = [],
   selectedSymbol,
@@ -94,8 +99,46 @@ export default function ChartsStudio({
   const cryptoSymbolStateMap = deriveCryptoSymbolStates(status);
   const tradeHistory = status.trade_history || [];
   const liveChartData = Array.isArray(chartData) ? chartData.slice(-36) : [];
+  const safeSymbols = Array.isArray(status.symbols) ? status.symbols : [];
+  const currentSymbol = selectedSymbol || safeSymbols[0] || null;
   const positions = Object.entries(status.positions || {})
     .filter(([_, position]) => position && position !== 'LIQUID');
+  const currentRow = (status.table_data || []).find((row) => row.symbol === currentSymbol) || null;
+  const currentPosition = currentSymbol ? positions.find(([symbol]) => symbol === currentSymbol)?.[1] : null;
+  const currentCryptoState = currentSymbol ? cryptoSymbolStateMap[currentSymbol] : null;
+  const currentLogs = (status.logs || []).filter((line) => currentSymbol && String(line || '').includes(currentSymbol)).slice(0, 4);
+  const currentPrice = liveChartData.length ? Number(liveChartData[liveChartData.length - 1]?.price || 0) : 0;
+  const openingPrice = liveChartData.length ? Number(liveChartData[0]?.price || 0) : currentPrice;
+  const chartDelta = Number((currentPrice - openingPrice).toFixed(2));
+  const chartDeltaPct = openingPrice ? Number((((currentPrice - openingPrice) / openingPrice) * 100).toFixed(2)) : 0;
+  const chartHigh = liveChartData.length ? Math.max(...liveChartData.map((point) => Number(point.price || 0))) : currentPrice;
+  const chartLow = liveChartData.length ? Math.min(...liveChartData.map((point) => Number(point.price || 0))) : currentPrice;
+  const currentExposure = currentPosition ? Math.abs(Number(currentPosition.market_value || 0)) : 0;
+  const currentUnrealized = currentPosition ? Number(currentPosition.unrealized_pl || 0) : 0;
+  const symbolRsi = parseMetricValue(currentRow?.prediction, 'RSI\\(1M\\)');
+  const symbolMacd = parseMetricValue(currentRow?.prediction, 'MACD');
+  const symbolVwap = parseMetricValue(currentRow?.prediction, 'VWAP');
+  const symbolLstm = parseMetricValue(currentRow?.prediction, 'LSTM');
+  const momentumTone = chartDelta >= 0 ? '#10b981' : '#ef4444';
+  const readinessLabel = currentPosition
+    ? currentPosition.side === 'short'
+      ? 'Short live'
+      : 'Long live'
+    : currentCryptoState
+      ? `${currentCryptoState.label} · ${currentCryptoState.reason}`
+      : currentRow?.sentiment === 'BULLISH'
+        ? 'Bias rialzista'
+        : currentRow?.sentiment === 'BEARISH'
+          ? 'Bias prudente'
+          : 'In osservazione';
+
+  const overviewMetrics = [
+    { label: 'Prezzo live', value: currentPrice ? `$${currentPrice.toFixed(2)}` : '—', tone: '#f8fafc' },
+    { label: 'Move frame', value: `${chartDelta >= 0 ? '+' : ''}$${chartDelta.toFixed(2)} · ${chartDeltaPct >= 0 ? '+' : ''}${chartDeltaPct.toFixed(2)}%`, tone: momentumTone },
+    { label: 'Range', value: chartHigh && chartLow ? `$${chartLow.toFixed(2)} → $${chartHigh.toFixed(2)}` : '—', tone: '#38bdf8' },
+    { label: 'Setup', value: readinessLabel, tone: currentCryptoState?.tone || '#a78bfa' },
+  ];
+
   const allocationData = [
     { name: 'Liquidità', value: Number(status.cash || 0), color: '#94a3b8' },
     ...positions.map(([symbol, position], index) => ({
@@ -136,6 +179,18 @@ export default function ChartsStudio({
     { name: 'Flat/Loss', value: tradeHistory.filter((trade) => Number(trade.profit_usd || 0) <= 0).length, color: '#ef4444' },
   ].filter((item) => item.value > 0);
 
+  const recentClosedForSymbol = tradeHistory
+    .filter((trade) => !currentSymbol || trade.symbol === currentSymbol)
+    .slice(-4)
+    .reverse();
+
+  const insightMetrics = [
+    { label: 'LSTM', value: symbolLstm != null ? `${symbolLstm.toFixed(1)}%` : '—' },
+    { label: 'RSI', value: symbolRsi != null ? symbolRsi.toFixed(1) : '—' },
+    { label: 'MACD', value: symbolMacd != null ? symbolMacd.toFixed(2) : '—' },
+    { label: 'VWAP', value: symbolVwap != null ? symbolVwap.toFixed(2) : '—' },
+  ];
+
   return (
     <div className="module-content module-content--charts">
       <div className="header module-page-header" style={{ marginBottom: '2rem' }}>
@@ -146,57 +201,156 @@ export default function ChartsStudio({
       </div>
 
       <div className="card charts-hero-card" style={{ marginBottom: '2rem', background: 'linear-gradient(135deg, rgba(56,189,248,0.16) 0%, rgba(139,92,246,0.08) 50%, rgba(0,0,0,0) 100%)' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+        <div className="charts-hero-top">
           <div>
             <div className="card-title">Live Market Canvas</div>
             <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-              Stream operativo su {selectedSymbol || 'watchlist'} con timeframe selezionabile.
+              Stream operativo su {currentSymbol || 'watchlist'} con timeframe selezionabile.
             </div>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {status.symbols?.slice(0, 8).map((sym) => (
-              <SymbolTabButton
-                key={sym}
-                sym={sym}
-                selected={selectedSymbol === sym}
-                onClick={() => setSelectedSymbol(sym)}
-                cryptoState={cryptoSymbolStateMap[sym]}
-              />
-            ))}
+          <div className="charts-hero-actions">
+            <div className="badge badge-ai">{status.modules?.trading ? 'Stream live attivo' : 'Stream in attesa'}</div>
+            <div className="badge badge-gold">{currentSymbol || 'No symbol'}</div>
           </div>
         </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '1rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            {['1D', '1W', '1M', '1Y', 'ALL'].map((tf) => (
-              <button key={tf} className={`tab-btn ${timeframe === tf ? 'active-tab' : ''}`} onClick={() => setTimeframe(tf)}>
-                {tf}
-              </button>
-            ))}
-          </div>
-          <div className="badge badge-ai">{status.modules?.trading ? 'Stream live attivo' : 'Stream in attesa'}</div>
-        </div>
-        <div className="charts-canvas-frame" style={{ height: '340px', background: 'rgba(0,0,0,0.28)', borderRadius: '14px', padding: '1rem', border: '1px solid rgba(255,255,255,0.06)' }}>
-          {liveChartData.length === 0 ? (
-            <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
-              Nessun dato grafico disponibile per il simbolo selezionato.
+
+        <div className="charts-overview-strip">
+          {overviewMetrics.map((metric) => (
+            <div key={metric.label} className="charts-overview-pill">
+              <span>{metric.label}</span>
+              <strong style={{ color: metric.tone }}>{metric.value}</strong>
             </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={liveChartData}>
-                <defs>
-                  <linearGradient id="chartsLiveFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.5} />
-                    <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.03} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
-                <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} />
-                <YAxis stroke="#94a3b8" fontSize={12} domain={['auto', 'auto']} />
-                <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }} />
-                <Area type="monotone" dataKey="price" stroke="#38bdf8" strokeWidth={2.5} fill="url(#chartsLiveFill)" />
-              </AreaChart>
-            </ResponsiveContainer>
-          )}
+          ))}
+        </div>
+
+        <div className="charts-hero-layout">
+          <div className="charts-hero-main">
+            <div className="charts-toolbar">
+              <div className="charts-symbol-tabs">
+                {safeSymbols.slice(0, 8).map((sym) => (
+                  <SymbolTabButton
+                    key={sym}
+                    sym={sym}
+                    selected={currentSymbol === sym}
+                    onClick={() => setSelectedSymbol(sym)}
+                    cryptoState={cryptoSymbolStateMap[sym]}
+                  />
+                ))}
+              </div>
+              <div className="charts-timeframe-tabs">
+                {['1D', '1W', '1M', '1Y', 'ALL'].map((tf) => (
+                  <button key={tf} className={`tab-btn ${timeframe === tf ? 'active-tab' : ''}`} onClick={() => setTimeframe(tf)}>
+                    {tf}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="charts-canvas-frame" style={{ height: '340px', background: 'rgba(0,0,0,0.28)', borderRadius: '14px', padding: '1rem', border: '1px solid rgba(255,255,255,0.06)' }}>
+              {liveChartData.length === 0 ? (
+                <div className="charts-empty-state">
+                  Nessun dato grafico disponibile per il simbolo selezionato.
+                </div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={liveChartData}>
+                    <defs>
+                      <linearGradient id="chartsLiveFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#38bdf8" stopOpacity={0.5} />
+                        <stop offset="95%" stopColor="#38bdf8" stopOpacity={0.03} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                    <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} />
+                    <YAxis stroke="#94a3b8" fontSize={12} domain={['auto', 'auto']} />
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '10px' }} />
+                    <Area type="monotone" dataKey="price" stroke="#38bdf8" strokeWidth={2.5} fill="url(#chartsLiveFill)" />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          <div className="charts-insight-rail">
+            <div className="charts-insight-card">
+              <div className="card-title">Symbol Intel</div>
+              <div className="charts-insight-symbol-row">
+                <div>
+                  <div className="charts-insight-symbol">{currentSymbol || '—'}</div>
+                  <div className="charts-insight-sentiment">{currentRow?.sentiment || 'NEUTRAL'}</div>
+                </div>
+                {currentCryptoState && (
+                  <div
+                    className="charts-insight-chip"
+                    style={{
+                      color: currentCryptoState.tone,
+                      borderColor: currentCryptoState.border,
+                    }}
+                  >
+                    {currentCryptoState.label}
+                  </div>
+                )}
+              </div>
+
+              <div className="charts-insight-grid">
+                {insightMetrics.map((metric) => (
+                  <div key={metric.label} className="charts-insight-metric">
+                    <span>{metric.label}</span>
+                    <strong>{metric.value}</strong>
+                  </div>
+                ))}
+              </div>
+
+              <div className="charts-insight-summary">
+                {currentPosition ? (
+                  <>
+                    <div>Exposure <strong>${currentExposure.toFixed(2)}</strong></div>
+                    <div>P&L live <strong style={{ color: currentUnrealized >= 0 ? '#10b981' : '#ef4444' }}>{currentUnrealized >= 0 ? '+' : ''}${currentUnrealized.toFixed(2)}</strong></div>
+                  </>
+                ) : (
+                  <div>{currentRow?.prediction || 'Indicatori in sincronizzazione.'}</div>
+                )}
+              </div>
+            </div>
+
+            <div className="charts-insight-card">
+              <div className="card-title">Signal Trace</div>
+              {currentLogs.length === 0 ? (
+                <div className="charts-empty-state charts-empty-state--compact">
+                  Nessun evento recente per {currentSymbol || 'questo simbolo'}.
+                </div>
+              ) : (
+                <div className="charts-log-stack">
+                  {currentLogs.map((log, index) => (
+                    <div key={`${currentSymbol}-log-${index}`} className="charts-log-row">{log}</div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="charts-insight-card">
+              <div className="card-title">Recent Closings</div>
+              {recentClosedForSymbol.length === 0 ? (
+                <div className="charts-empty-state charts-empty-state--compact">
+                  Nessun trade chiuso recente su {currentSymbol || 'questo simbolo'}.
+                </div>
+              ) : (
+                <div className="charts-log-stack">
+                  {recentClosedForSymbol.map((trade, index) => (
+                    <div key={`${trade.symbol}-${trade.date}-${index}`} className="charts-trade-row">
+                      <div>
+                        <strong>{trade.side || 'Trade'}</strong>
+                        <span>{trade.date || 'Data non disponibile'}</span>
+                      </div>
+                      <strong style={{ color: Number(trade.profit_usd || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                        {Number(trade.profit_usd || 0) >= 0 ? '+' : ''}${Number(trade.profit_usd || 0).toFixed(2)}
+                      </strong>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
@@ -240,7 +394,7 @@ export default function ChartsStudio({
           <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>Titoli selezionati dal ranking dinamico.</div>
           <div style={{ height: '280px' }}>
             {watchlistBars.length === 0 ? (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+              <div className="charts-empty-state">
                 Ranking non ancora disponibile.
               </div>
             ) : (
@@ -262,7 +416,7 @@ export default function ChartsStudio({
           <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem' }}>P/L non realizzato sulle posizioni correnti.</div>
           <div style={{ height: '280px' }}>
             {positionBars.length === 0 ? (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+              <div className="charts-empty-state">
                 Nessuna posizione aperta in questo momento.
               </div>
             ) : (
@@ -301,7 +455,7 @@ export default function ChartsStudio({
               <div className="card-title">Trade Mix</div>
               <div style={{ height: '240px' }}>
                 {tradeMixData.length === 0 ? (
-                  <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                  <div className="charts-empty-state">
                     Storico trade non ancora popolato.
                   </div>
                 ) : (
@@ -321,7 +475,7 @@ export default function ChartsStudio({
             </div>
             <div className="card col-span-6" style={{ background: 'rgba(255,255,255,0.02)' }}>
               <div className="card-title">Quick Metrics</div>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+              <div className="charts-quick-metrics">
                 <div className="badge badge-idle" style={{ justifyContent: 'space-between', padding: '1rem 1.1rem' }}>Trades <strong style={{ color: 'var(--text-primary)' }}>{tradeHistory.length}</strong></div>
                 <div className="badge badge-idle" style={{ justifyContent: 'space-between', padding: '1rem 1.1rem' }}>Posizioni <strong style={{ color: 'var(--text-primary)' }}>{positions.length}</strong></div>
                 <div className="badge badge-idle" style={{ justifyContent: 'space-between', padding: '1rem 1.1rem' }}>Cash <strong style={{ color: 'var(--text-primary)' }}>${Number(status.cash || 0).toFixed(2)}</strong></div>
