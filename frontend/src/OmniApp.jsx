@@ -72,15 +72,39 @@ const DEMO_BILLING_OVERVIEW = {
   settings: { trial_days: 7, currency: 'EUR' },
 };
 
-const getAuthToken = () => localStorage.getItem(AUTH_TOKEN_KEY) || '';
-const isDemoSession = () => localStorage.getItem(DEMO_MODE_KEY) === '1';
+const safeStorageGet = (key, fallback = '') => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return fallback;
+    const value = window.localStorage.getItem(key);
+    return value ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+const safeStorageSet = (key, value) => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    window.localStorage.setItem(key, value);
+  } catch {}
+};
+
+const safeStorageRemove = (key) => {
+  try {
+    if (typeof window === 'undefined' || !window.localStorage) return;
+    window.localStorage.removeItem(key);
+  } catch {}
+};
+
+const getAuthToken = () => safeStorageGet(AUTH_TOKEN_KEY, '');
+const isDemoSession = () => safeStorageGet(DEMO_MODE_KEY, '') === '1';
 
 const clearAuthSession = () => {
-  localStorage.removeItem(AUTH_TOKEN_KEY);
-  localStorage.removeItem(AUTH_TIME_KEY);
-  localStorage.removeItem(DEMO_MODE_KEY);
-  localStorage.removeItem('USER_ROLE');
-  localStorage.removeItem('USER_STATUS');
+  safeStorageRemove(AUTH_TOKEN_KEY);
+  safeStorageRemove(AUTH_TIME_KEY);
+  safeStorageRemove(DEMO_MODE_KEY);
+  safeStorageRemove('USER_ROLE');
+  safeStorageRemove('USER_STATUS');
 };
 
 const getStatusScope = (activeTab) => {
@@ -798,7 +822,7 @@ const BOTTOM_BAR_STORAGE_KEY = 'aureo_bottom_bar_offset';
 const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel, activeTab, onOpenHealth, onOpenSecurity, onOpenTrading }) => {
   const barRef = React.useRef(null);
   const dragRef = React.useRef(null);
-  const uiRaw = typeof window !== 'undefined' ? window.localStorage.getItem(`${BOTTOM_BAR_STORAGE_KEY}:ui`) : null;
+  const uiRaw = safeStorageGet(`${BOTTOM_BAR_STORAGE_KEY}:ui`, null);
   const uiParsed = uiRaw ? (() => { try { return JSON.parse(uiRaw); } catch { return null; } })() : null;
   const [isDraggingBar, setIsDraggingBar] = useState(false);
   const [isHoveringBar, setIsHoveringBar] = useState(false);
@@ -811,7 +835,7 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
   const [barOffset, setBarOffset] = useState(() => {
     if (typeof window === 'undefined') return { x: 0, y: 0 };
     try {
-      const raw = window.localStorage.getItem(BOTTOM_BAR_STORAGE_KEY);
+      const raw = safeStorageGet(BOTTOM_BAR_STORAGE_KEY, null);
       if (!raw) return { x: 0, y: 0 };
       const parsed = JSON.parse(raw);
       return {
@@ -909,12 +933,12 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(BOTTOM_BAR_STORAGE_KEY, JSON.stringify(barOffset));
+    safeStorageSet(BOTTOM_BAR_STORAGE_KEY, JSON.stringify(barOffset));
   }, [barOffset]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem(`${BOTTOM_BAR_STORAGE_KEY}:ui`, JSON.stringify({
+    safeStorageSet(`${BOTTOM_BAR_STORAGE_KEY}:ui`, JSON.stringify({
       displayMode,
       isMuted,
       isAutoHideEnabled,
@@ -1179,7 +1203,7 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
 const RiskStatus = ({ riskSnapshot, status }) => {
   const [risk, setRisk] = useState(riskSnapshot || null);
   const [isTogglingRisk, setIsTogglingRisk] = useState(false);
-  const userRole = localStorage.getItem('USER_ROLE') || 'user';
+  const userRole = safeStorageGet('USER_ROLE', 'user');
 
   useEffect(() => {
     if (riskSnapshot) {
@@ -2041,7 +2065,7 @@ function OmniApp() {
   };
 
   const checkAuthMemory = () => {
-    const authTime = localStorage.getItem(AUTH_TIME_KEY);
+    const authTime = safeStorageGet(AUTH_TIME_KEY, '');
     const authToken = getAuthToken();
     if (!authToken) {
       clearAuthSession();
@@ -2129,8 +2153,8 @@ function OmniApp() {
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
   const [isRegistering, setIsRegistering] = useState(false);
-  const [userRole, setUserRole] = useState(localStorage.getItem('USER_ROLE') || 'user');
-  const [userStatus, setUserStatus] = useState(localStorage.getItem('USER_STATUS') || 'active');
+  const [userRole, setUserRole] = useState(safeStorageGet('USER_ROLE', 'user'));
+  const [userStatus, setUserStatus] = useState(safeStorageGet('USER_STATUS', 'active'));
   const [loginError, setLoginError] = useState('');
   const [activeTab, setActiveTab] = useState('home');
   const [developSection, setDevelopSection] = useState('health');
@@ -2173,7 +2197,7 @@ function OmniApp() {
   }, []);
 
   const enterDemoMode = () => {
-    localStorage.setItem(DEMO_MODE_KEY, '1');
+    safeStorageSet(DEMO_MODE_KEY, '1');
     setIsDemoMode(true);
     setIsAuthenticated(true);
     setLoginError('');
@@ -2258,14 +2282,14 @@ function OmniApp() {
     setUserRole(role);
     setUserStatus(status);
     if (demo) {
-      localStorage.setItem(DEMO_MODE_KEY, '1');
+      safeStorageSet(DEMO_MODE_KEY, '1');
     } else {
-      localStorage.removeItem(DEMO_MODE_KEY);
+      safeStorageRemove(DEMO_MODE_KEY);
     }
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
-    localStorage.setItem(AUTH_TIME_KEY, Date.now().toString());
-    localStorage.setItem('USER_ROLE', role);
-    localStorage.setItem('USER_STATUS', status);
+    safeStorageSet(AUTH_TOKEN_KEY, token);
+    safeStorageSet(AUTH_TIME_KEY, Date.now().toString());
+    safeStorageSet('USER_ROLE', role);
+    safeStorageSet('USER_STATUS', status);
     setLoginError('');
     setPasskeyMessage('');
     setActiveTab('home');
