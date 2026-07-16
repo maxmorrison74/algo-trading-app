@@ -1570,6 +1570,14 @@ const RiskStatus = ({ riskSnapshot, status }) => {
         badgeClass: 'badge-idle'
       };
   const statusColor = riskEnabled ? (statusColors[risk.status] || '#555') : statusColors.disabled;
+  const pressureLevel = !riskEnabled
+    ? { label: 'Protezione spenta', tone: '#64748B', detail: 'Il motore non sta più filtrando nuove operazioni.' }
+    : positionsRemaining === 0
+      ? { label: 'Satura', tone: '#EF4444', detail: 'Prima di entrare serve liberare almeno una posizione.' }
+      : positionsRemaining === 1
+        ? { label: 'Tesa', tone: '#F59E0B', detail: 'Resta un solo slot operativo prima del limite.' }
+        : { label: 'Libera', tone: '#10B981', detail: 'C’è ancora spazio per nuove operazioni filtrate.' };
+  const alertFeed = Array.isArray(risk.alerts) ? risk.alerts.slice(0, 4) : [];
 
   const handleRiskToggle = async () => {
     if (userRole !== 'admin' || isTogglingRisk || !risk) return;
@@ -1628,6 +1636,29 @@ const RiskStatus = ({ riskSnapshot, status }) => {
       </div>
       <div style={{ opacity: 0.92 }}>{meta.description}</div>
       <div style={{ opacity: 0.8, marginTop: 6 }}>{risk.reason}</div>
+
+      <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
+        <div style={{ padding: '0.85rem 0.95rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: `1px solid ${statusColor}33` }}>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Postura rischio</div>
+          <div style={{ color: statusColor, fontWeight: 800, fontSize: '1rem', marginBottom: '0.28rem' }}>{meta.title}</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: 1.4 }}>{meta.description}</div>
+        </div>
+        <div style={{ padding: '0.85rem 0.95rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: `1px solid ${pressureLevel.tone}33` }}>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Pressione capacità</div>
+          <div style={{ color: pressureLevel.tone, fontWeight: 800, fontSize: '1rem', marginBottom: '0.28rem' }}>{pressureLevel.label}</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: 1.4 }}>{pressureLevel.detail}</div>
+        </div>
+        <div style={{ padding: '0.85rem 0.95rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(56,189,248,0.2)' }}>
+          <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Drawdown guard</div>
+          <div style={{ color: Number(risk.max_drawdown_pct || 0) >= 8 ? '#EF4444' : Number(risk.max_drawdown_pct || 0) >= 5 ? '#F59E0B' : '#38BDF8', fontWeight: 800, fontSize: '1rem', marginBottom: '0.28rem' }}>
+            {Number(risk.max_drawdown_pct || 0).toFixed(1)}%
+          </div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: 1.4 }}>
+            {Number(risk.max_drawdown_pct || 0) >= 8 ? 'Vicino alla soglia critica.' : 'Sotto controllo rispetto ai limiti attuali.'}
+          </div>
+        </div>
+      </div>
+
       <div style={{ marginTop: '1rem', padding: '0.9rem 1rem', borderRadius: '14px', background: 'rgba(15, 23, 42, 0.72)', border: `1px solid ${positionsProgressColor}33` }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.55rem', flexWrap: 'wrap' }}>
           <div>
@@ -1652,6 +1683,20 @@ const RiskStatus = ({ riskSnapshot, status }) => {
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Daily P&L <strong style={{ color: 'var(--text-primary)' }}>{risk.daily_pnl_pct}%</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Drawdown <strong style={{ color: 'var(--text-primary)' }}>{risk.max_drawdown_pct}%</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Trade oggi <strong style={{ color: 'var(--text-primary)' }}>{risk.trades_today}</strong></div>
+      </div>
+      <div style={{ marginTop: '1rem', padding: '0.95rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ color: '#e2e8f0', fontWeight: 800, marginBottom: '0.55rem' }}>Ultimi alert del Risk Engine</div>
+        {alertFeed.length ? (
+          <div style={{ display: 'grid', gap: '0.45rem' }}>
+            {alertFeed.map((line, index) => (
+              <div key={index} style={{ padding: '0.6rem 0.7rem', borderRadius: '10px', background: 'rgba(0,0,0,0.18)', color: '#94a3b8', fontSize: '0.82rem', lineHeight: 1.45 }}>
+                {line}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem' }}>Nessun alert recente registrato dal risk engine.</div>
+        )}
       </div>
       {risk.status === 'black' && (
         <button 
