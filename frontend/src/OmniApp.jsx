@@ -752,6 +752,27 @@ const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}
     .slice(0, 3);
 };
 
+const deriveSymbolDrilldown = ({ symbol = '', status = {}, row = null, readiness = null, tradePerformance = null, cryptoState = null }) => {
+  const currentPosition = status?.positions?.[symbol];
+  const isOpen = currentPosition && currentPosition !== 'LIQUID';
+  const tradeRow = tradePerformance?.symbolRows?.find((item) => item.symbol === symbol) || null;
+  const recentTrades = (tradePerformance?.recentTrades || []).filter((item) => item.symbol === symbol).slice(0, 4);
+  const metrics = parsePredictionMetrics(row?.prediction || '');
+  const headline = deriveEntryHeadline(readiness);
+
+  return {
+    symbol,
+    headline,
+    isOpen,
+    currentPosition,
+    sentiment: row?.sentiment || 'NEUTRAL',
+    metrics,
+    tradeRow,
+    recentTrades,
+    cryptoState,
+  };
+};
+
 const SymbolTabButton = ({ sym, selected, onClick, cryptoState }) => (
   <button
     className={`tab-btn ${selected ? 'active-tab' : ''}`}
@@ -2174,6 +2195,17 @@ function OmniAppInner() {
   const entryReadiness = useMemo(
     () => deriveEntryReadiness({ status, risk: status.risk, symbol: selectedSymbol, row: tableDataBySymbol[selectedSymbol] }),
     [status, selectedSymbol, tableDataBySymbol]
+  );
+  const symbolDrilldown = useMemo(
+    () => deriveSymbolDrilldown({
+      symbol: selectedSymbol,
+      status,
+      row: tableDataBySymbol[selectedSymbol],
+      readiness: entryReadiness,
+      tradePerformance,
+      cryptoState: cryptoSymbolStateMap[selectedSymbol],
+    }),
+    [selectedSymbol, status, tableDataBySymbol, entryReadiness, tradePerformance, cryptoSymbolStateMap]
   );
   const sortedSurebets = useMemo(
     () => [...(status.active_surebets || [])].sort((a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)),
@@ -3776,6 +3808,81 @@ function OmniAppInner() {
           </div>
           <div style={{ marginTop: '0.9rem', color: '#e2e8f0', fontSize: '0.95rem', lineHeight: 1.5 }}>
             {deriveEntryHeadline(entryReadiness).detail}
+          </div>
+        </div>
+      )}
+
+      {selectedSymbol && (
+        <div className="card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.03)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <div>
+              <div className="card-title">🛰️ Symbol Drill-Down · {selectedSymbol}</div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Scheda completa del simbolo: stato operativo, segnali, storico e contesto.
+              </div>
+            </div>
+            <div className="badge" style={{ color: symbolDrilldown.headline.tone, borderColor: symbolDrilldown.headline.border, background: symbolDrilldown.headline.bg }}>
+              {symbolDrilldown.headline.label}
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+            <div style={{ padding: '0.85rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Stato live</div>
+              <div style={{ color: symbolDrilldown.isOpen ? '#10b981' : symbolDrilldown.headline.tone, fontWeight: 800 }}>
+                {symbolDrilldown.isOpen ? 'Posizione aperta' : symbolDrilldown.headline.label}
+              </div>
+            </div>
+            <div style={{ padding: '0.85rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Sentiment</div>
+              <div style={{ color: symbolDrilldown.sentiment === 'BULLISH' ? '#10b981' : symbolDrilldown.sentiment === 'BEARISH' ? '#ef4444' : '#94a3b8', fontWeight: 800 }}>
+                {symbolDrilldown.sentiment}
+              </div>
+            </div>
+            <div style={{ padding: '0.85rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Storico P&L</div>
+              <div style={{ color: symbolDrilldown.tradeRow ? (symbolDrilldown.tradeRow.totalPnl >= 0 ? '#10b981' : '#ef4444') : '#94a3b8', fontWeight: 800 }}>
+                {symbolDrilldown.tradeRow ? `${symbolDrilldown.tradeRow.totalPnl >= 0 ? '+' : ''}$${symbolDrilldown.tradeRow.totalPnl.toFixed(2)}` : 'Nessun trade chiuso'}
+              </div>
+            </div>
+            <div style={{ padding: '0.85rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Readiness</div>
+              <div style={{ color: symbolDrilldown.headline.tone, fontWeight: 800 }}>{entryReadiness.score}/100</div>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '0.85rem' }}>
+            <div style={{ padding: '0.95rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: '#e2e8f0', fontWeight: 800, marginBottom: '0.55rem' }}>Indicatori chiave</div>
+              <div style={{ display: 'grid', gap: '0.35rem', color: '#cbd5e1', fontSize: '0.84rem' }}>
+                <div>LSTM: {symbolDrilldown.metrics.lstm == null ? 'n/d' : `${symbolDrilldown.metrics.lstm.toFixed(1)}%`}</div>
+                <div>RSI: {symbolDrilldown.metrics.rsi == null ? 'n/d' : symbolDrilldown.metrics.rsi.toFixed(1)}</div>
+                <div>MACD: {symbolDrilldown.metrics.macd == null ? 'n/d' : symbolDrilldown.metrics.macd.toFixed(2)}</div>
+                <div>VWAP: {symbolDrilldown.metrics.vwap == null ? 'n/d' : symbolDrilldown.metrics.vwap.toFixed(2)}</div>
+                {symbolDrilldown.cryptoState && <div>Crypto state: {symbolDrilldown.cryptoState.label} · {symbolDrilldown.cryptoState.reason}</div>}
+              </div>
+            </div>
+
+            <div style={{ padding: '0.95rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+              <div style={{ color: '#e2e8f0', fontWeight: 800, marginBottom: '0.55rem' }}>Storico recente del simbolo</div>
+              {symbolDrilldown.recentTrades.length ? (
+                <div style={{ display: 'grid', gap: '0.45rem' }}>
+                  {symbolDrilldown.recentTrades.map((trade, index) => (
+                    <div key={`${trade.symbol}-${trade.date}-${index}`} style={{ padding: '0.55rem 0.65rem', borderRadius: '10px', background: 'rgba(0,0,0,0.18)' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
+                        <span style={{ color: '#f8fafc', fontWeight: 700 }}>{trade.side}</span>
+                        <span style={{ color: Number(trade.profit_usd || 0) >= 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}>
+                          {Number(trade.profit_usd || 0) >= 0 ? '+' : ''}${Number(trade.profit_usd || 0).toFixed(2)}
+                        </span>
+                      </div>
+                      <div style={{ color: '#94a3b8', fontSize: '0.78rem', marginTop: '0.22rem' }}>{trade.date || 'Data non disponibile'}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div style={{ color: '#94a3b8', fontSize: '0.84rem' }}>Ancora nessun trade chiuso su questo simbolo.</div>
+              )}
+            </div>
           </div>
         </div>
       )}
