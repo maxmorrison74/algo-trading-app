@@ -23,11 +23,16 @@ class InvestRequest(BaseModel):
     asset_type: str # 'stock' o 'crypto'
     amount_usd: float
 
-def normalize_asset_type(asset_type: str) -> str:
+def normalize_asset_type(asset_type: str, symbol: str = "") -> str:
     value = (asset_type or "").strip().lower().replace("-", "_").replace(" ", "_")
     if value in {"stock", "stocks", "equity", "equities", "azione", "azioni"}:
         return "stock"
     if value in {"crypto", "cryptocurrency", "cryptocurrencies", "coin", "coins", "token", "tokens", "cripto"}:
+        return "crypto"
+    symbol_value = (symbol or "").strip().upper()
+    if "/" in symbol_value or symbol_value.endswith("USD") or symbol_value.endswith("USDT"):
+        return "crypto"
+    if value in {"btc", "eth", "sol", "avax", "doge", "link", "shib"}:
         return "crypto"
     return value
 
@@ -159,7 +164,7 @@ def execute_investment(req: InvestRequest, _: str = Depends(require_admin)):
     from api import bot_state
     from datetime import datetime
     keys = get_api_keys()
-    asset_type = normalize_asset_type(req.asset_type)
+    asset_type = normalize_asset_type(req.asset_type, req.symbol)
     
     # 1. LOGICA AZIONI (Alpaca)
     if asset_type == 'stock':
