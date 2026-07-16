@@ -3524,11 +3524,61 @@ function OmniAppInner() {
     );
   };
 
-  const renderSettingsView = () => (
-    <div className="module-content">
-      <div className="header" style={{ marginBottom: '2rem' }}>
-        <h2>🔐 Security & API Vault</h2>
-        <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Gestione chiavi crittografate per le connessioni ai mercati reali.</div>
+  const renderSettingsView = () => {
+    const vaultCards = [
+      {
+        label: 'Broker live',
+        value: savedKeys['ALPACA_KEY'] ? 'Alpaca armato' : 'Alpaca da collegare',
+        detail: savedKeys['ALPACA_KEY'] ? 'Chiavi broker presenti nel Vault.' : 'Manca il collegamento per operare sui mercati.',
+        tone: savedKeys['ALPACA_KEY'] ? '#10b981' : '#f59e0b',
+      },
+      {
+        label: 'Canali alert',
+        value: hasArmedAlertChannel(savedKeys) ? 'Attivi' : 'Da armare',
+        detail: hasArmedAlertChannel(savedKeys) ? 'Almeno un canale esterno è pronto per gli eventi critici.' : 'Completa Telegram o Pushover per ricevere eventi fuori piattaforma.',
+        tone: hasArmedAlertChannel(savedKeys) ? '#10b981' : '#f59e0b',
+      },
+      {
+        label: 'AI core',
+        value: savedKeys['GROQ_KEY'] ? 'Groq presente' : 'Groq assente',
+        detail: savedKeys['GROQ_KEY'] ? 'L’engine AI può arricchire segnali e analisi.' : 'Senza chiave Groq il layer AI resta limitato.',
+        tone: savedKeys['GROQ_KEY'] ? '#38bdf8' : '#94a3b8',
+      },
+      {
+        label: 'Vault sync',
+        value: lastVaultSync || 'Non sincronizzato',
+        detail: 'Ultimo allineamento locale con il Vault sicuro.',
+        tone: '#a78bfa',
+      },
+    ];
+
+    return (
+    <div className="module-content module-content--security">
+      <div className="card security-hero-card" style={{ marginBottom: '1.6rem' }}>
+        <div className="security-hero-top">
+          <div>
+            <h2 style={{ margin: 0 }}>🔐 Security & API Vault</h2>
+            <div className="security-hero-subtitle">Gestione chiavi crittografate per broker, alert, AI e protezioni operative di Aureo.</div>
+          </div>
+          <div className="security-hero-badges">
+            <div className={`badge ${hasArmedAlertChannel(savedKeys) ? 'badge-active' : 'badge-gold'}`}>
+              {hasArmedAlertChannel(savedKeys) ? 'Alert armati' : 'Alert da armare'}
+            </div>
+            <div className={`badge ${savedKeys['ALPACA_KEY'] ? 'badge-active' : 'badge-danger'}`}>
+              {savedKeys['ALPACA_KEY'] ? 'Broker connesso' : 'Broker mancante'}
+            </div>
+          </div>
+        </div>
+
+        <div className="security-summary-grid">
+          {vaultCards.map((card) => (
+            <div key={card.label} className="security-summary-card" style={{ borderColor: `${card.tone}33` }}>
+              <span>{card.label}</span>
+              <strong style={{ color: card.tone }}>{card.value}</strong>
+              <small>{card.detail}</small>
+            </div>
+          ))}
+        </div>
       </div>
 
       {isDemoMode && (
@@ -3542,7 +3592,7 @@ function OmniAppInner() {
       )}
 
       {userRole === 'admin' && (
-        <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
+        <div className="card security-section-card" style={{ marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.25)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
             <div>
               <h3 style={{ margin: 0, color: '#e2e8f0' }}>Accesso biometrico</h3>
@@ -3568,7 +3618,7 @@ function OmniAppInner() {
         </div>
       )}
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
+      <div className="card security-section-card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Alpaca (Stock & Options) {savedKeys['ALPACA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
           <button onClick={() => testConnection('alpaca')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
@@ -3580,7 +3630,7 @@ function OmniAppInner() {
         {testResults['alpaca'] && <div style={{ color: testResults['alpaca'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['alpaca']}</div>}
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
+      <div className="card security-section-card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>
             Telegram Alerts
@@ -3619,7 +3669,7 @@ function OmniAppInner() {
         {testResults['telegram'] && <div style={{ color: testResults['telegram'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['telegram']}</div>}
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
+      <div className="card security-section-card" style={{ marginBottom: '2rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
         <h3 style={{ margin: 0, color: '#ef4444', marginBottom: '1.5rem', display: 'flex', alignItems: 'center' }}>
           <span style={{ marginRight: '0.5rem' }}>🛡️</span> Risk Management
         </h3>
@@ -3671,7 +3721,7 @@ function OmniAppInner() {
         </div>
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem' }}>
+      <div className="card security-section-card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Groq AI (Sentiment & Investments) {savedKeys['GROQ_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
           <button onClick={() => testConnection('groq')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
@@ -3682,7 +3732,7 @@ function OmniAppInner() {
         {testResults['groq'] && <div style={{ color: testResults['groq'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['groq']}</div>}
       </div>
 
-      <div className="card" style={{ marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.22)' }}>
+      <div className="card security-section-card" style={{ marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.22)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>
             Pushover (iPhone / Apple Watch)
@@ -3726,6 +3776,7 @@ function OmniAppInner() {
       </div>
     </div>
   );
+  };
 
   const renderHomeView = () => {
     const initialCash = status.initial_cash || 1000;
