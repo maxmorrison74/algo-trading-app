@@ -726,6 +726,32 @@ const deriveTradePerformance = (tradeHistory = []) => {
   };
 };
 
+const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {} }) => {
+  const symbols = Array.isArray(status?.symbols) ? status.symbols : [];
+  const rankedRows = Array.isArray(status?.symbol_selection?.ranked) ? status.symbol_selection.ranked : [];
+  const rankedMap = Object.fromEntries(rankedRows.map((row) => [row.symbol, row]));
+
+  return symbols
+    .map((symbol) => {
+      const tableRow = tableDataBySymbol[symbol] || rankedMap[symbol] || null;
+      const readiness = deriveEntryReadiness({ status, risk, symbol, row: tableRow });
+      const headline = deriveEntryHeadline(readiness);
+      return {
+        symbol,
+        readiness,
+        headline,
+        rankingScore: Number(rankedMap[symbol]?.score ?? -1),
+        selectionReason: rankedMap[symbol]?.selection_reason || '',
+        sentiment: tableRow?.sentiment || 'NEUTRAL',
+      };
+    })
+    .sort((a, b) => {
+      if (b.readiness.score !== a.readiness.score) return b.readiness.score - a.readiness.score;
+      return b.rankingScore - a.rankingScore;
+    })
+    .slice(0, 3);
+};
+
 const SymbolTabButton = ({ sym, selected, onClick, cryptoState }) => (
   <button
     className={`tab-btn ${selected ? 'active-tab' : ''}`}
@@ -2137,6 +2163,10 @@ function OmniAppInner() {
   const cryptoSymbolStates = useMemo(() => deriveCryptoSymbolStates(status), [status]);
   const cryptoSymbolStateMap = useMemo(() => getCryptoSymbolStateMap(status), [status]);
   const tradePerformance = useMemo(() => deriveTradePerformance(status.trade_history || []), [status.trade_history]);
+  const topOpportunities = useMemo(
+    () => deriveTopOpportunities({ status, risk: status.risk, tableDataBySymbol }),
+    [status, tableDataBySymbol]
+  );
   const systemHealthSnapshot = useMemo(
     () => deriveSystemHealthSnapshot({ status, risk: status.risk, savedKeys, isBackendOnline, cryptoEngine }),
     [status, savedKeys, isBackendOnline, cryptoEngine]
@@ -3668,6 +3698,53 @@ function OmniAppInner() {
       <div className="dashboard-grid" style={{ marginTop: '1rem' }}>
         <SystemHealthCard snapshot={systemHealthSnapshot} />
         <EntryReadinessCard readiness={entryReadiness} symbol={selectedSymbol} />
+      </div>
+
+      <div className="card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+          <div>
+            <div className="card-title">🚀 Top Opportunities</div>
+            <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+              I simboli più vicini a un ingresso pulito in questo momento.
+            </div>
+          </div>
+        </div>
+        <div style={{ marginTop: '0.9rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.85rem' }}>
+          {topOpportunities.map((item) => (
+            <button
+              key={item.symbol}
+              type="button"
+              onClick={() => setSelectedSymbol(item.symbol)}
+              style={{
+                textAlign: 'left',
+                padding: '0.95rem',
+                borderRadius: '14px',
+                border: `1px solid ${item.headline.border}`,
+                background: item.headline.bg,
+                cursor: 'pointer',
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', marginBottom: '0.45rem' }}>
+                <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: '1rem' }}>{item.symbol}</div>
+                <div style={{ color: item.headline.tone, fontWeight: 800, fontSize: '0.82rem' }}>
+                  {item.headline.label} · {item.readiness.score}
+                </div>
+              </div>
+              <div style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: 1.45, marginBottom: '0.55rem' }}>
+                {item.headline.detail}
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', color: 'var(--text-secondary)', fontSize: '0.76rem' }}>
+                <span>Sentiment: {item.sentiment}</span>
+                <span>{item.rankingScore >= 0 ? `Score ${item.rankingScore.toFixed(3)}` : 'Score n/d'}</span>
+              </div>
+              {!!item.selectionReason && (
+                <div style={{ marginTop: '0.45rem', color: '#94a3b8', fontSize: '0.76rem', lineHeight: 1.4 }}>
+                  {item.selectionReason}
+                </div>
+              )}
+            </button>
+          ))}
+        </div>
       </div>
 
       {selectedSymbol && (
