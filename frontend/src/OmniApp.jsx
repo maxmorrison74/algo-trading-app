@@ -368,6 +368,47 @@ const parsePredictionMetrics = (prediction = '') => {
   };
 };
 
+const normalizeAssetTypeLabel = (assetType = '', symbol = '') => {
+  const value = String(assetType || '').trim().toLowerCase().replace(/[-\s]+/g, '_');
+  const rawSymbol = String(symbol || '').trim().toUpperCase();
+  if (['stock', 'stocks', 'equity', 'equities', 'azione', 'azioni'].includes(value)) return 'stock';
+  if (['crypto', 'cryptocurrency', 'cryptocurrencies', 'coin', 'coins', 'token', 'tokens', 'cripto'].includes(value)) return 'crypto';
+  if (rawSymbol.includes('/') || rawSymbol.endsWith('-USD') || rawSymbol.endsWith('-USDT') || rawSymbol.endsWith('USD') || rawSymbol.endsWith('USDT')) return 'crypto';
+  return value || 'stock';
+};
+
+const normalizeCryptoDisplaySymbol = (symbol = '') => {
+  let value = String(symbol || '').trim().toUpperCase();
+  if (!value) return '';
+  value = value.replace('-USD', '/USD').replace('-USDT', '/USD');
+  if (!value.includes('/')) {
+    if (value.endsWith('USDT')) return `${value.slice(0, -4)}/USD`;
+    if (value.endsWith('USD')) return `${value.slice(0, -3)}/USD`;
+  }
+  return value.replace('/USDT', '/USD');
+};
+
+const normalizeInvestmentSymbol = (symbol = '', assetType = '') => {
+  const normalizedAssetType = normalizeAssetTypeLabel(assetType, symbol);
+  return normalizedAssetType === 'crypto'
+    ? normalizeCryptoDisplaySymbol(symbol)
+    : String(symbol || '').trim().toUpperCase();
+};
+
+const sanitizeInvestmentProposal = (proposal = {}, index = 0) => {
+  const symbol = normalizeInvestmentSymbol(proposal.symbol, proposal.asset_type);
+  const assetType = normalizeAssetTypeLabel(proposal.asset_type, symbol);
+  if (!symbol) return null;
+  return {
+    id: proposal.id ?? `proposal-${index + 1}`,
+    risk: proposal.risk || 'Bilanciato',
+    symbol,
+    asset_type: assetType,
+    title: proposal.title || symbol,
+    rationale: proposal.rationale || 'Proposta generata dal motore AI di Aureo.',
+  };
+};
+
 const hasArmedAlertChannel = (savedKeys = {}) => !!(
   (savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY && savedKeys?.PUSHOVER_ALERTS_ENABLED !== false) ||
   (savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID && savedKeys?.TELEGRAM_ALERTS_ENABLED !== false)
@@ -3051,7 +3092,14 @@ function OmniAppInner() {
       });
       const data = await res.json();
       if (data.proposals) {
-        setAiProposals(data.proposals);
+        const normalized = (Array.isArray(data.proposals) ? data.proposals : [])
+          .map((proposal, index) => sanitizeInvestmentProposal(proposal, index))
+          .filter(Boolean);
+        if (normalized.length) {
+          setAiProposals(normalized);
+        } else {
+          setExecutionMessage("❌ Errore: il motore AI ha restituito proposte incomplete.");
+        }
       } else {
         setExecutionMessage(data.detail || "Errore sconosciuto");
       }
@@ -3086,14 +3134,19 @@ function OmniAppInner() {
   };
 
   const executeAiProposal = async (proposal) => {
-    setExecutionMessage(`Esecuzione in corso per ${proposal.symbol}...`);
+    const safeProposal = sanitizeInvestmentProposal(proposal);
+    if (!safeProposal) {
+      setExecutionMessage("❌ Errore: proposta AI non valida o incompleta.");
+      return;
+    }
+    setExecutionMessage(`Esecuzione in corso per ${safeProposal.symbol}...`);
     try {
       const res = await authFetch('/api/ai-invest/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          symbol: proposal.symbol,
-          asset_type: proposal.asset_type,
+          symbol: safeProposal.symbol,
+          asset_type: safeProposal.asset_type,
           amount_usd: Number(aiBudget)
         })
       });

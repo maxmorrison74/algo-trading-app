@@ -53,6 +53,43 @@ def normalize_crypto_symbol(symbol: str) -> str:
         return value.replace("/USD", "/USDT")
     return value
 
+def normalize_display_symbol(symbol: str, asset_type: str = "") -> str:
+    raw = (symbol or "").strip().upper()
+    normalized_asset_type = normalize_asset_type(asset_type, raw)
+    if normalized_asset_type == "crypto":
+        crypto_symbol = normalize_crypto_symbol(raw)
+        return crypto_symbol.replace("/USDT", "/USD")
+    return raw
+
+def sanitize_proposal(item, index: int = 0):
+    if not isinstance(item, dict):
+        return None
+    symbol = str(item.get("symbol") or "").strip()
+    asset_type = normalize_asset_type(item.get("asset_type", ""), symbol)
+    normalized_symbol = normalize_display_symbol(symbol, asset_type)
+    if not normalized_symbol:
+        return None
+    risk = str(item.get("risk") or "Bilanciato").strip() or "Bilanciato"
+    title = str(item.get("title") or normalized_symbol).strip() or normalized_symbol
+    rationale = str(item.get("rationale") or "Proposta generata dal motore AI di Aureo.").strip() or "Proposta generata dal motore AI di Aureo."
+    proposal_id = item.get("id", index + 1)
+    return {
+        "id": proposal_id,
+        "risk": risk,
+        "symbol": normalized_symbol,
+        "asset_type": asset_type,
+        "title": title,
+        "rationale": rationale,
+    }
+
+def sanitize_proposals(items):
+    normalized = []
+    for index, item in enumerate(items or []):
+        proposal = sanitize_proposal(item, index=index)
+        if proposal:
+            normalized.append(proposal)
+    return normalized
+
 def get_api_keys():
     keys = {}
     if os.path.exists(API_KEYS_FILE):
@@ -134,30 +171,30 @@ Rispondi solo con un oggetto JSON valido, senza markdown, con questa forma:
         proposals = json.loads(result_text)
         if "proposals" in proposals:
             proposals = proposals["proposals"]
-        return {"proposals": proposals}
+        return {"proposals": sanitize_proposals(proposals)}
         
     except Exception as e:
         # Fallback in caso di errore AI o rate limit
         print(f"Errore Groq: {e}")
         
         if req.strategy == "momentum":
-            return {"proposals": [
+            return {"proposals": sanitize_proposals([
                 {"id":1, "risk":"Conservativo", "symbol":"AAPL", "asset_type":"stock", "title":"Apple Inc", "rationale":"Forte momentum rialzista nell'ultimo periodo."},
                 {"id":2, "risk":"Conservativo", "symbol":"META", "asset_type":"stock", "title":"Meta Platforms", "rationale":"Trend solido con aumento degli utili."},
                 {"id":3, "risk":"Bilanciato", "symbol":"NVDA", "asset_type":"stock", "title":"NVIDIA Corp", "rationale":"Leader indiscusso spinto dal boom AI."},
                 {"id":4, "risk":"Bilanciato", "symbol":"TSLA", "asset_type":"stock", "title":"Tesla", "rationale":"Recupero recente dopo cali significativi."},
                 {"id":5, "risk":"Aggressivo", "symbol":"BTC/USD", "asset_type":"crypto", "title":"Bitcoin", "rationale":"Spinta inflazionistica e volumi record."},
                 {"id":6, "risk":"Aggressivo", "symbol":"ETH/USD", "asset_type":"crypto", "title":"Ethereum", "rationale":"Adozione layer-2 in accelerazione."}
-            ]}
+            ])}
             
-        return {"proposals": [
+        return {"proposals": sanitize_proposals([
             {"id":1, "risk":"Conservativo", "symbol":"MSFT", "asset_type":"stock", "title":"Microsoft Corp", "rationale":"Eccellente bilancio e dominio nell'IA generativa."},
             {"id":2, "risk":"Conservativo", "symbol":"JNJ", "asset_type":"stock", "title":"Johnson & Johnson", "rationale":"Dividendi stabili e settore difensivo."},
             {"id":3, "risk":"Bilanciato", "symbol":"PLTR", "asset_type":"stock", "title":"Palantir Tech", "rationale":"Forte crescita nei contratti governativi B2B."},
             {"id":4, "risk":"Bilanciato", "symbol":"CRWD", "asset_type":"stock", "title":"CrowdStrike", "rationale":"Leader indiscusso nella cybersecurity cloud."},
             {"id":5, "risk":"Aggressivo", "symbol":"SOL/USD", "asset_type":"crypto", "title":"Solana", "rationale":"Altissima volatilità e potenziale di breakout ecosistema."},
             {"id":6, "risk":"Aggressivo", "symbol":"AVAX/USD", "asset_type":"crypto", "title":"Avalanche", "rationale":"Rete veloce in rapida espansione nel gaming Web3."}
-        ]}
+        ])}
 
 @router.post("/execute")
 def execute_investment(req: InvestRequest, _: str = Depends(require_admin)):
