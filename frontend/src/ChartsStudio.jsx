@@ -95,6 +95,7 @@ export default function ChartsStudio({
   status = {},
   timeframe,
   setTimeframe,
+  onOpenSymbolReview,
 }) {
   const cryptoSymbolStateMap = deriveCryptoSymbolStates(status);
   const tradeHistory = status.trade_history || [];
@@ -211,6 +212,15 @@ export default function ChartsStudio({
           <div className="charts-hero-actions">
             <div className="badge badge-ai">{status.modules?.trading ? 'Stream live attivo' : 'Stream in attesa'}</div>
             <div className="badge badge-gold">{currentSymbol || 'No symbol'}</div>
+            {currentSymbol && (
+              <button
+                type="button"
+                className="symbol-link-btn symbol-link-btn--pill"
+                onClick={() => onOpenSymbolReview?.(currentSymbol)}
+              >
+                Review {currentSymbol}
+              </button>
+            )}
           </div>
         </div>
 
@@ -276,7 +286,13 @@ export default function ChartsStudio({
               <div className="card-title">Symbol Intel</div>
               <div className="charts-insight-symbol-row">
                 <div>
-                  <div className="charts-insight-symbol">{currentSymbol || '—'}</div>
+                  <button
+                    type="button"
+                    className="symbol-link-btn symbol-link-btn--inline charts-insight-symbol-button"
+                    onClick={() => currentSymbol && onOpenSymbolReview?.(currentSymbol)}
+                  >
+                    <span className="charts-insight-symbol">{currentSymbol || '—'}</span>
+                  </button>
                   <div className="charts-insight-sentiment">{currentRow?.sentiment || 'NEUTRAL'}</div>
                 </div>
                 {currentCryptoState && (

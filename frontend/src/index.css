@@ -2197,6 +2197,40 @@ input:focus, textarea:focus, select:focus {
   overflow: hidden;
 }
 
+.symbol-link-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: inherit;
+  transition: var(--trans-smooth);
+}
+
+.symbol-link-btn:hover {
+  opacity: 0.92;
+  transform: translateY(-1px);
+}
+
+.symbol-link-btn--inline {
+  padding: 0;
+}
+
+.symbol-link-btn--pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.28rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: rgba(56, 189, 248, 0.08);
+  color: #cdefff;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
 .home-hero-card,
 .home-executive-card,
 .home-overview-card,
@@ -2341,6 +2375,105 @@ input:focus, textarea:focus, select:focus {
 
 .charts-summary-card {
   background: linear-gradient(180deg, rgba(15, 23, 42, 0.78), rgba(15, 23, 42, 0.58));
+}
+
+.charts-insight-symbol-button {
+  padding: 0;
+}
+
+.symbol-review-card {
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    0 16px 40px rgba(2, 8, 23, 0.26),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+.symbol-review-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent 34%, transparent 74%, rgba(56, 189, 248, 0.04));
+}
+
+.symbol-review-hero {
+  padding: 1.35rem;
+}
+
+.symbol-review-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+  margin-top: 1rem;
+}
+
+.symbol-review-metric,
+.symbol-review-diagnosis-item,
+.symbol-review-activity-row {
+  padding: 0.9rem;
+  border-radius: 12px;
+  background: rgba(0,0,0,0.18);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.symbol-review-metric span,
+.symbol-review-diagnosis-item span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 0.3rem;
+}
+
+.symbol-review-metric strong,
+.symbol-review-diagnosis-item strong {
+  display: block;
+  color: #f8fafc;
+  line-height: 1.45;
+}
+
+.symbol-review-diagnosis-list,
+.symbol-review-activity-grid {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.symbol-review-checklist {
+  display: grid;
+  gap: 0.85rem;
+}
+
+.symbol-review-checklist > div,
+.symbol-review-activity-grid > div {
+  padding: 0.95rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.symbol-review-checklist h4,
+.symbol-review-activity-grid h4 {
+  margin-bottom: 0.55rem;
+  color: #e2e8f0;
+}
+
+.symbol-review-checklist > div > div,
+.symbol-review-activity-row {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.symbol-review-activity-row {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.symbol-review-empty {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
 }
 
 .charts-canvas-frame {
@@ -2675,6 +2808,13 @@ input:focus, textarea:focus, select:focus {
 
   .home-hero-spotlight {
     flex-basis: auto;
+  }
+
+  .symbol-review-metrics,
+  .symbol-review-diagnosis-list,
+  .symbol-review-activity-grid,
+  .symbol-review-checklist {
+    grid-template-columns: 1fr;
   }
 
   .hero-summary-label {

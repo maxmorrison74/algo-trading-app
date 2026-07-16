@@ -10,6 +10,7 @@ const TAB_TITLES = {
   home: 'Dashboard',
   trading: 'Stock Market',
   charts: 'Charts',
+  symbol_review: 'Symbol Review',
   develop: 'Engine Room',
   sports_arb: 'Sports SureBets',
   value_bets: 'AI Sentiment',
@@ -121,6 +122,7 @@ const getStatusScope = (activeTab) => {
   switch (activeTab) {
     case 'trading':
     case 'charts':
+    case 'symbol_review':
       return 'trading';
     case 'sports_arb':
       return 'sports_arb';
@@ -1163,7 +1165,7 @@ const OpsActionCard = ({ actions = [] }) => {
 
 const BOTTOM_BAR_STORAGE_KEY = 'aureo_bottom_bar_offset';
 
-const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel, activeTab, onOpenHealth, onOpenSecurity, onOpenTrading }) => {
+const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel, activeTab, onOpenHealth, onOpenSecurity, onOpenTrading, onOpenSymbolReview }) => {
   const barRef = React.useRef(null);
   const dragRef = React.useRef(null);
   const uiRaw = safeStorageGet(`${BOTTOM_BAR_STORAGE_KEY}:ui`, null);
@@ -1498,7 +1500,15 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
               <div className="bottom-reminder-mission-card-title">Focus operativo</div>
               <div className="bottom-reminder-mission-tags">
                 {focusSymbols.length ? focusSymbols.map((symbol) => (
-                  <span key={symbol} className="bottom-reminder-mission-tag">{symbol}</span>
+                  <SymbolLinkButton
+                    key={symbol}
+                    symbol={symbol}
+                    onOpen={(sym) => onOpenSymbolReview?.(sym, activeTab)}
+                    variant="pill"
+                    style={{ margin: 0 }}
+                  >
+                    {symbol}
+                  </SymbolLinkButton>
                 )) : <span className="bottom-reminder-mission-empty">Nessun simbolo in focus.</span>}
               </div>
               <div className="bottom-reminder-mission-note">
@@ -2256,6 +2266,18 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
   );
 };
 
+const SymbolLinkButton = ({ symbol, onOpen, children, variant = 'inline', style = {}, title }) => (
+  <button
+    type="button"
+    className={`symbol-link-btn symbol-link-btn--${variant}`}
+    onClick={() => onOpen?.(symbol)}
+    title={title || `Apri review ${symbol}`}
+    style={style}
+  >
+    {children || symbol}
+  </button>
+);
+
 function OmniAppInner() {
   const [status, setStatus] = useState({});
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -2273,6 +2295,7 @@ function OmniAppInner() {
   const [timeframe, setTimeframe] = useState('1D');
   const [chartData, setChartData] = useState([]);
   const [selectedSymbol, setSelectedSymbol] = useState(null);
+  const [symbolReviewReturnTab, setSymbolReviewReturnTab] = useState('trading');
   const [tradingViewFilter, setTradingViewFilter] = useState('all');
   const [tradingAlerts, setTradingAlerts] = useState([]);
   const [aiIdea, setAiIdea] = useState(null);
@@ -2625,6 +2648,17 @@ function OmniAppInner() {
     setDevelopSection(section);
     setActiveTab('develop');
   };
+  const openSymbolReview = React.useCallback((symbol, returnTab = activeTab) => {
+    if (!symbol) return;
+    setSelectedSymbol(symbol);
+    if (returnTab && returnTab !== 'symbol_review') {
+      setSymbolReviewReturnTab(returnTab);
+    }
+    setActiveTab('symbol_review');
+  }, [activeTab]);
+  const closeSymbolReview = React.useCallback(() => {
+    setActiveTab(symbolReviewReturnTab || 'trading');
+  }, [symbolReviewReturnTab]);
   const demoActionButtonProps = (disabled = false) => (
     isDemoMode
       ? { disabled: true, title: 'Non disponibile in demo mode' }
@@ -2713,7 +2747,7 @@ function OmniAppInner() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!selectedSymbol || !['trading', 'charts'].includes(activeTab)) return;
+    if (!selectedSymbol || !['trading', 'charts', 'symbol_review'].includes(activeTab)) return;
     const controller = new AbortController();
     const fetchChart = async () => {
       try {
@@ -4099,6 +4133,200 @@ function OmniAppInner() {
     );
   };
 
+  const renderSymbolReviewView = () => {
+    if (!selectedSymbol) {
+      return (
+        <div className="module-content module-content--symbol-review">
+          <div className="card symbol-review-card">
+            <div className="card-title">Nessun simbolo selezionato</div>
+            <div style={{ color: 'var(--text-secondary)', marginTop: '0.6rem' }}>
+              Seleziona un simbolo dalla dashboard, dal trading o dai grafici per aprire la sua review dedicata.
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    const headline = deriveEntryHeadline(entryReadiness);
+    const currentRow = tableDataBySymbol[selectedSymbol] || null;
+    const currentPosition = status.positions?.[selectedSymbol];
+    const reviewMetrics = [
+      { label: 'Readiness', value: `${entryReadiness.score}/100`, tone: headline.tone },
+      { label: 'Sentiment', value: symbolDrilldown.sentiment || 'NEUTRAL', tone: symbolDrilldown.sentiment === 'BULLISH' ? '#10b981' : symbolDrilldown.sentiment === 'BEARISH' ? '#ef4444' : '#94a3b8' },
+      { label: 'P&L storico', value: symbolDrilldown.tradeRow ? `${symbolDrilldown.tradeRow.totalPnl >= 0 ? '+' : ''}$${symbolDrilldown.tradeRow.totalPnl.toFixed(2)}` : 'Nessun trade chiuso', tone: symbolDrilldown.tradeRow ? (symbolDrilldown.tradeRow.totalPnl >= 0 ? '#10b981' : '#ef4444') : '#94a3b8' },
+      { label: 'Posizione', value: currentPosition && currentPosition !== 'LIQUID' ? (currentPosition.side === 'short' ? 'Short live' : 'Long live') : 'Flat / Watch', tone: currentPosition && currentPosition !== 'LIQUID' ? '#10b981' : '#38bdf8' },
+    ];
+
+    return (
+      <div className="module-content module-content--symbol-review">
+        <div className="header module-page-header symbol-review-header" style={{ marginBottom: '1.4rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+          <div>
+            <h2>Review · {selectedSymbol}</h2>
+            <div className="page-subtitle" style={{ color: 'var(--text-secondary)', marginTop: '0.45rem' }}>
+              Scheda dedicata del simbolo con chart, diagnosi, segnali e storico operativo.
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+            <button type="button" className="btn" style={{ background: 'rgba(255,255,255,0.06)' }} onClick={closeSymbolReview}>
+              ← Torna
+            </button>
+            <button type="button" className="btn" style={{ background: 'rgba(56,189,248,0.14)', border: '1px solid rgba(56,189,248,0.35)', color: '#38bdf8' }} onClick={() => setActiveTab('charts')}>
+              Apri in Charts
+            </button>
+            <button type="button" className="btn" style={{ background: 'rgba(16,185,129,0.14)', border: '1px solid rgba(16,185,129,0.35)', color: '#10b981' }} onClick={() => setActiveTab('trading')}>
+              Vai al Trading
+            </button>
+          </div>
+        </div>
+
+        <div className="card symbol-review-card symbol-review-hero" style={{ marginBottom: '1.2rem', border: `1px solid ${headline.border}`, background: headline.bg }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div>
+              <div className="card-title">Signal Story</div>
+              <div style={{ color: '#f8fafc', fontSize: '2rem', fontWeight: 900, marginTop: '0.4rem', letterSpacing: '-0.04em' }}>
+                {selectedSymbol}
+              </div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.45rem', maxWidth: '760px', lineHeight: 1.55 }}>
+                {headline.detail}
+              </div>
+            </div>
+            <div className="badge" style={{ color: headline.tone, borderColor: headline.border, background: 'rgba(0,0,0,0.18)' }}>
+              {headline.label}
+            </div>
+          </div>
+
+          <div className="symbol-review-metrics">
+            {reviewMetrics.map((item) => (
+              <div key={item.label} className="symbol-review-metric">
+                <span>{item.label}</span>
+                <strong style={{ color: item.tone }}>{item.value}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="dashboard-grid" style={{ marginBottom: '1.2rem' }}>
+          <div className="card col-span-8 symbol-review-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+              <div>
+                <div className="card-title">Live price action</div>
+                <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                  Andamento {timeframe} con fallback live già pronto per la review.
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                {['1D', '1W', '1M', '1Y', 'ALL'].map((tf) => (
+                  <button key={tf} type="button" className={`tab-btn ${timeframe === tf ? 'active-tab' : ''}`} onClick={() => setTimeframe(tf)}>
+                    {tf}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="chart-container" style={{ height: '320px', background: 'rgba(0,0,0,0.22)', borderRadius: '14px', padding: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
+              {chartData.length === 0 ? (
+                <div className="charts-empty-state">Nessun dato grafico disponibile per questo simbolo.</div>
+              ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData}>
+                    <defs>
+                      <linearGradient id="symbolReviewFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor={headline.tone} stopOpacity={0.45} />
+                        <stop offset="95%" stopColor={headline.tone} stopOpacity={0.03} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.08)" />
+                    <XAxis dataKey="time" stroke="#94a3b8" fontSize={12} />
+                    <YAxis stroke="#94a3b8" fontSize={12} domain={['auto', 'auto']} />
+                    <Tooltip contentStyle={{ backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '8px' }} />
+                    <Area type="monotone" dataKey="price" stroke={headline.tone} fill="url(#symbolReviewFill)" strokeWidth={2.4} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+          </div>
+
+          <div className="card col-span-4 symbol-review-card">
+            <div className="card-title">Fast diagnosis</div>
+            <div className="symbol-review-diagnosis-list">
+              <div className="symbol-review-diagnosis-item">
+                <span>LSTM</span>
+                <strong>{symbolDrilldown.metrics.lstm == null ? 'n/d' : `${symbolDrilldown.metrics.lstm.toFixed(1)}%`}</strong>
+              </div>
+              <div className="symbol-review-diagnosis-item">
+                <span>RSI</span>
+                <strong>{symbolDrilldown.metrics.rsi == null ? 'n/d' : symbolDrilldown.metrics.rsi.toFixed(1)}</strong>
+              </div>
+              <div className="symbol-review-diagnosis-item">
+                <span>MACD</span>
+                <strong>{symbolDrilldown.metrics.macd == null ? 'n/d' : symbolDrilldown.metrics.macd.toFixed(2)}</strong>
+              </div>
+              <div className="symbol-review-diagnosis-item">
+                <span>VWAP</span>
+                <strong>{symbolDrilldown.metrics.vwap == null ? 'n/d' : symbolDrilldown.metrics.vwap.toFixed(2)}</strong>
+              </div>
+              <div className="symbol-review-diagnosis-item">
+                <span>Prediction</span>
+                <strong>{currentRow?.prediction || 'n/d'}</strong>
+              </div>
+              {symbolDrilldown.cryptoState && (
+                <div className="symbol-review-diagnosis-item">
+                  <span>Crypto state</span>
+                  <strong>{symbolDrilldown.cryptoState.label} · {symbolDrilldown.cryptoState.reason}</strong>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-grid">
+          <div className="card col-span-6 symbol-review-card">
+            <div className="card-title">Readiness breakdown</div>
+            <div className="symbol-review-checklist">
+              <div>
+                <h4>Green lights</h4>
+                {entryReadiness.greenLights.length ? entryReadiness.greenLights.map((item, index) => <div key={`g-${index}`}>{item}</div>) : <div>Nessun segnale forte ancora acceso.</div>}
+              </div>
+              <div>
+                <h4>Watch items</h4>
+                {entryReadiness.watchItems.length ? entryReadiness.watchItems.map((item, index) => <div key={`w-${index}`}>{item}</div>) : <div>Nessun warning in evidenza.</div>}
+              </div>
+              <div>
+                <h4>Blockers</h4>
+                {entryReadiness.blockers.length ? entryReadiness.blockers.map((item, index) => <div key={`b-${index}`}>{item}</div>) : <div>Nessun blocco operativo rilevato.</div>}
+              </div>
+            </div>
+          </div>
+
+          <div className="card col-span-6 symbol-review-card">
+            <div className="card-title">Recent trades & logs</div>
+            <div className="symbol-review-activity-grid">
+              <div>
+                <h4>Trade recenti</h4>
+                {symbolDrilldown.recentTrades.length ? symbolDrilldown.recentTrades.map((trade, index) => (
+                  <div key={`${trade.symbol}-${trade.date}-${index}`} className="symbol-review-activity-row">
+                    <strong>{trade.side}</strong>
+                    <span>{trade.date || 'Data non disponibile'}</span>
+                    <span style={{ color: Number(trade.profit_usd || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                      {Number(trade.profit_usd || 0) >= 0 ? '+' : ''}${Number(trade.profit_usd || 0).toFixed(2)}
+                    </span>
+                  </div>
+                )) : <div className="symbol-review-empty">Ancora nessun trade chiuso sul simbolo.</div>}
+              </div>
+              <div>
+                <h4>Log recenti</h4>
+                {entryReadiness.recentLogs.length ? entryReadiness.recentLogs.map((line, index) => (
+                  <div key={`log-${index}`} className="symbol-review-activity-row">
+                    <span>{line}</span>
+                  </div>
+                )) : <div className="symbol-review-empty">Nessun log recente filtrato su questo simbolo.</div>}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderTradingView = () => (
     <div className="module-content module-content--trading">
       {(() => {
@@ -4209,7 +4437,7 @@ function OmniAppInner() {
             <button
               className="btn"
               type="button"
-              onClick={() => setSelectedSymbol(opportunitySpotlight.spotlight.symbol)}
+              onClick={() => openSymbolReview(opportunitySpotlight.spotlight.symbol, 'trading')}
               style={{
                 background: 'rgba(0,0,0,0.18)',
                 border: `1px solid ${opportunitySpotlight.spotlight.headline.border}`,
@@ -4249,7 +4477,7 @@ function OmniAppInner() {
             <button
               key={alert.id}
               type="button"
-              onClick={() => setSelectedSymbol(alert.symbol)}
+              onClick={() => openSymbolReview(alert.symbol, 'trading')}
               style={{
                 textAlign: 'left',
                 padding: '0.8rem 0.9rem',
@@ -4313,7 +4541,7 @@ function OmniAppInner() {
             <button
               key={item.symbol}
               type="button"
-              onClick={() => setSelectedSymbol(item.symbol)}
+              onClick={() => openSymbolReview(item.symbol, 'trading')}
               className="trading-opportunity-tile"
               style={{
                 textAlign: 'left',
@@ -4325,7 +4553,9 @@ function OmniAppInner() {
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', marginBottom: '0.45rem' }}>
-                <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: '1rem' }}>{item.symbol}</div>
+                <SymbolLinkButton symbol={item.symbol} onOpen={() => openSymbolReview(item.symbol, 'trading')} variant="inline" style={{ color: '#f8fafc', fontWeight: 800, fontSize: '1rem', padding: 0 }}>
+                  {item.symbol}
+                </SymbolLinkButton>
                 <div style={{ color: item.headline.tone, fontWeight: 800, fontSize: '0.82rem' }}>
                   {item.headline.label} · {item.readiness.score}
                 </div>
@@ -4710,7 +4940,9 @@ function OmniAppInner() {
                   <span style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', textTransform: 'uppercase' }}>{prop.asset_type}</span>
                 </div>
                 <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '1.2rem', color: '#e2e8f0' }}>{prop.title}</h4>
-                <div style={{ fontFamily: 'var(--font-mono)', color: '#38bdf8', fontSize: '1.4rem', fontWeight: 'bold', marginBottom: '1rem' }}>{prop.symbol}</div>
+                <SymbolLinkButton symbol={prop.symbol} onOpen={() => openSymbolReview(prop.symbol, 'trading')} variant="inline" style={{ fontFamily: 'var(--font-mono)', color: '#38bdf8', fontSize: '1.4rem', fontWeight: 'bold', marginBottom: '1rem', padding: 0 }}>
+                  {prop.symbol}
+                </SymbolLinkButton>
                 <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', lineHeight: '1.4', flex: 1 }}>{prop.rationale}</p>
                 <button className="btn" onClick={() => executeAiProposal(prop)} {...demoActionButtonProps()} style={{ marginTop: '1rem', width: '100%', background: 'transparent', border: '1px solid #10b981', color: '#10b981', ...demoActionStyle }}>
                   Investi ${aiBudget} su {prop.symbol}
@@ -4741,7 +4973,11 @@ function OmniAppInner() {
                   {status.ai_investments.map((inv, idx) => (
                     <tr key={idx} className="data-row" style={{ padding: '0' }}>
                       <td style={{ padding: '1rem', textTransform: 'uppercase', color: 'var(--text-secondary)' }}>{inv.asset_type}</td>
-                      <td style={{ padding: '1rem', fontWeight: 'bold', color: '#38bdf8' }}>{inv.symbol}</td>
+                      <td style={{ padding: '1rem', fontWeight: 'bold', color: '#38bdf8' }}>
+                        <SymbolLinkButton symbol={inv.symbol} onOpen={() => openSymbolReview(inv.symbol, 'trading')} variant="inline" style={{ color: '#38bdf8', padding: 0, fontWeight: 'bold' }}>
+                          {inv.symbol}
+                        </SymbolLinkButton>
+                      </td>
                       <td style={{ padding: '1rem', color: '#10b981', fontWeight: 'bold' }}>${Number(inv.amount_usd).toFixed(2)}</td>
                       <td style={{ padding: '1rem', color: '#e2e8f0' }}>{inv.platform}</td>
                       <td style={{ padding: '1rem', color: 'var(--text-muted)' }}>{inv.timestamp}</td>
@@ -4813,7 +5049,9 @@ function OmniAppInner() {
                 <div key={row.symbol} style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
                     <div>
-                      <div style={{ color: '#f8fafc', fontWeight: 800 }}>{row.symbol}</div>
+                      <SymbolLinkButton symbol={row.symbol} onOpen={() => openSymbolReview(row.symbol, 'trading')} variant="inline" style={{ color: '#f8fafc', fontWeight: 800, padding: 0 }}>
+                        {row.symbol}
+                      </SymbolLinkButton>
                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.2rem' }}>
                         {row.trades} trade · win rate {row.winRate.toFixed(0)}% · ultimo evento {row.lastSide || 'n/d'}
                       </div>
@@ -4843,7 +5081,11 @@ function OmniAppInner() {
                 <div key={`${trade.symbol}-${trade.date}-${index}`} style={{ padding: '0.75rem 0.85rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.05)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
                     <div>
-                      <div style={{ color: '#f8fafc', fontWeight: 800 }}>{trade.symbol} · {trade.side}</div>
+                      <div style={{ color: '#f8fafc', fontWeight: 800 }}>
+                        <SymbolLinkButton symbol={trade.symbol} onOpen={() => openSymbolReview(trade.symbol, 'trading')} variant="inline" style={{ color: '#f8fafc', fontWeight: 800, padding: 0 }}>
+                          {trade.symbol}
+                        </SymbolLinkButton>{' '}· {trade.side}
+                      </div>
                       <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', marginTop: '0.2rem' }}>{trade.date || 'Data non disponibile'}</div>
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -4924,7 +5166,9 @@ function OmniAppInner() {
               return <div key={sym} style={{ display: 'flex', flexDirection: 'column', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', marginBottom: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontWeight: 'bold' }}>
-                    <span>{sym} {p.side === 'short' ? '(SHORT)' : ''}</span>
+                    <SymbolLinkButton symbol={sym} onOpen={() => openSymbolReview(sym, 'trading')} variant="inline" style={{ color: 'inherit', fontWeight: 'bold', padding: 0 }}>
+                      {sym} {p.side === 'short' ? '(SHORT)' : ''}
+                    </SymbolLinkButton>
                     {cryptoState && (
                       <span
                         style={{
@@ -5051,7 +5295,16 @@ function OmniAppInner() {
               </button>
             </div>
             <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>
-              {status.symbols?.join(' • ') || 'Nessun simbolo disponibile'}
+              {status.symbols?.length
+                ? status.symbols.map((symbol, index) => (
+                    <React.Fragment key={symbol}>
+                      {index > 0 ? <span style={{ color: '#64748b' }}> • </span> : null}
+                      <SymbolLinkButton symbol={symbol} onOpen={() => openSymbolReview(symbol, 'trading')} variant="inline" style={{ color: '#94a3b8', padding: 0 }}>
+                        {symbol}
+                      </SymbolLinkButton>
+                    </React.Fragment>
+                  ))
+                : 'Nessun simbolo disponibile'}
             </div>
             {status.symbol_selection?.ranked?.length > 0 && (
               <div style={{ marginTop: '0.75rem', display: 'grid', gap: '0.5rem' }}>
@@ -5066,7 +5319,9 @@ function OmniAppInner() {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                      <div style={{ color: '#e2e8f0', fontWeight: 'bold' }}>{row.symbol}</div>
+                      <SymbolLinkButton symbol={row.symbol} onOpen={() => openSymbolReview(row.symbol, 'trading')} variant="inline" style={{ color: '#e2e8f0', fontWeight: 'bold', padding: 0 }}>
+                        {row.symbol}
+                      </SymbolLinkButton>
                       <div style={{ color: '#06b6d4', fontFamily: 'monospace', fontSize: '0.8rem' }}>
                         {row.score == null ? 'crypto core' : `score ${Number(row.score || 0).toFixed(3)}`}
                       </div>
@@ -5105,9 +5360,14 @@ function OmniAppInner() {
                         {meta.label}
                       </span>
                       {symbol && (
-                        <span style={{ color: '#cbd5e1', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.18rem 0.45rem', borderRadius: '999px', background: 'rgba(255,255,255,0.06)' }}>
+                        <SymbolLinkButton
+                          symbol={symbol}
+                          onOpen={() => openSymbolReview(symbol, 'trading')}
+                          variant="pill"
+                          style={{ color: '#cbd5e1', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0.18rem 0.45rem', borderRadius: '999px', background: 'rgba(255,255,255,0.06)' }}
+                        >
                           {symbol}
-                        </span>
+                        </SymbolLinkButton>
                       )}
                     </div>
                     <div style={{ color: 'rgba(255,255,255,0.78)' }}>{l}</div>
@@ -6725,6 +6985,7 @@ function OmniAppInner() {
         </div>
         {activeTab === 'home' && renderHomeView()}
         {activeTab === 'trading' && renderTradingView()}
+        {activeTab === 'symbol_review' && renderSymbolReviewView()}
         {activeTab === 'charts' && (
           <ChartsStudio
             chartData={chartData}
@@ -6733,6 +6994,7 @@ function OmniAppInner() {
             status={status}
             timeframe={timeframe}
             setTimeframe={setTimeframe}
+            onOpenSymbolReview={(symbol) => openSymbolReview(symbol, 'charts')}
           />
         )}
         {activeTab === 'develop' && userRole === 'admin' && (
@@ -6761,6 +7023,7 @@ function OmniAppInner() {
           onOpenHealth={() => openDevelopSection('health')}
           onOpenSecurity={() => openDevelopSection('security')}
           onOpenTrading={() => setActiveTab('trading')}
+          onOpenSymbolReview={openSymbolReview}
         />
       </div>
     </div>
