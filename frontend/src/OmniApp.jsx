@@ -7386,6 +7386,12 @@ function OmniAppInner() {
             <span className="menu-icon">📉</span>
             <span className="menu-label">Charts</span>
           </div>
+          {userRole !== 'admin' && (
+            <div className={`menu-item ${activeTab === 'security' ? 'active' : ''}`} onClick={() => setActiveTab('security')}>
+              <span className="menu-icon">🔐</span>
+              <span className="menu-label">Security</span>
+            </div>
+          )}
           {userRole === 'admin' && (
             <div className={`menu-item ${activeTab === 'develop' ? 'active' : ''}`} onClick={() => openDevelopSection('health')}>
               <span className="menu-icon">⚙️</span>
