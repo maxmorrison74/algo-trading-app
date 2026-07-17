@@ -133,6 +133,63 @@ const getSymbolFromHash = (hash = '') => {
   }
 };
 
+const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
+  const status = String(profile?.status || fallbackStatus || 'active').toLowerCase();
+  const expiresAt = profile?.subscription_expires_at || null;
+  const isPaid = !!profile?.is_paid;
+  if (!expiresAt) {
+    if (status === 'pending') {
+      return {
+        title: 'Demo attiva',
+        detail: 'Accesso demo in attesa di attivazione completa',
+        tone: '#f59e0b',
+      };
+    }
+    return {
+      title: isPaid ? 'Accesso attivo' : 'Accesso attivo',
+      detail: isPaid ? 'Abbonamento attivo senza scadenza visibile' : 'Attivazione manuale presente',
+      tone: '#10b981',
+    };
+  }
+
+  const expDate = new Date(expiresAt.replace(' ', 'T'));
+  if (Number.isNaN(expDate.getTime())) {
+    return {
+      title: 'Accesso attivo',
+      detail: `Scadenza registrata: ${expiresAt}`,
+      tone: '#10b981',
+    };
+  }
+
+  const diffMs = expDate.getTime() - Date.now();
+  const diffDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+  const formattedDate = expDate.toLocaleDateString('it-IT', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+
+  if (diffMs < 0) {
+    return {
+      title: 'Accesso scaduto',
+      detail: `Scaduto il ${formattedDate}`,
+      tone: '#ef4444',
+    };
+  }
+
+  const durationLabel = diffDays === 0
+    ? 'Scade oggi'
+    : diffDays === 1
+      ? '1 giorno residuo'
+      : `${diffDays} giorni residui`;
+
+  return {
+    title: isPaid ? 'Abbonamento attivo' : 'Accesso attivo',
+    detail: `${durationLabel} • fino al ${formattedDate}`,
+    tone: diffDays <= 3 ? '#f59e0b' : '#10b981',
+  };
+};
+
 const getAuthToken = () => safeStorageGet(AUTH_TOKEN_KEY, '');
 const isDemoSession = () => safeStorageGet(DEMO_MODE_KEY, '') === '1';
 
@@ -2558,6 +2615,7 @@ function OmniAppInner() {
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'user' });
   const [billingLead, setBillingLead] = useState({ company: '', contact_name: '', email: '', plan_id: 'monthly', seats: 1 });
   const [userIsPaid, setUserIsPaid] = useState(false);
+  const [userProfile, setUserProfile] = useState(null);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [lastStatusSync, setLastStatusSync] = useState(null);
   const [notices, setNotices] = useState([]);
@@ -2941,6 +2999,10 @@ function OmniAppInner() {
   const syncLabel = isBackendOnline
     ? (lastStatusSync ? `Live • ${lastStatusSync}` : 'Live')
     : 'Offline';
+  const accountAccessMeta = useMemo(
+    () => formatAccountAccessMeta(userProfile, userStatus),
+    [userProfile, userStatus]
+  );
   const dismissNotice = React.useCallback((id) => {
     setNotices((prev) => prev.filter((item) => item.id !== id));
   }, []);
@@ -2953,6 +3015,22 @@ function OmniAppInner() {
       }, duration);
     }
     return id;
+  }, []);
+  const loadUserProfile = React.useCallback(async () => {
+    try {
+      const res = await authFetch('/api/user/me');
+      if (!res.ok) return null;
+      const data = await parseJsonSafely(res, {});
+      setUserProfile(data);
+      setUserIsPaid(!!data.is_paid || data.role === 'admin');
+      if (data?.status) {
+        setUserStatus(data.status);
+        safeStorageSet('USER_STATUS', data.status);
+      }
+      return data;
+    } catch {
+      return null;
+    }
   }, []);
   const closeConfirmDialog = React.useCallback(() => setConfirmDialog(null), []);
   const openConfirmDialog = React.useCallback((config) => setConfirmDialog({ open: true, ...config }), []);
@@ -3017,6 +3095,14 @@ function OmniAppInner() {
     const supported = typeof window !== 'undefined' && !!window.PublicKeyCredential && !!navigator.credentials;
     setPasskeySupported(supported);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || isDemoMode) {
+      if (!isAuthenticated) setUserProfile(null);
+      return;
+    }
+    loadUserProfile();
+  }, [isAuthenticated, isDemoMode, loadUserProfile]);
 
   const enterDemoMode = () => {
     safeStorageSet(DEMO_MODE_KEY, '1');
@@ -3192,11 +3278,7 @@ function OmniAppInner() {
     // Fetch payment status and check onboarding for user (non-blocking)
     setTimeout(async () => {
       try {
-        const res = await authFetch('/api/user/me');
-        if (res.ok) {
-          const data = await parseJsonSafely(res, {});
-          setUserIsPaid(data.is_paid || data.role === 'admin');
-        }
+        await loadUserProfile();
         
         if (role !== 'admin' && !demo) {
           const keysRes = await authFetch('/api/keys');
@@ -3436,6 +3518,7 @@ function OmniAppInner() {
     } catch (err) {
       console.error(err);
     } finally {
+      setUserProfile(null);
       clearAuthSession();
       window.location.href = '/';
     }
@@ -7534,6 +7617,23 @@ function OmniAppInner() {
           <div className="sidebar-user-pill" style={{ marginTop: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
             👤 {email}
           </div>
+          {userRole !== 'admin' && (
+            <div style={{
+              marginTop: '0.65rem',
+              padding: '0.8rem 0.9rem',
+              borderRadius: '12px',
+              background: 'rgba(255,255,255,0.035)',
+              border: `1px solid ${accountAccessMeta.tone}33`,
+              textAlign: 'center'
+            }}>
+              <div style={{ color: accountAccessMeta.tone, fontWeight: 800, fontSize: '0.84rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+                {accountAccessMeta.title}
+              </div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '0.32rem', lineHeight: 1.45 }}>
+                {accountAccessMeta.detail}
+              </div>
+            </div>
+          )}
 
           <button
             onClick={handleLogout}
