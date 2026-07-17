@@ -2478,6 +2478,48 @@ const OnboardingModal = ({ onClose, onGoToSettings, savedKeys = {} }) => {
               <strong>Pushover:</strong> ti servono <strong>App Token</strong> e <strong>User Key</strong> {pushoverReady ? <span style={{ color: '#34d399' }}>• pronto</span> : <span style={{ color: '#fca5a5' }}>• mancante</span>}. Apri <a href="https://pushover.net" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8' }}>Pushover ↗</a> per creare account e token.<br />
               Puoi aggiungerle anche dopo: non bloccano l’avvio del broker.
             </div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+              <a
+                href="https://t.me/BotFather"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0.55rem 0.95rem',
+                  borderRadius: '10px',
+                  background: 'rgba(56,189,248,0.14)',
+                  border: '1px solid rgba(56,189,248,0.28)',
+                  color: '#38bdf8',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  textDecoration: 'none'
+                }}
+              >
+                Apri BotFather ↗
+              </a>
+              <a
+                href="https://pushover.net"
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  padding: '0.55rem 0.95rem',
+                  borderRadius: '10px',
+                  background: 'rgba(16,185,129,0.14)',
+                  border: '1px solid rgba(16,185,129,0.28)',
+                  color: '#34d399',
+                  fontWeight: 700,
+                  fontSize: '0.86rem',
+                  textDecoration: 'none'
+                }}
+              >
+                Apri Pushover ↗
+              </a>
+            </div>
           </div>
         </div>
 
