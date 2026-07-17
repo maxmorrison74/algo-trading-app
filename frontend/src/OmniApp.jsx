@@ -3974,6 +3974,44 @@ function OmniAppInner() {
         ],
         note: 'Groq è completamente gratuito e alimenta le analisi AI Sentiment e le proposte di investimento.',
       },
+      {
+        id: 'telegram',
+        name: 'Telegram',
+        subtitle: 'Alert esterni via bot',
+        icon: '📨',
+        color: '#38bdf8',
+        bg: 'rgba(56, 189, 248, 0.08)',
+        border: 'rgba(56, 189, 248, 0.25)',
+        url: 'https://t.me/BotFather',
+        keyPresent: savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID'],
+        steps: [
+          { n: 1, text: 'Apri Telegram e cerca @BotFather' },
+          { n: 2, text: 'Invia /newbot e crea il tuo bot seguendo le istruzioni' },
+          { n: 3, text: 'Copia il Bot Token generato da BotFather' },
+          { n: 4, text: 'Scrivi un messaggio al tuo bot per attivare la chat' },
+          { n: 5, text: 'Apri l’URL getUpdates per recuperare il tuo chat id e incollalo in Aureo' },
+        ],
+        note: 'Telegram è ottimo come canale secondario per ricevere eventi e warning fuori piattaforma.',
+      },
+      {
+        id: 'pushover',
+        name: 'Pushover',
+        subtitle: 'Push critiche su iPhone / Apple Watch',
+        icon: '⌚',
+        color: '#10b981',
+        bg: 'rgba(16, 185, 129, 0.08)',
+        border: 'rgba(16, 185, 129, 0.25)',
+        url: 'https://pushover.net',
+        keyPresent: savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY'],
+        steps: [
+          { n: 1, text: 'Vai su pushover.net e crea il tuo account' },
+          { n: 2, text: 'Installa l’app Pushover su iPhone' },
+          { n: 3, text: 'Nel pannello Pushover copia la tua User Key personale' },
+          { n: 4, text: 'Crea una nuova Application/API Token per Aureo' },
+          { n: 5, text: 'Torna in Aureo e incolla App Token + User Key nella sezione Pushover' },
+        ],
+        note: 'Pushover è il canale migliore per notifiche critiche immediate anche su Apple Watch.',
+      },
     ];
 
     const readyCount = platforms.filter((platform) => platform.keyPresent).length;
@@ -4243,6 +4281,14 @@ function OmniAppInner() {
         <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.86rem', lineHeight: 1.5 }}>
           Dopo aver scritto al bot su Telegram, recupera il tuo chat id da `getUpdates` e incollalo qui.
         </div>
+        <div style={{ marginBottom: '1rem', padding: '0.95rem 1rem', borderRadius: '12px', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)' }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.45rem' }}>Mini tutorial Telegram</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', lineHeight: 1.55, display: 'grid', gap: '0.3rem' }}>
+            <div>1. Apri <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8' }}>BotFather ↗</a> e crea il bot con <strong>/newbot</strong>.</div>
+            <div>2. Copia il <strong>Bot Token</strong> che BotFather ti restituisce.</div>
+            <div>3. Scrivi un messaggio al tuo bot, poi apri <a href={`https://api.telegram.org/bot${apiKeys.telegram_bot_token || 'YOUR_BOT_TOKEN'}/getUpdates`} target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8' }}>getUpdates ↗</a> per leggere il <strong>Chat ID</strong>.</div>
+          </div>
+        </div>
         {testResults['telegram'] && <div style={{ color: testResults['telegram'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['telegram']}</div>}
       </div>
 
@@ -4344,6 +4390,14 @@ function OmniAppInner() {
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <input type="password" placeholder="Pushover App Token" value={apiKeys.pushover_app_token} onChange={e => setApiKeys({...apiKeys, pushover_app_token: e.target.value})} style={{ flex: 1, minWidth: '240px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
           <input type="password" placeholder="Pushover User Key" value={apiKeys.pushover_user_key} onChange={e => setApiKeys({...apiKeys, pushover_user_key: e.target.value})} style={{ flex: 1, minWidth: '240px', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
+        </div>
+        <div style={{ marginBottom: '1rem', padding: '0.95rem 1rem', borderRadius: '12px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.2)' }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.45rem' }}>Mini tutorial Pushover</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.86rem', lineHeight: 1.55, display: 'grid', gap: '0.3rem' }}>
+            <div>1. Vai su <a href="https://pushover.net" target="_blank" rel="noopener noreferrer" style={{ color: '#10b981' }}>pushover.net ↗</a> e crea il tuo account.</div>
+            <div>2. Copia la tua <strong>User Key</strong> dalla dashboard personale.</div>
+            <div>3. Crea una nuova <strong>Application/API Token</strong> dedicata ad Aureo e incolla entrambe le chiavi qui.</div>
+          </div>
         </div>
         {testResults['pushover'] && <div style={{ color: testResults['pushover'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['pushover']}</div>}
       </div>
