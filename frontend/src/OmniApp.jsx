@@ -143,12 +143,18 @@ const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
         title: 'Demo attiva',
         detail: 'Accesso demo in attesa di attivazione completa',
         tone: '#f59e0b',
+        isExpired: false,
+        isExpiringSoon: false,
+        daysRemaining: null,
       };
     }
     return {
       title: isPaid ? 'Accesso attivo' : 'Accesso attivo',
       detail: isPaid ? 'Abbonamento attivo senza scadenza visibile' : 'Attivazione manuale presente',
       tone: '#10b981',
+      isExpired: false,
+      isExpiringSoon: false,
+      daysRemaining: null,
     };
   }
 
@@ -158,6 +164,9 @@ const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
       title: 'Accesso attivo',
       detail: `Scadenza registrata: ${expiresAt}`,
       tone: '#10b981',
+      isExpired: false,
+      isExpiringSoon: false,
+      daysRemaining: null,
     };
   }
 
@@ -174,6 +183,9 @@ const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
       title: 'Accesso scaduto',
       detail: `Scaduto il ${formattedDate}`,
       tone: '#ef4444',
+      isExpired: true,
+      isExpiringSoon: false,
+      daysRemaining: diffDays,
     };
   }
 
@@ -187,6 +199,9 @@ const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
     title: isPaid ? 'Abbonamento attivo' : 'Accesso attivo',
     detail: `${durationLabel} • fino al ${formattedDate}`,
     tone: diffDays <= 3 ? '#f59e0b' : '#10b981',
+    isExpired: false,
+    isExpiringSoon: diffDays <= 3,
+    daysRemaining: diffDays,
   };
 };
 
@@ -7794,6 +7809,22 @@ function OmniAppInner() {
               <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', marginTop: '0.32rem', lineHeight: 1.45 }}>
                 {accountAccessMeta.detail}
               </div>
+              {(accountAccessMeta.isExpired || accountAccessMeta.isExpiringSoon) && (
+                <div style={{
+                  marginTop: '0.7rem',
+                  padding: '0.65rem 0.75rem',
+                  borderRadius: '10px',
+                  background: accountAccessMeta.isExpired ? 'rgba(239,68,68,0.12)' : 'rgba(245,158,11,0.12)',
+                  border: `1px solid ${accountAccessMeta.isExpired ? 'rgba(239,68,68,0.28)' : 'rgba(245,158,11,0.28)'}`,
+                  color: accountAccessMeta.isExpired ? '#fca5a5' : '#fcd34d',
+                  fontSize: '0.8rem',
+                  lineHeight: 1.4
+                }}>
+                  {accountAccessMeta.isExpired
+                    ? 'Il tuo accesso è scaduto: rinnova per continuare senza interruzioni.'
+                    : 'Scadenza vicina: ti conviene rinnovare adesso per non perdere continuità.'}
+                </div>
+              )}
             </div>
           )}
 
