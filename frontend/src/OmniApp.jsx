@@ -6867,10 +6867,10 @@ function OmniAppInner() {
               <div className="sales-hero-content">
                 <div className="sales-badge">⚡ Private Access Operating System</div>
                 <h1>
-                  Aureo deve sembrare una <span>infrastruttura privata</span>, non una dashboard da provare al volo
+                  Aureo si presenta come una <span>control room privata</span> pensata per chi pretende controllo, ordine e discrezione
                 </h1>
                 <p>
-                  Questa landing trasforma il prodotto in un’esperienza riservata, guidata e più difendibile sul piano del valore: meno sensazione retail, più percezione di controllo, qualità e accesso selettivo.
+                  Un ambiente riservato, curato e guidato, dove l’accesso non è casuale e ogni dettaglio comunica qualità, presidio e valore percepito.
                 </p>
                 <div className="sales-hero-buttons">
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
