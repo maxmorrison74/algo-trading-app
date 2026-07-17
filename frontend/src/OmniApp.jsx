@@ -7801,7 +7801,13 @@ function OmniAppInner() {
               borderRadius: '12px',
               background: 'rgba(255,255,255,0.035)',
               border: `1px solid ${accountAccessMeta.tone}33`,
-              textAlign: 'center'
+              textAlign: 'center',
+              cursor: (accountAccessMeta.isExpired || accountAccessMeta.isExpiringSoon) ? 'pointer' : 'default'
+            }}
+            onClick={() => {
+              if (accountAccessMeta.isExpired || accountAccessMeta.isExpiringSoon) {
+                setShowPaymentModal(true);
+              }
             }}>
               <div style={{ color: accountAccessMeta.tone, fontWeight: 800, fontSize: '0.84rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
                 {accountAccessMeta.title}
