@@ -34,8 +34,10 @@ const DEMO_BILLING_OVERVIEW = {
       name: 'Starter',
       price_monthly: 79,
       currency: 'EUR',
-      description: 'Per trader indipendenti che vogliono dashboard e demo operativa.',
-      features: ['Dashboard live', 'Demo mode', '1 workspace', 'Supporto email'],
+      tagline: 'Ingresso essenziale nel mondo Aureo',
+      ideal_for: 'Ideale per professionisti indipendenti che vogliono iniziare con un ambiente ordinato e già credibile.',
+      description: 'L’accesso più rapido per presentare e usare Aureo con una base solida, pulita e immediatamente operativa.',
+      features: ['Dashboard live', 'Ambiente operativo riservato', '1 workspace dedicato', 'Supporto email'],
       modules: ['dashboard', 'trading'],
       checkout_url: 'https://buy.stripe.com/test_starter',
     },
@@ -44,8 +46,10 @@ const DEMO_BILLING_OVERVIEW = {
       name: 'Pro',
       price_monthly: 199,
       currency: 'EUR',
-      description: 'Per utenti che vogliono automazioni, segnali e moduli avanzati.',
-      features: ['Tutti i moduli core', 'Alert operativi', '3 workspace', 'Priority support'],
+      tagline: 'Il cuore del percorso Aureo',
+      ideal_for: 'Ideale per chi vuole un’esperienza più completa, più forte da mostrare e più utile da usare ogni giorno.',
+      description: 'Il piano più equilibrato per unire operatività, segnali, alert e una presenza premium pronta a convincere.',
+      features: ['Tutti i moduli core', 'Alert operativi attivabili', 'Fino a 3 workspace', 'Supporto prioritario'],
       modules: ['dashboard', 'trading', 'sentiment'],
       checkout_url: 'https://buy.stripe.com/test_pro',
     },
@@ -54,8 +58,10 @@ const DEMO_BILLING_OVERVIEW = {
       name: 'Elite',
       price_monthly: 499,
       currency: 'EUR',
-      description: 'Per desk, consulenti e clienti ad alto valore con onboarding guidato.',
-      features: ['White-glove onboarding', 'Utenti multipli', 'Billing priority', 'Canale dedicato'],
+      tagline: 'Percorso premium ad alta assistenza',
+      ideal_for: 'Ideale per desk, consulenti e clienti ad alto valore che vogliono un’attivazione più vicina e più presidiata.',
+      description: 'La configurazione più completa per chi vuole accompagnamento, presenza executive e gestione più sartoriale.',
+      features: ['Onboarding guidato', 'Utenti multipli', 'Priorità amministrativa', 'Canale dedicato'],
       modules: ['dashboard', 'trading', 'sentiment', 'ai_content', 'billing'],
       checkout_url: 'https://buy.stripe.com/test_elite',
     },
@@ -6957,7 +6963,7 @@ function OmniAppInner() {
             <section className="sales-section" id="landing-pricing">
               <div className="sales-section-header">
                 <h2>Scegli il tuo step di accesso</h2>
-                <p>Tre percorsi chiari per guidare la scelta del cliente e mantenere controllo completo sull’attivazione.</p>
+                <p>Tre percorsi pensati per accompagnare la decisione con chiarezza, mantenendo controllo completo su accessi e attivazione.</p>
               </div>
               <div className="sales-pricing-grid">
                 {landingPlans.map((plan) => (
@@ -6965,16 +6971,18 @@ function OmniAppInner() {
                     {plan.id === 'pro' && <div className="sales-popular-badge">Scelta più richiesta</div>}
                     <div className="sales-pricing-header">
                       <h3>{plan.name}</h3>
+                      <div className="sales-pricing-kicker">{plan.tagline || 'Percorso Aureo'}</div>
                       <div className="sales-price">€{plan.price_monthly}<span>/mese</span></div>
                       <p>{plan.description}</p>
                     </div>
+                    <div className="sales-pricing-ideal-for">{plan.ideal_for}</div>
                     <div className="sales-pricing-features">
                       {plan.features.map((feature) => (
                         <div key={feature} className="sales-pricing-feature">✓ {feature}</div>
                       ))}
                     </div>
                     <button className="btn btn-start sales-pricing-button" onClick={() => continueWithPlan(plan.id)}>
-                      Seleziona {plan.name}
+                      Richiedi accesso {plan.name}
                     </button>
                   </article>
                 ))}
@@ -6986,8 +6994,10 @@ function OmniAppInner() {
                 <div className="sales-inline-plan">
                   <div className="sales-inline-plan-badge">Step selezionato</div>
                   <h3>{selectedPlan.name}</h3>
+                  <div className="sales-pricing-kicker">{selectedPlan.tagline || 'Percorso Aureo'}</div>
                   <p>{selectedPlan.description}</p>
                   <div className="sales-inline-plan-price">€{selectedPlan.price_monthly}<span>/mese</span></div>
+                  <div className="sales-pricing-ideal-for">{selectedPlan.ideal_for}</div>
                   <div className="sales-inline-plan-features">
                     {selectedPlan.features.map((feature) => (
                       <div key={feature} className="sales-inline-plan-feature">✓ {feature}</div>
@@ -7004,6 +7014,7 @@ function OmniAppInner() {
                         ? 'Completa qui la registrazione per proseguire senza uscire dal percorso.'
                         : 'Se hai già un accesso, entra qui sotto e continua direttamente con lo step scelto.'}
                     </p>
+                    <div className="sales-inline-form-note">Ogni richiesta viene verificata e allineata allo step selezionato prima dell’attivazione completa.</div>
                   </div>
                   <input
                     type="email"
@@ -7025,7 +7036,7 @@ function OmniAppInner() {
                     </div>
                   )}
                   <button type="submit" className="btn btn-start sales-submit-button">
-                    {isRegistering ? `Attiva accesso e continua con ${selectedPlan.name}` : `Continua con ${selectedPlan.name}`}
+                    {isRegistering ? `Invia richiesta e continua con ${selectedPlan.name}` : `Entra e continua con ${selectedPlan.name}`}
                   </button>
                   {/*
                   <button type="button" className="btn btn-outline sales-alt-button" onClick={() => setIsRegistering(!isRegistering)}>
