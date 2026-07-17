@@ -6652,33 +6652,33 @@ function OmniAppInner() {
       { market: 'EUR/USD', price: '1.11', change: '+0.2%', direction: 'up' },
     ];
     const landingStats = [
-      { value: '24/7', label: 'controllo continuo su operatività, accessi e protezioni' },
-      { value: 'Private UX', label: 'un’esperienza che sembra un servizio riservato, non una dashboard comune' },
-      { value: '3 step', label: 'un funnel guidato che accompagna scelta, richiesta e abilitazione' },
+      { value: '24/7', label: 'visibilità continua su operatività, accessi e protezioni' },
+      { value: 'Private UX', label: 'una presenza riservata che comunica subito livello e controllo' },
+      { value: '3 step', label: 'un percorso lineare che accompagna scelta, richiesta e attivazione' },
     ];
     const landingEnterpriseSignals = [
-      'Accesso solo su richiesta',
-      'Abilitazione verificata manualmente',
-      'Passkey e protezione credenziali',
+      'Accesso su richiesta',
+      'Abilitazione verificata',
+      'Passkey e credenziali protette',
       'Esperienza premium su ogni device',
     ];
     const landingHeroHighlights = [
-      'Non vende “feature”: vende percezione di controllo e qualità.',
-      'Guida il cliente verso uno step chiaro, senza dispersione.',
-      'Mantiene il tuo presidio totale su accessi e attivazione.',
+      'Ogni dettaglio comunica controllo, discrezione e qualità.',
+      'Il percorso accompagna senza creare attrito o rumore.',
+      'Tu mantieni il pieno presidio su accesso e attivazione.',
     ];
     const landingEnterpriseBlocks = [
       {
-        title: 'Accesso sotto controllo',
-        text: 'Nessuno entra in modo casuale: il percorso è strutturato per lasciarti il pieno governo su richiesta, verifica e attivazione.',
+        title: 'Accesso presidiato',
+        text: 'L’ingresso non è casuale né impersonale: ogni richiesta passa dentro un percorso ordinato, verificato e sotto il tuo controllo.',
       },
       {
-        title: 'Protezione percepibile',
-        text: 'Passkey, vault chiavi e credenziali presidiate trasformano la sicurezza in un elemento visibile e valorizzante.',
+        title: 'Protezione visibile',
+        text: 'Passkey, vault chiavi e credenziali protette trasformano la sicurezza in una parte tangibile dell’esperienza.',
       },
       {
-        title: 'Valore più difendibile',
-        text: 'Quando il contenitore appare più forte, anche il prezzo, la trattativa e la qualità percepita diventano più facili da sostenere.',
+        title: 'Valore più forte',
+        text: 'Quando la cornice è giusta, anche il canone, la trattativa e la qualità percepita diventano più facili da sostenere.',
       },
     ];
     const landingExecutiveMetrics = [
@@ -6690,96 +6690,96 @@ function OmniAppInner() {
     const landingAssuranceBlocks = [
       {
         title: 'Accessi protetti',
-        text: 'La prima impressione racconta rigore: accessi protetti, credenziali custodite e un ambiente che comunica subito disciplina.',
+        text: 'La prima impressione racconta rigore: credenziali custodite, accessi protetti e un ambiente che comunica subito disciplina.',
       },
       {
-        title: 'Processo governato',
-        text: 'Il cliente non viene lasciato solo in un login freddo: viene accompagnato dentro un percorso guidato e verificabile.',
+        title: 'Percorso governato',
+        text: 'Non entri in un login freddo: vieni accompagnato dentro un flusso guidato, verificabile e perfettamente coerente.',
       },
       {
-        title: 'Conversazione più alta',
-        text: 'La piattaforma appare più matura, più seria e più pronta a sostenere conversazioni su continuità, qualità e gestione nel tempo.',
+        title: 'Tono più alto',
+        text: 'Tutto appare più maturo, più credibile e più adatto a sostenere conversazioni su continuità, qualità e gestione nel tempo.',
       },
     ];
     const landingFeatures = [
       {
         icon: '🎯',
         title: 'Capisci subito a cosa stai accedendo',
-        text: 'Aureo ti si presenta come un ambiente operativo privato, ordinato e ad alto valore percepito, non come un software generico.',
+        text: 'Aureo si presenta come un ambiente operativo privato, ordinato e ad alto valore percepito, non come un software generico.',
       },
       {
         icon: '🪙',
         title: 'Percepisci subito perché questo accesso ha valore',
-        text: 'Quando l’esperienza appare curata, protetta e presidiata, anche il canone risulta più coerente, più credibile e più facile da accettare.',
+        text: 'Quando l’esperienza appare curata, protetta e presidiata, anche il canone appare più coerente, più credibile e più facile da accogliere.',
       },
       {
         icon: '🛡️',
         title: 'Tu resti in controllo fino alla fine',
-        text: 'Il funnel non ti porta fuori dal presidio: richiesta, verifica e attivazione restano compatibili con il tuo modello manuale.',
+        text: 'Il funnel non ti porta fuori dal presidio: richiesta, verifica e attivazione restano sempre allineate al tuo modello di controllo.',
       },
     ];
     const landingAudience = [
       {
         title: 'Private investor',
-        text: 'Per chi vuole una control room personale che trasmetta subito ordine, qualità e accesso selettivo.',
+        text: 'Per chi cerca una control room personale che trasmetta subito ordine, qualità e accesso selettivo.',
       },
       {
         title: 'Advisory / consulenza',
-        text: 'Per chi deve mostrare un ambiente credibile a clienti o partner, senza sembrare retail o improvvisato.',
+        text: 'Per chi deve mostrare un ambiente credibile a clienti o partner, senza sembrare retail, rumoroso o improvvisato.',
       },
       {
         title: 'High-ticket operator',
-        text: 'Per chi vende esperienza, controllo e continuità, non solo funzionalità sparse dentro una webapp.',
+        text: 'Per chi vende esperienza, controllo e continuità, non semplici funzioni sparse dentro una webapp.',
       },
     ];
     const landingDecisionStrip = [
-      { value: 'Privato', label: 'accesso su richiesta e non “self-serve”' },
-      { value: 'Presidiato', label: 'attivazione allineata allo step scelto' },
-      { value: 'Vendibile', label: 'tono, funnel e UX coerenti con pricing premium' },
+      { value: 'Privato', label: 'accesso su richiesta, non self-serve' },
+      { value: 'Presidiato', label: 'attivazione coerente con lo step scelto' },
+      { value: 'Vendibile', label: 'tono, funnel e UX allineati a un canone premium' },
     ];
     const landingModuleShowcase = [
       {
         title: 'AI Guided Allocation',
-        text: 'Per chi vuole una lettura assistita delle opportunità senza dover assemblare mille strumenti esterni.',
+        text: 'Per leggere le opportunità con supporto intelligente, senza dover mettere insieme strumenti esterni e flussi separati.',
         badge: 'AI',
       },
       {
         title: 'Signal & Market Monitoring',
-        text: 'Per monitorare watchlist, momentum, operatività e contesto in un unico ambiente leggibile.',
+        text: 'Per avere watchlist, momentum, operatività e contesto dentro un unico ambiente chiaro e leggibile.',
         badge: 'Signals',
       },
       {
         title: 'Risk & Security Control',
-        text: 'Per mostrare che Aureo non è solo execution: è anche protezione, controllo accessi e disciplina.',
+        text: 'Per far percepire che Aureo non è solo execution: è anche protezione, disciplina e controllo degli accessi.',
         badge: 'Control',
       },
       {
         title: 'Private Access Workflow',
-        text: 'Per trasformare il passaggio da visitatore a cliente in un processo più ordinato e ad alto valore percepito.',
+        text: 'Per trasformare il passaggio da visitatore ad abbonato in un processo più ordinato, fluido e ad alto valore percepito.',
         badge: 'Access',
       },
     ];
     const landingMarketProof = [
       { value: 'Multi-module', label: 'AI, monitoring, risk e security nella stessa control room' },
       { value: 'Manual approval', label: 'abilitazione finale sempre sotto il tuo controllo' },
-      { value: 'Premium-ready', label: 'struttura più adatta a pricing e clienti di fascia alta' },
+      { value: 'Premium-ready', label: 'struttura adatta a canoni e clienti di fascia alta' },
       { value: 'Cross-device', label: 'esperienza coerente su desktop, tablet e mobile' },
     ];
     const landingFlow = [
       {
         number: '1',
-        title: 'Scopri il posizionamento',
-        text: 'La prima parte della pagina costruisce subito l’idea giusta: accesso riservato, controllo alto, esperienza premium.',
+        title: 'Entri nella giusta percezione',
+        text: 'La prima parte della pagina costruisce subito il tono corretto: accesso riservato, controllo alto, esperienza premium.',
       },
       {
         number: '2',
-        title: 'Seleziona lo step',
-        text: 'Il cliente vede tre percorsi ordinati, con differenze comprensibili e un invito chiaro a fare la scelta giusta.',
+        title: 'Scegli lo step',
+        text: 'I tre accessi sono chiari, ordinati e facili da comprendere, così la scelta appare naturale e non forzata.',
       },
       {
         number: '3',
-        title: 'Invia la richiesta',
-        text: 'La richiesta parte nello stesso funnel, ma l’abilitazione finale resta nelle tue mani: più fiducia per il cliente, più controllo per te.',
+        title: 'Attivi la richiesta',
+        text: 'La richiesta parte nello stesso flusso, mentre l’abilitazione finale resta nelle tue mani: più fiducia per chi entra, più controllo per te.',
       },
     ];
     const landingTestimonials = [
@@ -6787,19 +6787,19 @@ function OmniAppInner() {
         initials: 'PI',
         name: 'Private Investor',
         role: 'Cliente early access',
-        quote: 'L’impatto è superiore alla media: trasmette controllo, pulizia e una sensazione di servizio privato fin dal primo minuto.',
+        quote: 'L’impatto è immediato: trasmette controllo, pulizia e la sensazione di un servizio privato curato nei dettagli.',
       },
       {
         initials: 'CI',
         name: 'Consulente indipendente',
         role: 'Profilo advisory',
-        quote: 'Qui non stai mostrando solo schermate: stai comunicando metodo, posizionamento e una percezione di valore più alta.',
+        quote: 'Qui non stai mostrando semplici schermate: stai comunicando metodo, posizionamento e una percezione di valore più alta.',
       },
       {
         initials: 'TA',
         name: 'Trader attivo',
         role: 'Utente operativo',
-        quote: 'Il percorso accompagna bene alla scelta e non rompe il ritmo: sembra un accesso curato, non un semplice form buttato lì.',
+        quote: 'Il percorso accompagna bene la scelta e non rompe il ritmo: sembra un accesso curato, non un form improvvisato.',
       },
     ];
     const landingProofPoints = [
@@ -6810,20 +6810,20 @@ function OmniAppInner() {
     const landingTrustPillars = [
       'Presenza privata ad alto valore percepito',
       'Percorso commerciale pulito e guidato',
-      'Coerenza piena tra promessa, pricing e accesso',
+      'Coerenza piena tra promessa, canone e accesso',
     ];
     const landingFaq = [
       {
         question: 'Come avviene l’attivazione di un cliente?',
-        answer: 'Il cliente seleziona lo step, invia la richiesta o rientra con il proprio accesso, e l’abilitazione finale viene verificata manualmente prima della piena attivazione.',
+        answer: 'Selezioni lo step, invii la richiesta o rientri con il tuo accesso, e l’abilitazione finale viene verificata manualmente prima dell’attivazione completa.',
       },
       {
         question: 'Aureo è pensato per uso pubblico o privato?',
-        answer: 'La nuova impostazione è chiaramente privata: il tono, il funnel e l’accesso selettivo raccontano un ambiente riservato, non una piattaforma aperta a tutti.',
+        answer: 'Aureo nasce con un’impostazione chiaramente privata: tono, funnel e accesso selettivo raccontano un ambiente riservato, non una piattaforma aperta a tutti.',
       },
       {
         question: 'Perché questa struttura aiuta a vendere meglio?',
-        answer: 'Perché aumenta subito la qualità percepita: il cliente vede ordine, controllo, sicurezza e accompagnamento, quindi il valore appare più credibile.',
+        answer: 'Perché aumenta subito la qualità percepita: chi arriva vede ordine, controllo, sicurezza e accompagnamento, quindi il valore appare più credibile.',
       },
       {
         question: 'Cosa differenzia gli step di accesso?',
@@ -6837,7 +6837,7 @@ function OmniAppInner() {
           <div className="sales-bg-animation sales-bg-animation--second" />
           <div className="sales-topbar">
             <span className="sales-topbar-label">Private Preview</span>
-            <span className="sales-topbar-text">Aureo OS presenta un accesso in abbonamento a una control room privata, premium e attivata in modo guidato.</span>
+            <span className="sales-topbar-text">Un accesso in abbonamento a una control room privata, premium e attivata con cura.</span>
           </div>
 
           <nav className="sales-nav">
@@ -6853,7 +6853,7 @@ function OmniAppInner() {
             </div>
             <div className="sales-nav-actions">
               <button className="btn btn-outline" onClick={() => setShowLanding(false)}>Area riservata</button>
-              <button className="btn btn-start" onClick={openPricingSection}>Scopri gli step</button>
+              <button className="btn btn-start" onClick={openPricingSection}>Scopri gli accessi</button>
             </div>
           </nav>
 
@@ -6874,14 +6874,14 @@ function OmniAppInner() {
               <div className="sales-hero-content">
                 <div className="sales-badge">⚡ Private Access Operating System</div>
                 <h1>
-                  Accedi in abbonamento a una <span>control room privata</span> pensata per chi pretende controllo, ordine e discrezione
+                  Accedi a una <span>control room privata</span> pensata per chi pretende controllo, ordine e discrezione
                 </h1>
                 <p>
-                  Un accesso riservato, continuativo e guidato a un ambiente operativo curato, dove ogni dettaglio comunica qualità, presidio e valore percepito.
+                  Un ambiente operativo riservato, guidato e continuativo, dove ogni dettaglio comunica qualità, presidio e valore percepito.
                 </p>
                 <div className="sales-hero-buttons">
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
-                    Richiedi il tuo step
+                    Scegli il tuo accesso
                   </button>
                   <button className="btn btn-outline btn-large" onClick={startTour}>
                     Guarda il tour privato
@@ -6998,7 +6998,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Perché appare più serio</div>
                 <h2>Ogni dettaglio racconta rigore, selezione e governo del processo</h2>
-                <p>Chi arriva qui deve percepire una cosa precisa: Aureo non è aperto a tutti, non è improvvisato e non è lasciato al caso.</p>
+                <p>Qui tutto deve trasmettere una sensazione precisa: Aureo non è aperto a tutti, non è improvvisato e non lascia nulla al caso.</p>
               </div>
               <div className="sales-assurance-grid">
                 {landingAssuranceBlocks.map((item) => (
@@ -7014,7 +7014,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Per chi è pensato</div>
                 <h2>Una proposta adatta a chi compra qualità, ordine e continuità</h2>
-                <p>L’accesso in abbonamento diventa più adatto a profili che vogliono sentirsi dentro un ambiente privato, ben governato e continuativo.</p>
+                <p>Un accesso pensato per chi vuole sentirsi dentro un ambiente privato, ben governato e costruito per durare.</p>
               </div>
               <div className="sales-enterprise-grid">
                 {landingAudience.map((item) => (
@@ -7030,7 +7030,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Cosa c’è dentro Aureo</div>
                 <h2>I moduli chiave sono comprensibili subito, senza dover spiegare tutto a voce</h2>
-                <p>Il mercato premia i servizi che mostrano chiaramente cosa offrono. Qui Aureo racconta i suoi pilastri in modo più leggibile, ordinato e convincente.</p>
+                <p>I servizi migliori si capiscono in pochi istanti. Qui Aureo racconta i suoi pilastri in modo chiaro, ordinato e convincente.</p>
               </div>
               <div className="sales-module-grid">
                 {landingModuleShowcase.map((item) => (
@@ -7047,7 +7047,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Cosa cambia davvero</div>
                 <h2>Il nuovo funnel rende l’abbonamento Aureo più privato, più presidiato e più desiderabile</h2>
-                <p>Questa architettura non migliora solo l’estetica: migliora il modo in cui il cliente interpreta canone, accesso e qualità del servizio continuativo.</p>
+                <p>Non cambia solo l’estetica: cambia il modo in cui percepisci il canone, l’accesso e la qualità dell’esperienza continuativa.</p>
               </div>
               <div className="sales-stats-row sales-stats-row--proof">
                 {landingDecisionStrip.map((item) => (
@@ -7071,7 +7071,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Come si entra in Aureo</div>
                 <h2>Un percorso pulito in 3 passaggi, senza spezzare il ritmo</h2>
-                <p>Dalla prima impressione alla richiesta finale, il flusso accompagna il cliente verso l’attivazione dell’abbonamento senza perdere controllo o qualità percepita.</p>
+                <p>Dalla prima impressione alla richiesta finale, il flusso accompagna verso l’attivazione senza perdere controllo né qualità percepita.</p>
               </div>
               <div className="sales-steps-container">
                 {landingFlow.map((step) => (
@@ -7087,8 +7087,8 @@ function OmniAppInner() {
             <section className="sales-section" id="landing-pricing">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Step di accesso</div>
-                <h2>Scegli il piano di accesso in abbonamento più adatto al profilo del cliente</h2>
-                <p>Ogni step non è solo un prezzo: è un diverso livello di accesso continuativo ad Aureo, con il giusto grado di accompagnamento e servizio.</p>
+                <h2>Scegli la formula di accesso più adatta al tuo profilo</h2>
+                <p>Ogni formula definisce un diverso ritmo di accesso ad Aureo, con il giusto livello di accompagnamento e continuità.</p>
               </div>
               <div className="sales-pricing-grid">
                 {landingPlans.map((plan) => (
@@ -7107,7 +7107,7 @@ function OmniAppInner() {
                       ))}
                     </div>
                     <button className="btn btn-start sales-pricing-button" onClick={() => continueWithPlan(plan.id)}>
-                      Richiedi accesso {plan.name}
+                      Attiva {plan.name}
                     </button>
                     <div className="sales-pricing-footnote">Attivazione finale verificata manualmente</div>
                   </article>
@@ -7137,8 +7137,8 @@ function OmniAppInner() {
                     <h3>{isRegistering ? `Invia la richiesta per ${selectedPlan.name}` : `Accedi per riprendere il percorso ${selectedPlan.name}`}</h3>
                     <p>
                       {isRegistering
-                        ? 'Compila i dati essenziali e invia la tua richiesta senza uscire da questo percorso guidato.'
-                        : 'Se hai già ricevuto il tuo accesso, rientra qui e prosegui senza perdere il contesto della richiesta.'}
+                        ? 'Compila i dati essenziali e invia la tua richiesta senza uscire da questo percorso.'
+                        : 'Se hai già ricevuto il tuo accesso, rientra qui e prosegui senza perdere il filo.'}
                     </p>
                     <div className="sales-inline-form-note">Ogni richiesta viene verificata e allineata allo step selezionato prima dell’attivazione completa.</div>
                   </div>
@@ -7190,7 +7190,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Impatto percepito</div>
                 <h2>Quando la cornice è giusta, tutto il prodotto sale di livello</h2>
-                <p>Un’offerta in abbonamento più ordinata e più privata rende Aureo più desiderabile, più difendibile e più memorabile agli occhi del cliente.</p>
+                <p>Un’offerta più ordinata e più privata rende Aureo più desiderabile, più difendibile e più memorabile.</p>
               </div>
               <div className="sales-stats-row sales-stats-row--proof">
                 {landingProofPoints.map((item) => (
@@ -7221,7 +7221,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Domande che chiudono le obiezioni</div>
                 <h2>Le informazioni importanti sono già lì, senza costringerti a spiegarle ogni volta</h2>
-                <p>Le migliori piattaforme del settore riducono l’attrito rispondendo subito ai dubbi principali. Aureo può fare lo stesso, ma con un tono più esclusivo.</p>
+                <p>Le migliori esperienze riducono l’attrito rispondendo subito ai dubbi principali. Qui succede con un tono più esclusivo.</p>
               </div>
               <div className="sales-faq-grid">
                 {landingFaq.map((item) => (
@@ -7238,15 +7238,15 @@ function OmniAppInner() {
                 <div className="sales-cta-content">
                   <img src="/aureoos-logo.png" alt="Aureo OS" className="sales-cta-logo" />
                   <div className="sales-section-eyebrow">Call to action finale</div>
-                  <h2>Porta il cliente dentro Aureo come in un accesso in abbonamento riservato, non come in una semplice app</h2>
-                  <p>Questo è il punto: non trasmettere l’idea di un software da comprare una tantum, ma di un ambiente di valore a cui si accede in modo selettivo e continuativo.</p>
+                  <h2>Entra in Aureo come si entra in un ambiente riservato, non in una semplice app</h2>
+                  <p>Non l’idea di un software da usare al volo, ma quella di un accesso selettivo a un ambiente di valore, curato e continuativo.</p>
                   <div className="sales-trust-row">
                     {landingTrustPillars.map((item) => (
                       <div key={item} className="sales-trust-pill">{item}</div>
                     ))}
                   </div>
                   <div className="sales-hero-buttons sales-hero-buttons--center">
-                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Richiedi il tuo step</button>
+                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Scegli il tuo accesso</button>
                     <button className="btn btn-outline btn-large" onClick={startTour}>Guarda il tour privato</button>
                   </div>
                   <div className="sales-cta-note">Accesso finale sempre verificato e abilitato in modo controllato.</div>
@@ -7260,7 +7260,7 @@ function OmniAppInner() {
                   <a href="#landing-top" className="sales-logo">
                     <img src="/aureoos-logo.png" alt="Aureo OS" />
                   </a>
-                  <p>Un’esperienza privata e premium pensata per controllo, chiarezza, protezione e attivazioni guidate.</p>
+                  <p>Un’esperienza privata e premium pensata per controllo, chiarezza, protezione e accessi guidati.</p>
                 </div>
                 <div className="sales-footer-links">
                   <h4>Prodotto</h4>
