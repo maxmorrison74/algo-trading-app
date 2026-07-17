@@ -1658,8 +1658,9 @@ const RiskStatus = ({ riskSnapshot, status }) => {
         throw new Error(data?.detail || data?.message || 'Impossibile aggiornare Risk Management');
       }
       setRisk(data.risk);
+      pushNotice('success', 'Risk Management aggiornato', data?.risk?.reason || 'Stato operativo sincronizzato.');
     } catch (error) {
-      alert(error.message || 'Impossibile aggiornare Risk Management');
+      pushNotice('error', 'Risk Management non aggiornato', error.message || 'Impossibile aggiornare Risk Management');
     } finally {
       setIsTogglingRisk(false);
     }
@@ -2290,6 +2291,20 @@ const SymbolLinkButton = ({ symbol, onOpen, children, variant = 'inline', style 
   </button>
 );
 
+const NoticeTray = ({ notices = [], onDismiss }) => (
+  <div className="notice-tray">
+    {notices.map((notice) => (
+      <div key={notice.id} className={`notice-card notice-card--${notice.type || 'info'}`}>
+        <div className="notice-card-body">
+          <strong>{notice.title}</strong>
+          {notice.message ? <span>{notice.message}</span> : null}
+        </div>
+        <button type="button" className="notice-card-close" onClick={() => onDismiss?.(notice.id)}>×</button>
+      </div>
+    ))}
+  </div>
+);
+
 function OmniAppInner() {
   const [status, setStatus] = useState({});
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -2322,6 +2337,7 @@ function OmniAppInner() {
   const [userIsPaid, setUserIsPaid] = useState(false);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [lastStatusSync, setLastStatusSync] = useState(null);
+  const [notices, setNotices] = useState([]);
   
   // AI Investment Hub state
   const [aiBudget, setAiBudget] = useState(500);
@@ -2403,7 +2419,10 @@ function OmniAppInner() {
   const [manualMessage, setManualMessage] = useState("");
 
   const handleCryptoSubmit = async () => {
-    if (!txid) return alert('Inserisci il TXID');
+    if (!txid) {
+      pushNotice('warning', 'TXID mancante', 'Inserisci il TXID prima di inviare il pagamento.');
+      return;
+    }
     try {
       const res = await authFetch('/api/billing/submit-txid', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -2411,8 +2430,10 @@ function OmniAppInner() {
       });
       const data = await res.json();
       setBillingMessage(data.message);
+      pushNotice(res.ok ? 'success' : 'warning', res.ok ? 'Pagamento inviato' : 'Pagamento da verificare', data.message || 'Richiesta registrata.');
     } catch(e) {
       setBillingMessage('Errore di rete');
+      pushNotice('error', 'Invio fallito', 'Errore di rete durante l’invio del TXID.');
     }
   };
 
@@ -2681,6 +2702,19 @@ function OmniAppInner() {
   const syncLabel = isBackendOnline
     ? (lastStatusSync ? `Live • ${lastStatusSync}` : 'Live')
     : 'Offline';
+  const dismissNotice = React.useCallback((id) => {
+    setNotices((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+  const pushNotice = React.useCallback((type, title, message = '', duration = 4200) => {
+    const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    setNotices((prev) => [...prev, { id, type, title, message }].slice(-5));
+    if (duration > 0 && typeof window !== 'undefined') {
+      window.setTimeout(() => {
+        setNotices((prev) => prev.filter((item) => item.id !== id));
+      }, duration);
+    }
+    return id;
+  }, []);
 
   useEffect(() => {
     if (!BILLING_ENABLED && activeTab === 'saas') {
@@ -3202,16 +3236,16 @@ function OmniAppInner() {
       });
       const data = await res.json();
       if (res.ok) {
-        alert(data.message);
+        pushNotice('success', 'Ordine AI annullato', data.message || `${symbol} rimosso correttamente.`);
         // Forza refresh stato
         fetch('/api/status', {
           headers: sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {}
         }).then(r => r.json()).then(d => { if(!d.error) setStatus(d); });
       } else {
-        alert(data.detail || 'Errore durante la cancellazione');
+        pushNotice('error', 'Annullamento fallito', data.detail || 'Errore durante la cancellazione');
       }
     } catch (e) {
-      alert('Errore di rete');
+      pushNotice('error', 'Rete non disponibile', 'Errore di rete durante l’annullamento.');
     }
   };
 
@@ -3278,9 +3312,12 @@ function OmniAppInner() {
       try {
         const res = await authFetch('/api/reset', { method: 'POST' });
         const data = await res.json();
-        if (!data.error) setStatus(data.state);
+        if (!data.error) {
+          setStatus(data.state);
+          pushNotice('success', 'Simulazione resettata', 'Stato e cronologia sono stati azzerati correttamente.');
+        }
       } catch (err) {
-        alert("Errore di connessione al backend!");
+        pushNotice('error', 'Reset non riuscito', 'Errore di connessione al backend.');
       }
     }
   };
@@ -3311,7 +3348,7 @@ function OmniAppInner() {
       const res = await authFetch('/api/keys?t=' + Date.now());
       const data = await res.json();
       if (data.ERROR && !silent) {
-        alert("Errore critico dal backend nel leggere le chiavi: " + data.ERROR);
+        pushNotice('error', 'Errore lettura Vault', data.ERROR);
       }
       setSavedKeys(data);
       setLastVaultSync(new Date().toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' }));
@@ -3338,7 +3375,7 @@ function OmniAppInner() {
     } catch (err) {
       if (!silent) {
         console.error("Error fetching keys", err);
-        alert("Errore di rete durante il caricamento delle chiavi dal Vault.");
+        pushNotice('error', 'Vault non raggiungibile', 'Errore di rete durante il caricamento delle chiavi.');
       }
       return null;
     }
@@ -3354,10 +3391,10 @@ function OmniAppInner() {
       if (!res.ok) {
         throw new Error(resData.detail || 'Errore sconosciuto dal server');
       }
-      alert('Chiavi salvate con successo nel Vault Sicuro!');
+      pushNotice('success', 'Vault aggiornato', 'Chiavi salvate con successo nel Vault sicuro.');
       await refreshVaultKeys({ populateInputs: true, silent: true });
     } catch(err) {
-      alert('Errore durante il salvataggio: ' + err.message);
+      pushNotice('error', 'Salvataggio fallito', err.message);
     }
   };
 
@@ -3378,8 +3415,9 @@ function OmniAppInner() {
         dynamic_atr_stop: data.DYNAMIC_ATR_STOP ?? nextValues.dynamic_atr_stop,
         trailing_stop_base_pct: data.TRAILING_STOP_BASE_PCT ?? nextValues.trailing_stop_base_pct,
       }));
+      pushNotice('success', 'ATR aggiornato', 'Le impostazioni trailing stop sono state salvate.');
     } catch (err) {
-      alert('Errore durante il salvataggio ATR: ' + err.message);
+      pushNotice('error', 'ATR non salvato', err.message);
     }
   };
 
@@ -5906,10 +5944,10 @@ function OmniAppInner() {
         setAiIdea(data);
       } else {
         const errorMsg = typeof data.detail === 'object' ? JSON.stringify(data.detail) : (data.detail || "Errore sconosciuto");
-        alert("Errore API: " + errorMsg);
+        pushNotice('error', 'Generazione idea fallita', errorMsg);
       }
     } catch(e) {
-      alert("Errore di rete o server non raggiungibile: " + e.message);
+      pushNotice('error', 'Server AI non raggiungibile', e.message);
     }
     setAiLoading(false);
   };
@@ -5931,12 +5969,12 @@ function OmniAppInner() {
       const data = await res.json();
       if(data.status === 'success') {
         setAiIdea(null);
-        alert('Video caricato con successo! Aureo lo distribuirà presto.');
+        pushNotice('success', 'Video caricato', 'Aureo lo distribuirà presto.');
       } else {
-        alert(data.detail || "Errore upload");
+        pushNotice('error', 'Upload fallito', data.detail || 'Errore upload');
       }
     } catch(e) {
-      alert("Errore caricamento video.");
+      pushNotice('error', 'Upload non riuscito', 'Errore durante il caricamento video.');
     }
     setUploadingVideo(false);
   };
@@ -5945,7 +5983,7 @@ function OmniAppInner() {
     if (!aiIdea?.prompt) return;
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(aiIdea.prompt);
-      alert("Prompt copiato!");
+      pushNotice('success', 'Prompt copiato', 'Il prompt è pronto da incollare dove vuoi.');
     } else {
       // Fallback per HTTP non sicuro
       const textArea = document.createElement("textarea");
@@ -5957,9 +5995,9 @@ function OmniAppInner() {
       textArea.select();
       try {
         document.execCommand('copy');
-        alert("Prompt copiato!");
+        pushNotice('success', 'Prompt copiato', 'Il prompt è stato copiato con il fallback locale.');
       } catch (err) {
-        alert("Errore copia, fallo manualmente.");
+        pushNotice('warning', 'Copia non riuscita', 'Fai copia manuale del prompt.');
       }
       document.body.removeChild(textArea);
     }
@@ -6187,7 +6225,7 @@ function OmniAppInner() {
                   <button 
                     className="btn btn-start" 
                     onClick={async (e) => {
-                      if (!newUser.email || !newUser.password) { alert('Compila email e password'); return; }
+                      if (!newUser.email || !newUser.password) { pushNotice('warning', 'Campi mancanti', 'Compila email e password prima di salvare.'); return; }
                       try {
                         const res = await authFetch('/api/saas/create-user', {
                           method: 'POST',
@@ -6196,15 +6234,15 @@ function OmniAppInner() {
                         });
                         const data = await res.json();
                         if (res.ok) {
-                          alert(data.message);
+                          pushNotice('success', 'Utente creato', data.message || 'Nuovo utente salvato correttamente.');
                           setShowCreateUser(false);
                           setNewUser({email:'', password:'', role:'user'});
                           const res2 = await authFetch('/api/saas/overview?t=' + Date.now());
                           setBillingOverview(await res2.json());
                         } else {
-                          alert(data.detail || 'Errore creazione utente');
+                          pushNotice('error', 'Creazione utente fallita', data.detail || 'Errore creazione utente');
                         }
-                      } catch(e) { alert('Errore di connessione'); }
+                      } catch(e) { pushNotice('error', 'Connessione assente', 'Errore di connessione durante la creazione utente.'); }
                     }}
                     style={{ minHeight: '42px', padding: '0 1.5rem' }}
                   >
@@ -6966,6 +7004,7 @@ function OmniAppInner() {
   // --- INTERFACCIA AUTENTICATA (ADMIN O USER ATTIVO) ---
   return (
     <>
+    <NoticeTray notices={notices} onDismiss={dismissNotice} />
     <div className="omni-app">
       <div className="sidebar">
         <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
