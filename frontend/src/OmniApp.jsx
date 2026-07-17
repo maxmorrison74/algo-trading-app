@@ -968,12 +968,45 @@ class ErrorBoundary extends React.Component {
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
+  componentDidCatch(error, errorInfo) {
+    console.error('Aureo frontend crash', error, errorInfo);
+  }
   render() {
     if (this.state.hasError) {
-      return <div style={{color: 'red', padding: '2rem'}}>
-        <h2>React Crash!</h2>
-        <pre>{this.state.error.toString()}</pre>
-      </div>;
+      return (
+        <div className="frontend-crash-shell">
+          <div className="frontend-crash-card">
+            <div className="frontend-crash-badge">AUREO OS · Safe Recovery</div>
+            <h2>Interfaccia momentaneamente interrotta</h2>
+            <p>
+              Nessun problema: il motore può continuare a girare, ma questa schermata ha bisogno di essere riallineata.
+            </p>
+            <div className="frontend-crash-actions">
+              <button
+                type="button"
+                className="btn btn-start"
+                onClick={() => window.location.reload()}
+              >
+                Ricarica interfaccia
+              </button>
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={() => {
+                  window.history.replaceState(null, '', window.location.pathname);
+                  window.location.reload();
+                }}
+              >
+                Riparti pulito
+              </button>
+            </div>
+            <div className="frontend-crash-meta">
+              <strong>Dettaglio tecnico</strong>
+              <span>{this.state.error?.toString?.() || 'Errore non specificato'}</span>
+            </div>
+          </div>
+        </div>
+      );
     }
     return this.props.children;
   }
@@ -2321,6 +2354,8 @@ function OmniAppInner() {
   const [lastVaultSync, setLastVaultSync] = useState('');
   const [timeframe, setTimeframe] = useState('1D');
   const [chartData, setChartData] = useState([]);
+  const [chartLoading, setChartLoading] = useState(false);
+  const [chartError, setChartError] = useState('');
   const [selectedSymbol, setSelectedSymbol] = useState(null);
   const [symbolReviewReturnTab, setSymbolReviewReturnTab] = useState('trading');
   const [tradingViewFilter, setTradingViewFilter] = useState('all');
@@ -2832,9 +2867,14 @@ function OmniAppInner() {
     if (!selectedSymbol || !['trading', 'charts', 'symbol_review'].includes(activeTab)) return;
     const controller = new AbortController();
     const fetchChart = async () => {
+      setChartLoading(true);
+      setChartError('');
       try {
         const safeSym = encodeURIComponent(selectedSymbol);
         const res = await fetch(`/api/chart-data/${safeSym}?timeframe=${timeframe}`, { signal: controller.signal });
+        if (!res.ok) {
+          throw new Error(`Chart API ${res.status}`);
+        }
         const data = await res.json();
         if (Array.isArray(data)) {
           setChartData(data);
@@ -2844,6 +2884,9 @@ function OmniAppInner() {
       } catch (err) {
         if (err?.name === 'AbortError') return;
         setChartData([]);
+        setChartError('Stream grafico non disponibile al momento.');
+      } finally {
+        setChartLoading(false);
       }
     };
     fetchChart();
@@ -4370,7 +4413,15 @@ function OmniAppInner() {
               </div>
             </div>
             <div className="chart-container" style={{ height: '320px', background: 'rgba(0,0,0,0.22)', borderRadius: '14px', padding: '1rem', border: '1px solid rgba(255,255,255,0.05)' }}>
-              {chartData.length === 0 ? (
+              {chartLoading ? (
+                <div className="charts-empty-state">
+                  Caricamento stream grafico in corso…
+                </div>
+              ) : chartError ? (
+                <div className="charts-empty-state">
+                  {chartError}
+                </div>
+              ) : chartData.length === 0 ? (
                 <div className="charts-empty-state">Nessun dato grafico disponibile per questo simbolo.</div>
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
@@ -5285,6 +5336,14 @@ function OmniAppInner() {
         {!status.modules?.trading ? (
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
             Bot Offline. Il grafico si popolerà in tempo reale all'avvio.
+          </div>
+        ) : chartLoading ? (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+            Caricamento grafico live…
+          </div>
+        ) : chartError ? (
+          <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#f59e0b', textAlign: 'center', padding: '1rem' }}>
+            {chartError}
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%">
@@ -7137,6 +7196,8 @@ function OmniAppInner() {
         {activeTab === 'charts' && (
           <ChartsStudio
             chartData={chartData}
+            chartLoading={chartLoading}
+            chartError={chartError}
             selectedSymbol={selectedSymbol}
             setSelectedSymbol={setSelectedSymbol}
             status={status}

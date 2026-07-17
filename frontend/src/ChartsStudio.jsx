@@ -90,6 +90,8 @@ const parseMetricValue = (prediction = '', label) => {
 
 export default function ChartsStudio({
   chartData = [],
+  chartLoading = false,
+  chartError = '',
   selectedSymbol,
   setSelectedSymbol,
   status = {},
@@ -257,7 +259,15 @@ export default function ChartsStudio({
             </div>
 
             <div className="charts-canvas-frame" style={{ height: '340px', background: 'rgba(0,0,0,0.28)', borderRadius: '14px', padding: '1rem', border: '1px solid rgba(255,255,255,0.06)' }}>
-              {liveChartData.length === 0 ? (
+              {chartLoading ? (
+                <div className="charts-empty-state">
+                  Caricamento stream grafico in corso…
+                </div>
+              ) : chartError ? (
+                <div className="charts-empty-state">
+                  {chartError}
+                </div>
+              ) : liveChartData.length === 0 ? (
                 <div className="charts-empty-state">
                   Nessun dato grafico disponibile per il simbolo selezionato.
                 </div>
