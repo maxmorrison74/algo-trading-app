@@ -2706,28 +2706,33 @@ function OmniAppInner() {
   const TOUR_STEPS = [
     {
       targetTab: 'home',
-      title: 'Benvenuto in Aureo OS',
-      text: 'Questa è la Dashboard Principale, la tua Control Room. Da qui hai una visione globale del tuo portafoglio, bilanciamento in tempo reale e metriche chiave.'
+      kicker: 'Step 1 · Overview',
+      title: 'Benvenuto nella control room privata',
+      text: 'Qui il cliente percepisce subito ordine, presidio e qualità. La dashboard non è presentata come una semplice home, ma come il centro operativo da cui tutto viene governato.'
     },
     {
       targetTab: 'trading',
-      title: 'Trading Manuale & AI',
-      text: 'Qui puoi seguire i segnali operativi guidati dall\'Intelligenza Artificiale, analizzare i grafici e impostare operazioni sia manuali che ad alta frequenza.'
+      kicker: 'Step 2 · Trading',
+      title: 'Operatività guidata, non caos tecnico',
+      text: 'La sezione trading mostra segnali, priorità e azioni in un ambiente leggibile. L’obiettivo non è stupire con rumore, ma trasmettere padronanza e controllo.'
     },
     {
-      targetTab: 'crypto_arb',
-      title: 'Arbitraggio DeFi',
-      text: 'Il modulo Arbitraggio analizza centinaia di pool di liquidità decentralizzate per farti capitalizzare gli spread in millisecondi.'
-    },
-    {
-      targetTab: 'value_bets',
-      title: 'AI Sentiment & Value Bets',
-      text: 'L\'AI scandaglia news, tweet e flussi di mercato per prevedere i movimenti istituzionali e suggerirti scommesse di valore altissimo.'
+      targetTab: 'charts',
+      kicker: 'Step 3 · Market View',
+      title: 'I grafici servono a confermare autorevolezza',
+      text: 'Charts e lettura visiva aiutano Aureo a sembrare una piattaforma completa: non solo execution, ma anche interpretazione del mercato e contesto operativo.'
     },
     {
       targetTab: 'develop',
-      title: 'Sicurezza Totale',
-      text: 'Aureo OS è un vero e proprio caveau. Nessuna password insicura: accesso biometrico Passkey e chiavi API crittografate end-to-end.'
+      kicker: 'Step 4 · Control',
+      title: 'Sicurezza, chiavi e governance sono parte del valore',
+      text: 'Accessi protetti, passkey, vault e controlli fanno capire che Aureo non è solo un bot: è un ambiente presidiato, adatto a clienti più esigenti.'
+    },
+    {
+      targetTab: 'develop',
+      kicker: 'Step 5 · Activation',
+      title: 'L’accesso resta selettivo fino alla fine',
+      text: 'Anche nel tour la promessa resta coerente: Aureo è una piattaforma privata, con attivazione guidata e abilitazione sotto controllo manuale.'
     }
   ];
 
@@ -2737,6 +2742,8 @@ function OmniAppInner() {
     setShowLanding(false);
     setIsDemoMode(true);
     setIsAuthenticated(true);
+    setIsRegistering(false);
+    setLoginError('');
     setActiveTab(TOUR_STEPS[0].targetTab);
   };
 
@@ -7277,27 +7284,29 @@ function OmniAppInner() {
 
     return (
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
-        <div className="card" style={{ textAlign: 'center', width: '400px', padding: '3rem 2rem' }}>
+        <div className="card private-access-card" style={{ textAlign: 'center', width: '440px', padding: '3rem 2rem' }}>
           <img src="/aureoos-logo.png" alt="Aureo OS" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
-          <p style={{ color: 'var(--text-secondary)', marginBottom: '2rem', fontSize: '0.9rem' }}>Ponte di Comando Autenticato</p>
+          <div className="private-access-badge">Private Access</div>
+          <h2 className="private-access-title">Ingresso riservato alla control room Aureo</h2>
+          <p className="private-access-text">Accedi con le tue credenziali per entrare nell’ambiente operativo, oppure apri il tour privato per mostrare l’esperienza senza attivare funzioni live.</p>
           <form onSubmit={handleLogin}>
             <input 
               type="email" 
-              placeholder={isRegistering ? "La tua Email" : "Email"}
+              placeholder={isRegistering ? "Email di riferimento" : "Email riservata"}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
             />
             <input 
               type="password" 
-              placeholder={isRegistering ? "Crea una Password" : "Password"}
+              placeholder={isRegistering ? "Crea una password riservata" : "Password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
             />
             {loginError && <div style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
             <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>
-              {isRegistering ? 'CREA ACCOUNT' : 'ACCEDI'}
+              {isRegistering ? 'INVIA RICHIESTA DI ACCESSO' : 'ACCEDI ALLA CONTROL ROOM'}
             </button>
           </form>
           {/* <button
@@ -7318,10 +7327,10 @@ function OmniAppInner() {
             {passkeyBusy ? 'Accesso biometrico…' : 'ACCEDI CON FACE ID / TOUCH ID'}
           </button>
           <button type="button" className="btn btn-outline" onClick={enterDemoMode} style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem', opacity: isRegistering ? 0.3 : 1 }}>
-            ENTRA IN DEMO MODE
+            APRI TOUR PRIVATO (DEMO)
           </button>
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
-            🔒 Protetto da Crittografia<br/>
+            🔒 Accesso protetto e ambiente riservato<br/>
           </div>
         </div>
       </div>
@@ -7446,6 +7455,41 @@ function OmniAppInner() {
         {isDemoMode && (
           <div className="demo-mode-banner">
             Demo mode attiva — puoi esplorare il prodotto, ma le azioni live sono bloccate.
+          </div>
+        )}
+        {isTourActive && (
+          <div className="tour-guide-shell">
+            <div className="tour-guide-card">
+              <div className="tour-guide-top">
+                <div>
+                  <div className="tour-guide-kicker">{TOUR_STEPS[tourStep].kicker}</div>
+                  <h3>{TOUR_STEPS[tourStep].title}</h3>
+                </div>
+                <div className="tour-guide-counter">{tourStep + 1}/{TOUR_STEPS.length}</div>
+              </div>
+              <p>{TOUR_STEPS[tourStep].text}</p>
+              <div className="tour-guide-progress">
+                {TOUR_STEPS.map((step, index) => (
+                  <span
+                    key={step.title}
+                    className={`tour-guide-dot ${index === tourStep ? 'active' : ''} ${index < tourStep ? 'done' : ''}`}
+                  />
+                ))}
+              </div>
+              <div className="tour-guide-actions">
+                <button type="button" className="btn sales-ghost-button" onClick={endTour}>
+                  Chiudi tour
+                </button>
+                <div className="tour-guide-nav">
+                  <button type="button" className="btn btn-outline" onClick={prevTourStep} disabled={tourStep === 0}>
+                    Indietro
+                  </button>
+                  <button type="button" className="btn btn-start" onClick={nextTourStep}>
+                    {tourStep === TOUR_STEPS.length - 1 ? 'Fine tour' : 'Continua'}
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
         <div className="mobile-shell-header">
