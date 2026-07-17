@@ -21,61 +21,68 @@ const TAB_TITLES = {
 
 const DEMO_BILLING_OVERVIEW = {
   metrics: {
-    active_customers: 3,
-    trialing_customers: 2,
-    monthly_recurring_revenue: 777,
-    annual_run_rate: 9324,
-    leads_count: 6,
-    collection_rate: 75,
+    active_customers: 2,
+    trialing_customers: 1,
+    monthly_recurring_revenue: 203,
+    annual_run_rate: 2440,
+    leads_count: 4,
+    collection_rate: 82,
   },
   plans: [
     {
-      id: 'starter',
-      name: 'Starter',
-      price_monthly: 79,
+      id: 'week_pass',
+      name: '7 Giorni Full Access',
+      price_monthly: 25,
+      price_label: '€25',
+      cadence_label: '/prima settimana',
       currency: 'EUR',
-      tagline: 'Ingresso essenziale nel mondo Aureo',
-      ideal_for: 'Ideale per professionisti indipendenti che vogliono iniziare con un ambiente ordinato e già credibile.',
-      description: 'L’accesso più rapido per presentare e usare Aureo con una base solida, pulita e immediatamente operativa.',
-      features: ['Dashboard live', 'Ambiente operativo riservato', '1 workspace dedicato', 'Supporto email'],
-      modules: ['dashboard', 'trading'],
-      checkout_url: 'https://buy.stripe.com/test_starter',
-    },
-    {
-      id: 'pro',
-      name: 'Pro',
-      price_monthly: 199,
-      currency: 'EUR',
-      tagline: 'Il cuore del percorso Aureo',
-      ideal_for: 'Ideale per chi vuole un’esperienza più completa, più forte da mostrare e più utile da usare ogni giorno.',
-      description: 'Il piano più equilibrato per unire operatività, segnali, alert e una presenza premium pronta a convincere.',
-      features: ['Tutti i moduli core', 'Alert operativi attivabili', 'Fino a 3 workspace', 'Supporto prioritario'],
-      modules: ['dashboard', 'trading', 'sentiment'],
-      checkout_url: 'https://buy.stripe.com/test_pro',
-    },
-    {
-      id: 'elite',
-      name: 'Elite',
-      price_monthly: 499,
-      currency: 'EUR',
-      tagline: 'Percorso premium ad alta assistenza',
-      ideal_for: 'Ideale per desk, consulenti e clienti ad alto valore che vogliono un’attivazione più vicina e più presidiata.',
-      description: 'La configurazione più completa per chi vuole accompagnamento, presenza executive e gestione più sartoriale.',
-      features: ['Onboarding guidato', 'Utenti multipli', 'Priorità amministrativa', 'Canale dedicato'],
+      tagline: 'Ingresso rapido, piena esperienza',
+      ideal_for: 'Ideale per chi vuole entrare subito in Aureo con accesso completo, senza compromessi e senza vincoli lunghi.',
+      description: 'Una prima settimana a piena potenza per vivere l’esperienza Aureo completa e valutarne il valore reale.',
+      features: ['Accesso completo a tutti i moduli', 'Esperienza premium riservata', 'Alert e controllo inclusi', 'Attivazione guidata'],
       modules: ['dashboard', 'trading', 'sentiment', 'ai_content', 'billing'],
-      checkout_url: 'https://buy.stripe.com/test_elite',
+      checkout_url: 'https://buy.stripe.com/test_week',
+    },
+    {
+      id: 'monthly',
+      name: 'Accesso Mensile',
+      price_monthly: 120,
+      price_label: '€120',
+      cadence_label: '/mese',
+      currency: 'EUR',
+      tagline: 'Continuità operativa senza attrito',
+      ideal_for: 'Ideale per chi vuole mantenere Aureo attivo ogni mese con accesso pieno e presidio costante.',
+      description: 'La scelta naturale per chi usa Aureo in continuità e vuole un abbonamento chiaro, forte e sostenibile.',
+      features: ['Accesso completo continuativo', 'Tutti i moduli Aureo inclusi', 'Supporto operativo', 'Esperienza multi-device'],
+      modules: ['dashboard', 'trading', 'sentiment', 'ai_content', 'billing'],
+      checkout_url: 'https://buy.stripe.com/test_monthly',
+    },
+    {
+      id: 'annual',
+      name: 'Accesso Annuale',
+      price_monthly: 1000,
+      price_label: '€1000',
+      cadence_label: '/anno',
+      monthly_equivalent: 83.33,
+      currency: 'EUR',
+      tagline: 'Il modo più solido di restare dentro Aureo',
+      ideal_for: 'Ideale per chi vuole continuità totale, costo ottimizzato e un presidio stabile sul lungo periodo.',
+      description: 'La soluzione annuale per chi considera Aureo una componente stabile del proprio setup operativo.',
+      features: ['Accesso completo per 12 mesi', 'Costo medio mensile ridotto', 'Tutti i moduli inclusi', 'Priorità sul rinnovo'],
+      modules: ['dashboard', 'trading', 'sentiment', 'ai_content', 'billing'],
+      checkout_url: 'https://buy.stripe.com/test_annual',
     },
   ],
   customers: [
-    { id: 'cus_demo_alpha', company: 'Alpha Quant Studio', contact_name: 'Marco Rossi', email: 'marco@alphaquant.studio', plan_id: 'pro', status: 'active', seats: 3, monthly_amount: 199, next_billing_at: '2026-07-12' },
-    { id: 'cus_demo_beta', company: 'Beta Capital Lab', contact_name: 'Giulia Bianchi', email: 'giulia@betacapitallab.com', plan_id: 'starter', status: 'trialing', seats: 1, monthly_amount: 79, next_billing_at: '2026-07-08' },
+    { id: 'cus_demo_alpha', company: 'Alpha Quant Studio', contact_name: 'Marco Rossi', email: 'marco@alphaquant.studio', plan_id: 'monthly', status: 'active', seats: 3, monthly_amount: 120, next_billing_at: '2026-08-12' },
+    { id: 'cus_demo_beta', company: 'Beta Capital Lab', contact_name: 'Giulia Bianchi', email: 'giulia@betacapitallab.com', plan_id: 'annual', status: 'active', seats: 1, monthly_amount: 83.33, next_billing_at: '2027-07-08' },
   ],
   leads: [
-    { id: 'lead_demo_1', company: 'Omega Signals', contact_name: 'Luca Verdi', email: 'luca@omegasignals.io', plan_id: 'elite', status: 'lead', created_at: '2026-07-02' },
+    { id: 'lead_demo_1', company: 'Omega Signals', contact_name: 'Luca Verdi', email: 'luca@omegasignals.io', plan_id: 'week_pass', status: 'lead', created_at: '2026-07-02' },
   ],
   recent_activity: [
-    { id: 'act_1', user_email: 'marco@alphaquant.studio', amount: 99, currency: 'USDT', txid: 'T...X8Y9', status: 'verified' },
-    { id: 'act_2', user_email: 'giulia@betacapitallab.com', amount: 99, currency: 'USDT', txid: 'T...J3K4', status: 'pending' },
+    { id: 'act_1', user_email: 'marco@alphaquant.studio', amount: 120, currency: 'USDT', txid: 'T...X8Y9', status: 'verified' },
+    { id: 'act_2', user_email: 'giulia@betacapitallab.com', amount: 1000, currency: 'USDT', txid: 'T...J3K4', status: 'pending' },
   ],
   settings: { trial_days: 7, currency: 'EUR' },
 };
@@ -2434,7 +2441,7 @@ function OmniAppInner() {
   const [billingMessage, setBillingMessage] = useState('');
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'user' });
-  const [billingLead, setBillingLead] = useState({ company: '', contact_name: '', email: '', plan_id: 'pro', seats: 1 });
+  const [billingLead, setBillingLead] = useState({ company: '', contact_name: '', email: '', plan_id: 'monthly', seats: 1 });
   const [userIsPaid, setUserIsPaid] = useState(false);
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [lastStatusSync, setLastStatusSync] = useState(null);
@@ -7090,7 +7097,7 @@ function OmniAppInner() {
                     <div className="sales-pricing-header">
                       <h3>{plan.name}</h3>
                       <div className="sales-pricing-kicker">{plan.tagline || 'Percorso Aureo'}</div>
-                      <div className="sales-price">€{plan.price_monthly}<span>/mese</span></div>
+                      <div className="sales-price">{plan.price_label || `€${plan.price_monthly}`}<span>{plan.cadence_label || '/mese'}</span></div>
                       <p>{plan.description}</p>
                     </div>
                     <div className="sales-pricing-ideal-for">{plan.ideal_for}</div>
@@ -7115,7 +7122,7 @@ function OmniAppInner() {
                   <h3>{selectedPlan.name}</h3>
                   <div className="sales-pricing-kicker">{selectedPlan.tagline || 'Percorso Aureo'}</div>
                   <p>{selectedPlan.description}</p>
-                  <div className="sales-inline-plan-price">€{selectedPlan.price_monthly}<span>/mese</span></div>
+                  <div className="sales-inline-plan-price">{selectedPlan.price_label || `€${selectedPlan.price_monthly}`}<span>{selectedPlan.cadence_label || '/mese'}</span></div>
                   <div className="sales-pricing-ideal-for">{selectedPlan.ideal_for}</div>
                   <div className="sales-inline-plan-features">
                     {selectedPlan.features.map((feature) => (
