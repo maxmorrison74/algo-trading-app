@@ -6980,8 +6980,8 @@ function OmniAppInner() {
             <section className="sales-section" id="landing-features">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Cosa acquista davvero il cliente</div>
-                <h2>Non stai offrendo la proprietà del software: stai offrendo un accesso in abbonamento, guidato e ad alto valore percepito</h2>
-                <p>La nuova struttura sposta Aureo da “app da provare” a “accesso riservato da attivare”, con un impatto molto più forte sulla qualità percepita del servizio.</p>
+                <h2>Un accesso riservato a un ambiente operativo che trasmette ordine, controllo e valore</h2>
+                <p>Non un software da esplorare distrattamente, ma un’esperienza premium da attivare e mantenere nel tempo.</p>
               </div>
               <div className="sales-features-grid">
                 {landingFeatures.map((item) => (
