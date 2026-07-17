@@ -6723,6 +6723,34 @@ function OmniAppInner() {
       { value: 'Presidiato', label: 'attivazione allineata allo step scelto' },
       { value: 'Vendibile', label: 'tono, funnel e UX coerenti con pricing premium' },
     ];
+    const landingModuleShowcase = [
+      {
+        title: 'AI Guided Allocation',
+        text: 'Per chi vuole una lettura assistita delle opportunità senza dover assemblare mille strumenti esterni.',
+        badge: 'AI',
+      },
+      {
+        title: 'Signal & Market Monitoring',
+        text: 'Per monitorare watchlist, momentum, operatività e contesto in un unico ambiente leggibile.',
+        badge: 'Signals',
+      },
+      {
+        title: 'Risk & Security Control',
+        text: 'Per mostrare che Aureo non è solo execution: è anche protezione, controllo accessi e disciplina.',
+        badge: 'Control',
+      },
+      {
+        title: 'Private Access Workflow',
+        text: 'Per trasformare il passaggio da visitatore a cliente in un processo più ordinato e ad alto valore percepito.',
+        badge: 'Access',
+      },
+    ];
+    const landingMarketProof = [
+      { value: 'Multi-module', label: 'AI, monitoring, risk e security nella stessa control room' },
+      { value: 'Manual approval', label: 'abilitazione finale sempre sotto il tuo controllo' },
+      { value: 'Premium-ready', label: 'struttura più adatta a pricing e clienti di fascia alta' },
+      { value: 'Cross-device', label: 'esperienza coerente su desktop, tablet e mobile' },
+    ];
     const landingFlow = [
       {
         number: '1',
@@ -6769,6 +6797,24 @@ function OmniAppInner() {
       'Presenza privata ad alto valore percepito',
       'Percorso commerciale pulito e guidato',
       'Coerenza piena tra promessa, pricing e accesso',
+    ];
+    const landingFaq = [
+      {
+        question: 'Come avviene l’attivazione di un cliente?',
+        answer: 'Il cliente seleziona lo step, invia la richiesta o rientra con il proprio accesso, e l’abilitazione finale viene verificata manualmente prima della piena attivazione.',
+      },
+      {
+        question: 'Aureo è pensato per uso pubblico o privato?',
+        answer: 'La nuova impostazione è chiaramente privata: il tono, il funnel e l’accesso selettivo raccontano un ambiente riservato, non una piattaforma aperta a tutti.',
+      },
+      {
+        question: 'Perché questa struttura aiuta a vendere meglio?',
+        answer: 'Perché aumenta subito la qualità percepita: il cliente vede ordine, controllo, sicurezza e accompagnamento, quindi il valore appare più credibile.',
+      },
+      {
+        question: 'Cosa differenzia gli step di accesso?',
+        answer: 'Ogni step definisce un diverso livello di accompagnamento, moduli disponibili e profondità dell’esperienza, mantenendo la stessa logica di controllo e attivazione guidata.',
+      },
     ];
     if (showLanding) {
       return (
@@ -6966,6 +7012,23 @@ function OmniAppInner() {
               </div>
             </section>
 
+            <section className="sales-section">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Cosa c’è dentro Aureo</div>
+                <h2>I moduli chiave sono comprensibili subito, senza dover spiegare tutto a voce</h2>
+                <p>Il mercato premia le piattaforme che mostrano chiaramente cosa fanno. Qui Aureo racconta i suoi pilastri in modo più leggibile, ordinato e vendibile.</p>
+              </div>
+              <div className="sales-module-grid">
+                {landingModuleShowcase.map((item) => (
+                  <article key={item.title} className="sales-module-card">
+                    <div className="sales-module-badge">{item.badge}</div>
+                    <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
             <section className="sales-section sales-section--soft">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Cosa cambia davvero</div>
@@ -6974,6 +7037,14 @@ function OmniAppInner() {
               </div>
               <div className="sales-stats-row sales-stats-row--proof">
                 {landingDecisionStrip.map((item) => (
+                  <div key={item.label} className="sales-stat-item">
+                    <div className="sales-stat-value">{item.value}</div>
+                    <div className="sales-stat-label">{item.label}</div>
+                  </div>
+                ))}
+              </div>
+              <div className="sales-stats-row sales-stats-row--proof sales-stats-row--market">
+                {landingMarketProof.map((item) => (
                   <div key={item.label} className="sales-stat-item">
                     <div className="sales-stat-value">{item.value}</div>
                     <div className="sales-stat-label">{item.label}</div>
@@ -7127,6 +7198,22 @@ function OmniAppInner() {
                     </div>
                     <div className="sales-stars">★★★★★</div>
                     <p>{item.quote}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="sales-section sales-section--soft">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Domande che chiudono le obiezioni</div>
+                <h2>Le informazioni importanti sono già lì, senza costringerti a spiegarle ogni volta</h2>
+                <p>Le migliori piattaforme del settore riducono l’attrito rispondendo subito ai dubbi principali. Aureo può fare lo stesso, ma con un tono più esclusivo.</p>
+              </div>
+              <div className="sales-faq-grid">
+                {landingFaq.map((item) => (
+                  <article key={item.question} className="sales-faq-card">
+                    <h3>{item.question}</h3>
+                    <p>{item.answer}</p>
                   </article>
                 ))}
               </div>

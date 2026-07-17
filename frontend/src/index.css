@@ -4017,6 +4017,15 @@ input:focus, textarea:focus, select:focus {
   gap: 2rem;
 }
 
+.sales-module-grid,
+.sales-faq-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+}
+
 .sales-enterprise-grid {
   max-width: 1200px;
   margin: 0 auto;
@@ -4089,6 +4098,8 @@ input:focus, textarea:focus, select:focus {
 }
 
 .sales-feature-card,
+.sales-module-card,
+.sales-faq-card,
 .sales-pricing-card,
 .sales-testimonial-card,
 .sales-inline-plan,
@@ -4098,6 +4109,50 @@ input:focus, textarea:focus, select:focus {
   border-radius: 24px;
   padding: 2.5rem;
   box-shadow: 0 24px 80px rgba(0, 0, 0, 0.18);
+}
+
+.sales-module-card,
+.sales-faq-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)),
+    #1a1a2e;
+}
+
+.sales-module-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 78px;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+  background: rgba(0, 212, 170, 0.1);
+  border: 1px solid rgba(0, 212, 170, 0.2);
+  color: var(--accent-cyan);
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sales-module-card h3,
+.sales-faq-card h3 {
+  font-size: 1.18rem;
+  margin-bottom: 0.85rem;
+}
+
+.sales-module-card p,
+.sales-faq-card p {
+  color: var(--text-secondary);
+  font-size: 0.98rem;
+  line-height: 1.7;
+  margin: 0;
+}
+
+.sales-stats-row--market {
+  margin-top: 1.4rem;
 }
 
 .sales-feature-card {
@@ -4471,6 +4526,8 @@ input:focus, textarea:focus, select:focus {
   .sales-phone-mockup { width: 280px; height: 570px; }
   .sales-topbar { padding-left: 1rem; padding-right: 1rem; }
   .sales-features-grid,
+  .sales-module-grid,
+  .sales-faq-grid,
   .sales-pricing-grid,
   .sales-testimonials-grid,
   .sales-enterprise-grid,
@@ -4493,6 +4550,8 @@ input:focus, textarea:focus, select:focus {
   .sales-ticker { margin-top: 138px; }
   .sales-hero h1 { font-size: 2.5rem; }
   .sales-features-grid,
+  .sales-module-grid,
+  .sales-faq-grid,
   .sales-pricing-grid,
   .sales-testimonials-grid,
   .sales-enterprise-grid,
