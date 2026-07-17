@@ -2269,6 +2269,9 @@ const OnboardingModal = ({ onClose, onGoToSettings, savedKeys = {} }) => {
   const telegramReady = !!(savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID']);
   const pushoverReady = !!(savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY']);
   const alertsReady = telegramReady || pushoverReady;
+  const setupSteps = [alpacaReady, groqReady, telegramReady, pushoverReady];
+  const completedSteps = setupSteps.filter(Boolean).length;
+  const setupProgress = Math.round((completedSteps / setupSteps.length) * 100);
   const renderSetupBadge = (ready, requiredLabel = 'OPZIONALE') => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
       <span style={{
@@ -2317,6 +2320,38 @@ const OnboardingModal = ({ onClose, onGoToSettings, savedKeys = {} }) => {
         <p style={{ color: '#94a3b8', fontSize: '1.05rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
           Qui sotto trovi tutto quello che ti serve per completare il setup del tuo accesso. Alcune chiavi sono indispensabili per operare, altre servono per potenziare alert e analisi.
         </p>
+
+        <div style={{
+          background: 'rgba(255,255,255,0.03)',
+          border: '1px solid rgba(255,255,255,0.08)',
+          borderRadius: '14px',
+          padding: '1rem 1.1rem',
+          marginBottom: '1.2rem'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.7rem' }}>
+            <div>
+              <div style={{ color: '#e2e8f0', fontWeight: 800 }}>Setup progress</div>
+              <div style={{ color: '#94a3b8', fontSize: '0.88rem', marginTop: '0.2rem' }}>
+                {completedSteps}/{setupSteps.length} chiavi configurate
+              </div>
+            </div>
+            <div style={{ color: setupProgress === 100 ? '#34d399' : '#60a5fa', fontWeight: 800, fontSize: '1rem' }}>
+              {setupProgress}%
+            </div>
+          </div>
+          <div style={{ height: '10px', borderRadius: '999px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden' }}>
+            <div style={{
+              width: `${setupProgress}%`,
+              height: '100%',
+              borderRadius: '999px',
+              background: setupProgress === 100
+                ? 'linear-gradient(90deg, #10b981, #34d399)'
+                : 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
+              boxShadow: setupProgress > 0 ? '0 0 18px rgba(96,165,250,0.35)' : 'none',
+              transition: 'width 0.25s ease'
+            }} />
+          </div>
+        </div>
 
         <div style={{
           background: 'linear-gradient(180deg, rgba(59,130,246,0.12), rgba(167,139,250,0.08))',
