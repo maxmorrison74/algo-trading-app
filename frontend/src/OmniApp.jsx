@@ -2338,6 +2338,66 @@ const NoticeTray = ({ notices = [], onDismiss }) => (
   </div>
 );
 
+const ConfirmDialog = ({ config, onCancel, onConfirm }) => {
+  if (!config?.open) return null;
+  return (
+    <div className="confirm-dialog-shell">
+      <div className="confirm-dialog-card">
+        <div className={`confirm-dialog-badge confirm-dialog-badge--${config.tone || 'warning'}`}>
+          {config.kicker || 'Conferma richiesta'}
+        </div>
+        <h3>{config.title || 'Vuoi procedere?'}</h3>
+        <p>{config.message || 'Conferma l’azione per continuare.'}</p>
+        <div className="confirm-dialog-actions">
+          <button type="button" className="btn btn-outline" onClick={onCancel}>
+            Annulla
+          </button>
+          <button
+            type="button"
+            className={`btn ${config.tone === 'danger' ? 'btn-stop' : 'btn-start'}`}
+            onClick={onConfirm}
+          >
+            {config.confirmLabel || 'Conferma'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SystemStatusBanner = ({ status = {}, isBackendOnline = true, onOpenHealth, onOpenTrading }) => {
+  const runtimeHealth = status.runtime_health || {};
+  const autoPaused = !!runtimeHealth.auto_paused;
+  const scannerActive = !!status.modules?.trading;
+  if (isBackendOnline && !autoPaused && scannerActive) return null;
+
+  const tone = !isBackendOnline ? 'danger' : autoPaused ? 'warning' : 'info';
+  const title = !isBackendOnline
+    ? 'Backend non allineato'
+    : autoPaused
+      ? 'Trading auto-pausato in sicurezza'
+      : 'Scanner trading in pausa';
+  const message = !isBackendOnline
+    ? 'L’interfaccia è attiva, ma i dati live non stanno arrivando correttamente. Conviene controllare la sezione health.'
+    : autoPaused
+      ? (runtimeHealth.auto_pause_reason || 'Il sistema ha fermato operatività e feed per proteggere il capitale.')
+      : 'Il motore è fermo: nessun nuovo setup finché non lo riattivi.';
+  const action = !isBackendOnline || autoPaused ? onOpenHealth : onOpenTrading;
+  const actionLabel = !isBackendOnline || autoPaused ? 'Apri Health' : 'Apri Trading';
+
+  return (
+    <div className={`system-status-banner system-status-banner--${tone}`}>
+      <div className="system-status-banner-copy">
+        <strong>{title}</strong>
+        <span>{message}</span>
+      </div>
+      <button type="button" className="btn" onClick={action}>
+        {actionLabel}
+      </button>
+    </div>
+  );
+};
+
 function OmniAppInner() {
   const [status, setStatus] = useState({});
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -2373,6 +2433,7 @@ function OmniAppInner() {
   const [isBackendOnline, setIsBackendOnline] = useState(true);
   const [lastStatusSync, setLastStatusSync] = useState(null);
   const [notices, setNotices] = useState([]);
+  const [confirmDialog, setConfirmDialog] = useState(null);
   
   // AI Investment Hub state
   const [aiBudget, setAiBudget] = useState(500);
@@ -2750,6 +2811,17 @@ function OmniAppInner() {
     }
     return id;
   }, []);
+  const closeConfirmDialog = React.useCallback(() => setConfirmDialog(null), []);
+  const openConfirmDialog = React.useCallback((config) => setConfirmDialog({ open: true, ...config }), []);
+  const runConfirmedAction = React.useCallback(async () => {
+    if (!confirmDialog?.onConfirmAction) {
+      setConfirmDialog(null);
+      return;
+    }
+    const action = confirmDialog.onConfirmAction;
+    setConfirmDialog(null);
+    await action();
+  }, [confirmDialog]);
 
   useEffect(() => {
     if (!BILLING_ENABLED && activeTab === 'saas') {
@@ -3270,26 +3342,33 @@ function OmniAppInner() {
   };
 
   const cancelAiInvestment = async (index, symbol, platform) => {
-    if(!window.confirm(`Vuoi davvero annullare l'ordine su ${symbol}?`)) return;
-    try {
-      const res = await authFetch('/api/ai-invest/cancel', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ index, symbol, platform })
-      });
-      const data = await res.json();
-      if (res.ok) {
-        pushNotice('success', 'Ordine AI annullato', data.message || `${symbol} rimosso correttamente.`);
-        // Forza refresh stato
-        fetch('/api/status', {
-          headers: sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {}
-        }).then(r => r.json()).then(d => { if(!d.error) setStatus(d); });
-      } else {
-        pushNotice('error', 'Annullamento fallito', data.detail || 'Errore durante la cancellazione');
+    openConfirmDialog({
+      tone: 'danger',
+      kicker: 'Annullamento ordine',
+      title: `Annullare ${symbol}?`,
+      message: 'L’ordine AI verrà rimosso dal registro operativo.',
+      confirmLabel: 'Annulla ordine',
+      onConfirmAction: async () => {
+        try {
+          const res = await authFetch('/api/ai-invest/cancel', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ index, symbol, platform })
+          });
+          const data = await res.json();
+          if (res.ok) {
+            pushNotice('success', 'Ordine AI annullato', data.message || `${symbol} rimosso correttamente.`);
+            fetch('/api/status', {
+              headers: sessionToken ? { 'Authorization': `Bearer ${sessionToken}` } : {}
+            }).then(r => r.json()).then(d => { if(!d.error) setStatus(d); });
+          } else {
+            pushNotice('error', 'Annullamento fallito', data.detail || 'Errore durante la cancellazione');
+          }
+        } catch (e) {
+          pushNotice('error', 'Rete non disponibile', 'Errore di rete durante l’annullamento.');
+        }
       }
-    } catch (e) {
-      pushNotice('error', 'Rete non disponibile', 'Errore di rete durante l’annullamento.');
-    }
+    });
   };
 
   const executeAiProposal = async (proposal) => {
@@ -3351,18 +3430,25 @@ function OmniAppInner() {
   };
 
   const handleReset = async () => {
-    if (window.confirm("Sei sicuro di voler resettare la simulazione a $100.0 e cancellare la cronologia?")) {
-      try {
-        const res = await authFetch('/api/reset', { method: 'POST' });
-        const data = await res.json();
-        if (!data.error) {
-          setStatus(data.state);
-          pushNotice('success', 'Simulazione resettata', 'Stato e cronologia sono stati azzerati correttamente.');
+    openConfirmDialog({
+      tone: 'danger',
+      kicker: 'Reset simulazione',
+      title: 'Azzerare stato e cronologia?',
+      message: 'La simulazione tornerà al capitale iniziale e lo storico operativo verrà cancellato.',
+      confirmLabel: 'Resetta simulazione',
+      onConfirmAction: async () => {
+        try {
+          const res = await authFetch('/api/reset', { method: 'POST' });
+          const data = await res.json();
+          if (!data.error) {
+            setStatus(data.state);
+            pushNotice('success', 'Simulazione resettata', 'Stato e cronologia sono stati azzerati correttamente.');
+          }
+        } catch (err) {
+          pushNotice('error', 'Reset non riuscito', 'Errore di connessione al backend.');
         }
-      } catch (err) {
-        pushNotice('error', 'Reset non riuscito', 'Errore di connessione al backend.');
       }
-    }
+    });
   };
 
   // Rendering Helper per Trading
@@ -6346,42 +6432,64 @@ function OmniAppInner() {
                           {user.status !== 'active' && (
                             <>
                             <button className="btn btn-start" onClick={async (e) => {
-                              if(!window.confirm('Vuoi attivare manualmente questo utente (GRATIS)?')) return;
-                              try {
-                                const res = await authFetch('/api/saas/activate-user', {
-                                  method: 'POST', headers: {'Content-Type': 'application/json'},
-                                  body: JSON.stringify({ user_id: user.id })
-                                });
-                                const data = await res.json();
-                                if (res.ok) {
-                                  await refreshBillingOverview();
-                                  setBillingMessage(data.message || 'Utente attivato');
-                                } else {
-                                  setBillingMessage(data.detail || 'Errore attivazione utente');
+                              openConfirmDialog({
+                                tone: 'info',
+                                kicker: 'Attivazione manuale',
+                                title: 'Attivare utente gratis?',
+                                message: `L’utente ${user.email} verrà attivato manualmente senza pagamento registrato.`,
+                                confirmLabel: 'Attiva gratis',
+                                onConfirmAction: async () => {
+                                  try {
+                                    const res = await authFetch('/api/saas/activate-user', {
+                                      method: 'POST', headers: {'Content-Type': 'application/json'},
+                                      body: JSON.stringify({ user_id: user.id })
+                                    });
+                                    const data = await res.json();
+                                    if (res.ok) {
+                                      await refreshBillingOverview();
+                                      setBillingMessage(data.message || 'Utente attivato');
+                                      pushNotice('success', 'Utente attivato', data.message || `${user.email} è ora attivo.`);
+                                    } else {
+                                      setBillingMessage(data.detail || 'Errore attivazione utente');
+                                      pushNotice('error', 'Attivazione non riuscita', data.detail || 'Errore attivazione utente');
+                                    }
+                                  } catch(e) {
+                                    setBillingMessage('Errore di rete durante l’attivazione');
+                                    pushNotice('error', 'Rete non disponibile', 'Errore di rete durante l’attivazione.');
+                                  }
                                 }
-                              } catch(e) {
-                                setBillingMessage('Errore di rete durante l’attivazione');
-                              }
+                              });
                             }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}>
                               Attiva (Gratis)
                             </button>
                             <button className="btn btn-start" onClick={async (e) => {
-                              if(!window.confirm('Vuoi attivare manualmente questo utente (PAGATO)?')) return;
-                              try {
-                                const res = await authFetch('/api/saas/activate-paid', {
-                                  method: 'POST', headers: {'Content-Type': 'application/json'},
-                                  body: JSON.stringify({ user_id: user.id })
-                                });
-                                const data = await res.json();
-                                if (res.ok) {
-                                  await refreshBillingOverview();
-                                  setBillingMessage(data.message || 'Utente attivato come pagato');
-                                } else {
-                                  setBillingMessage(data.detail || 'Errore attivazione pagata');
+                              openConfirmDialog({
+                                tone: 'warning',
+                                kicker: 'Attivazione pagata',
+                                title: 'Attivare utente come pagato?',
+                                message: `L’utente ${user.email} verrà marcato come pagato e attivo.`,
+                                confirmLabel: 'Attiva come pagato',
+                                onConfirmAction: async () => {
+                                  try {
+                                    const res = await authFetch('/api/saas/activate-paid', {
+                                      method: 'POST', headers: {'Content-Type': 'application/json'},
+                                      body: JSON.stringify({ user_id: user.id })
+                                    });
+                                    const data = await res.json();
+                                    if (res.ok) {
+                                      await refreshBillingOverview();
+                                      setBillingMessage(data.message || 'Utente attivato come pagato');
+                                      pushNotice('success', 'Utente attivato come pagato', data.message || `${user.email} è stato aggiornato.`);
+                                    } else {
+                                      setBillingMessage(data.detail || 'Errore attivazione pagata');
+                                      pushNotice('error', 'Attivazione pagata fallita', data.detail || 'Errore attivazione pagata');
+                                    }
+                                  } catch(e) {
+                                    setBillingMessage('Errore di rete durante l’attivazione pagata');
+                                    pushNotice('error', 'Rete non disponibile', 'Errore di rete durante l’attivazione pagata.');
+                                  }
                                 }
-                              } catch(e) {
-                                setBillingMessage('Errore di rete durante l’attivazione pagata');
-                              }
+                              });
                             }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem', background: '#d4af37', color: 'black' }}>
                               Attiva (Pagato)
                             </button>
@@ -6398,17 +6506,27 @@ function OmniAppInner() {
                             </>
                           )}
                           <button className="btn btn-outline" onClick={async (e) => {
-                            if(!window.confirm('Eliminare definitivamente questo utente?')) return;
-                            try {
-                              await authFetch('/api/saas/delete-user', {
-                                method: 'POST', headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ user_id: user.id })
-                              });
-                              await refreshBillingOverview();
-                              setBillingMessage('Utente eliminato');
-                            } catch(e) {
-                              setBillingMessage('Errore durante eliminazione utente');
-                            }
+                            openConfirmDialog({
+                              tone: 'danger',
+                              kicker: 'Eliminazione utente',
+                              title: 'Eliminare definitivamente questo utente?',
+                              message: `L’utente ${user.email} verrà rimosso in modo definitivo.`,
+                              confirmLabel: 'Elimina utente',
+                              onConfirmAction: async () => {
+                                try {
+                                  await authFetch('/api/saas/delete-user', {
+                                    method: 'POST', headers: {'Content-Type': 'application/json'},
+                                    body: JSON.stringify({ user_id: user.id })
+                                  });
+                                  await refreshBillingOverview();
+                                  setBillingMessage('Utente eliminato');
+                                  pushNotice('success', 'Utente eliminato', `${user.email} è stato rimosso.`);
+                                } catch(e) {
+                                  setBillingMessage('Errore durante eliminazione utente');
+                                  pushNotice('error', 'Eliminazione fallita', 'Errore durante eliminazione utente.');
+                                }
+                              }
+                            });
                           }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem', borderColor: '#ef4444', color: '#ef4444' }}>
                             Elimina
                           </button>
@@ -7064,6 +7182,7 @@ function OmniAppInner() {
   return (
     <>
     <NoticeTray notices={notices} onDismiss={dismissNotice} />
+    <ConfirmDialog config={confirmDialog} onCancel={closeConfirmDialog} onConfirm={runConfirmedAction} />
     <div className="omni-app">
       <div className="sidebar">
         <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
@@ -7190,6 +7309,12 @@ function OmniAppInner() {
             Logout
           </button>
         </div>
+        <SystemStatusBanner
+          status={status}
+          isBackendOnline={isBackendOnline}
+          onOpenHealth={() => openDevelopSection('health')}
+          onOpenTrading={() => setActiveTab('trading')}
+        />
         {activeTab === 'home' && renderHomeView()}
         {activeTab === 'trading' && renderTradingView()}
         {activeTab === 'symbol_review' && renderSymbolReviewView()}

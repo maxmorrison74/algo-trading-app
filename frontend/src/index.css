@@ -2333,6 +2333,117 @@ input:focus, textarea:focus, select:focus {
   padding: 0.1rem;
 }
 
+.confirm-dialog-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 13000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(3, 8, 18, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.confirm-dialog-card {
+  width: min(520px, 100%);
+  padding: 1.6rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(9, 17, 29, 0.94);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.32);
+}
+
+.confirm-dialog-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.38rem 0.76rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.95rem;
+}
+
+.confirm-dialog-badge--warning {
+  border: 1px solid rgba(245, 158, 11, 0.28);
+  background: rgba(245, 158, 11, 0.1);
+  color: #ffd38c;
+}
+
+.confirm-dialog-badge--danger {
+  border: 1px solid rgba(239, 68, 68, 0.28);
+  background: rgba(239, 68, 68, 0.1);
+  color: #ffb8b8;
+}
+
+.confirm-dialog-badge--info {
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  background: rgba(56, 189, 248, 0.1);
+  color: #bfe9ff;
+}
+
+.confirm-dialog-card h3 {
+  font-size: 1.35rem;
+  margin-bottom: 0.6rem;
+}
+
+.confirm-dialog-card p {
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.confirm-dialog-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  margin-top: 1.25rem;
+}
+
+.system-status-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 16px;
+  margin-bottom: 1rem;
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow: 0 12px 30px rgba(2, 8, 23, 0.18);
+}
+
+.system-status-banner--danger {
+  background: linear-gradient(90deg, rgba(127, 29, 29, 0.45), rgba(15, 23, 42, 0.9));
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.system-status-banner--warning {
+  background: linear-gradient(90deg, rgba(120, 53, 15, 0.45), rgba(15, 23, 42, 0.9));
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.system-status-banner--info {
+  background: linear-gradient(90deg, rgba(8, 47, 73, 0.45), rgba(15, 23, 42, 0.9));
+  border-color: rgba(56, 189, 248, 0.28);
+}
+
+.system-status-banner-copy {
+  display: grid;
+  gap: 0.22rem;
+}
+
+.system-status-banner-copy strong {
+  color: #f8fafc;
+}
+
+.system-status-banner-copy span {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.45;
+}
+
 .hero-summary {
   overflow: hidden;
 }
@@ -2713,6 +2824,12 @@ input:focus, textarea:focus, select:focus {
     left: 0.75rem;
     right: 0.75rem;
     width: auto;
+  }
+
+  .confirm-dialog-actions,
+  .system-status-banner {
+    flex-direction: column;
+    align-items: stretch;
   }
 
   .omni-app { flex-direction: column; }
