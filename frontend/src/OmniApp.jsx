@@ -6815,7 +6815,7 @@ function OmniAppInner() {
     const landingFaq = [
       {
         question: 'Come avviene l’attivazione di un cliente?',
-        answer: 'Selezioni lo step, invii la richiesta o rientri con il tuo accesso, e l’abilitazione finale viene verificata manualmente prima dell’attivazione completa.',
+        answer: 'Scegli la formula più adatta, invii la richiesta e ricevi l’attivazione dopo la verifica finale. Un percorso semplice, guidato e sempre sotto controllo.',
       },
       {
         question: 'Aureo è pensato per uso pubblico o privato?',
