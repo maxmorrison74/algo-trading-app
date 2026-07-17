@@ -4457,34 +4457,83 @@ input:focus, textarea:focus, select:focus {
 .sales-ghost-button { margin-top: 0.9rem; }
 .sales-ghost-button { background: rgba(255,255,255,0.03); color: var(--text-primary); }
 
-.sales-testimonial-card { position: relative; }
+.sales-testimonials-grid {
+  align-items: stretch;
+}
+
+.sales-testimonial-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 2.1rem 2rem 2rem;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.045), rgba(255,255,255,0.015)),
+    rgba(18, 24, 40, 0.92);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    0 24px 70px rgba(0,0,0,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
 .sales-testimonial-card::before {
   content: '"';
   position: absolute;
-  top: 1rem;
-  right: 1.5rem;
-  font-size: 4rem;
-  color: #6366f1;
-  opacity: 0.2;
+  top: 0.9rem;
+  right: 1.3rem;
+  font-size: 4.6rem;
+  color: #8b5cf6;
+  opacity: 0.16;
   font-family: serif;
   line-height: 1;
 }
 
-.sales-testimonial-header { gap: 1rem; margin-bottom: 1.5rem; justify-content: flex-start; }
+.sales-testimonial-header {
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+  justify-content: flex-start;
+  align-items: center;
+}
+
 .sales-testimonial-avatar {
-  width: 50px;
-  height: 50px;
+  width: 58px;
+  height: 58px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #06b6d4);
+  background: linear-gradient(135deg, #4f7cff, #22d3ee);
   display: flex;
   align-items: center;
   justify-content: center;
-  font-weight: 700;
-  font-size: 1.2rem;
+  font-weight: 800;
+  font-size: 1.35rem;
+  color: #f8fbff;
+  box-shadow: 0 10px 30px rgba(34, 211, 238, 0.24);
 }
-.sales-testimonial-header h4 { font-size: 1rem; margin-bottom: 0.25rem; }
-.sales-testimonial-header span { font-size: 0.8rem; color: var(--text-muted); }
-.sales-stars { color: #f59e0b; margin-bottom: 1rem; font-size: 0.9rem; }
+.sales-testimonial-header h4 {
+  font-size: 1.08rem;
+  margin-bottom: 0.2rem;
+  color: #f8fbff;
+}
+
+.sales-testimonial-header span {
+  font-size: 0.82rem;
+  color: #8ea1ba;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.sales-stars {
+  color: #fbbf24;
+  margin-bottom: 1rem;
+  font-size: 1rem;
+  letter-spacing: 0.14em;
+}
+
+.sales-testimonial-card p {
+  margin: 0;
+  color: #d8e2ec;
+  line-height: 1.8;
+  font-size: 1rem;
+}
 
 .sales-cta {
   padding: 6rem 5%;
