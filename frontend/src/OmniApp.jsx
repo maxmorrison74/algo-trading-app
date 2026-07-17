@@ -2282,36 +2282,78 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
         }}>×</button>
 
         <h2 style={{ fontSize: '2rem', marginBottom: '1rem', background: 'linear-gradient(90deg, #60a5fa, #a78bfa)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-          Benvenuto nel tuo Bot Personale!
+          Prima configurazione Aureo
         </h2>
-        <p style={{ color: '#94a3b8', fontSize: '1.1rem', marginBottom: '2rem', lineHeight: 1.6 }}>
-          Prima di attivare l'intelligenza artificiale e iniziare a fare trading, devi collegare i tuoi account. Non preoccuparti, i tuoi fondi restano sempre al sicuro sui tuoi exchange e noi operiamo tramite chiavi API dedicate.
+        <p style={{ color: '#94a3b8', fontSize: '1.05rem', marginBottom: '1.5rem', lineHeight: 1.6 }}>
+          Qui sotto trovi tutto quello che ti serve per completare il setup del tuo accesso. Alcune chiavi sono indispensabili per operare, altre servono per potenziare alert e analisi.
         </p>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-          {/* Alpaca */}
-          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#fcd34d' }}>1. Trading Azionario (Alpaca)</h3>
-            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Alpaca è il broker senza commissioni utilizzato per l'azionario USA. <br/>
-              <span style={{opacity: 0.8, fontSize: '0.85rem'}}><strong>Guida:</strong> Registrati, conferma l'email e accedi. Clicca su "View API Keys" sulla destra della dashboard per generare la Key ID e la Secret Key.</span>
+        <div style={{
+          background: 'linear-gradient(180deg, rgba(59,130,246,0.12), rgba(167,139,250,0.08))',
+          border: '1px solid rgba(96,165,250,0.22)',
+          borderRadius: '14px',
+          padding: '1rem 1.1rem',
+          marginBottom: '1.6rem'
+        }}>
+          <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.55rem' }}>Ti basta sapere questo:</div>
+          <div style={{ display: 'grid', gap: '0.45rem', color: '#cbd5e1', fontSize: '0.92rem', lineHeight: 1.5 }}>
+            <div><strong style={{ color: '#fcd34d' }}>Obbligatoria:</strong> Alpaca, per collegare il broker e permettere al bot di operare.</div>
+            <div><strong style={{ color: '#c084fc' }}>Consigliata:</strong> Groq, per sbloccare il layer AI su analisi e assistenza operativa.</div>
+            <div><strong style={{ color: '#38bdf8' }}>Opzionali:</strong> Telegram e Pushover, per ricevere alert esterni anche fuori dalla piattaforma.</div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.35rem', borderRadius: '12px', border: '1px solid rgba(252,211,77,0.18)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
+              <h3 style={{ fontSize: '1.15rem', margin: 0, color: '#fcd34d' }}>1. Alpaca — Broker trading</h3>
+              <span style={{ background: 'rgba(252,211,77,0.14)', color: '#fcd34d', padding: '0.28rem 0.65rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700 }}>OBBLIGATORIA</span>
+            </div>
+            <p style={{ color: '#cbd5e1', fontSize: '0.92rem', marginBottom: '0.85rem', lineHeight: 1.6 }}>
+              Serve per collegare il tuo account broker ad Aureo. Senza questa chiave il bot non può operare sul mercato.
             </p>
+            <div style={{ color: '#94a3b8', fontSize: '0.84rem', lineHeight: 1.55, marginBottom: '1rem' }}>
+              <strong>Come trovarla:</strong> entra in Alpaca, apri la dashboard e genera <strong>API Key</strong> e <strong>Secret Key</strong> dalla sezione dedicata alle API.
+            </div>
             <a href="https://alpaca.markets" target="_blank" rel="noopener noreferrer" style={{
-              display: 'inline-block', background: '#fcd34d', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
-            }}>Apri un account Alpaca ↗</a>
+              display: 'inline-block', background: '#fcd34d', color: '#000', padding: '0.55rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
+            }}>Apri Alpaca ↗</a>
           </div>
 
-          {/* Groq */}
-          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.5rem', borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)' }}>
-            <h3 style={{ fontSize: '1.2rem', marginBottom: '0.5rem', color: '#a78bfa' }}>3. Intelligenza Artificiale (Groq)</h3>
-            <p style={{ color: '#cbd5e1', fontSize: '0.9rem', marginBottom: '1rem' }}>
-              Il motore AI alla base delle decisioni di trading ultrarapide.<br/>
-              <span style={{opacity: 0.8, fontSize: '0.85rem'}}><strong>Guida:</strong> Accedi alla console di Groq, vai su "API Keys" nel menu a sinistra e clicca su "Create API Key". Copiala sùbito perché non potrai visualizzarla di nuovo.</span>
+          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.35rem', borderRadius: '12px', border: '1px solid rgba(167,139,250,0.18)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
+              <h3 style={{ fontSize: '1.15rem', margin: 0, color: '#c084fc' }}>2. Groq — AI core</h3>
+              <span style={{ background: 'rgba(167,139,250,0.14)', color: '#c084fc', padding: '0.28rem 0.65rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700 }}>CONSIGLIATA</span>
+            </div>
+            <p style={{ color: '#cbd5e1', fontSize: '0.92rem', marginBottom: '0.85rem', lineHeight: 1.6 }}>
+              Serve per attivare il motore AI di supporto: analisi, assistenza e arricchimento operativo.
             </p>
+            <div style={{ color: '#94a3b8', fontSize: '0.84rem', lineHeight: 1.55, marginBottom: '1rem' }}>
+              <strong>Come trovarla:</strong> entra nella console Groq, vai su <strong>API Keys</strong> e crea una nuova chiave. Copiala subito perché poi non viene mostrata di nuovo.
+            </div>
             <a href="https://console.groq.com" target="_blank" rel="noopener noreferrer" style={{
-              display: 'inline-block', background: '#a78bfa', color: '#000', padding: '0.5rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
-            }}>Ottieni API Key Groq ↗</a>
+              display: 'inline-block', background: '#c084fc', color: '#111827', padding: '0.55rem 1rem', borderRadius: '6px', fontSize: '0.9rem', fontWeight: 'bold', textDecoration: 'none'
+            }}>Apri Groq ↗</a>
           </div>
+
+          <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.35rem', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.16)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
+              <h3 style={{ fontSize: '1.15rem', margin: 0, color: '#38bdf8' }}>3. Alert esterni — Telegram / Pushover</h3>
+              <span style={{ background: 'rgba(56,189,248,0.14)', color: '#38bdf8', padding: '0.28rem 0.65rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700 }}>OPZIONALI</span>
+            </div>
+            <p style={{ color: '#cbd5e1', fontSize: '0.92rem', marginBottom: '0.85rem', lineHeight: 1.6 }}>
+              Servono per ricevere notifiche critiche fuori da Aureo: pause di sicurezza, warning importanti ed eventi operativi.
+            </p>
+            <div style={{ color: '#94a3b8', fontSize: '0.84rem', lineHeight: 1.55 }}>
+              <strong>Telegram:</strong> ti servono <strong>Bot Token</strong> e <strong>Chat ID</strong>.<br />
+              <strong>Pushover:</strong> ti servono <strong>App Token</strong> e <strong>User Key</strong>.<br />
+              Puoi aggiungerle anche dopo: non bloccano l’avvio del broker.
+            </div>
+          </div>
+        </div>
+
+        <div style={{ marginTop: '1.5rem', padding: '0.9rem 1rem', borderRadius: '12px', background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)', color: '#94a3b8', fontSize: '0.88rem', lineHeight: 1.55 }}>
+          Una volta entrato nel Vault troverai i campi già separati per ogni servizio: broker, AI, Telegram e Pushover.
         </div>
 
         <button onClick={onGoToSettings} style={{
