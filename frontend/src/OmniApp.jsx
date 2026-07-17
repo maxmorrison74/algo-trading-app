@@ -6733,23 +6733,28 @@ function OmniAppInner() {
     ];
     const landingTestimonials = [
       {
-        initials: 'MQ',
-        name: 'Marco',
-        role: 'Private investor',
-        quote: 'La sensazione è immediata: non sembra una dashboard qualsiasi, ma un ambiente costruito per chi vuole controllo vero.',
+        initials: 'PI',
+        name: 'Private Investor',
+        role: 'Cliente early access',
+        quote: 'L’impatto è superiore alla media: trasmette controllo, pulizia e una sensazione di servizio privato fin dal primo minuto.',
       },
       {
-        initials: 'GV',
-        name: 'Giulia',
-        role: 'Consulente indipendente',
-        quote: 'Qui non parli solo di funzioni: comunichi posizionamento, metodo e qualità. Ed è quello che il cliente percepisce.',
+        initials: 'CI',
+        name: 'Consulente indipendente',
+        role: 'Profilo advisory',
+        quote: 'Qui non stai mostrando solo schermate: stai comunicando metodo, posizionamento e una percezione di valore più alta.',
       },
       {
-        initials: 'LD',
-        name: 'Luca',
-        role: 'Trader attivo',
-        quote: 'Finalmente un funnel che accompagna alla scelta senza spezzare il ritmo con un accesso freddo o poco contestualizzato.',
+        initials: 'TA',
+        name: 'Trader attivo',
+        role: 'Utente operativo',
+        quote: 'Il percorso accompagna bene alla scelta e non rompe il ritmo: sembra un accesso curato, non un semplice form buttato lì.',
       },
+    ];
+    const landingProofPoints = [
+      { value: 'Premium', label: 'impatto percepito immediato' },
+      { value: 'Guidato', label: 'percorso di scelta e attivazione' },
+      { value: 'Controllato', label: 'accesso verificato prima dell’abilitazione' },
     ];
     const landingTrustPillars = [
       'Presenza executive credibile',
@@ -7011,21 +7016,21 @@ function OmniAppInner() {
                     <h3>{isRegistering ? `Attiva il tuo accesso ${selectedPlan.name}` : `Prosegui con lo step ${selectedPlan.name}`}</h3>
                     <p>
                       {isRegistering
-                        ? 'Completa qui la registrazione per proseguire senza uscire dal percorso.'
-                        : 'Se hai già un accesso, entra qui sotto e continua direttamente con lo step scelto.'}
+                        ? 'Compila i dati essenziali e invia la tua richiesta senza uscire da questa esperienza.'
+                        : 'Se hai già ricevuto il tuo accesso, entra qui sotto e riprendi subito dallo step selezionato.'}
                     </p>
                     <div className="sales-inline-form-note">Ogni richiesta viene verificata e allineata allo step selezionato prima dell’attivazione completa.</div>
                   </div>
                   <input
                     type="email"
-                    placeholder="La tua email"
+                    placeholder="Email di riferimento"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     className="sales-input"
                   />
                   <input
                     type="password"
-                    placeholder={isRegistering ? 'Crea una password' : 'Inserisci la tua password'}
+                    placeholder={isRegistering ? 'Imposta una password riservata' : 'Inserisci la tua password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="sales-input"
@@ -7036,7 +7041,7 @@ function OmniAppInner() {
                     </div>
                   )}
                   <button type="submit" className="btn btn-start sales-submit-button">
-                    {isRegistering ? `Invia richiesta e continua con ${selectedPlan.name}` : `Entra e continua con ${selectedPlan.name}`}
+                    {isRegistering ? `Richiedi attivazione ${selectedPlan.name}` : `Accedi e prosegui`}
                   </button>
                   {/*
                   <button type="button" className="btn btn-outline sales-alt-button" onClick={() => setIsRegistering(!isRegistering)}>
@@ -7065,6 +7070,14 @@ function OmniAppInner() {
                 <h2>Perché questa esperienza convince di più</h2>
                 <p>Chiarezza, autorevolezza e qualità percepita aumentano la fiducia e rendono il prodotto più facile da desiderare e attivare.</p>
               </div>
+              <div className="sales-stats-row sales-stats-row--proof">
+                {landingProofPoints.map((item) => (
+                  <div key={item.label} className="sales-stat-item">
+                    <div className="sales-stat-value">{item.value}</div>
+                    <div className="sales-stat-label">{item.label}</div>
+                  </div>
+                ))}
+              </div>
               <div className="sales-testimonials-grid">
                 {landingTestimonials.map((item) => (
                   <article key={item.name} className="sales-testimonial-card">
@@ -7087,15 +7100,15 @@ function OmniAppInner() {
                 <div className="sales-cta-content">
                   <img src="/aureoos-logo.png" alt="Aureo OS" className="sales-cta-logo" />
                   <h2>Fai percepire Aureo come un ambiente operativo privato, non come una semplice webapp</h2>
-                  <p>Questa direzione rafforza il salto di qualità: meno sensazione retail, più percezione di piattaforma riservata, curata e adatta a clienti di fascia alta.</p>
+                  <p>Questa direzione rafforza il salto di qualità: meno sensazione retail, più percezione di piattaforma riservata, curata e degna di una proposta ad alto valore.</p>
                   <div className="sales-trust-row">
                     {landingTrustPillars.map((item) => (
                       <div key={item} className="sales-trust-pill">{item}</div>
                     ))}
                   </div>
                   <div className="sales-hero-buttons sales-hero-buttons--center">
-                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Scopri gli step</button>
-                    <button className="btn btn-outline btn-large" onClick={startTour}>Apri il tour</button>
+                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Richiedi il tuo step</button>
+                    <button className="btn btn-outline btn-large" onClick={startTour}>Guarda il tour privato</button>
                   </div>
                 </div>
               </div>
