@@ -31,43 +31,43 @@ const DEMO_BILLING_OVERVIEW = {
   plans: [
     {
       id: 'week_pass',
-      name: '7 Giorni Full Access',
+      name: 'Aureo Access Week',
       price_monthly: 25,
       price_label: '€25',
       cadence_label: '/prima settimana',
       currency: 'EUR',
-      tagline: 'Ingresso rapido, piena esperienza',
-      ideal_for: 'Ideale per chi vuole entrare subito in Aureo con accesso completo, senza compromessi e senza vincoli lunghi.',
-      description: 'Una prima settimana a piena potenza per vivere l’esperienza Aureo completa e valutarne il valore reale.',
+      tagline: 'Ingresso rapido, esperienza completa',
+      ideal_for: 'Ideale per chi vuole entrare subito in Aureo, vivere l’esperienza completa e capire in pochi giorni se è il proprio ambiente operativo.',
+      description: 'Sette giorni di accesso pieno per provare Aureo nella sua forma completa, con la stessa qualità dell’esperienza continuativa.',
       features: ['Accesso completo a tutti i moduli', 'Esperienza premium riservata', 'Alert e controllo inclusi', 'Attivazione guidata'],
       modules: ['dashboard', 'trading', 'sentiment', 'ai_content', 'billing'],
       checkout_url: 'https://buy.stripe.com/test_week',
     },
     {
       id: 'monthly',
-      name: 'Accesso Mensile',
+      name: 'Aureo Monthly',
       price_monthly: 120,
       price_label: '€120',
       cadence_label: '/mese',
       currency: 'EUR',
-      tagline: 'Continuità operativa senza attrito',
-      ideal_for: 'Ideale per chi vuole mantenere Aureo attivo ogni mese con accesso pieno e presidio costante.',
-      description: 'La scelta naturale per chi usa Aureo in continuità e vuole un abbonamento chiaro, forte e sostenibile.',
+      tagline: 'La scelta più naturale per l’uso continuativo',
+      ideal_for: 'Ideale per chi vuole mantenere Aureo attivo ogni mese con accesso pieno, continuità e presidio costante.',
+      description: 'L’abbonamento mensile pensato per chi usa Aureo con regolarità e vuole una formula forte, semplice e sempre attiva.',
       features: ['Accesso completo continuativo', 'Tutti i moduli Aureo inclusi', 'Supporto operativo', 'Esperienza multi-device'],
       modules: ['dashboard', 'trading', 'sentiment', 'ai_content', 'billing'],
       checkout_url: 'https://buy.stripe.com/test_monthly',
     },
     {
       id: 'annual',
-      name: 'Accesso Annuale',
+      name: 'Aureo Annual',
       price_monthly: 1000,
       price_label: '€1000',
       cadence_label: '/anno',
       monthly_equivalent: 83.33,
       currency: 'EUR',
       tagline: 'Il modo più solido di restare dentro Aureo',
-      ideal_for: 'Ideale per chi vuole continuità totale, costo ottimizzato e un presidio stabile sul lungo periodo.',
-      description: 'La soluzione annuale per chi considera Aureo una componente stabile del proprio setup operativo.',
+      ideal_for: 'Ideale per chi vuole continuità totale, costo ottimizzato e una presenza stabile di Aureo nel proprio setup operativo.',
+      description: 'La formula annuale per chi vuole il massimo della continuità con il miglior rapporto tra accesso, stabilità e valore.',
       features: ['Accesso completo per 12 mesi', 'Costo medio mensile ridotto', 'Tutti i moduli inclusi', 'Priorità sul rinnovo'],
       modules: ['dashboard', 'trading', 'sentiment', 'ai_content', 'billing'],
       checkout_url: 'https://buy.stripe.com/test_annual',
@@ -7092,8 +7092,8 @@ function OmniAppInner() {
               </div>
               <div className="sales-pricing-grid">
                 {landingPlans.map((plan) => (
-                  <article key={plan.id} className={`sales-pricing-card ${plan.id === 'pro' ? 'sales-pricing-card--popular' : ''}`}>
-                    {plan.id === 'pro' && <div className="sales-popular-badge">Scelta più richiesta</div>}
+                  <article key={plan.id} className={`sales-pricing-card ${plan.id === 'monthly' ? 'sales-pricing-card--popular' : ''}`}>
+                    {plan.id === 'monthly' && <div className="sales-popular-badge">Scelta più richiesta</div>}
                     <div className="sales-pricing-header">
                       <h3>{plan.name}</h3>
                       <div className="sales-pricing-kicker">{plan.tagline || 'Percorso Aureo'}</div>
