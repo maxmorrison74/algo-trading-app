@@ -6733,9 +6733,9 @@ function OmniAppInner() {
       },
     ];
     const landingDecisionStrip = [
-      { value: 'Privato', label: 'accesso su richiesta, non self-serve' },
-      { value: 'Presidiato', label: 'attivazione coerente con lo step scelto' },
-      { value: 'Vendibile', label: 'tono, funnel e UX allineati a un canone premium' },
+      { value: 'Riservato', label: 'l’accesso si percepisce come selettivo, non disponibile a chiunque' },
+      { value: 'Curato', label: 'ogni passaggio accompagna con naturalezza, senza spezzare il desiderio' },
+      { value: 'Autorevole', label: 'tono, ritmo e presenza visiva sostengono subito un canone più alto' },
     ];
     const landingModuleShowcase = [
       {
@@ -6760,10 +6760,10 @@ function OmniAppInner() {
       },
     ];
     const landingMarketProof = [
-      { value: 'Multi-module', label: 'AI, monitoring, risk e security nella stessa control room' },
-      { value: 'Manual approval', label: 'abilitazione finale sempre sotto il tuo controllo' },
-      { value: 'Premium-ready', label: 'struttura adatta a canoni e clienti di fascia alta' },
-      { value: 'Cross-device', label: 'esperienza coerente su desktop, tablet e mobile' },
+      { value: 'Control room', label: 'AI, monitoring, risk e security convivono nello stesso spazio con eleganza' },
+      { value: 'Approval', label: 'l’abilitazione finale resta sempre nelle tue mani, senza perdere fluidità' },
+      { value: 'High-ticket', label: 'la struttura sostiene con naturalezza accessi premium e clienti più esigenti' },
+      { value: 'Everywhere', label: 'la presenza resta coerente e raffinata su desktop, tablet e mobile' },
     ];
     const landingFlow = [
       {
@@ -7046,8 +7046,8 @@ function OmniAppInner() {
             <section className="sales-section sales-section--soft">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Cosa cambia davvero</div>
-                <h2>Il nuovo funnel rende l’abbonamento Aureo più privato, più presidiato e più desiderabile</h2>
-                <p>Non cambia solo l’estetica: cambia il modo in cui percepisci il canone, l’accesso e la qualità dell’esperienza continuativa.</p>
+                <h2>La sensazione cambia subito: Aureo appare più esclusivo, più credibile, più desiderabile</h2>
+                <p>Non è solo una questione visiva. È il modo in cui tutto si allinea — tono, accesso, ritmo e presenza — fino a far sembrare Aureo esattamente ciò che deve essere: un ambiente a cui vale la pena accedere.</p>
               </div>
               <div className="sales-stats-row sales-stats-row--proof">
                 {landingDecisionStrip.map((item) => (
