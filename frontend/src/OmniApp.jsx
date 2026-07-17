@@ -11,6 +11,7 @@ const TAB_TITLES = {
   home: 'Dashboard',
   trading: 'Stock Market',
   charts: 'Charts',
+  security: 'Security Vault',
   symbol_review: 'Symbol Review',
   develop: 'Engine Room',
   sports_arb: 'Sports SureBets',
@@ -2795,7 +2796,15 @@ function OmniAppInner() {
   const activeTabLabel = TAB_TITLES[activeTab] || 'AUREO';
   const openDevelopSection = (section = 'health') => {
     setDevelopSection(section);
-    setActiveTab('develop');
+    if (userRole === 'admin') {
+      setActiveTab('develop');
+      return;
+    }
+    if (section === 'security') {
+      setActiveTab('security');
+      return;
+    }
+    setActiveTab('home');
   };
   const openSymbolReview = React.useCallback((symbol, returnTab = activeTab) => {
     const safeSymbol = sanitizeSymbolCode(symbol);
@@ -2848,12 +2857,16 @@ function OmniAppInner() {
       setActiveTab('home');
     }
     if (activeTab === 'develop' && userRole !== 'admin') {
-      setActiveTab('home');
+      if (developSection === 'security') {
+        setActiveTab('security');
+      } else {
+        setActiveTab('home');
+      }
     }
     if (activeTab === 'saas' && userRole !== 'admin') {
       setActiveTab('home');
     }
-  }, [activeTab, userRole]);
+  }, [activeTab, userRole, developSection]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -3576,7 +3589,8 @@ function OmniAppInner() {
       if (isDemoMode) setSavedKeys({});
       return;
     }
-    refreshVaultKeys({ populateInputs: activeTab === 'develop', silent: activeTab !== 'develop' });
+    const isVaultView = activeTab === 'develop' || activeTab === 'security';
+    refreshVaultKeys({ populateInputs: isVaultView, silent: !isVaultView });
   }, [isAuthenticated, isDemoMode, activeTab, refreshVaultKeys]);
 
   useEffect(() => {
@@ -7532,6 +7546,7 @@ function OmniAppInner() {
             onOpenSymbolReview={(symbol) => openSymbolReview(symbol, 'charts')}
           />
         )}
+        {activeTab === 'security' && userRole !== 'admin' && renderSettingsView()}
         {activeTab === 'develop' && userRole === 'admin' && (
           <DevelopView
             status={status}
