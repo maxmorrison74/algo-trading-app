@@ -6823,11 +6823,11 @@ function OmniAppInner() {
       },
       {
         question: 'Perché questa struttura aiuta a vendere meglio?',
-        answer: 'Perché aumenta subito la qualità percepita: chi arriva vede ordine, controllo, sicurezza e accompagnamento, quindi il valore appare più credibile.',
+        answer: 'Perché fa percepire subito una differenza: tutto appare più curato, più solido e più credibile. E quando la sensazione è quella giusta, anche la scelta diventa più naturale.',
       },
       {
         question: 'Cosa differenzia gli step di accesso?',
-        answer: 'Ogni step definisce un diverso livello di accompagnamento, moduli disponibili e profondità dell’esperienza, mantenendo la stessa logica di controllo e attivazione guidata.',
+        answer: 'Cambiano il ritmo, la durata e il livello di continuità con cui entri in Aureo. L’esperienza resta coerente; cambia il modo in cui scegli di viverla.',
       },
     ];
     if (showLanding) {
