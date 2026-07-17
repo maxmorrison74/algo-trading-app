@@ -6830,7 +6830,7 @@ function OmniAppInner() {
           <div className="sales-bg-animation sales-bg-animation--second" />
           <div className="sales-topbar">
             <span className="sales-topbar-label">Private Preview</span>
-            <span className="sales-topbar-text">Aureo OS presenta il prodotto come una control room privata, premium e pronta per attivazioni guidate.</span>
+            <span className="sales-topbar-text">Aureo OS presenta un accesso in abbonamento a una control room privata, premium e attivata in modo guidato.</span>
           </div>
 
           <nav className="sales-nav">
@@ -6867,10 +6867,10 @@ function OmniAppInner() {
               <div className="sales-hero-content">
                 <div className="sales-badge">⚡ Private Access Operating System</div>
                 <h1>
-                  Aureo si presenta come una <span>control room privata</span> pensata per chi pretende controllo, ordine e discrezione
+                  Accedi in abbonamento a una <span>control room privata</span> pensata per chi pretende controllo, ordine e discrezione
                 </h1>
                 <p>
-                  Un ambiente riservato, curato e guidato, dove l’accesso non è casuale e ogni dettaglio comunica qualità, presidio e valore percepito.
+                  Un accesso riservato, continuativo e guidato a un ambiente operativo curato, dove ogni dettaglio comunica qualità, presidio e valore percepito.
                 </p>
                 <div className="sales-hero-buttons">
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
@@ -6972,9 +6972,9 @@ function OmniAppInner() {
 
             <section className="sales-section" id="landing-features">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Cosa compra davvero il cliente</div>
-                <h2>Non stai vendendo solo software: stai vendendo accesso, presidio e qualità percepita</h2>
-                <p>La nuova struttura sposta Aureo da “prodotto da cliccare” a “ambiente da meritare”, con un impatto molto più forte sul valore percepito.</p>
+                <div className="sales-section-eyebrow">Cosa acquista davvero il cliente</div>
+                <h2>Non stai offrendo la proprietà del software: stai offrendo un accesso in abbonamento, guidato e ad alto valore percepito</h2>
+                <p>La nuova struttura sposta Aureo da “app da provare” a “accesso riservato da attivare”, con un impatto molto più forte sulla qualità percepita del servizio.</p>
               </div>
               <div className="sales-features-grid">
                 {landingFeatures.map((item) => (
@@ -7007,7 +7007,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Per chi è pensato</div>
                 <h2>Una proposta adatta a chi compra qualità, ordine e continuità</h2>
-                <p>La piattaforma diventa più adatta a profili che vogliono sentirsi dentro un ambiente privato e ben governato.</p>
+                <p>L’accesso in abbonamento diventa più adatto a profili che vogliono sentirsi dentro un ambiente privato, ben governato e continuativo.</p>
               </div>
               <div className="sales-enterprise-grid">
                 {landingAudience.map((item) => (
@@ -7023,7 +7023,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Cosa c’è dentro Aureo</div>
                 <h2>I moduli chiave sono comprensibili subito, senza dover spiegare tutto a voce</h2>
-                <p>Il mercato premia le piattaforme che mostrano chiaramente cosa fanno. Qui Aureo racconta i suoi pilastri in modo più leggibile, ordinato e vendibile.</p>
+                <p>Il mercato premia i servizi che mostrano chiaramente cosa offrono. Qui Aureo racconta i suoi pilastri in modo più leggibile, ordinato e convincente.</p>
               </div>
               <div className="sales-module-grid">
                 {landingModuleShowcase.map((item) => (
@@ -7039,8 +7039,8 @@ function OmniAppInner() {
             <section className="sales-section sales-section--soft">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Cosa cambia davvero</div>
-                <h2>Il nuovo funnel rende Aureo più privato, più presidiato e più vendibile</h2>
-                <p>Questa architettura non migliora solo l’estetica: migliora il modo in cui il cliente interpreta prezzo, accesso e qualità del servizio.</p>
+                <h2>Il nuovo funnel rende l’abbonamento Aureo più privato, più presidiato e più desiderabile</h2>
+                <p>Questa architettura non migliora solo l’estetica: migliora il modo in cui il cliente interpreta canone, accesso e qualità del servizio continuativo.</p>
               </div>
               <div className="sales-stats-row sales-stats-row--proof">
                 {landingDecisionStrip.map((item) => (
@@ -7064,7 +7064,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Come si entra in Aureo</div>
                 <h2>Un percorso pulito in 3 passaggi, senza spezzare il ritmo</h2>
-                <p>Dalla prima impressione alla richiesta finale, il flusso accompagna il cliente senza mai perdere controllo o qualità percepita.</p>
+                <p>Dalla prima impressione alla richiesta finale, il flusso accompagna il cliente verso l’attivazione dell’abbonamento senza perdere controllo o qualità percepita.</p>
               </div>
               <div className="sales-steps-container">
                 {landingFlow.map((step) => (
@@ -7080,8 +7080,8 @@ function OmniAppInner() {
             <section className="sales-section" id="landing-pricing">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Step di accesso</div>
-                <h2>Scegli il livello di ingresso più adatto al profilo del cliente</h2>
-                <p>Ogni step non è solo un prezzo: è un modo diverso di entrare nell’esperienza Aureo con il giusto livello di accompagnamento.</p>
+                <h2>Scegli il piano di accesso in abbonamento più adatto al profilo del cliente</h2>
+                <p>Ogni step non è solo un prezzo: è un diverso livello di accesso continuativo ad Aureo, con il giusto grado di accompagnamento e servizio.</p>
               </div>
               <div className="sales-pricing-grid">
                 {landingPlans.map((plan) => (
@@ -7183,7 +7183,7 @@ function OmniAppInner() {
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Impatto percepito</div>
                 <h2>Quando la cornice è giusta, tutto il prodotto sale di livello</h2>
-                <p>Una proposta più ordinata e più privata rende Aureo più desiderabile, più difendibile e più memorabile agli occhi del cliente.</p>
+                <p>Un’offerta in abbonamento più ordinata e più privata rende Aureo più desiderabile, più difendibile e più memorabile agli occhi del cliente.</p>
               </div>
               <div className="sales-stats-row sales-stats-row--proof">
                 {landingProofPoints.map((item) => (
@@ -7231,8 +7231,8 @@ function OmniAppInner() {
                 <div className="sales-cta-content">
                   <img src="/aureoos-logo.png" alt="Aureo OS" className="sales-cta-logo" />
                   <div className="sales-section-eyebrow">Call to action finale</div>
-                  <h2>Porta il cliente dentro Aureo come se stesse entrando in una control room privata</h2>
-                  <p>Questo è il punto: non dare l’idea di un semplice accesso software, ma quella di un ingresso selettivo in un ambiente di valore, curato e presidiato.</p>
+                  <h2>Porta il cliente dentro Aureo come in un accesso in abbonamento riservato, non come in una semplice app</h2>
+                  <p>Questo è il punto: non trasmettere l’idea di un software da comprare una tantum, ma di un ambiente di valore a cui si accede in modo selettivo e continuativo.</p>
                   <div className="sales-trust-row">
                     {landingTrustPillars.map((item) => (
                       <div key={item} className="sales-trust-pill">{item}</div>
