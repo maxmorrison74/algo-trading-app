@@ -2499,9 +2499,9 @@ const OnboardingModal = ({ onClose, onGoToSettings, savedKeys = {} }) => {
               >
                 Apri BotFather ↗
               </a>
-              {apiKeys.telegram_bot_token && (
+              {savedKeys['TELEGRAM_BOT_TOKEN'] && (
                 <a
-                  href={`https://api.telegram.org/bot${apiKeys.telegram_bot_token}/getUpdates`}
+                  href={`https://api.telegram.org/bot${savedKeys['TELEGRAM_BOT_TOKEN']}/getUpdates`}
                   target="_blank"
                   rel="noopener noreferrer"
                   style={{
