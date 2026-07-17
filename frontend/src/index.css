@@ -3969,6 +3969,23 @@ input:focus, textarea:focus, select:focus {
   margin: 0 auto 4rem;
 }
 
+.sales-section-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  padding: 0.42rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(99, 102, 241, 0.1);
+  border: 1px solid rgba(99, 102, 241, 0.18);
+  color: #b8c4ff;
+  font-size: 0.76rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
 .sales-section-header h2,
 .sales-cta-content h2 {
   font-size: 2.5rem;
@@ -4130,6 +4147,23 @@ input:focus, textarea:focus, select:focus {
 .sales-inline-form h3,
 .sales-inline-plan h3 { font-size: 1.3rem; margin-bottom: 0.75rem; }
 
+.sales-hero-proof-list {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1.5rem 0 0;
+  max-width: 660px;
+}
+
+.sales-hero-proof-item {
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  color: #d8e2ec;
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+
 .sales-steps-container {
   max-width: 1000px;
   margin: 0 auto;
@@ -4248,6 +4282,14 @@ input:focus, textarea:focus, select:focus {
 .sales-alt-button,
 .sales-ghost-button { width: 100%; justify-content: center; }
 
+.sales-pricing-footnote {
+  margin-top: 1rem;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
 .sales-section--onboarding {
   max-width: 1100px;
   margin: 0 auto;
@@ -4358,6 +4400,12 @@ input:focus, textarea:focus, select:focus {
 .sales-cta-logo { width: min(360px, 70%); display: block; margin: 0 auto 1.5rem; }
 .sales-hero-buttons--center { justify-content: center; }
 .sales-trust-row { justify-content: center; margin: 1.6rem 0 2rem; }
+.sales-cta-note {
+  margin-top: 1rem;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+  letter-spacing: 0.03em;
+}
 .sales-trust-pill {
   padding: 0.8rem 1rem;
   border-radius: 999px;
@@ -4418,6 +4466,7 @@ input:focus, textarea:focus, select:focus {
   .sales-hero p { margin-left: auto; margin-right: auto; }
   .sales-stats-row { justify-content: center; }
   .sales-enterprise-strip { justify-content: center; }
+  .sales-hero-proof-list { margin-left: auto; margin-right: auto; }
   .sales-hero-visual { order: -1; }
   .sales-phone-mockup { width: 280px; height: 570px; }
   .sales-topbar { padding-left: 1rem; padding-right: 1rem; }
