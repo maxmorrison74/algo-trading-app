@@ -6704,13 +6704,13 @@ function OmniAppInner() {
     const landingFeatures = [
       {
         icon: '🎯',
-        title: 'Il cliente capisce subito cosa sta comprando',
-        text: 'Aureo si presenta come ambiente operativo privato, ordinato e ad alto valore percepito, non come un software generico.',
+        title: 'Capisci subito a cosa stai accedendo',
+        text: 'Aureo ti si presenta come un ambiente operativo privato, ordinato e ad alto valore percepito, non come un software generico.',
       },
       {
         icon: '🪙',
-        title: 'Il prezzo risulta più giustificato',
-        text: 'Quando l’esperienza appare curata, protetta e presidiata, la proposta economica sembra più coerente e meno contestabile.',
+        title: 'Percepisci subito perché questo accesso ha valore',
+        text: 'Quando l’esperienza appare curata, protetta e presidiata, anche il canone risulta più coerente, più credibile e più facile da accettare.',
       },
       {
         icon: '🛡️',
