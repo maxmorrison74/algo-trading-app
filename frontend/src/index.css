@@ -3980,18 +3980,52 @@ input:focus, textarea:focus, select:focus {
 }
 
 .sales-stats-row--proof .sales-stat-item {
-  min-height: 132px;
-  padding-right: 1rem;
+  min-height: 172px;
+  padding: 1.7rem 1.6rem 1.55rem;
+  border-radius: 28px;
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.05), rgba(255,255,255,0.015)),
+    rgba(13, 19, 34, 0.9);
+  border: 1px solid rgba(255,255,255,0.08);
+  box-shadow:
+    0 22px 60px rgba(0,0,0,0.22),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.sales-stats-row--proof .sales-stat-item::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, rgba(34,211,238,0.95), rgba(99,102,241,0.85));
+}
+
+.sales-stats-row--proof .sales-stat-item::after {
+  content: "";
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  right: -70px;
+  bottom: -95px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(99,102,241,0.16), transparent 68%);
+  pointer-events: none;
 }
 
 .sales-stats-row--proof .sales-stat-value {
   line-height: 1;
-  margin-bottom: 0.7rem;
+  margin-bottom: 0.9rem;
+  font-size: clamp(2rem, 2.5vw, 3rem);
+  letter-spacing: -0.04em;
 }
 
 .sales-stats-row--proof .sales-stat-label {
   max-width: 320px;
-  line-height: 1.3;
+  line-height: 1.35;
+  color: #9fb0c5;
+  font-size: 1rem;
 }
 
 .sales-section-header {
@@ -4675,6 +4709,10 @@ input:focus, textarea:focus, select:focus {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 1.5rem;
   }
+  .sales-stats-row--proof .sales-stat-item {
+    min-height: 158px;
+    padding: 1.45rem 1.3rem;
+  }
   .sales-enterprise-strip { justify-content: center; }
   .sales-hero-proof-list { margin-left: auto; margin-right: auto; }
   .sales-hero-visual { order: -1; }
@@ -4714,7 +4752,7 @@ input:focus, textarea:focus, select:focus {
   }
   .sales-stats-row--proof .sales-stat-item {
     min-height: auto;
-    padding-right: 0;
+    padding: 1.35rem 1.2rem;
     text-align: center;
   }
   .sales-stats-row--proof .sales-stat-label {
