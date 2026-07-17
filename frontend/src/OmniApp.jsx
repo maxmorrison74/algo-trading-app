@@ -2263,7 +2263,37 @@ const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, develo
   );
 };
 
-const OnboardingModal = ({ onClose, onGoToSettings }) => {
+const OnboardingModal = ({ onClose, onGoToSettings, savedKeys = {} }) => {
+  const alpacaReady = !!(savedKeys['ALPACA_KEY'] && savedKeys['ALPACA_SECRET']);
+  const groqReady = !!savedKeys['GROQ_KEY'];
+  const telegramReady = !!(savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID']);
+  const pushoverReady = !!(savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY']);
+  const alertsReady = telegramReady || pushoverReady;
+  const renderSetupBadge = (ready, requiredLabel = 'OPZIONALE') => (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
+      <span style={{
+        background: ready ? 'rgba(16,185,129,0.16)' : 'rgba(239,68,68,0.14)',
+        color: ready ? '#34d399' : '#fca5a5',
+        padding: '0.28rem 0.65rem',
+        borderRadius: '999px',
+        fontSize: '0.76rem',
+        fontWeight: 800
+      }}>
+        {ready ? 'CONFIGURATA' : 'MANCANTE'}
+      </span>
+      <span style={{
+        background: 'rgba(255,255,255,0.06)',
+        color: '#cbd5e1',
+        padding: '0.28rem 0.65rem',
+        borderRadius: '999px',
+        fontSize: '0.76rem',
+        fontWeight: 700
+      }}>
+        {requiredLabel}
+      </span>
+    </div>
+  );
+
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh',
@@ -2296,7 +2326,7 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
           marginBottom: '1.6rem'
         }}>
           <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.55rem' }}>Ti basta sapere questo:</div>
-          <div style={{ display: 'grid', gap: '0.45rem', color: '#cbd5e1', fontSize: '0.92rem', lineHeight: 1.5 }}>
+            <div style={{ display: 'grid', gap: '0.45rem', color: '#cbd5e1', fontSize: '0.92rem', lineHeight: 1.5 }}>
             <div><strong style={{ color: '#fcd34d' }}>Obbligatoria:</strong> Alpaca, per collegare il broker e permettere al bot di operare.</div>
             <div><strong style={{ color: '#c084fc' }}>Consigliata:</strong> Groq, per sbloccare il layer AI su analisi e assistenza operativa.</div>
             <div><strong style={{ color: '#38bdf8' }}>Opzionali:</strong> Telegram e Pushover, per ricevere alert esterni anche fuori dalla piattaforma.</div>
@@ -2307,7 +2337,7 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
           <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.35rem', borderRadius: '12px', border: '1px solid rgba(252,211,77,0.18)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
               <h3 style={{ fontSize: '1.15rem', margin: 0, color: '#fcd34d' }}>1. Alpaca — Broker trading</h3>
-              <span style={{ background: 'rgba(252,211,77,0.14)', color: '#fcd34d', padding: '0.28rem 0.65rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700 }}>OBBLIGATORIA</span>
+              {renderSetupBadge(alpacaReady, 'OBBLIGATORIA')}
             </div>
             <p style={{ color: '#cbd5e1', fontSize: '0.92rem', marginBottom: '0.85rem', lineHeight: 1.6 }}>
               Serve per collegare il tuo account broker ad Aureo. Senza questa chiave il bot non può operare sul mercato.
@@ -2323,7 +2353,7 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
           <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.35rem', borderRadius: '12px', border: '1px solid rgba(167,139,250,0.18)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
               <h3 style={{ fontSize: '1.15rem', margin: 0, color: '#c084fc' }}>2. Groq — AI core</h3>
-              <span style={{ background: 'rgba(167,139,250,0.14)', color: '#c084fc', padding: '0.28rem 0.65rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700 }}>CONSIGLIATA</span>
+              {renderSetupBadge(groqReady, 'CONSIGLIATA')}
             </div>
             <p style={{ color: '#cbd5e1', fontSize: '0.92rem', marginBottom: '0.85rem', lineHeight: 1.6 }}>
               Serve per attivare il motore AI di supporto: analisi, assistenza e arricchimento operativo.
@@ -2339,14 +2369,14 @@ const OnboardingModal = ({ onClose, onGoToSettings }) => {
           <div style={{ background: 'rgba(255,255,255,0.03)', padding: '1.35rem', borderRadius: '12px', border: '1px solid rgba(56,189,248,0.16)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.65rem' }}>
               <h3 style={{ fontSize: '1.15rem', margin: 0, color: '#38bdf8' }}>3. Alert esterni — Telegram / Pushover</h3>
-              <span style={{ background: 'rgba(56,189,248,0.14)', color: '#38bdf8', padding: '0.28rem 0.65rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: 700 }}>OPZIONALI</span>
+              {renderSetupBadge(alertsReady, 'OPZIONALI')}
             </div>
             <p style={{ color: '#cbd5e1', fontSize: '0.92rem', marginBottom: '0.85rem', lineHeight: 1.6 }}>
               Servono per ricevere notifiche critiche fuori da Aureo: pause di sicurezza, warning importanti ed eventi operativi.
             </p>
             <div style={{ color: '#94a3b8', fontSize: '0.84rem', lineHeight: 1.55 }}>
-              <strong>Telegram:</strong> ti servono <strong>Bot Token</strong> e <strong>Chat ID</strong>.<br />
-              <strong>Pushover:</strong> ti servono <strong>App Token</strong> e <strong>User Key</strong>.<br />
+              <strong>Telegram:</strong> ti servono <strong>Bot Token</strong> e <strong>Chat ID</strong> {telegramReady ? <span style={{ color: '#34d399' }}>• pronto</span> : <span style={{ color: '#fca5a5' }}>• mancante</span>}.<br />
+              <strong>Pushover:</strong> ti servono <strong>App Token</strong> e <strong>User Key</strong> {pushoverReady ? <span style={{ color: '#34d399' }}>• pronto</span> : <span style={{ color: '#fca5a5' }}>• mancante</span>}.<br />
               Puoi aggiungerle anche dopo: non bloccano l’avvio del broker.
             </div>
           </div>
@@ -7484,6 +7514,7 @@ function OmniAppInner() {
               setShowOnboarding(false);
               openDevelopSection('security');
             }}
+            savedKeys={savedKeys}
           />
         )}
 
