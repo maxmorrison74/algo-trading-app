@@ -2474,8 +2474,8 @@ const OnboardingModal = ({ onClose, onGoToSettings, savedKeys = {} }) => {
               Servono per ricevere notifiche critiche fuori da Aureo: pause di sicurezza, warning importanti ed eventi operativi.
             </p>
             <div style={{ color: '#94a3b8', fontSize: '0.84rem', lineHeight: 1.55 }}>
-              <strong>Telegram:</strong> ti servono <strong>Bot Token</strong> e <strong>Chat ID</strong> {telegramReady ? <span style={{ color: '#34d399' }}>• pronto</span> : <span style={{ color: '#fca5a5' }}>• mancante</span>}.<br />
-              <strong>Pushover:</strong> ti servono <strong>App Token</strong> e <strong>User Key</strong> {pushoverReady ? <span style={{ color: '#34d399' }}>• pronto</span> : <span style={{ color: '#fca5a5' }}>• mancante</span>}.<br />
+              <strong>Telegram:</strong> ti servono <strong>Bot Token</strong> e <strong>Chat ID</strong> {telegramReady ? <span style={{ color: '#34d399' }}>• pronto</span> : <span style={{ color: '#fca5a5' }}>• mancante</span>}. Apri <a href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8' }}>BotFather ↗</a> per creare il bot.<br />
+              <strong>Pushover:</strong> ti servono <strong>App Token</strong> e <strong>User Key</strong> {pushoverReady ? <span style={{ color: '#34d399' }}>• pronto</span> : <span style={{ color: '#fca5a5' }}>• mancante</span>}. Apri <a href="https://pushover.net" target="_blank" rel="noopener noreferrer" style={{ color: '#38bdf8' }}>Pushover ↗</a> per creare account e token.<br />
               Puoi aggiungerle anche dopo: non bloccano l’avvio del broker.
             </div>
           </div>
