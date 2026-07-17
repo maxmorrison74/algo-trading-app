@@ -2499,6 +2499,28 @@ const OnboardingModal = ({ onClose, onGoToSettings, savedKeys = {} }) => {
               >
                 Apri BotFather ↗
               </a>
+              {apiKeys.telegram_bot_token && (
+                <a
+                  href={`https://api.telegram.org/bot${apiKeys.telegram_bot_token}/getUpdates`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0.55rem 0.95rem',
+                    borderRadius: '10px',
+                    background: 'rgba(99,102,241,0.14)',
+                    border: '1px solid rgba(99,102,241,0.28)',
+                    color: '#a5b4fc',
+                    fontWeight: 700,
+                    fontSize: '0.86rem',
+                    textDecoration: 'none'
+                  }}
+                >
+                  Apri getUpdates ↗
+                </a>
+              )}
               <a
                 href="https://pushover.net"
                 target="_blank"
@@ -4322,6 +4344,50 @@ function OmniAppInner() {
         </div>
         <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', fontSize: '0.86rem', lineHeight: 1.5 }}>
           Dopo aver scritto al bot su Telegram, recupera il tuo chat id da `getUpdates` e incollalo qui.
+        </div>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+          <a
+            href="https://t.me/BotFather"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '0.52rem 0.9rem',
+              borderRadius: '10px',
+              background: 'rgba(56,189,248,0.14)',
+              border: '1px solid rgba(56,189,248,0.28)',
+              color: '#38bdf8',
+              fontWeight: 700,
+              fontSize: '0.84rem',
+              textDecoration: 'none'
+            }}
+          >
+            Apri BotFather ↗
+          </a>
+          {apiKeys.telegram_bot_token && (
+            <a
+              href={`https://api.telegram.org/bot${apiKeys.telegram_bot_token}/getUpdates`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0.52rem 0.9rem',
+                borderRadius: '10px',
+                background: 'rgba(99,102,241,0.14)',
+                border: '1px solid rgba(99,102,241,0.28)',
+                color: '#a5b4fc',
+                fontWeight: 700,
+                fontSize: '0.84rem',
+                textDecoration: 'none'
+              }}
+            >
+              Apri getUpdates ↗
+            </a>
+          )}
         </div>
         <div style={{ marginBottom: '1rem', padding: '0.95rem 1rem', borderRadius: '12px', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.2)' }}>
           <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.45rem' }}>Mini tutorial Telegram</div>
