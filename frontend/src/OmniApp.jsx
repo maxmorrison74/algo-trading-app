@@ -146,6 +146,7 @@ const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
         isExpired: false,
         isExpiringSoon: false,
         daysRemaining: null,
+        actionLabel: 'Completa attivazione',
       };
     }
     return {
@@ -155,6 +156,7 @@ const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
       isExpired: false,
       isExpiringSoon: false,
       daysRemaining: null,
+      actionLabel: '',
     };
   }
 
@@ -167,6 +169,7 @@ const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
       isExpired: false,
       isExpiringSoon: false,
       daysRemaining: null,
+      actionLabel: '',
     };
   }
 
@@ -186,6 +189,7 @@ const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
       isExpired: true,
       isExpiringSoon: false,
       daysRemaining: diffDays,
+      actionLabel: 'Tocca per rinnovare',
     };
   }
 
@@ -202,7 +206,18 @@ const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
     isExpired: false,
     isExpiringSoon: diffDays <= 3,
     daysRemaining: diffDays,
+    actionLabel: diffDays <= 3 ? 'Tocca per rinnovare' : '',
   };
+};
+
+const deriveMissingSetupItems = (savedKeys = {}) => {
+  const missing = [];
+  if (!(savedKeys?.ALPACA_KEY && savedKeys?.ALPACA_SECRET)) missing.push('Broker Alpaca');
+  if (!savedKeys?.GROQ_KEY) missing.push('AI Groq');
+  if (!((savedKeys?.TELEGRAM_BOT_TOKEN && savedKeys?.TELEGRAM_CHAT_ID) || (savedKeys?.PUSHOVER_APP_TOKEN && savedKeys?.PUSHOVER_USER_KEY))) {
+    missing.push('Alert esterni');
+  }
+  return missing;
 };
 
 const getAuthToken = () => safeStorageGet(AUTH_TOKEN_KEY, '');
@@ -3081,6 +3096,10 @@ function OmniAppInner() {
   const accountAccessMeta = useMemo(
     () => formatAccountAccessMeta(userProfile, userStatus),
     [userProfile, userStatus]
+  );
+  const missingSetupItems = useMemo(
+    () => deriveMissingSetupItems(savedKeys),
+    [savedKeys]
   );
   const dismissNotice = React.useCallback((id) => {
     setNotices((prev) => prev.filter((item) => item.id !== id));
@@ -7831,6 +7850,17 @@ function OmniAppInner() {
                     : 'Scadenza vicina: ti conviene rinnovare adesso per non perdere continuità.'}
                 </div>
               )}
+              {accountAccessMeta.actionLabel && (
+                <div style={{
+                  marginTop: '0.6rem',
+                  color: accountAccessMeta.tone,
+                  fontSize: '0.78rem',
+                  fontWeight: 700,
+                  letterSpacing: '0.03em'
+                }}>
+                  {accountAccessMeta.actionLabel} →
+                </div>
+              )}
             </div>
           )}
 
@@ -7865,10 +7895,16 @@ function OmniAppInner() {
             background: 'linear-gradient(90deg, #f59e0b, #d97706)',
             color: '#fff', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem',
             display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+            gap: '1rem', flexWrap: 'wrap',
             boxShadow: '0 4px 15px rgba(245, 158, 11, 0.2)'
           }}>
             <div>
-              <strong>Azione Richiesta:</strong> Configura le tue API Key per iniziare a operare sui mercati.
+              <strong>Azione richiesta:</strong> completa il setup per iniziare a operare sui mercati.
+              {missingSetupItems.length > 0 && (
+                <div style={{ marginTop: '0.35rem', opacity: 0.92, fontSize: '0.88rem', lineHeight: 1.45 }}>
+                  Mancano: {missingSetupItems.join(' • ')}
+                </div>
+              )}
             </div>
             <button 
               onClick={() => openDevelopSection('security')}
