@@ -2272,6 +2272,13 @@ const OnboardingModal = ({ onClose, onGoToSettings, savedKeys = {} }) => {
   const setupSteps = [alpacaReady, groqReady, telegramReady, pushoverReady];
   const completedSteps = setupSteps.filter(Boolean).length;
   const setupProgress = Math.round((completedSteps / setupSteps.length) * 100);
+  const primaryActionLabel = !alpacaReady
+    ? 'Completa il setup broker'
+    : !groqReady
+      ? 'Attiva il layer AI'
+      : !alertsReady
+        ? 'Apri il Vault e attiva gli alert'
+        : 'Apri il Vault e rifinisci il setup';
   const renderSetupBadge = (ready, requiredLabel = 'OPZIONALE') => (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', flexWrap: 'wrap' }}>
       <span style={{
@@ -2426,7 +2433,7 @@ const OnboardingModal = ({ onClose, onGoToSettings, savedKeys = {} }) => {
           color: '#fff', border: 'none', borderRadius: '8px', fontSize: '1.1rem', fontWeight: 'bold', cursor: 'pointer',
           boxShadow: '0 4px 15px rgba(59, 130, 246, 0.4)'
         }}>
-          Vai alle Impostazioni per inserire le chiavi
+          {primaryActionLabel}
         </button>
       </div>
     </div>
