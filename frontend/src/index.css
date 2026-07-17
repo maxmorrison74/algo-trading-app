@@ -3694,6 +3694,13 @@ input:focus, textarea:focus, select:focus {
   gap: 3rem;
 }
 
+.sales-stat-item {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-width: 0;
+}
+
 .sales-stat-value {
   font-size: 2rem;
   font-weight: 800;
@@ -3961,6 +3968,30 @@ input:focus, textarea:focus, select:focus {
 
 .sales-section--proof {
   background: linear-gradient(180deg, transparent 0%, rgba(6, 182, 212, 0.03) 50%, transparent 100%);
+}
+
+.sales-stats-row--proof {
+  max-width: 1200px;
+  margin: 0 auto 3rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2rem;
+  align-items: start;
+}
+
+.sales-stats-row--proof .sales-stat-item {
+  min-height: 132px;
+  padding-right: 1rem;
+}
+
+.sales-stats-row--proof .sales-stat-value {
+  line-height: 1;
+  margin-bottom: 0.7rem;
+}
+
+.sales-stats-row--proof .sales-stat-label {
+  max-width: 320px;
+  line-height: 1.3;
 }
 
 .sales-section-header {
@@ -4640,6 +4671,10 @@ input:focus, textarea:focus, select:focus {
   }
   .sales-hero p { margin-left: auto; margin-right: auto; }
   .sales-stats-row { justify-content: center; }
+  .sales-stats-row--proof {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.5rem;
+  }
   .sales-enterprise-strip { justify-content: center; }
   .sales-hero-proof-list { margin-left: auto; margin-right: auto; }
   .sales-hero-visual { order: -1; }
@@ -4672,6 +4707,20 @@ input:focus, textarea:focus, select:focus {
   .sales-nav { top: 66px; }
   .sales-ticker { margin-top: 138px; }
   .sales-hero h1 { font-size: 2.5rem; }
+  .sales-stats-row--proof {
+    grid-template-columns: 1fr;
+    gap: 1.1rem;
+    margin-bottom: 2.25rem;
+  }
+  .sales-stats-row--proof .sales-stat-item {
+    min-height: auto;
+    padding-right: 0;
+    text-align: center;
+  }
+  .sales-stats-row--proof .sales-stat-label {
+    max-width: none;
+    margin: 0 auto;
+  }
   .sales-features-grid,
   .sales-module-grid,
   .sales-faq-grid,
