@@ -315,6 +315,18 @@ DEFAULT_EXIT_LADDER = {
     "hard_stop_loss_pct": 5.0,
 }
 
+DEFAULT_SIGNAL_HUB_CONFIG = {
+    "enabled": False,
+    "token": "",
+    "accept_buy": True,
+    "accept_sell": False,
+    "min_confidence": 70,
+    "allowed_sources": ["tradingview", "webhook"],
+    "recent_signals": [],
+    "last_signal_at": None,
+    "last_signal_summary": None,
+}
+
 
 def normalize_playbook_id(playbook_id: Optional[str]) -> str:
     candidate = str(playbook_id or DEFAULT_PLAYBOOK_ID).strip().lower()
@@ -357,6 +369,30 @@ def ensure_exit_ladder_config(raw_config):
     if normalized["trailing_activation_pct"] < normalized["breakeven_trigger_pct"]:
         normalized["trailing_activation_pct"] = normalized["breakeven_trigger_pct"]
     return normalized
+
+
+def ensure_signal_hub_config(raw_config):
+    config = dict(DEFAULT_SIGNAL_HUB_CONFIG)
+    if isinstance(raw_config, dict):
+        config.update(raw_config)
+    token = str(config.get("token") or "").strip()
+    if not token:
+        token = secrets.token_urlsafe(18)
+    allowed_sources = config.get("allowed_sources") or ["tradingview", "webhook"]
+    if not isinstance(allowed_sources, list):
+        allowed_sources = ["tradingview", "webhook"]
+    recent_signals = config.get("recent_signals") if isinstance(config.get("recent_signals"), list) else []
+    return {
+        "enabled": bool(config.get("enabled", False)),
+        "token": token,
+        "accept_buy": bool(config.get("accept_buy", True)),
+        "accept_sell": bool(config.get("accept_sell", False)),
+        "min_confidence": max(1, min(int(config.get("min_confidence", 70) or 70), 100)),
+        "allowed_sources": [str(source).strip().lower() for source in allowed_sources if str(source).strip()][:6] or ["tradingview", "webhook"],
+        "recent_signals": recent_signals[:25],
+        "last_signal_at": config.get("last_signal_at"),
+        "last_signal_summary": config.get("last_signal_summary"),
+    }
 
 
 def classify_regime_for_row(row: Optional[dict], is_crypto: bool = False):
@@ -422,6 +458,202 @@ def playbook_fit_score(playbook_id: str, regime_id: str):
         return 82
     return 68
 
+
+def build_public_signal_hub_snapshot(signal_hub_config: dict):
+    config = ensure_signal_hub_config(signal_hub_config)
+    token = config["token"]
+    masked = f"{token[:6]}***{token[-4:]}" if len(token) > 12 else "***"
+    return {
+        "enabled": config["enabled"],
+        "accept_buy": config["accept_buy"],
+        "accept_sell": config["accept_sell"],
+        "min_confidence": config["min_confidence"],
+        "allowed_sources": config["allowed_sources"],
+        "recent_signals": config["recent_signals"][:8],
+        "last_signal_at": config["last_signal_at"],
+        "last_signal_summary": config["last_signal_summary"],
+        "token_masked": masked,
+    }
+
+
+def _normalize_history_df(raw):
+    if raw is None or getattr(raw, "empty", True):
+        return pd.DataFrame()
+    df = raw.copy()
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [str(col[0]).lower() for col in df.columns]
+    else:
+        df.columns = [str(col).lower() for col in df.columns]
+    rename_map = {"adj close": "close"}
+    df = df.rename(columns=rename_map)
+    expected = [col for col in ["open", "high", "low", "close", "volume"] if col in df.columns]
+    if "close" not in expected:
+        return pd.DataFrame()
+    return df[expected].dropna(subset=["close"]).copy()
+
+
+def run_backtest_lite(symbol: str, playbook_id: str, window: str = "6mo"):
+    normalized_symbol = (symbol or "").strip().upper()
+    yf_symbol = get_yf_symbol(normalized_symbol)
+    history = yf.download(yf_symbol, period=window, interval="1d", progress=False, auto_adjust=True)
+    df = _normalize_history_df(history)
+    if df.empty or len(df) < 35:
+        raise ValueError("Storico insufficiente per simulare il playbook.")
+
+    close = df["close"]
+    high = df["high"] if "high" in df.columns else close
+    low = df["low"] if "low" in df.columns else close
+    volume = df["volume"] if "volume" in df.columns else pd.Series([0] * len(df), index=df.index)
+    ma20 = close.rolling(window=20).mean()
+    ma50 = close.rolling(window=50).mean()
+    rolling_high_20 = high.rolling(window=20).max().shift(1)
+    rolling_mean = close.rolling(window=20).mean()
+    rolling_std = close.rolling(window=20).std()
+    bb_lower = rolling_mean - (rolling_std * 2)
+    delta = close.diff()
+    gain = delta.where(delta > 0, 0).rolling(window=14).mean()
+    loss = (-delta.where(delta < 0, 0)).rolling(window=14).mean()
+    rs = gain / loss.replace(0, pd.NA)
+    rsi = (100 - (100 / (1 + rs))).fillna(50)
+    exp1 = close.ewm(span=12, adjust=False).mean()
+    exp2 = close.ewm(span=26, adjust=False).mean()
+    macd = exp1 - exp2
+    macd_signal = macd.ewm(span=9, adjust=False).mean()
+    macd_hist = macd - macd_signal
+    tr = pd.concat([
+        high - low,
+        (high - close.shift(1)).abs(),
+        (low - close.shift(1)).abs(),
+    ], axis=1).max(axis=1)
+    atr = tr.rolling(window=14).mean().fillna(close * 0.01)
+    atr_percent = (atr / close.replace(0, pd.NA)).fillna(0.01)
+
+    playbook_id = normalize_playbook_id(playbook_id)
+    exit_ladder = ensure_exit_ladder_config(DEFAULT_EXIT_LADDER)
+
+    equity = 100.0
+    peak_equity = equity
+    max_drawdown = 0.0
+    equity_curve = []
+    trades = []
+    in_position = False
+    entry_price = 0.0
+    peak_price = 0.0
+    partial_taken = False
+    stop_floor_price = None
+    realized_partial = 0.0
+
+    def long_signal(idx):
+        price = float(close.iloc[idx])
+        if playbook_id == "breakout":
+            return price > float(rolling_high_20.iloc[idx] or price * 2) and float(rsi.iloc[idx]) > 56 and float(macd_hist.iloc[idx]) > -0.02
+        if playbook_id == "trend":
+            return price > float(ma20.iloc[idx] or price) and float(rsi.iloc[idx]) >= 52 and float(macd_hist.iloc[idx]) > 0
+        if playbook_id == "dip":
+            base_ma = float(ma50.iloc[idx] or price)
+            return price < float(bb_lower.iloc[idx] or price * 0.99) and float(rsi.iloc[idx]) < 38 and price >= base_ma * 0.94
+        if playbook_id == "rebalance":
+            return price > float(ma20.iloc[idx] or price) and 45 <= float(rsi.iloc[idx]) <= 62 and float(macd_hist.iloc[idx]) > 0
+        return (
+            (price > float(rolling_high_20.iloc[idx] or price * 2) and float(rsi.iloc[idx]) > 55)
+            or (price > float(ma20.iloc[idx] or price) and float(macd_hist.iloc[idx]) > 0 and float(rsi.iloc[idx]) > 50)
+            or (price < float(bb_lower.iloc[idx] or price * 0.99) and float(rsi.iloc[idx]) < 35)
+        )
+
+    start_index = 25 if window != "1y" else 35
+    for idx in range(start_index, len(df)):
+        price = float(close.iloc[idx])
+        date_label = df.index[idx].strftime("%Y-%m-%d")
+
+        if not in_position:
+            if long_signal(idx):
+                in_position = True
+                entry_price = price
+                peak_price = price
+                partial_taken = False
+                stop_floor_price = None
+                realized_partial = 0.0
+        else:
+            peak_price = max(peak_price, price)
+            profit_pct = (price - entry_price) / entry_price if entry_price else 0.0
+            if profit_pct >= exit_ladder["breakeven_trigger_pct"] / 100 and stop_floor_price is None:
+                stop_floor_price = entry_price * (1 + exit_ladder["breakeven_buffer_pct"] / 100)
+
+            if profit_pct >= exit_ladder["partial_take_profit_pct"] / 100 and not partial_taken:
+                share = exit_ladder["partial_take_profit_share_pct"] / 100
+                realized_partial = share * profit_pct
+                partial_taken = True
+
+            trailing_pct = exit_ladder["trailing_tight_pct"] / 100 if profit_pct > 0.05 else exit_ladder["trailing_loose_pct"] / 100
+            trailing_active = profit_pct >= exit_ladder["trailing_activation_pct"] / 100
+            trailing_stop = peak_price * (1 - trailing_pct)
+            stop_loss_price = entry_price * (1 - exit_ladder["hard_stop_loss_pct"] / 100)
+
+            should_exit = False
+            exit_reason = "time"
+            if stop_floor_price and price <= stop_floor_price:
+                should_exit = True
+                exit_reason = "breakeven"
+            elif trailing_active and price <= trailing_stop:
+                should_exit = True
+                exit_reason = "trailing"
+            elif price <= stop_loss_price:
+                should_exit = True
+                exit_reason = "stop"
+            elif playbook_id == "rebalance" and float(rsi.iloc[idx]) > 67:
+                should_exit = True
+                exit_reason = "rebalance"
+            elif playbook_id in {"breakout", "trend"} and float(macd_hist.iloc[idx]) < 0 and float(rsi.iloc[idx]) < 49:
+                should_exit = True
+                exit_reason = "momentum_loss"
+
+            if should_exit:
+                residual_weight = 1.0 - (exit_ladder["partial_take_profit_share_pct"] / 100 if partial_taken else 0.0)
+                residual_return = residual_weight * profit_pct
+                total_return = realized_partial + residual_return
+                equity *= (1 + total_return)
+                trades.append({
+                    "entry_date": df.index[max(0, idx - 1)].strftime("%Y-%m-%d"),
+                    "exit_date": date_label,
+                    "entry_price": round(entry_price, 4),
+                    "exit_price": round(price, 4),
+                    "return_pct": round(total_return * 100, 2),
+                    "reason": exit_reason,
+                })
+                in_position = False
+
+        peak_equity = max(peak_equity, equity)
+        drawdown = ((peak_equity - equity) / peak_equity * 100) if peak_equity > 0 else 0
+        max_drawdown = max(max_drawdown, drawdown)
+        benchmark = (price / float(close.iloc[start_index])) * 100 if float(close.iloc[start_index]) > 0 else 100
+        equity_curve.append({
+            "date": date_label,
+            "equity": round(equity, 2),
+            "benchmark": round(benchmark, 2),
+        })
+
+    wins = [trade for trade in trades if trade["return_pct"] > 0]
+    losses = [trade for trade in trades if trade["return_pct"] <= 0]
+    total_return_pct = ((equity / 100.0) - 1) * 100
+    gross_profit = sum(trade["return_pct"] for trade in wins)
+    gross_loss = abs(sum(trade["return_pct"] for trade in losses))
+    profit_factor = gross_profit / gross_loss if gross_loss > 0 else (gross_profit if gross_profit > 0 else 0)
+
+    return {
+        "symbol": normalized_symbol,
+        "window": window,
+        "playbook": build_playbook_snapshot(playbook_id)["active"],
+        "metrics": {
+            "trades": len(trades),
+            "win_rate": round((len(wins) / len(trades) * 100), 1) if trades else 0.0,
+            "return_pct": round(total_return_pct, 2),
+            "max_drawdown_pct": round(max_drawdown, 2),
+            "profit_factor": round(profit_factor, 2),
+        },
+        "equity_curve": equity_curve[-120:],
+        "recent_trades": trades[-8:][::-1],
+    }
+
 def get_db_file(user_id=None):
     if not user_id or user_id == "admin":
         return f"{DB_FILE_PREFIX}.json"
@@ -448,6 +680,7 @@ def load_db(user_id=None):
             "dynamic_atr_stop": True,
             "strategy_playbook": DEFAULT_PLAYBOOK_ID,
             "exit_ladder": dict(DEFAULT_EXIT_LADDER),
+            "signal_hub": dict(DEFAULT_SIGNAL_HUB_CONFIG),
             "trailing_stop_base_pct": 2.5,
             "telegram_alerts_enabled": True,
             "pushover_alerts_enabled": True,
@@ -932,6 +1165,7 @@ class BotState:
         self.symbol_selection = db_data.get("symbol_selection", {"method": "static_default", "ranked": []})
         self.strategy_playbook = normalize_playbook_id(db_data.get("strategy_playbook", DEFAULT_PLAYBOOK_ID))
         self.exit_ladder = ensure_exit_ladder_config(db_data.get("exit_ladder", DEFAULT_EXIT_LADDER))
+        self.signal_hub = ensure_signal_hub_config(db_data.get("signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
         self.dynamic_atr_stop = db_data.get("dynamic_atr_stop", True)
         self.trailing_stop_base_pct = db_data.get("trailing_stop_base_pct", 2.5)
         self.telegram_alerts_enabled = db_data.get("telegram_alerts_enabled", True)
@@ -1010,6 +1244,7 @@ class BotState:
             "symbol_selection": self.symbol_selection,
             "strategy_playbook": self.strategy_playbook,
             "exit_ladder": self.exit_ladder,
+            "signal_hub": self.signal_hub,
             "dynamic_atr_stop": self.dynamic_atr_stop,
             "trailing_stop_base_pct": self.trailing_stop_base_pct,
             "telegram_alerts_enabled": self.telegram_alerts_enabled,
@@ -1590,6 +1825,7 @@ def get_status(user_id="admin", scope: str = "core"):
             "auto_bet_threshold": bot_state.auto_bet_threshold,
             "strategy_playbook": build_playbook_snapshot(getattr(bot_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID)),
             "exit_ladder": ensure_exit_ladder_config(getattr(bot_state, "exit_ladder", DEFAULT_EXIT_LADDER)),
+            "signal_hub": build_public_signal_hub_snapshot(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG)),
             "dynamic_atr_stop": getattr(bot_state, "dynamic_atr_stop", True),
             "trailing_stop_base_pct": getattr(bot_state, "trailing_stop_base_pct", 2.5),
             "runtime_health": build_runtime_health_snapshot(bot_state),
@@ -2127,6 +2363,116 @@ async def update_auto_bet_settings(payload: dict, user: dict = Depends(require_u
     except Exception as e:
         print(f"Errore update_auto_bet_settings: {e}")
         return {"error": str(e)}
+
+
+@app.post("/api/backtest-lite/run")
+async def run_backtest_lite_endpoint(payload: dict, user: dict = Depends(require_user)):
+    user_id = user.get("sub", "admin")
+    u_state = get_user_bot_state(user_id)
+    symbol = str(payload.get("symbol") or "").strip().upper() or (u_state.target_symbols[0] if getattr(u_state, "target_symbols", None) else "AAPL")
+    window = str(payload.get("window") or "6mo").strip().lower()
+    if window not in {"3mo", "6mo", "1y"}:
+        window = "6mo"
+    playbook_id = normalize_playbook_id(payload.get("playbook_id") or getattr(u_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID))
+    try:
+        report = run_backtest_lite(symbol=symbol, playbook_id=playbook_id, window=window)
+        return report
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/signal-hub/config")
+async def get_signal_hub_config(_: str = Depends(require_admin)):
+    config = ensure_signal_hub_config(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
+    return {
+        **config,
+        "webhook_url": f"{APP_BASE_URL}/api/signal-hub/webhook/{config['token']}",
+    }
+
+
+@app.post("/api/signal-hub/config")
+async def save_signal_hub_config(payload: dict, _: str = Depends(require_admin)):
+    current = ensure_signal_hub_config(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
+    next_config = ensure_signal_hub_config({
+        **current,
+        "enabled": payload.get("enabled", current["enabled"]),
+        "accept_buy": payload.get("accept_buy", current["accept_buy"]),
+        "accept_sell": payload.get("accept_sell", current["accept_sell"]),
+        "min_confidence": payload.get("min_confidence", current["min_confidence"]),
+        "allowed_sources": payload.get("allowed_sources", current["allowed_sources"]),
+        "token": current["token"],
+        "recent_signals": current["recent_signals"],
+        "last_signal_at": current["last_signal_at"],
+        "last_signal_summary": current["last_signal_summary"],
+    })
+    bot_state.signal_hub = next_config
+    bot_state.save_state()
+    bot_state.add_log(f"📡 Signal Hub {'attivato' if next_config['enabled'] else 'disattivato'}")
+    return {
+        **next_config,
+        "webhook_url": f"{APP_BASE_URL}/api/signal-hub/webhook/{next_config['token']}",
+    }
+
+
+@app.post("/api/signal-hub/rotate-token")
+async def rotate_signal_hub_token(_: str = Depends(require_admin)):
+    current = ensure_signal_hub_config(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
+    current["token"] = secrets.token_urlsafe(18)
+    bot_state.signal_hub = current
+    bot_state.save_state()
+    bot_state.add_log("🔐 Token Signal Hub rigenerato")
+    return {
+        **current,
+        "webhook_url": f"{APP_BASE_URL}/api/signal-hub/webhook/{current['token']}",
+    }
+
+
+@app.post("/api/signal-hub/webhook/{token}")
+async def signal_hub_webhook(token: str, payload: dict):
+    config = ensure_signal_hub_config(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
+    if token != config["token"]:
+        raise HTTPException(status_code=403, detail="Token webhook non valido")
+
+    source = str(payload.get("source") or "webhook").strip().lower()
+    signal = str(payload.get("signal") or payload.get("action") or "HOLD").strip().upper()
+    symbol = str(payload.get("symbol") or "").strip().upper()
+    timeframe = str(payload.get("timeframe") or "").strip()
+    note = str(payload.get("note") or payload.get("message") or "").strip()
+    confidence = max(0, min(int(payload.get("confidence") or payload.get("confidence_score") or 0), 100))
+    price = payload.get("price")
+
+    if not symbol:
+        raise HTTPException(status_code=400, detail="Symbol mancante")
+    if source not in config["allowed_sources"]:
+        raise HTTPException(status_code=400, detail="Source non abilitata")
+
+    accepted = config["enabled"] and (
+        (signal == "BUY" and config["accept_buy"]) or
+        (signal == "SELL" and config["accept_sell"]) or
+        signal not in {"BUY", "SELL"}
+    ) and confidence >= config["min_confidence"]
+
+    event = {
+        "received_at": datetime.now().isoformat(),
+        "source": source,
+        "symbol": symbol,
+        "signal": signal,
+        "confidence": confidence,
+        "timeframe": timeframe,
+        "price": price,
+        "note": note,
+        "accepted": accepted,
+    }
+    config["recent_signals"].insert(0, event)
+    config["recent_signals"] = config["recent_signals"][:25]
+    config["last_signal_at"] = event["received_at"]
+    config["last_signal_summary"] = f"{source.upper()} {signal} {symbol} ({confidence}%)"
+    bot_state.signal_hub = config
+    bot_state.save_state()
+
+    tone = "🟢" if accepted else "🟡"
+    bot_state.add_log(f"{tone} SIGNAL HUB {source.upper()} {signal} {symbol} conf {confidence}%{' · ' + timeframe if timeframe else ''}")
+    return {"status": "received", "accepted": accepted, "event": event}
 
 
 @app.post("/api/place-bet")

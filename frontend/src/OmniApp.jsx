@@ -2715,6 +2715,11 @@ function OmniAppInner() {
   const [chartLoading, setChartLoading] = useState(false);
   const [chartError, setChartError] = useState('');
   const [selectedSymbol, setSelectedSymbol] = useState(null);
+  const [backtestWindow, setBacktestWindow] = useState('6mo');
+  const [backtestReport, setBacktestReport] = useState(null);
+  const [backtestLoading, setBacktestLoading] = useState(false);
+  const [signalHubConfig, setSignalHubConfig] = useState(null);
+  const [signalHubBusy, setSignalHubBusy] = useState(false);
   const [symbolReviewReturnTab, setSymbolReviewReturnTab] = useState('trading');
   const [tradingViewFilter, setTradingViewFilter] = useState('all');
   const [tradingAlerts, setTradingAlerts] = useState([]);
@@ -3140,6 +3145,88 @@ function OmniAppInner() {
     }
     return id;
   }, []);
+  const runBacktestLite = React.useCallback(async (symbol = selectedSymbol, window = backtestWindow) => {
+    if (!symbol) {
+      pushNotice('warning', 'Backtest non disponibile', 'Seleziona prima un simbolo da analizzare.');
+      return;
+    }
+    setBacktestLoading(true);
+    try {
+      const res = await authFetch('/api/backtest-lite/run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          symbol,
+          window,
+          playbook_id: strategyPlaybook?.active?.id || 'adaptive',
+        })
+      });
+      const data = await parseJsonSafely(res, {});
+      if (!res.ok) {
+        throw new Error(data?.detail || 'Backtest non disponibile');
+      }
+      setBacktestReport(data);
+      pushNotice('success', 'Backtest aggiornato', `${symbol} analizzato su finestra ${window.toUpperCase()}.`, 2600);
+    } catch (error) {
+      setBacktestReport(null);
+      pushNotice('error', 'Backtest non riuscito', error.message || 'Impossibile generare il report.');
+    } finally {
+      setBacktestLoading(false);
+    }
+  }, [selectedSymbol, backtestWindow, strategyPlaybook, pushNotice]);
+  const loadSignalHubConfig = React.useCallback(async () => {
+    if (userRole !== 'admin') return null;
+    try {
+      const res = await authFetch('/api/signal-hub/config');
+      const data = await parseJsonSafely(res, {});
+      if (!res.ok) {
+        throw new Error(data?.detail || 'Signal Hub non disponibile');
+      }
+      setSignalHubConfig(data);
+      return data;
+    } catch (error) {
+      pushNotice('warning', 'Signal Hub non sincronizzato', error.message || 'Impossibile leggere la configurazione.');
+      return null;
+    }
+  }, [userRole, pushNotice]);
+  const saveSignalHubConfig = React.useCallback(async (patch = {}) => {
+    if (userRole !== 'admin') return;
+    setSignalHubBusy(true);
+    try {
+      const res = await authFetch('/api/signal-hub/config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...(signalHubConfig || {}), ...patch })
+      });
+      const data = await parseJsonSafely(res, {});
+      if (!res.ok) {
+        throw new Error(data?.detail || 'Configurazione non salvata');
+      }
+      setSignalHubConfig(data);
+      pushNotice('success', 'Signal Hub aggiornato', 'Nuove regole webhook salvate correttamente.', 2400);
+    } catch (error) {
+      pushNotice('error', 'Signal Hub non aggiornato', error.message || 'Errore durante il salvataggio.');
+    } finally {
+      setSignalHubBusy(false);
+    }
+  }, [signalHubConfig, userRole, pushNotice]);
+  const rotateSignalHubToken = React.useCallback(async () => {
+    if (userRole !== 'admin') return;
+    setSignalHubBusy(true);
+    try {
+      const res = await authFetch('/api/signal-hub/rotate-token', { method: 'POST' });
+      const data = await parseJsonSafely(res, {});
+      if (!res.ok) {
+        throw new Error(data?.detail || 'Token non rigenerato');
+      }
+      setSignalHubConfig(data);
+      pushNotice('success', 'Token rigenerato', 'Il nuovo ingresso webhook è già pronto.', 2600);
+    } catch (error) {
+      pushNotice('error', 'Rotazione fallita', error.message || 'Impossibile rigenerare il token.');
+    } finally {
+      setSignalHubBusy(false);
+    }
+  }, [userRole, pushNotice]);
   const loadUserProfile = React.useCallback(async () => {
     try {
       const res = await authFetch('/api/user/me');
@@ -3321,6 +3408,12 @@ function OmniAppInner() {
     fetchChart();
     return () => controller.abort();
   }, [selectedSymbol, timeframe, activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'trading' || userRole !== 'admin') return;
+    if (signalHubConfig) return;
+    loadSignalHubConfig();
+  }, [activeTab, userRole, signalHubConfig, loadSignalHubConfig]);
 
   useEffect(() => {
     const symbols = Array.isArray(status.symbols) ? status.symbols : [];
@@ -5905,6 +5998,263 @@ function OmniAppInner() {
               </button>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '1.6rem' }}>
+        <div className="card col-span-7" style={{ border: '1px solid rgba(167, 139, 250, 0.24)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <div>
+              <div className="card-title">Backtest Lite</div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Simula rapidamente il playbook attivo su {selectedSymbol || 'un simbolo'} prima di spingere capitale reale.
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              {[
+                ['3mo', '3M'],
+                ['6mo', '6M'],
+                ['1y', '1Y'],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className="btn"
+                  onClick={() => setBacktestWindow(value)}
+                  style={{
+                    padding: '0.5rem 0.85rem',
+                    background: backtestWindow === value ? 'rgba(139,92,246,0.18)' : 'rgba(255,255,255,0.04)',
+                    border: backtestWindow === value ? '1px solid rgba(167,139,250,0.45)' : '1px solid rgba(255,255,255,0.08)',
+                    color: backtestWindow === value ? '#c4b5fd' : '#cbd5e1',
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+              <button
+                type="button"
+                className="btn"
+                onClick={() => runBacktestLite()}
+                disabled={backtestLoading || !selectedSymbol}
+                style={{
+                  padding: '0.55rem 0.95rem',
+                  background: 'linear-gradient(135deg, rgba(99,102,241,0.24), rgba(168,85,247,0.22))',
+                  border: '1px solid rgba(167,139,250,0.35)',
+                  opacity: backtestLoading ? 0.6 : 1,
+                }}
+              >
+                {backtestLoading ? 'Analisi...' : 'Esegui backtest'}
+              </button>
+            </div>
+          </div>
+
+          {backtestReport ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+                {[
+                  ['Trade', backtestReport.metrics?.trades ?? 0, '#f8fafc'],
+                  ['Win rate', `${Number(backtestReport.metrics?.win_rate ?? 0).toFixed(1)}%`, '#10b981'],
+                  ['Return', `${Number(backtestReport.metrics?.return_pct ?? 0).toFixed(1)}%`, Number(backtestReport.metrics?.return_pct ?? 0) >= 0 ? '#10b981' : '#f87171'],
+                  ['Max DD', `${Number(backtestReport.metrics?.max_drawdown_pct ?? 0).toFixed(1)}%`, '#f59e0b'],
+                  ['Profit factor', Number(backtestReport.metrics?.profit_factor ?? 0).toFixed(2), '#38bdf8'],
+                ].map(([label, value, tone]) => (
+                  <div key={label} style={{ padding: '0.85rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.28rem' }}>{label}</div>
+                    <div style={{ color: tone, fontSize: '1.1rem', fontWeight: 800 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ height: 220, borderRadius: '14px', overflow: 'hidden', background: 'rgba(2,6,23,0.45)', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '1rem' }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={backtestReport.equity_curve || []}>
+                    <defs>
+                      <linearGradient id="backtestEquityFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.45} />
+                        <stop offset="100%" stopColor="#8b5cf6" stopOpacity={0.03} />
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid stroke="rgba(148,163,184,0.12)" vertical={false} />
+                    <XAxis dataKey="date" stroke="#64748b" tick={{ fontSize: 11 }} minTickGap={28} />
+                    <YAxis stroke="#64748b" tick={{ fontSize: 11 }} width={58} />
+                    <Tooltip
+                      contentStyle={{ background: '#0f172a', border: '1px solid rgba(167,139,250,0.35)', borderRadius: '12px', color: '#e2e8f0' }}
+                      formatter={(value, name) => [`$${Number(value || 0).toFixed(2)}`, name === 'equity' ? 'Aureo equity' : 'Benchmark']}
+                    />
+                    <Area type="monotone" dataKey="equity" stroke="#8b5cf6" fill="url(#backtestEquityFill)" strokeWidth={2.2} />
+                    <Line type="monotone" dataKey="benchmark" stroke="#38bdf8" strokeWidth={1.5} dot={false} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+
+              <div style={{ display: 'grid', gap: '0.65rem' }}>
+                <div style={{ color: '#e2e8f0', fontWeight: 700 }}>Ultimi trade simulati</div>
+                {(backtestReport.recent_trades || []).length > 0 ? backtestReport.recent_trades.map((trade, index) => (
+                  <div key={`${trade.entry_date}-${index}`} style={{ display: 'grid', gridTemplateColumns: '1.1fr 1fr 1fr auto', gap: '0.75rem', padding: '0.75rem 0.85rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', alignItems: 'center' }}>
+                    <div style={{ color: '#f8fafc', fontWeight: 700 }}>{trade.entry_date} → {trade.exit_date}</div>
+                    <div style={{ color: '#cbd5e1', fontSize: '0.84rem' }}>{trade.exit_reason || 'Exit rule'}</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.82rem' }}>
+                      Entrata ${Number(trade.entry_price || 0).toFixed(2)} · Uscita ${Number(trade.exit_price || 0).toFixed(2)}
+                    </div>
+                    <div style={{ color: Number(trade.return_pct || 0) >= 0 ? '#10b981' : '#f87171', fontWeight: 800 }}>
+                      {Number(trade.return_pct || 0).toFixed(1)}%
+                    </div>
+                  </div>
+                )) : (
+                  <div style={{ color: '#94a3b8', fontSize: '0.86rem' }}>Nessun trade simulato nella finestra scelta.</div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div style={{ padding: '1rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#94a3b8', lineHeight: 1.5 }}>
+              Esegui un backtest veloce per vedere se il playbook attivo sta premiando breakout, trend o rientri sul simbolo selezionato.
+            </div>
+          )}
+        </div>
+
+        <div className="card col-span-5" style={{ border: '1px solid rgba(14, 165, 233, 0.24)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <div>
+              <div className="card-title">Signal Hub</div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Concentra webhook esterni, filtra rumore e lascia entrare solo segnali davvero spendibili.
+              </div>
+            </div>
+            <div className={`badge ${(signalHubConfig?.enabled || status.signal_hub?.enabled) ? 'badge-active' : 'badge-idle'}`} style={{ fontSize: '0.8rem' }}>
+              {(signalHubConfig?.enabled || status.signal_hub?.enabled) ? 'LIVE' : 'OFF'}
+            </div>
+          </div>
+
+          {userRole === 'admin' ? (
+            <>
+              <div style={{ display: 'grid', gap: '0.7rem', marginBottom: '1rem' }}>
+                <div style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Webhook URL</div>
+                  <div style={{ color: '#cbd5e1', fontSize: '0.82rem', wordBreak: 'break-all', lineHeight: 1.45 }}>{signalHubConfig?.webhook_url || 'Caricamento...'}</div>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.7rem' }}>
+                  {[
+                    ['enabled', 'Hub attivo'],
+                    ['accept_buy', 'Accetta BUY'],
+                    ['accept_sell', 'Accetta SELL'],
+                  ].map(([key, label]) => {
+                    const active = !!signalHubConfig?.[key];
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className="btn"
+                        disabled={signalHubBusy}
+                        onClick={() => saveSignalHubConfig({ [key]: !active })}
+                        style={{
+                          padding: '0.8rem 0.9rem',
+                          textAlign: 'left',
+                          background: active ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
+                          border: active ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                          opacity: signalHubBusy ? 0.7 : 1,
+                        }}
+                      >
+                        <div style={{ color: '#f8fafc', fontWeight: 700, marginBottom: '0.2rem' }}>{label}</div>
+                        <div style={{ color: active ? '#10b981' : '#94a3b8', fontSize: '0.78rem' }}>{active ? 'Attivo' : 'Spento'}</div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ color: '#cbd5e1', fontSize: '0.82rem', marginBottom: '0.45rem' }}>Soglia minima di confidenza</div>
+                <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
+                  {[55, 60, 65, 70, 75].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className="btn"
+                      disabled={signalHubBusy}
+                      onClick={() => saveSignalHubConfig({ min_confidence: value })}
+                      style={{
+                        padding: '0.5rem 0.8rem',
+                        background: Math.round(Number(signalHubConfig?.min_confidence || 0)) === value ? 'rgba(14,165,233,0.14)' : 'rgba(255,255,255,0.04)',
+                        border: Math.round(Number(signalHubConfig?.min_confidence || 0)) === value ? '1px solid rgba(56,189,248,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                        color: Math.round(Number(signalHubConfig?.min_confidence || 0)) === value ? '#38bdf8' : '#cbd5e1',
+                      }}
+                    >
+                      {value}%
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={signalHubBusy || !signalHubConfig?.webhook_url}
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(signalHubConfig.webhook_url);
+                      pushNotice('success', 'Webhook copiato', 'URL pronta da incollare in TradingView o nel tuo stack.', 2400);
+                    } catch {
+                      pushNotice('warning', 'Copia non riuscita', 'Copia l’URL manualmente dal pannello.', 2600);
+                    }
+                  }}
+                  style={{ padding: '0.55rem 0.9rem' }}
+                >
+                  Copia URL
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  disabled={signalHubBusy}
+                  onClick={rotateSignalHubToken}
+                  style={{ padding: '0.55rem 0.9rem', border: '1px solid rgba(248,113,113,0.35)', color: '#fca5a5' }}
+                >
+                  Rigenera token
+                </button>
+              </div>
+
+              <div style={{ display: 'grid', gap: '0.6rem' }}>
+                <div style={{ color: '#e2e8f0', fontWeight: 700 }}>Segnali recenti</div>
+                {(signalHubConfig?.recent_signals || []).length > 0 ? signalHubConfig.recent_signals.map((event, index) => (
+                  <div key={`${event.received_at || index}-${index}`} style={{ padding: '0.75rem 0.85rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${event.accepted ? 'rgba(16,185,129,0.28)' : 'rgba(245,158,11,0.24)'}` }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.25rem' }}>
+                      <strong style={{ color: '#f8fafc' }}>{event.symbol || 'UNKNOWN'} · {(event.signal || '').toUpperCase()}</strong>
+                      <span style={{ color: event.accepted ? '#10b981' : '#f59e0b', fontSize: '0.76rem', fontWeight: 800 }}>
+                        {event.accepted ? 'ACCETTATO' : 'FILTRATO'}
+                      </span>
+                    </div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.8rem', lineHeight: 1.45 }}>
+                      {event.source || 'source'} · conf {Math.round(Number(event.confidence || 0) * 100)}% · {event.timeframe || 'n/a'}
+                    </div>
+                    {event.note && (
+                      <div style={{ color: '#cbd5e1', fontSize: '0.82rem', marginTop: '0.25rem', lineHeight: 1.45 }}>{event.note}</div>
+                    )}
+                  </div>
+                )) : (
+                  <div style={{ color: '#94a3b8', fontSize: '0.84rem' }}>Ancora nessun webhook ricevuto: appena arrivano, li vedrai qui con esito e confidenza.</div>
+                )}
+              </div>
+            </>
+          ) : (
+            <div style={{ display: 'grid', gap: '0.75rem' }}>
+              <div style={{ padding: '0.85rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                <div style={{ color: '#e2e8f0', fontWeight: 700, marginBottom: '0.25rem' }}>Sintesi pubblica</div>
+                <div style={{ color: '#94a3b8', fontSize: '0.84rem', lineHeight: 1.5 }}>
+                  {status.signal_hub?.last_signal_summary || 'Il motore esterno non ha ancora inviato segnali recenti.'}
+                </div>
+              </div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.7rem' }}>
+                <div style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Canali</div>
+                  <div style={{ color: '#38bdf8', fontWeight: 800, marginTop: '0.25rem' }}>{Array.isArray(status.signal_hub?.recent_signals) ? status.signal_hub.recent_signals.length : 0}</div>
+                </div>
+                <div style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Confidenza minima</div>
+                  <div style={{ color: '#10b981', fontWeight: 800, marginTop: '0.25rem' }}>{Math.round(Number(status.signal_hub?.min_confidence || 0))}%</div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

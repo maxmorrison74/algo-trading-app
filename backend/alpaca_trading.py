@@ -648,7 +648,11 @@ class AlpacaEngine:
             macro_rsi = 50
         
         self.bot_state.latest_predictions[symbol] = f"LSTM: {lstm_prob*100:.1f}% | RSI(1M): {rsi:.1f} | MACD: {current_macd_hist:.2f} | VWAP: {vwap:.2f}"
-        
+
+        playbook = str(getattr(self.bot_state, "strategy_playbook", "adaptive") or "adaptive").strip().lower()
+        long_threshold = 0.55
+        short_threshold = 0.45
+
         # Filtro "Anti-Noia" (Volatilità Estrema Richiesta)
         atr_percent = atr / current_price
         if atr_percent < 0.0008: # Se il prezzo si muove meno dello 0.08% al minuto in media, ignoriamo (mercato piatto)
@@ -671,26 +675,55 @@ class AlpacaEngine:
         # Check Short (Mean Reversion dall'alto O MACD Crossover Ribassista)
         is_mean_reversion_short = (current_price > bb_upper and rsi > 65)
         is_macd_vwap_short = (current_macd_hist < 0 and rsi < 50 and current_price < vwap)
-        
+
+        if playbook == "breakout":
+            long_threshold = 0.57
+            short_threshold = 0.43
+            is_mean_reversion_long = False
+            is_momentum_long = (current_price > bb_upper and rsi > 58 and current_macd_hist > -0.02)
+            is_macd_vwap_long = (current_macd_hist > 0 and rsi > 53 and current_price > vwap)
+            is_mean_reversion_short = False
+        elif playbook == "trend":
+            long_threshold = 0.56
+            short_threshold = 0.44
+            is_mean_reversion_long = False
+            is_momentum_long = (current_price > rolling_mean.iloc[-1] and rsi > 54)
+            is_macd_vwap_long = (current_macd_hist > 0 and rsi > 52 and current_price > vwap and macro_rsi > 50)
+        elif playbook == "dip":
+            long_threshold = 0.53
+            short_threshold = 0.42
+            is_mean_reversion_long = (current_price < bb_lower and rsi < 38 and macro_rsi > 42)
+            is_momentum_long = False
+            is_macd_vwap_long = (current_macd_hist > 0 and current_price > vwap and rsi > 48 and current_price < rolling_mean.iloc[-1])
+            is_mean_reversion_short = False
+        elif playbook == "rebalance":
+            long_threshold = 0.58
+            short_threshold = 0.40
+            is_mean_reversion_long = False
+            is_momentum_long = False
+            is_macd_vwap_long = (current_macd_hist > 0 and 46 <= rsi <= 62 and current_price > rolling_mean.iloc[-1])
+            is_mean_reversion_short = False
+            is_macd_vwap_short = False
+
         if is_mean_reversion_long or is_momentum_long or is_macd_vwap_long:
-            if lstm_prob > 0.55: # Scalping: abbassato a 55%
+            if lstm_prob > long_threshold:
                 pattern = self.predict_pattern_with_groq(symbol, close_prices)
                 if pattern in ["UP", "NO_LLM"]:
                     if is_macd_vwap_long: strategy_name = "MACD TREND"
                     elif is_momentum_long: strategy_name = "MOMENTUM SCALPING"
                     else: strategy_name = "MEAN REVERSION"
-                    self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol}")
+                    self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol} [{playbook.upper()}]")
                     self.execute_trade(symbol, current_price, "LONG", atr, lstm_prob)
                 else:
                     self._log(f"🧠 AI VETO: Groq non conferma UP. Scalp annullato.")
             else:
-                 self._log(f"🤖 LSTM VETO: Setup LONG su {symbol} (Prob={lstm_prob*100:.1f}%) < 55%.")
+                 self._log(f"🤖 LSTM VETO: Setup LONG su {symbol} (Prob={lstm_prob*100:.1f}%) < {long_threshold*100:.0f}%.")
             
-        elif (is_mean_reversion_short or is_macd_vwap_short) and lstm_prob < 0.45:
+        elif (is_mean_reversion_short or is_macd_vwap_short) and lstm_prob < short_threshold:
             pattern = self.predict_pattern_with_groq(symbol, close_prices)
             if pattern in ["DOWN", "NO_LLM"]:
                 strategy_name = "MACD TREND SHORT" if is_macd_vwap_short else "MEAN REVERSION SHORT"
-                self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol}")
+                self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol} [{playbook.upper()}]")
                 self.execute_trade(symbol, current_price, "SHORT", atr, lstm_prob)
             else:
                 self._log(f"🧠 AI VETO: Groq non conferma DOWN. Scalp annullato.")
