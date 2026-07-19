@@ -3033,16 +3033,8 @@ function OmniAppInner() {
   );
   const [manualLoading, setManualLoading] = useState(false);
   const [manualMessage, setManualMessage] = useState("");
-  const paypalCheckoutUrl = useMemo(() => {
-    const params = new URLSearchParams({
-      cmd: '_xclick',
-      business: 'info@maxmorrison.it',
-      currency_code: 'EUR',
-      amount: '99.00',
-      item_name: 'Aureo OS Access',
-    });
-    return `https://www.paypal.com/cgi-bin/webscr?${params.toString()}`;
-  }, []);
+  const paypalRecipient = 'info@maxmorrison.it';
+  const paypalSendMoneyUrl = 'https://www.paypal.com/it/digital-wallet/send-receive-money';
 
   const handleCryptoSubmit = async () => {
     if (!txid) {
@@ -3095,7 +3087,7 @@ function OmniAppInner() {
               {selectedCrypto === 'PAYPAL' ? 'Account PayPal di pagamento' : `Indirizzo di Deposito ${selectedCrypto}`}
             </div>
             <strong style={{ color: '#e2e8f0', userSelect: 'all' }}>
-              {selectedCrypto === 'PAYPAL' ? 'info@maxmorrison.it' :
+              {selectedCrypto === 'PAYPAL' ? paypalRecipient :
                selectedCrypto === 'BTC' ? 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' : 
                selectedCrypto === 'ETH' || selectedCrypto === 'USDC' ? '0x71C7656EC7ab88b098defB751B7401B5f6d8976F' :
                selectedCrypto === 'SOL' ? 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH' :
@@ -3103,7 +3095,7 @@ function OmniAppInner() {
             </strong>
             <div style={{ color: '#94a3b8', marginTop: '0.65rem', fontSize: '0.8rem', lineHeight: 1.45 }}>
               {selectedCrypto === 'PAYPAL'
-                ? 'Invia il pagamento PayPal a questo indirizzo email e poi inserisci qui sotto l’ID operazione o l’email usata per pagare.'
+                ? 'Apri PayPal, invia €99.00 a questo indirizzo email e poi inserisci qui sotto l’ID operazione o l’email usata per pagare.'
                 : 'Dopo l’invio, copia il riferimento della transazione e incollalo nel campo qui sotto.'}
             </div>
             {selectedCrypto === 'PAYPAL' && (
@@ -3112,7 +3104,7 @@ function OmniAppInner() {
                   type="button"
                   className="btn"
                   onClick={() => {
-                    window.location.href = paypalCheckoutUrl;
+                    window.location.href = paypalSendMoneyUrl;
                   }}
                   style={{
                     display: 'inline-flex',
@@ -3128,10 +3120,37 @@ function OmniAppInner() {
                     fontWeight: 800,
                   }}
                 >
-                  Vai a PayPal con pagamento già pronto
+                  Apri PayPal
+                </button>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(paypalRecipient);
+                      pushNotice('success', 'Email PayPal copiata', `Incolla ${paypalRecipient} dentro PayPal.`, 2600);
+                    } catch {
+                      pushNotice('warning', 'Copia non riuscita', `Usa manualmente ${paypalRecipient}.`, 2600);
+                    }
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    padding: '0.85rem 1rem',
+                    background: 'rgba(255,255,255,0.05)',
+                    color: '#e2e8f0',
+                    textDecoration: 'none',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '10px',
+                    fontWeight: 700,
+                  }}
+                >
+                  Copia email PayPal
                 </button>
                 <div style={{ color: '#64748b', fontSize: '0.76rem', lineHeight: 1.45 }}>
-                  Se PayPal dovesse impiegare troppo a caricarsi, aprilo manualmente e invia il pagamento a <strong style={{ color: '#cbd5e1' }}>info@maxmorrison.it</strong>.
+                  Il vecchio redirect precompilato non è più affidabile: questo passaggio apre PayPal in modo stabile e ti lascia incollare il destinatario corretto.
                 </div>
               </div>
             )}
