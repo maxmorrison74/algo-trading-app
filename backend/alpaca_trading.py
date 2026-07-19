@@ -426,6 +426,26 @@ class AlpacaEngine:
         market_close = now_ny.replace(hour=16, minute=0, second=0, microsecond=0)
         return market_open <= now_ny <= market_close
 
+    def _has_crypto_symbols(self):
+        return any("/" in symbol for symbol in self.symbols)
+
+    def _has_stock_symbols(self):
+        return any("/" not in symbol for symbol in self.symbols)
+
+    def _is_equity_market_open(self):
+        if not self._has_stock_symbols():
+            return False
+        try:
+            if self.alpaca_rest:
+                clock = self.alpaca_rest.get_clock()
+                return bool(getattr(clock, "is_open", False))
+        except Exception:
+            pass
+        return self.is_market_open_for_symbol("SPY")
+
+    def _is_expected_feed_idle(self):
+        return self._has_stock_symbols() and not self._has_crypto_symbols() and not self._is_equity_market_open()
+
     def has_open_position(self, symbol):
         try:
             positions = self.alpaca_rest.list_positions()
@@ -846,6 +866,22 @@ class AlpacaEngine:
 
         reconnect_attempts = 0
         while self.running and self.bot_state.modules.get("trading", False):
+            if stock_symbols and not crypto_symbols and not self._is_equity_market_open():
+                self._runtime_health(
+                    status="yellow",
+                    summary="Mercato azionario chiuso: motore in standby",
+                    websocket_connected=False,
+                    reconnect_attempts=0,
+                    warnings=["Fuori orario: il motore resta acceso e riprende alla riapertura."],
+                )
+                self._log_throttled_skip(
+                    "STOCK_ENGINE",
+                    "market_closed_standby",
+                    "🌙 Mercato azionario chiuso: motore in standby vigilato, nessun auto-pause.",
+                    cooldown_seconds=1800,
+                )
+                time.sleep(60)
+                continue
             try:
                 self.alpaca_stream = Stream(self.alpaca_key, self.alpaca_secret, base_url=self.alpaca_base, data_feed='iex')
                 if stock_symbols:
@@ -951,6 +987,17 @@ class AlpacaEngine:
                     self.sync_portfolio()
                     health_warnings = []
                     now_ts = time.time()
+                    expected_feed_idle = self._is_expected_feed_idle()
+                    if expected_feed_idle:
+                        self._runtime_health(
+                            status="yellow",
+                            summary="Mercato azionario chiuso: standby operativo",
+                            warnings=["Fuori orario: feed equity fermo per attesa naturale della riapertura."],
+                            websocket_connected=False,
+                            reconnect_attempts=self.reconnect_attempts,
+                            sync_failures=self.sync_failures,
+                        )
+                        continue
                     if self.last_bar_received_at and (now_ts - self.last_bar_received_at) > 900:
                         health_warnings.append("Feed dati fermo oltre soglia di sicurezza")
                     if self.sync_failures >= 2:
@@ -972,7 +1019,7 @@ class AlpacaEngine:
                             reconnect_attempts=self.reconnect_attempts,
                             sync_failures=self.sync_failures,
                         )
-                    if self.last_bar_received_at and (now_ts - self.last_bar_received_at) > 1200:
+                    if self.last_bar_received_at and (now_ts - self.last_bar_received_at) > 1200 and not expected_feed_idle:
                         self._auto_pause("Feed dati assente da oltre 20 minuti")
                         break
                 except Exception:
