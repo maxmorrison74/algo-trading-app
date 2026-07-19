@@ -914,6 +914,99 @@ const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}
     .slice(0, 3);
 };
 
+const deriveExecutionPlan = ({ opportunity = null, risk = {}, status = {} }) => {
+  if (!opportunity) {
+    return {
+      urgency: 'Idle',
+      capitalMode: 'In attesa',
+      action: 'Nessuna priorità immediata',
+      note: 'Il motore non ha ancora trovato un simbolo da promuovere in cima alla lista.',
+      tone: '#94a3b8',
+    };
+  }
+
+  const score = Number(opportunity.readiness?.score || 0);
+  const openSlots = Number(risk?.positions_remaining ?? 0);
+  const playbookName = status?.strategy_playbook?.active?.label || 'Playbook attivo';
+
+  if (score >= 82 && openSlots > 0) {
+    return {
+      urgency: 'High Conviction',
+      capitalMode: openSlots <= 1 ? 'Slot quasi saturi' : 'Slot disponibili',
+      action: `Mantieni ${opportunity.symbol} in cima al monitor esecutivo`,
+      note: `${playbookName} è coerente con il simbolo e il capitale può ancora essere allocato con disciplina.`,
+      tone: '#10b981',
+    };
+  }
+
+  if (score >= 65) {
+    return {
+      urgency: 'Warm Setup',
+      capitalMode: openSlots > 0 ? 'Capitale pronto' : 'Prima libera uno slot',
+      action: `Osserva ${opportunity.symbol} e aspetta conferma finale`,
+      note: `Il quadro è interessante, ma conviene evitare ingressi forzati finché la lettura non sale di livello.`,
+      tone: '#38bdf8',
+    };
+  }
+
+  return {
+    urgency: 'Low Priority',
+    capitalMode: 'Conserva liquidità',
+    action: `Lascia respirare ${opportunity.symbol}`,
+    note: 'Meglio proteggere attenzione e capitale finché il setup non si pulisce davvero.',
+    tone: '#f59e0b',
+  };
+};
+
+const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, tradePerformance = null }) => {
+  const symbols = Array.isArray(status?.symbols) ? status.symbols : [];
+  const rankedMap = Object.fromEntries(((status?.symbol_selection?.ranked) || []).map((row) => [row.symbol, row]));
+
+  return symbols
+    .map((symbol) => {
+      const row = tableDataBySymbol[symbol] || rankedMap[symbol] || null;
+      const readiness = deriveEntryReadiness({ status, risk, symbol, row });
+      const headline = deriveEntryHeadline(readiness);
+      const performanceRow = tradePerformance?.symbolRows?.find((item) => item.symbol === symbol) || null;
+      const playbookFitScore = Number(rankedMap[symbol]?.playbook_fit?.score || 0);
+      const rankingScore = Number(rankedMap[symbol]?.score ?? -1);
+      const position = status?.positions?.[symbol];
+      const liveState = position && position !== 'LIQUID'
+        ? (position.side === 'short' ? 'Short live' : 'Long live')
+        : readiness.score >= 78
+          ? 'Ready'
+          : readiness.score >= 58
+            ? 'Watch'
+            : 'Blocked';
+      const action = position && position !== 'LIQUID'
+        ? 'Gestisci la posizione'
+        : readiness.score >= 78
+          ? 'Pronto per review finale'
+          : readiness.score >= 58
+            ? 'Attendi conferma'
+            : 'Non allocare capitale';
+
+      return {
+        symbol,
+        headline,
+        readiness,
+        liveState,
+        action,
+        rankingScore,
+        playbookFitScore,
+        sentiment: row?.sentiment || 'NEUTRAL',
+        pnl: performanceRow?.totalPnl ?? null,
+        regime: rankedMap[symbol]?.regime || null,
+      };
+    })
+    .sort((a, b) => {
+      if (b.readiness.score !== a.readiness.score) return b.readiness.score - a.readiness.score;
+      if (b.playbookFitScore !== a.playbookFitScore) return b.playbookFitScore - a.playbookFitScore;
+      return b.rankingScore - a.rankingScore;
+    })
+    .slice(0, 7);
+};
+
 const deriveOpportunitySpotlight = (opportunities = []) => {
   const ready = opportunities.filter((item) => item.readiness?.score >= 78 && item.headline?.label === 'Pronto');
   const warming = opportunities.filter((item) => item.readiness?.score >= 58 && item.readiness?.score < 78);
@@ -953,6 +1046,85 @@ const deriveSymbolDrilldown = ({ symbol = '', status = {}, row = null, readiness
   };
 };
 
+const deriveSymbolReviewNarrative = ({ symbol = '', drilldown = null, readiness = null }) => {
+  const safeReadiness = readiness || { score: 0, blockers: [], watchItems: [], greenLights: [] };
+  const score = Number(safeReadiness.score || 0);
+  const regimeLabel = drilldown?.regime?.label || 'Regime da confermare';
+  const sentiment = drilldown?.sentiment || 'NEUTRAL';
+  const fitScore = Number(drilldown?.playbookFit?.score || 0);
+  const isOpen = !!drilldown?.isOpen;
+
+  const stance = isOpen
+    ? {
+        label: 'Gestione attiva',
+        tone: '#10b981',
+        text: 'C’è già una posizione aperta: qui conta soprattutto proteggere margine e qualità dell’uscita.',
+      }
+    : score >= 78
+      ? {
+          label: 'Vicino al trigger',
+          tone: '#10b981',
+          text: 'Il simbolo è vicino a una lettura esecutiva: vale la pena tenerlo nel primo monitor operativo.',
+        }
+      : score >= 58
+        ? {
+            label: 'In maturazione',
+            tone: '#38bdf8',
+            text: 'Il quadro è interessante ma non ancora completo: conviene osservare senza forzare il timing.',
+          }
+        : {
+            label: 'Da lasciare respirare',
+            tone: '#f59e0b',
+            text: 'Il setup non è ancora pulito: meglio evitare pressione operativa finché i blocchi non si sciolgono.',
+          };
+
+  const memo = [
+    score >= 78
+      ? 'La readiness è alta e il simbolo merita priorità nella watchlist.'
+      : score >= 58
+        ? 'La struttura c’è, ma manca ancora una conferma forte.'
+        : 'Il motore vede ancora freni operativi prima di promuoverlo.',
+    `Il regime prevalente oggi è ${regimeLabel.toLowerCase()}, quindi il contesto conta quanto il segnale.`,
+    fitScore
+      ? `Il playbook attivo gli assegna un fit di ${fitScore.toFixed(0)}/100.`
+      : 'Il fit del playbook non è ancora disponibile su questo simbolo.',
+    sentiment === 'BULLISH'
+      ? 'Il layer AI aggiunge una spinta positiva al contesto.'
+      : sentiment === 'BEARISH'
+        ? 'Il layer AI sta raffreddando il setup con un bias prudente.'
+        : 'Il layer AI resta neutrale e lascia decidere ai segnali tecnici.',
+  ];
+
+  const executionLane = [
+    {
+      label: 'Setup',
+      value: stance.label,
+      tone: stance.tone,
+      detail: stance.text,
+    },
+    {
+      label: 'Regime',
+      value: regimeLabel,
+      tone: drilldown?.regime?.tone || '#94a3b8',
+      detail: drilldown?.regime?.summary || 'Nessuna lettura di regime disponibile.',
+    },
+    {
+      label: 'Playbook fit',
+      value: fitScore ? `${fitScore.toFixed(0)}/100` : 'n/d',
+      tone: fitScore >= 78 ? '#10b981' : fitScore >= 58 ? '#38bdf8' : '#94a3b8',
+      detail: drilldown?.playbookFit?.note || 'Il fit misura quanto il simbolo è coerente con il playbook attivo.',
+    },
+    {
+      label: 'Sentiment',
+      value: sentiment,
+      tone: sentiment === 'BULLISH' ? '#10b981' : sentiment === 'BEARISH' ? '#ef4444' : '#94a3b8',
+      detail: sentiment === 'NEUTRAL' ? 'Nessun bias AI dominante.' : `Bias AI ${sentiment.toLowerCase()} sul simbolo.`,
+    },
+  ];
+
+  return { stance, memo, executionLane };
+};
+
 const getRegimeBadgeStyle = (regime) => {
   const tone = regime?.tone || '#64748b';
   return {
@@ -962,35 +1134,67 @@ const getRegimeBadgeStyle = (regime) => {
   };
 };
 
-const SymbolTabButton = ({ sym, selected, onClick, cryptoState }) => (
-  <button
-    className={`tab-btn ${selected ? 'active-tab' : ''}`}
-    onClick={onClick}
+const SymbolTabButton = ({ sym, selected, onClick, onOpenReview, cryptoState }) => (
+  <div
     style={{
       display: 'inline-flex',
       alignItems: 'center',
-      gap: '0.45rem',
-      ...(cryptoState ? {
-        borderColor: cryptoState.border,
-        boxShadow: selected ? `0 0 0 1px ${cryptoState.border} inset` : 'none',
-      } : {}),
+      gap: '0.3rem',
+      paddingRight: '0.15rem',
+      borderRadius: '12px',
+      background: selected ? 'rgba(255,255,255,0.03)' : 'transparent',
     }}
-    title={cryptoState ? `${cryptoState.label} • ${cryptoState.reason}` : sym}
   >
-    <span>{sym}</span>
-    {cryptoState && (
-      <span
-        style={{
-          width: 8,
-          height: 8,
-          borderRadius: '50%',
-          background: cryptoState.tone,
-          boxShadow: `0 0 10px ${cryptoState.tone}`,
-          flexShrink: 0,
-        }}
-      ></span>
-    )}
-  </button>
+    <button
+      className={`tab-btn ${selected ? 'active-tab' : ''}`}
+      onClick={onClick}
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: '0.45rem',
+        ...(cryptoState ? {
+          borderColor: cryptoState.border,
+          boxShadow: selected ? `0 0 0 1px ${cryptoState.border} inset` : 'none',
+        } : {}),
+      }}
+      title={cryptoState ? `${cryptoState.label} • ${cryptoState.reason}` : sym}
+    >
+      <span>{sym}</span>
+      {cryptoState && (
+        <span
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: '50%',
+            background: cryptoState.tone,
+            boxShadow: `0 0 10px ${cryptoState.tone}`,
+            flexShrink: 0,
+          }}
+        ></span>
+      )}
+    </button>
+    <button
+      type="button"
+      onClick={() => onOpenReview?.(sym)}
+      title={`Apri review ${sym}`}
+      style={{
+        border: '1px solid rgba(255,255,255,0.08)',
+        background: 'rgba(255,255,255,0.04)',
+        color: '#94a3b8',
+        borderRadius: '10px',
+        width: 32,
+        height: 32,
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '0.88rem',
+        flexShrink: 0,
+      }}
+    >
+      ↗
+    </button>
+  </div>
 );
 
 const authFetch = async (input, init = {}) => {
@@ -2773,6 +2977,14 @@ function OmniAppInner() {
     [status, tableDataBySymbol]
   );
   const opportunitySpotlight = useMemo(() => deriveOpportunitySpotlight(topOpportunities), [topOpportunities]);
+  const executionPlan = useMemo(
+    () => deriveExecutionPlan({ opportunity: opportunitySpotlight.spotlight, risk: status.risk, status }),
+    [opportunitySpotlight, status]
+  );
+  const tradeDeskRows = useMemo(
+    () => deriveTradeDeskRows({ status, risk: status.risk, tableDataBySymbol, tradePerformance }),
+    [status, tableDataBySymbol, tradePerformance]
+  );
   const systemHealthSnapshot = useMemo(
     () => deriveSystemHealthSnapshot({ status, risk: status.risk, savedKeys, isBackendOnline, cryptoEngine }),
     [status, savedKeys, isBackendOnline, cryptoEngine]
@@ -5106,6 +5318,7 @@ function OmniAppInner() {
       { label: 'P&L storico', value: symbolDrilldown.tradeRow ? `${symbolDrilldown.tradeRow.totalPnl >= 0 ? '+' : ''}$${symbolDrilldown.tradeRow.totalPnl.toFixed(2)}` : 'Nessun trade chiuso', tone: symbolDrilldown.tradeRow ? (symbolDrilldown.tradeRow.totalPnl >= 0 ? '#10b981' : '#ef4444') : '#94a3b8' },
       { label: 'Posizione', value: currentPosition && currentPosition !== 'LIQUID' ? (currentPosition.side === 'short' ? 'Short live' : 'Long live') : 'Flat / Watch', tone: currentPosition && currentPosition !== 'LIQUID' ? '#10b981' : '#38bdf8' },
     ];
+    const symbolNarrative = deriveSymbolReviewNarrative({ symbol: selectedSymbol, drilldown: symbolDrilldown, readiness: entryReadiness });
 
     return (
       <div className="module-content module-content--symbol-review">
@@ -5122,6 +5335,30 @@ function OmniAppInner() {
             </button>
             <button type="button" className="btn" style={{ background: 'rgba(56,189,248,0.14)', border: '1px solid rgba(56,189,248,0.35)', color: '#38bdf8' }} onClick={() => setActiveTab('charts')}>
               Apri in Charts
+            </button>
+            <button
+              type="button"
+              className="btn"
+              style={{ background: 'rgba(139,92,246,0.14)', border: '1px solid rgba(139,92,246,0.35)', color: '#c4b5fd' }}
+              onClick={() => runBacktestLite(selectedSymbol, backtestWindow)}
+            >
+              Backtest rapido
+            </button>
+            <button
+              type="button"
+              className="btn"
+              style={{ background: 'rgba(255,255,255,0.06)' }}
+              onClick={async () => {
+                try {
+                  const reviewUrl = `${window.location.origin}${window.location.pathname}${buildSymbolReviewHash(selectedSymbol)}`;
+                  await navigator.clipboard.writeText(reviewUrl);
+                  pushNotice('success', 'Link copiato', `Review di ${selectedSymbol} pronta da condividere o riaprire.`, 2400);
+                } catch {
+                  pushNotice('warning', 'Copia non riuscita', 'Il link della review non è stato copiato.');
+                }
+              }}
+            >
+              Copia link
             </button>
             <button type="button" className="btn" style={{ background: 'rgba(16,185,129,0.14)', border: '1px solid rgba(16,185,129,0.35)', color: '#10b981' }} onClick={() => setActiveTab('trading')}>
               Vai al Trading
@@ -5217,6 +5454,53 @@ function OmniAppInner() {
         </div>
 
         <div className="dashboard-grid" style={{ marginBottom: '1.2rem' }}>
+          <div className="card col-span-7 symbol-review-card">
+            <div className="card-title">Market memo</div>
+            <div style={{ display: 'grid', gap: '0.65rem', marginTop: '0.8rem' }}>
+              {symbolNarrative.memo.map((item, index) => (
+                <div
+                  key={`${selectedSymbol}-memo-${index}`}
+                  style={{
+                    padding: '0.8rem 0.9rem',
+                    borderRadius: '12px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: '1px solid rgba(255,255,255,0.05)',
+                    color: '#cbd5e1',
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="card col-span-5 symbol-review-card">
+            <div className="card-title">Execution lane</div>
+            <div style={{ display: 'grid', gap: '0.7rem', marginTop: '0.8rem' }}>
+              {symbolNarrative.executionLane.map((item) => (
+                <div
+                  key={item.label}
+                  style={{
+                    padding: '0.78rem 0.85rem',
+                    borderRadius: '12px',
+                    border: `1px solid ${item.tone}33`,
+                    background: `${item.tone}10`,
+                  }}
+                >
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', marginBottom: '0.2rem' }}>
+                    <span style={{ color: '#94a3b8', fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{item.label}</span>
+                    <strong style={{ color: item.tone }}>{item.value}</strong>
+                  </div>
+                  <div style={{ color: '#cbd5e1', fontSize: '0.82rem', lineHeight: 1.45 }}>
+                    {item.detail}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-grid" style={{ marginBottom: '1.2rem' }}>
           <div className="card col-span-8 symbol-review-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
               <div>
@@ -5300,6 +5584,48 @@ function OmniAppInner() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        <div className="dashboard-grid" style={{ marginBottom: '1.2rem' }}>
+          <div className="card col-span-12 symbol-review-card">
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap', marginBottom: '0.8rem' }}>
+              <div>
+                <div className="card-title">Backtest snapshot · {selectedSymbol}</div>
+                <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                  Se vuoi decidere meglio, fai parlare anche il contesto storico del playbook attivo.
+                </div>
+              </div>
+              <button
+                type="button"
+                className="btn"
+                onClick={() => runBacktestLite(selectedSymbol, backtestWindow)}
+                disabled={backtestLoading}
+                style={{ background: 'rgba(139,92,246,0.14)', border: '1px solid rgba(139,92,246,0.35)', color: '#c4b5fd' }}
+              >
+                {backtestLoading ? 'Analisi...' : 'Aggiorna snapshot'}
+              </button>
+            </div>
+            {backtestReport && backtestReport.symbol === selectedSymbol ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.7rem' }}>
+                {[
+                  ['Trade', backtestReport.metrics?.trades ?? 0, '#f8fafc'],
+                  ['Win rate', `${Number(backtestReport.metrics?.win_rate ?? 0).toFixed(1)}%`, '#10b981'],
+                  ['Return', `${Number(backtestReport.metrics?.return_pct ?? 0).toFixed(1)}%`, Number(backtestReport.metrics?.return_pct ?? 0) >= 0 ? '#10b981' : '#ef4444'],
+                  ['Drawdown', `${Number(backtestReport.metrics?.max_drawdown_pct ?? 0).toFixed(1)}%`, '#f59e0b'],
+                  ['PF', Number(backtestReport.metrics?.profit_factor ?? 0).toFixed(2), '#38bdf8'],
+                ].map(([label, value, tone]) => (
+                  <div key={label} style={{ padding: '0.85rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '0.74rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>{label}</div>
+                    <div style={{ color: tone, fontSize: '1.08rem', fontWeight: 800 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ padding: '0.95rem 1rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)', color: '#94a3b8' }}>
+                Nessuno snapshot ancora pronto per {selectedSymbol}. Lancialo una volta e lo userai come secondo parere operativo.
+              </div>
+            )}
           </div>
         </div>
 
@@ -5599,6 +5925,105 @@ function OmniAppInner() {
               )}
             </button>
           ))}
+        </div>
+      </div>
+
+      <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '1.3rem' }}>
+        <div className="card col-span-4" style={{ border: `1px solid ${executionPlan.tone}33`, background: `${executionPlan.tone}10` }}>
+          <div className="card-title">🎯 Executive Trade Brief</div>
+          <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.7rem' }}>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Urgenza</div>
+              <div style={{ color: executionPlan.tone, fontWeight: 900, fontSize: '1.2rem' }}>{executionPlan.urgency}</div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Azione consigliata</div>
+              <div style={{ color: '#f8fafc', fontWeight: 800, lineHeight: 1.4 }}>{executionPlan.action}</div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Modalità capitale</div>
+              <div style={{ color: '#cbd5e1', fontWeight: 700 }}>{executionPlan.capitalMode}</div>
+            </div>
+            <div style={{ color: '#94a3b8', lineHeight: 1.5, fontSize: '0.84rem' }}>
+              {executionPlan.note}
+            </div>
+            {opportunitySpotlight.spotlight && (
+              <button
+                type="button"
+                className="btn"
+                onClick={() => openSymbolReview(opportunitySpotlight.spotlight.symbol, 'trading')}
+                style={{ background: 'rgba(255,255,255,0.06)' }}
+              >
+                Apri review {opportunitySpotlight.spotlight.symbol}
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="card col-span-8" style={{ background: 'rgba(255,255,255,0.025)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
+            <div>
+              <div className="card-title">🧠 Trade Desk Matrix</div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Un colpo d’occhio da desk: priorità, fit, stato live e uso intelligente del capitale.
+              </div>
+            </div>
+            <div className="badge badge-idle">{tradeDeskRows.length} simboli attivi</div>
+          </div>
+          <div style={{ display: 'grid', gap: '0.65rem' }}>
+            {tradeDeskRows.map((item) => (
+              <button
+                key={item.symbol}
+                type="button"
+                onClick={() => openSymbolReview(item.symbol, 'trading')}
+                style={{
+                  textAlign: 'left',
+                  padding: '0.85rem 0.95rem',
+                  borderRadius: '14px',
+                  border: `1px solid ${item.headline.border}`,
+                  background: item.headline.bg,
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.8fr 0.8fr 1fr 1.2fr', gap: '0.8rem', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
+                      <SymbolLinkButton symbol={item.symbol} onOpen={() => openSymbolReview(item.symbol, 'trading')} variant="inline" style={{ color: '#f8fafc', fontWeight: 900, padding: 0 }}>
+                        {item.symbol}
+                      </SymbolLinkButton>
+                      {item.regime && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem', padding: '0.14rem 0.42rem', borderRadius: '999px', ...getRegimeBadgeStyle(item.regime) }}>
+                          <span style={{ width: 7, height: 7, borderRadius: '50%', background: item.regime.tone }}></span>
+                          <span style={{ fontSize: '0.68rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{item.regime.label}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.78rem', marginTop: '0.24rem' }}>{item.action}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Readiness</div>
+                    <div style={{ color: item.headline.tone, fontWeight: 800 }}>{item.readiness.score}/100</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Playbook fit</div>
+                    <div style={{ color: item.playbookFitScore >= 78 ? '#10b981' : item.playbookFitScore >= 58 ? '#38bdf8' : '#94a3b8', fontWeight: 800 }}>
+                      {item.playbookFitScore ? `${item.playbookFitScore.toFixed(0)}/100` : 'n/d'}
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Stato live</div>
+                    <div style={{ color: '#cbd5e1', fontWeight: 800 }}>{item.liveState}</div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Storico</div>
+                    <div style={{ color: item.pnl == null ? '#94a3b8' : item.pnl >= 0 ? '#10b981' : '#ef4444', fontWeight: 800 }}>
+                      {item.pnl == null ? 'n/d' : `${item.pnl >= 0 ? '+' : ''}$${Number(item.pnl).toFixed(2)}`}
+                    </div>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -6528,6 +6953,7 @@ function OmniAppInner() {
               sym={sym}
               selected={selectedSymbol === sym}
               onClick={() => setSelectedSymbol(sym)}
+              onOpenReview={() => openSymbolReview(sym, 'trading')}
               cryptoState={cryptoSymbolStateMap[sym]}
             />
           ))}
