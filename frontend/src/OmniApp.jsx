@@ -3107,28 +3107,33 @@ function OmniAppInner() {
                 : 'Dopo l’invio, copia il riferimento della transazione e incollalo nel campo qui sotto.'}
             </div>
             {selectedCrypto === 'PAYPAL' && (
-              <a
-                href={paypalCheckoutUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="btn"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '100%',
-                  marginTop: '0.9rem',
-                  padding: '0.95rem 1rem',
-                  background: 'linear-gradient(90deg, #0070ba, #1546a0)',
-                  color: '#fff',
-                  textDecoration: 'none',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  borderRadius: '10px',
-                  fontWeight: 800,
-                }}
-              >
-                Apri PayPal con pagamento già pronto
-              </a>
+              <div style={{ display: 'grid', gap: '0.65rem', marginTop: '0.9rem' }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => {
+                    window.location.href = paypalCheckoutUrl;
+                  }}
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '100%',
+                    padding: '0.95rem 1rem',
+                    background: 'linear-gradient(90deg, #0070ba, #1546a0)',
+                    color: '#fff',
+                    textDecoration: 'none',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    borderRadius: '10px',
+                    fontWeight: 800,
+                  }}
+                >
+                  Vai a PayPal con pagamento già pronto
+                </button>
+                <div style={{ color: '#64748b', fontSize: '0.76rem', lineHeight: 1.45 }}>
+                  Se PayPal dovesse impiegare troppo a caricarsi, aprilo manualmente e invia il pagamento a <strong style={{ color: '#cbd5e1' }}>info@maxmorrison.it</strong>.
+                </div>
+              </div>
             )}
           </div>
           
