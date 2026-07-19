@@ -2537,23 +2537,26 @@ try:
 except Exception as e:
     print(f"Failed to load disposable domains: {e}")
 
+def validate_signup_email(email: str) -> str:
+    normalized_email = (email or "").lower().strip()
+    if not normalized_email or "@" not in normalized_email:
+        raise HTTPException(status_code=400, detail="Inserisci una email valida.")
+    domain = normalized_email.split("@", 1)[1]
+    if domain in DISPOSABLE_DOMAINS:
+        raise HTTPException(status_code=400, detail="L'utilizzo di email temporanee o usa e getta non è consentito.")
+    return normalized_email
+
 class BillingCustomerStatusRequest(BaseModel):
     status: str
 
 @app.post("/api/register")
 def register(req: RegisterRequest):
     user_id = f"usr_{int(time.time())}"
-    email = req.email.lower().strip() if req.email else ""
+    email = validate_signup_email(req.email)
     password = (req.password or "").strip()
 
-    if not email or "@" not in email:
-        raise HTTPException(status_code=400, detail="Inserisci una email valida.")
     if len(password) < 8:
         raise HTTPException(status_code=400, detail="Scegli una password di almeno 8 caratteri.")
-
-    domain = email.split("@")[1]
-    if domain in DISPOSABLE_DOMAINS:
-        raise HTTPException(status_code=400, detail="L'utilizzo di email usa e getta non è consentito.")
 
     success = db.create_user(user_id, email, password, role="user", status="pending")
     if not success:
@@ -2579,9 +2582,7 @@ def register(req: RegisterRequest):
 
 @app.post("/api/resend-confirmation")
 def resend_confirmation(req: EmailRequest):
-    email = req.email.lower().strip() if req.email else ""
-    if not email or "@" not in email:
-        raise HTTPException(status_code=400, detail="Inserisci una email valida.")
+    email = validate_signup_email(req.email)
 
     user = db.get_user_by_email(email)
     if not user:
@@ -3325,7 +3326,7 @@ class AdminCreateUserRequest(BaseModel):
 def admin_create_user(req: AdminCreateUserRequest, admin_token: str = Depends(require_admin)):
     import uuid
     new_user_id = str(uuid.uuid4())
-    email = (req.email or "").lower().strip()
+    email = validate_signup_email(req.email)
     success = db.create_user(new_user_id, email, req.password, role=req.role, status="pending")
     if not success:
         raise HTTPException(status_code=400, detail="Email già in uso.")
