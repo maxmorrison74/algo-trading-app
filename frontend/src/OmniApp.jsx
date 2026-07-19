@@ -3033,6 +3033,16 @@ function OmniAppInner() {
   );
   const [manualLoading, setManualLoading] = useState(false);
   const [manualMessage, setManualMessage] = useState("");
+  const paypalCheckoutUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      cmd: '_xclick',
+      business: 'info@maxmorrison.it',
+      currency_code: 'EUR',
+      amount: '99.00',
+      item_name: 'Aureo OS Access',
+    });
+    return `https://www.paypal.com/cgi-bin/webscr?${params.toString()}`;
+  }, []);
 
   const handleCryptoSubmit = async () => {
     if (!txid) {
@@ -3096,6 +3106,30 @@ function OmniAppInner() {
                 ? 'Invia il pagamento PayPal a questo indirizzo email e poi inserisci qui sotto l’ID operazione o l’email usata per pagare.'
                 : 'Dopo l’invio, copia il riferimento della transazione e incollalo nel campo qui sotto.'}
             </div>
+            {selectedCrypto === 'PAYPAL' && (
+              <a
+                href={paypalCheckoutUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="btn"
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '100%',
+                  marginTop: '0.9rem',
+                  padding: '0.95rem 1rem',
+                  background: 'linear-gradient(90deg, #0070ba, #1546a0)',
+                  color: '#fff',
+                  textDecoration: 'none',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  borderRadius: '10px',
+                  fontWeight: 800,
+                }}
+              >
+                Apri PayPal con pagamento già pronto
+              </a>
+            )}
           </div>
           
           <div className="form-group" style={{ marginBottom: '1.5rem' }}>
