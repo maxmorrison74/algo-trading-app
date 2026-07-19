@@ -888,16 +888,14 @@ const deriveTradePerformance = (tradeHistory = []) => {
   };
 };
 
-const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {} }) => {
+const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}, readinessMap = {}, headlineMap = {}, rankedMap = {} }) => {
   const symbols = Array.isArray(status?.symbols) ? status.symbols : [];
-  const rankedRows = Array.isArray(status?.symbol_selection?.ranked) ? status.symbol_selection.ranked : [];
-  const rankedMap = Object.fromEntries(rankedRows.map((row) => [row.symbol, row]));
 
   return symbols
     .map((symbol) => {
       const tableRow = tableDataBySymbol[symbol] || rankedMap[symbol] || null;
-      const readiness = deriveEntryReadiness({ status, risk, symbol, row: tableRow });
-      const headline = deriveEntryHeadline(readiness);
+      const readiness = readinessMap[symbol] || deriveEntryReadiness({ status, risk, symbol, row: tableRow });
+      const headline = headlineMap[symbol] || deriveEntryHeadline(readiness);
       return {
         symbol,
         readiness,
@@ -958,15 +956,14 @@ const deriveExecutionPlan = ({ opportunity = null, risk = {}, status = {} }) => 
   };
 };
 
-const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, tradePerformance = null }) => {
+const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, tradePerformance = null, readinessMap = {}, headlineMap = {}, rankedMap = {} }) => {
   const symbols = Array.isArray(status?.symbols) ? status.symbols : [];
-  const rankedMap = Object.fromEntries(((status?.symbol_selection?.ranked) || []).map((row) => [row.symbol, row]));
 
   return symbols
     .map((symbol) => {
       const row = tableDataBySymbol[symbol] || rankedMap[symbol] || null;
-      const readiness = deriveEntryReadiness({ status, risk, symbol, row });
-      const headline = deriveEntryHeadline(readiness);
+      const readiness = readinessMap[symbol] || deriveEntryReadiness({ status, risk, symbol, row });
+      const headline = headlineMap[symbol] || deriveEntryHeadline(readiness);
       const performanceRow = tradePerformance?.symbolRows?.find((item) => item.symbol === symbol) || null;
       const playbookFitScore = Number(rankedMap[symbol]?.playbook_fit?.score || 0);
       const rankingScore = Number(rankedMap[symbol]?.score ?? -1);
@@ -1019,15 +1016,24 @@ const deriveOpportunitySpotlight = (opportunities = []) => {
   };
 };
 
-const deriveSymbolDrilldown = ({ symbol = '', status = {}, row = null, readiness = null, tradePerformance = null, cryptoState = null }) => {
+const deriveSymbolDrilldown = ({
+  symbol = '',
+  status = {},
+  row = null,
+  readiness = null,
+  tradePerformance = null,
+  cryptoState = null,
+  rankedMap = {},
+  performanceRowMap = {},
+  recentTradesBySymbol = {},
+}) => {
   const currentPosition = status?.positions?.[symbol];
   const isOpen = currentPosition && currentPosition !== 'LIQUID';
-  const tradeRow = tradePerformance?.symbolRows?.find((item) => item.symbol === symbol) || null;
-  const recentTrades = (tradePerformance?.recentTrades || []).filter((item) => item.symbol === symbol).slice(0, 4);
+  const tradeRow = performanceRowMap[symbol] || null;
+  const recentTrades = recentTradesBySymbol[symbol] || [];
   const metrics = parsePredictionMetrics(row?.prediction || '');
   const headline = deriveEntryHeadline(readiness);
-  const rankedRows = Array.isArray(status?.symbol_selection?.ranked) ? status.symbol_selection.ranked : [];
-  const rankedRow = rankedRows.find((item) => item?.symbol === symbol) || null;
+  const rankedRow = rankedMap[symbol] || null;
   const regime = rankedRow?.regime || null;
   const playbookFit = rankedRow?.playbook_fit || null;
 
@@ -2961,10 +2967,27 @@ function OmniAppInner() {
   const [manualAmount, setManualAmount] = useState(100);
   const [manualQuote, setManualQuote] = useState(null);
   const positionsEntries = useMemo(() => Object.entries(status.positions || {}), [status.positions]);
+  const symbolsList = useMemo(() => (Array.isArray(status.symbols) ? status.symbols : []), [status.symbols]);
+  const logsList = useMemo(() => (Array.isArray(status.logs) ? status.logs : []), [status.logs]);
   const tableDataBySymbol = useMemo(
     () => Object.fromEntries((status.table_data || []).map((row) => [row.symbol, row])),
     [status.table_data]
   );
+  const rankedRows = useMemo(() => (Array.isArray(status.symbol_selection?.ranked) ? status.symbol_selection.ranked : []), [status.symbol_selection]);
+  const rankedMap = useMemo(() => Object.fromEntries(rankedRows.map((row) => [row.symbol, row])), [rankedRows]);
+  const landingPlans = useMemo(() => DEMO_BILLING_OVERVIEW.plans || [], []);
+  const landingPlanMap = useMemo(() => Object.fromEntries(landingPlans.map((plan) => [plan.id, plan])), [landingPlans]);
+  const symbolDiagnostics = useMemo(() => {
+    const readinessMap = {};
+    const headlineMap = {};
+    symbolsList.forEach((symbol) => {
+      const row = tableDataBySymbol[symbol];
+      const readiness = deriveEntryReadiness({ status, risk: status.risk, symbol, row });
+      readinessMap[symbol] = readiness;
+      headlineMap[symbol] = deriveEntryHeadline(readiness);
+    });
+    return { readinessMap, headlineMap };
+  }, [status, tableDataBySymbol, symbolsList]);
   const cryptoEngine = useMemo(() => deriveCryptoEngineState(status), [status]);
   const cryptoEngineDetails = useMemo(() => deriveCryptoEngineDetails(status), [status]);
   const cryptoSymbolStates = useMemo(() => deriveCryptoSymbolStates(status), [status]);
@@ -2972,9 +2995,46 @@ function OmniAppInner() {
   const strategyPlaybook = useMemo(() => status.strategy_playbook || { active: null, catalog: [] }, [status.strategy_playbook]);
   const exitLadder = useMemo(() => status.exit_ladder || {}, [status.exit_ladder]);
   const tradePerformance = useMemo(() => deriveTradePerformance(status.trade_history || []), [status.trade_history]);
+  const tradePerformanceRowMap = useMemo(
+    () => Object.fromEntries((tradePerformance.symbolRows || []).map((row) => [row.symbol, row])),
+    [tradePerformance]
+  );
+  const recentTradesBySymbol = useMemo(() => {
+    const grouped = {};
+    (tradePerformance.recentTrades || []).forEach((trade) => {
+      const symbol = trade?.symbol;
+      if (!symbol) return;
+      if (!grouped[symbol]) grouped[symbol] = [];
+      if (grouped[symbol].length < 4) grouped[symbol].push(trade);
+    });
+    return grouped;
+  }, [tradePerformance]);
+  const positionReviewRows = useMemo(
+    () => positionsEntries.map(([sym, position]) => {
+      const symbolTableRow = tableDataBySymbol[sym];
+      const symbolReadiness = symbolDiagnostics.readinessMap[sym] || deriveEntryReadiness({ status, risk: status.risk, symbol: sym, row: symbolTableRow });
+      return {
+        sym,
+        position,
+        symbolTableRow,
+        cryptoState: cryptoSymbolStateMap[sym],
+        symbolReadiness,
+        symbolHeadline: symbolDiagnostics.headlineMap[sym] || deriveEntryHeadline(symbolReadiness),
+      };
+    }),
+    [positionsEntries, tableDataBySymbol, symbolDiagnostics, status, cryptoSymbolStateMap]
+  );
+  const tradingLogSummary = useMemo(
+    () => logsList.reduce((acc, line) => {
+      const meta = classifyTradingLog(line);
+      acc[meta.category] = (acc[meta.category] || 0) + 1;
+      return acc;
+    }, {}),
+    [logsList]
+  );
   const topOpportunities = useMemo(
-    () => deriveTopOpportunities({ status, risk: status.risk, tableDataBySymbol }),
-    [status, tableDataBySymbol]
+    () => deriveTopOpportunities({ status, risk: status.risk, tableDataBySymbol, readinessMap: symbolDiagnostics.readinessMap, headlineMap: symbolDiagnostics.headlineMap, rankedMap }),
+    [status, tableDataBySymbol, symbolDiagnostics, rankedMap]
   );
   const opportunitySpotlight = useMemo(() => deriveOpportunitySpotlight(topOpportunities), [topOpportunities]);
   const executionPlan = useMemo(
@@ -2982,16 +3042,20 @@ function OmniAppInner() {
     [opportunitySpotlight, status]
   );
   const tradeDeskRows = useMemo(
-    () => deriveTradeDeskRows({ status, risk: status.risk, tableDataBySymbol, tradePerformance }),
-    [status, tableDataBySymbol, tradePerformance]
+    () => deriveTradeDeskRows({ status, risk: status.risk, tableDataBySymbol, tradePerformance, readinessMap: symbolDiagnostics.readinessMap, headlineMap: symbolDiagnostics.headlineMap, rankedMap }),
+    [status, tableDataBySymbol, tradePerformance, symbolDiagnostics, rankedMap]
   );
   const systemHealthSnapshot = useMemo(
     () => deriveSystemHealthSnapshot({ status, risk: status.risk, savedKeys, isBackendOnline, cryptoEngine }),
     [status, savedKeys, isBackendOnline, cryptoEngine]
   );
   const entryReadiness = useMemo(
-    () => deriveEntryReadiness({ status, risk: status.risk, symbol: selectedSymbol, row: tableDataBySymbol[selectedSymbol] }),
-    [status, selectedSymbol, tableDataBySymbol]
+    () => symbolDiagnostics.readinessMap[selectedSymbol] || deriveEntryReadiness({ status, risk: status.risk, symbol: selectedSymbol, row: tableDataBySymbol[selectedSymbol] }),
+    [symbolDiagnostics, selectedSymbol, status, tableDataBySymbol]
+  );
+  const selectedHeadline = useMemo(
+    () => symbolDiagnostics.headlineMap[selectedSymbol] || deriveEntryHeadline(entryReadiness),
+    [symbolDiagnostics, selectedSymbol, entryReadiness]
   );
   const symbolDrilldown = useMemo(
     () => deriveSymbolDrilldown({
@@ -3001,15 +3065,16 @@ function OmniAppInner() {
       readiness: entryReadiness,
       tradePerformance,
       cryptoState: cryptoSymbolStateMap[selectedSymbol],
+      rankedMap,
+      performanceRowMap: tradePerformanceRowMap,
+      recentTradesBySymbol,
     }),
-    [selectedSymbol, status, tableDataBySymbol, entryReadiness, tradePerformance, cryptoSymbolStateMap]
+    [selectedSymbol, status, tableDataBySymbol, entryReadiness, tradePerformance, cryptoSymbolStateMap, rankedMap, tradePerformanceRowMap, recentTradesBySymbol]
   );
   const filteredTradingSymbols = useMemo(() => {
-    const symbols = Array.isArray(status.symbols) ? status.symbols : [];
-    return symbols.filter((symbol) => {
+    return symbolsList.filter((symbol) => {
       if (tradingViewFilter === 'all') return true;
-      const row = tableDataBySymbol[symbol];
-      const readiness = deriveEntryReadiness({ status, risk: status.risk, symbol, row });
+      const readiness = symbolDiagnostics.readinessMap[symbol];
       const isCrypto = String(symbol).includes('/');
       if (tradingViewFilter === 'ready') return readiness.score >= 78;
       if (tradingViewFilter === 'watch') return readiness.score >= 58 && readiness.score < 78;
@@ -3017,7 +3082,7 @@ function OmniAppInner() {
       if (tradingViewFilter === 'crypto') return isCrypto;
       return true;
     });
-  }, [status, tableDataBySymbol, tradingViewFilter]);
+  }, [symbolsList, tradingViewFilter, symbolDiagnostics]);
   const readinessSnapshotRef = React.useRef({});
   const sortedSurebets = useMemo(
     () => [...(status.active_surebets || [])].sort((a, b) => Number(b.profit_margin || 0) - Number(a.profit_margin || 0)),
@@ -3697,16 +3762,14 @@ function OmniAppInner() {
   }, [activeTab, userRole, signalHubConfig, loadSignalHubConfig]);
 
   useEffect(() => {
-    const symbols = Array.isArray(status.symbols) ? status.symbols : [];
-    if (!symbols.length) return;
+    if (!symbolsList.length) return;
 
     const nextSnapshot = {};
     const newAlerts = [];
 
-    symbols.forEach((symbol) => {
-      const row = tableDataBySymbol[symbol];
-      const readiness = deriveEntryReadiness({ status, risk: status.risk, symbol, row });
-      const headline = deriveEntryHeadline(readiness);
+    symbolsList.forEach((symbol) => {
+      const readiness = symbolDiagnostics.readinessMap[symbol];
+      const headline = symbolDiagnostics.headlineMap[symbol];
       const prev = readinessSnapshotRef.current[symbol];
       nextSnapshot[symbol] = { score: readiness.score, label: headline.label };
 
@@ -3753,7 +3816,7 @@ function OmniAppInner() {
     if (newAlerts.length) {
       setTradingAlerts((prev) => [...newAlerts, ...prev].slice(0, 12));
     }
-  }, [status, tableDataBySymbol]);
+  }, [symbolsList, symbolDiagnostics]);
 
   const completeAuthenticatedSession = (token, role = 'user', status = 'active', loginEmail = '') => {
     setIsAuthenticated(true);
@@ -5359,14 +5422,13 @@ function OmniAppInner() {
       );
     }
 
-    const headline = deriveEntryHeadline(entryReadiness);
+    const headline = selectedHeadline;
     const currentRow = tableDataBySymbol[selectedSymbol] || null;
     const currentPosition = status.positions?.[selectedSymbol];
-    const safeSymbols = Array.isArray(status.symbols) ? status.symbols : [];
-    const symbolIndex = safeSymbols.indexOf(selectedSymbol);
-    const prevSymbol = symbolIndex > 0 ? safeSymbols[symbolIndex - 1] : null;
-    const nextSymbol = symbolIndex >= 0 && symbolIndex < safeSymbols.length - 1 ? safeSymbols[symbolIndex + 1] : null;
-    const relatedSymbols = safeSymbols.filter((symbol) => symbol !== selectedSymbol).slice(0, 5);
+    const symbolIndex = symbolsList.indexOf(selectedSymbol);
+    const prevSymbol = symbolIndex > 0 ? symbolsList[symbolIndex - 1] : null;
+    const nextSymbol = symbolIndex >= 0 && symbolIndex < symbolsList.length - 1 ? symbolsList[symbolIndex + 1] : null;
+    const relatedSymbols = symbolsList.filter((symbol) => symbol !== selectedSymbol).slice(0, 5);
     const actionHeadline = currentPosition && currentPosition !== 'LIQUID'
       ? 'Posizione già aperta: qui la priorità è gestione, non ingresso.'
       : entryReadiness.score >= 78
@@ -5750,12 +5812,8 @@ function OmniAppInner() {
   const renderTradingView = () => (
     <div className="module-content module-content--trading">
       {(() => {
-        const tradingLogs = Array.isArray(status.logs) ? status.logs : [];
-        const logSummary = tradingLogs.reduce((acc, line) => {
-          const meta = classifyTradingLog(line);
-          acc[meta.category] = (acc[meta.category] || 0) + 1;
-          return acc;
-        }, {});
+        const tradingLogs = logsList;
+        const logSummary = tradingLogSummary;
         const summaryCards = [
           { key: 'setup', label: 'Setup trovati', value: logSummary.setup || 0, tone: '#22c55e' },
           { key: 'skip', label: 'Setup scartati', value: logSummary.skip || 0, tone: '#f59e0b' },
@@ -6101,8 +6159,8 @@ function OmniAppInner() {
           className="card trading-focus-card"
           style={{
             marginTop: '1rem',
-            border: `1px solid ${deriveEntryHeadline(entryReadiness).border}`,
-            background: deriveEntryHeadline(entryReadiness).bg,
+            border: `1px solid ${selectedHeadline.border}`,
+            background: selectedHeadline.bg,
           }}
         >
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
@@ -6115,16 +6173,16 @@ function OmniAppInner() {
             <div
               className="badge"
               style={{
-                color: deriveEntryHeadline(entryReadiness).tone,
-                borderColor: deriveEntryHeadline(entryReadiness).border,
+                color: selectedHeadline.tone,
+                borderColor: selectedHeadline.border,
                 background: 'rgba(0,0,0,0.18)',
               }}
             >
-              {deriveEntryHeadline(entryReadiness).label} · {entryReadiness.score}/100
+              {selectedHeadline.label} · {entryReadiness.score}/100
             </div>
           </div>
           <div style={{ marginTop: '0.9rem', color: '#e2e8f0', fontSize: '0.95rem', lineHeight: 1.5 }}>
-            {deriveEntryHeadline(entryReadiness).detail}
+            {selectedHeadline.detail}
           </div>
         </div>
       )}
@@ -7071,11 +7129,7 @@ function OmniAppInner() {
           {positionsEntries.length === 0 ? (
             <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>Nessuna posizione aperta. Il bot sta scansionando...</p>
           ) : (
-            positionsEntries.map(([sym, p]) => {
-              const symbolTableRow = tableDataBySymbol[sym];
-              const cryptoState = cryptoSymbolStateMap[sym];
-              const symbolReadiness = deriveEntryReadiness({ status, risk: status.risk, symbol: sym, row: symbolTableRow });
-              const symbolHeadline = deriveEntryHeadline(symbolReadiness);
+            positionReviewRows.map(({ sym, position: p, symbolTableRow, cryptoState, symbolReadiness, symbolHeadline }) => {
               return <div key={sym} style={{ display: 'flex', flexDirection: 'column', padding: '0.8rem', background: 'rgba(255,255,255,0.05)', borderRadius: '6px', marginBottom: '0.5rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap', fontWeight: 'bold' }}>
@@ -8494,8 +8548,7 @@ function OmniAppInner() {
   
   if (!isAuthenticated) {
 
-    const landingPlans = DEMO_BILLING_OVERVIEW.plans || [];
-    const selectedPlan = landingPlans.find((plan) => plan.id === selectedPlanId);
+    const selectedPlan = selectedPlanId ? landingPlanMap[selectedPlanId] || null : null;
     const landingTicker = [
       { market: 'BTC/USD', price: '$118,420', change: '+2.6%', direction: 'up' },
       { market: 'ETH/USD', price: '$6,180', change: '+1.9%', direction: 'up' },
