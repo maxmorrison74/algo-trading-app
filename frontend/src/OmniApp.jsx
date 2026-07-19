@@ -3065,12 +3065,13 @@ function OmniAppInner() {
             <span>💳</span> Effettua il Pagamento
           </h3>
           <p style={{ marginBottom: '1.5rem', fontSize: '0.9rem', color: 'var(--text-secondary)' }}>
-            Seleziona la criptovaluta, invia l'importo all'indirizzo indicato e inserisci qui il Transaction ID (TXID) per la verifica manuale.
+            Scegli il metodo di pagamento, invia l'importo al riferimento indicato e inserisci qui il riferimento della transazione per la verifica manuale.
           </p>
 
           <div className="form-group" style={{ marginBottom: '1rem' }}>
             <label>Metodo di Pagamento</label>
             <select value={selectedCrypto} onChange={(e) => setSelectedCrypto(e.target.value)} style={{ padding: '0.8rem', width: '100%' }}>
+              <option value="PAYPAL">PayPal</option>
               <option value="USDT">USDT (TRC20)</option>
               <option value="USDC">USDC (ERC20)</option>
               <option value="BTC">Bitcoin (BTC)</option>
@@ -3080,20 +3081,30 @@ function OmniAppInner() {
           </div>
 
           <div style={{ background: '#111', padding: '1rem', borderRadius: '8px', border: '1px solid #333', marginBottom: '1.5rem', wordBreak: 'break-all', fontSize: '0.9rem' }}>
-            <div style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.8rem', textTransform: 'uppercase' }}>Indirizzo di Deposito {selectedCrypto}</div>
+            <div style={{ color: 'var(--text-secondary)', marginBottom: '0.5rem', fontSize: '0.8rem', textTransform: 'uppercase' }}>
+              {selectedCrypto === 'PAYPAL' ? 'Account PayPal di pagamento' : `Indirizzo di Deposito ${selectedCrypto}`}
+            </div>
             <strong style={{ color: '#e2e8f0', userSelect: 'all' }}>
-              {selectedCrypto === 'BTC' ? 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' : 
+              {selectedCrypto === 'PAYPAL' ? 'info@maxmorrison.it' :
+               selectedCrypto === 'BTC' ? 'bc1qxy2kgdygjrsqtzq2n0yrf2493p83kkfjhx0wlh' : 
                selectedCrypto === 'ETH' || selectedCrypto === 'USDC' ? '0x71C7656EC7ab88b098defB751B7401B5f6d8976F' :
                selectedCrypto === 'SOL' ? 'HN7cABqLq46Es1jh92dQQisAq662SmxELLLsHHe4YWrH' :
                'TX9bF1BWeYdG4N6N1eR6fB8B5L6M7P8Q9R'}
             </strong>
+            <div style={{ color: '#94a3b8', marginTop: '0.65rem', fontSize: '0.8rem', lineHeight: 1.45 }}>
+              {selectedCrypto === 'PAYPAL'
+                ? 'Invia il pagamento PayPal a questo indirizzo email e poi inserisci qui sotto l’ID operazione o l’email usata per pagare.'
+                : 'Dopo l’invio, copia il riferimento della transazione e incollalo nel campo qui sotto.'}
+            </div>
           </div>
           
           <div className="form-group" style={{ marginBottom: '1.5rem' }}>
-            <label>Transaction ID (TXID)</label>
+            <label>{selectedCrypto === 'PAYPAL' ? 'ID operazione PayPal / Email di pagamento' : 'Transaction ID (TXID)'}</label>
             <input 
               type="text" 
-              placeholder="Es. f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16"
+              placeholder={selectedCrypto === 'PAYPAL'
+                ? 'Es. 7CX12345AB678901C oppure tuaemail@dominio.com'
+                : 'Es. f4184fc596403b9d638783cf57adfe4c75c605f6356fbc91338530e9831e9e16'}
               value={txid}
               onChange={(e) => setTxid(e.target.value)}
               style={{ width: '100%', padding: '0.8rem' }}
