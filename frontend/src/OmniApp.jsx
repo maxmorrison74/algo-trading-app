@@ -933,6 +933,10 @@ const deriveSymbolDrilldown = ({ symbol = '', status = {}, row = null, readiness
   const recentTrades = (tradePerformance?.recentTrades || []).filter((item) => item.symbol === symbol).slice(0, 4);
   const metrics = parsePredictionMetrics(row?.prediction || '');
   const headline = deriveEntryHeadline(readiness);
+  const rankedRows = Array.isArray(status?.symbol_selection?.ranked) ? status.symbol_selection.ranked : [];
+  const rankedRow = rankedRows.find((item) => item?.symbol === symbol) || null;
+  const regime = rankedRow?.regime || null;
+  const playbookFit = rankedRow?.playbook_fit || null;
 
   return {
     symbol,
@@ -944,6 +948,17 @@ const deriveSymbolDrilldown = ({ symbol = '', status = {}, row = null, readiness
     tradeRow,
     recentTrades,
     cryptoState,
+    regime,
+    playbookFit,
+  };
+};
+
+const getRegimeBadgeStyle = (regime) => {
+  const tone = regime?.tone || '#64748b';
+  return {
+    color: tone,
+    border: `1px solid ${tone}55`,
+    background: `${tone}18`,
   };
 };
 
@@ -2745,6 +2760,8 @@ function OmniAppInner() {
   const cryptoEngineDetails = useMemo(() => deriveCryptoEngineDetails(status), [status]);
   const cryptoSymbolStates = useMemo(() => deriveCryptoSymbolStates(status), [status]);
   const cryptoSymbolStateMap = useMemo(() => getCryptoSymbolStateMap(status), [status]);
+  const strategyPlaybook = useMemo(() => status.strategy_playbook || { active: null, catalog: [] }, [status.strategy_playbook]);
+  const exitLadder = useMemo(() => status.exit_ladder || {}, [status.exit_ladder]);
   const tradePerformance = useMemo(() => deriveTradePerformance(status.trade_history || []), [status.trade_history]);
   const topOpportunities = useMemo(
     () => deriveTopOpportunities({ status, risk: status.risk, tableDataBySymbol }),
@@ -4992,6 +5009,7 @@ function OmniAppInner() {
     const reviewMetrics = [
       { label: 'Readiness', value: `${entryReadiness.score}/100`, tone: headline.tone },
       { label: 'Sentiment', value: symbolDrilldown.sentiment || 'NEUTRAL', tone: symbolDrilldown.sentiment === 'BULLISH' ? '#10b981' : symbolDrilldown.sentiment === 'BEARISH' ? '#ef4444' : '#94a3b8' },
+      { label: 'Regime', value: symbolDrilldown.regime?.label || 'Unknown', tone: symbolDrilldown.regime?.tone || '#94a3b8' },
       { label: 'P&L storico', value: symbolDrilldown.tradeRow ? `${symbolDrilldown.tradeRow.totalPnl >= 0 ? '+' : ''}$${symbolDrilldown.tradeRow.totalPnl.toFixed(2)}` : 'Nessun trade chiuso', tone: symbolDrilldown.tradeRow ? (symbolDrilldown.tradeRow.totalPnl >= 0 ? '#10b981' : '#ef4444') : '#94a3b8' },
       { label: 'Posizione', value: currentPosition && currentPosition !== 'LIQUID' ? (currentPosition.side === 'short' ? 'Short live' : 'Long live') : 'Flat / Watch', tone: currentPosition && currentPosition !== 'LIQUID' ? '#10b981' : '#38bdf8' },
     ];
@@ -5052,6 +5070,24 @@ function OmniAppInner() {
             </div>
             <div style={{ color: 'var(--text-secondary)', lineHeight: 1.55 }}>
               {headline.detail}
+            </div>
+            <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', marginTop: '0.85rem' }}>
+              {symbolDrilldown.regime && (
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', padding: '0.3rem 0.65rem', borderRadius: '999px', ...getRegimeBadgeStyle(symbolDrilldown.regime) }}>
+                  <span style={{ width: 8, height: 8, borderRadius: '50%', background: symbolDrilldown.regime.tone }}></span>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 800, letterSpacing: '0.06em', textTransform: 'uppercase' }}>{symbolDrilldown.regime.label}</span>
+                </div>
+              )}
+              {strategyPlaybook?.active?.label && (
+                <div className="badge" style={{ color: '#38bdf8', borderColor: 'rgba(56,189,248,0.3)', background: 'rgba(56,189,248,0.12)' }}>
+                  Playbook · {strategyPlaybook.active.label}
+                </div>
+              )}
+              {symbolDrilldown.playbookFit && (
+                <div className="badge" style={{ color: '#f8fafc', borderColor: 'rgba(255,255,255,0.14)', background: 'rgba(255,255,255,0.05)' }}>
+                  Fit {Number(symbolDrilldown.playbookFit.score || 0).toFixed(0)}/100
+                </div>
+              )}
             </div>
             <div className="symbol-review-metrics" style={{ marginTop: '1rem' }}>
               {symbolStatusKpis.map((item) => (
@@ -5158,6 +5194,12 @@ function OmniAppInner() {
                 <span>Prediction</span>
                 <strong>{currentRow?.prediction || 'n/d'}</strong>
               </div>
+              {symbolDrilldown.regime && (
+                <div className="symbol-review-diagnosis-item">
+                  <span>Regime story</span>
+                  <strong>{symbolDrilldown.regime.summary}</strong>
+                </div>
+              )}
               {symbolDrilldown.cryptoState && (
                 <div className="symbol-review-diagnosis-item">
                   <span>Crypto state</span>
@@ -5738,6 +5780,134 @@ function OmniAppInner() {
       )}
 
 
+      <div className="dashboard-grid" style={{ marginTop: '1.6rem', marginBottom: '1.4rem' }}>
+        <div className="card col-span-7" style={{ border: '1px solid rgba(56, 189, 248, 0.22)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <div>
+              <div className="card-title">Strategy Playbooks</div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Aureo cambia carattere operativo in base al profilo che vuoi privilegiare.
+              </div>
+            </div>
+            {strategyPlaybook?.active && (
+              <div className="badge" style={{ color: '#38bdf8', borderColor: 'rgba(56,189,248,0.35)', background: 'rgba(56,189,248,0.12)' }}>
+                {strategyPlaybook.active.label}
+              </div>
+            )}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.8rem' }}>
+            {(strategyPlaybook.catalog || []).map((playbook) => (
+              <button
+                key={playbook.id}
+                type="button"
+                onClick={async () => {
+                  const res = await authFetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ strategy_playbook: playbook.id })
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    setStatus((prev) => ({
+                      ...prev,
+                      strategy_playbook: data.strategy_playbook,
+                      symbol_selection: data.symbol_selection || prev.symbol_selection,
+                    }));
+                  }
+                }}
+                className="btn"
+                style={{
+                  textAlign: 'left',
+                  minHeight: 'unset',
+                  padding: '0.95rem 1rem',
+                  border: playbook.active ? '1px solid rgba(16,185,129,0.45)' : '1px solid rgba(255,255,255,0.08)',
+                  background: playbook.active ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
+                  boxShadow: playbook.active ? '0 0 0 1px rgba(16,185,129,0.18) inset' : 'none',
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
+                  <strong style={{ color: '#f8fafc', fontSize: '0.98rem' }}>{playbook.label}</strong>
+                  {playbook.active && <span style={{ color: '#10b981', fontSize: '0.76rem', fontWeight: 800 }}>LIVE</span>}
+                </div>
+                <div style={{ color: '#cbd5e1', fontSize: '0.82rem', marginTop: '0.45rem', lineHeight: 1.45 }}>
+                  {playbook.headline}
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.76rem', marginTop: '0.55rem', lineHeight: 1.45 }}>
+                  Ideale per: {(playbook.best_for || []).join(' • ')}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="card col-span-5" style={{ border: '1px solid rgba(16, 185, 129, 0.22)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <div>
+              <div className="card-title">Smart Exit Ladder</div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Parziale, break-even e trailing attivati in sequenza.
+              </div>
+            </div>
+            <div className={`badge ${exitLadder.enabled ? 'badge-active' : 'badge-idle'}`} style={{ fontSize: '0.8rem' }}>
+              {exitLadder.enabled ? 'ARMED' : 'MANUAL'}
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: '0.65rem' }}>
+            {[
+              ['Partial take profit', `${Number(exitLadder.partial_take_profit_pct || 0).toFixed(1)}% · scarica ${Number(exitLadder.partial_take_profit_share_pct || 0).toFixed(0)}%`],
+              ['Break-even arm', `${Number(exitLadder.breakeven_trigger_pct || 0).toFixed(1)}% · buffer ${Number(exitLadder.breakeven_buffer_pct || 0).toFixed(1)}%`],
+              ['Trailing arm', `${Number(exitLadder.trailing_activation_pct || 0).toFixed(1)}% · loose ${Number(exitLadder.trailing_loose_pct || 0).toFixed(1)}% / tight ${Number(exitLadder.trailing_tight_pct || 0).toFixed(1)}%`],
+              ['Hard stop', `${Number(exitLadder.hard_stop_loss_pct || 0).toFixed(1)}%`],
+            ].map(([label, value]) => (
+              <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', padding: '0.7rem 0.8rem', background: 'rgba(255,255,255,0.03)', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.05)' }}>
+                <span style={{ color: '#cbd5e1', fontSize: '0.82rem' }}>{label}</span>
+                <strong style={{ color: '#10b981', fontSize: '0.82rem', textAlign: 'right' }}>{value}</strong>
+              </div>
+            ))}
+          </div>
+          <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', marginTop: '0.9rem' }}>
+            {[
+              {
+                id: 'soft',
+                label: 'Soft',
+                payload: { enabled: true, partial_take_profit_pct: 4.0, partial_take_profit_share_pct: 30, breakeven_trigger_pct: 1.5, breakeven_buffer_pct: 0.2, trailing_activation_pct: 2.5, trailing_loose_pct: 1.8, trailing_tight_pct: 1.0, hard_stop_loss_pct: 5.5 }
+              },
+              {
+                id: 'balanced',
+                label: 'Balanced',
+                payload: { enabled: true, partial_take_profit_pct: 3.0, partial_take_profit_share_pct: 35, breakeven_trigger_pct: 1.2, breakeven_buffer_pct: 0.2, trailing_activation_pct: 2.0, trailing_loose_pct: 1.5, trailing_tight_pct: 0.8, hard_stop_loss_pct: 5.0 }
+              },
+              {
+                id: 'tight',
+                label: 'Tight',
+                payload: { enabled: true, partial_take_profit_pct: 2.2, partial_take_profit_share_pct: 40, breakeven_trigger_pct: 0.9, breakeven_buffer_pct: 0.15, trailing_activation_pct: 1.4, trailing_loose_pct: 1.1, trailing_tight_pct: 0.6, hard_stop_loss_pct: 4.0 }
+              },
+            ].map((preset) => (
+              <button
+                key={preset.id}
+                type="button"
+                className="btn"
+                style={{ padding: '0.55rem 0.85rem', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}
+                onClick={async () => {
+                  const res = await authFetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ exit_ladder: preset.payload })
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    setStatus((prev) => ({ ...prev, exit_ladder: data.exit_ladder }));
+                  }
+                }}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* MANUAL TRADING TERMINAL */}
       <div className="card trading-manual-card" style={{ marginTop: '2rem', marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
         <h3 style={{ margin: '0 0 1rem 0', color: '#10b981', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -6217,11 +6387,24 @@ function OmniAppInner() {
                     }}
                   >
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                      <SymbolLinkButton symbol={row.symbol} onOpen={() => openSymbolReview(row.symbol, 'trading')} variant="inline" style={{ color: '#e2e8f0', fontWeight: 'bold', padding: 0 }}>
-                        {row.symbol}
-                      </SymbolLinkButton>
-                      <div style={{ color: '#06b6d4', fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                        {row.score == null ? 'crypto core' : `score ${Number(row.score || 0).toFixed(3)}`}
+                      <div style={{ display: 'grid', gap: '0.35rem' }}>
+                        <SymbolLinkButton symbol={row.symbol} onOpen={() => openSymbolReview(row.symbol, 'trading')} variant="inline" style={{ color: '#e2e8f0', fontWeight: 'bold', padding: 0 }}>
+                          {row.symbol}
+                        </SymbolLinkButton>
+                        {row.regime && (
+                          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', width: 'fit-content', padding: '0.16rem 0.45rem', borderRadius: '999px', ...getRegimeBadgeStyle(row.regime) }}>
+                            <span style={{ width: 7, height: 7, borderRadius: '50%', background: row.regime.tone }}></span>
+                            <span style={{ fontSize: '0.72rem', fontWeight: 800, letterSpacing: '0.05em', textTransform: 'uppercase' }}>{row.regime.label}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ color: '#06b6d4', fontFamily: 'monospace', fontSize: '0.8rem', textAlign: 'right' }}>
+                        <div>{row.score == null ? 'crypto core' : `score ${Number(row.score || 0).toFixed(3)}`}</div>
+                        {row.playbook_fit && (
+                          <div style={{ color: '#94a3b8', fontSize: '0.72rem', marginTop: '0.2rem' }}>
+                            fit {Number(row.playbook_fit.score || 0).toFixed(0)}/100
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '0.25rem' }}>

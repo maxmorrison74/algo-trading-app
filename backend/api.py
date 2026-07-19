@@ -264,6 +264,164 @@ SYMBOL_RANK_CACHE_TTL_SECONDS = 300
 CRITICAL_ALERT_CACHE = {}
 symbol_rank_cache = {"expires_at": 0.0, "max_symbols": 0, "result": ([], [])}
 
+PLAYBOOK_LIBRARY = {
+    "adaptive": {
+        "label": "Adaptive Core",
+        "headline": "Aureo sceglie il profilo operativo più adatto al contesto.",
+        "description": "Bilancia trend, breakout e difesa. È la modalità più completa per uso quotidiano.",
+        "best_for": ["watchlist dinamica", "portafoglio misto", "uso quotidiano"],
+        "regime_bias": ["trend", "breakout", "balanced", "pullback"],
+    },
+    "breakout": {
+        "label": "Breakout Hunter",
+        "headline": "Aggredisce espansioni pulite e rotture confermate.",
+        "description": "Priorità a simboli vicini ai massimi con momentum e volatilità in espansione.",
+        "best_for": ["nuovi massimi", "compressioni", "accelerazioni"],
+        "regime_bias": ["breakout", "trend"],
+    },
+    "trend": {
+        "label": "Trend Rider",
+        "headline": "Segue la forza finché il mercato continua a premiarla.",
+        "description": "Cerca continuità, pulizia del trend e gestione progressiva del rischio.",
+        "best_for": ["trend maturi", "swing lineari", "follow-through"],
+        "regime_bias": ["trend", "balanced"],
+    },
+    "dip": {
+        "label": "Dip Accumulator",
+        "headline": "Compra debolezza controllata senza inseguire il prezzo.",
+        "description": "Più paziente: predilige pullback ordinati dentro strutture ancora sane.",
+        "best_for": ["pullback", "supporti", "mercati nervosi"],
+        "regime_bias": ["pullback", "balanced"],
+    },
+    "rebalance": {
+        "label": "Rebalance Flow",
+        "headline": "Redistribuisce capitale con ordine e disciplina di peso.",
+        "description": "Modalità più prudente, utile per portafogli multi-posizione e gestione stabile.",
+        "best_for": ["rotazione", "conti stabili", "governo del rischio"],
+        "regime_bias": ["balanced", "range"],
+    },
+}
+
+DEFAULT_PLAYBOOK_ID = "adaptive"
+DEFAULT_EXIT_LADDER = {
+    "enabled": True,
+    "partial_take_profit_pct": 3.0,
+    "partial_take_profit_share_pct": 35.0,
+    "breakeven_trigger_pct": 1.2,
+    "breakeven_buffer_pct": 0.2,
+    "trailing_activation_pct": 2.0,
+    "trailing_loose_pct": 1.5,
+    "trailing_tight_pct": 0.8,
+    "hard_stop_loss_pct": 5.0,
+}
+
+
+def normalize_playbook_id(playbook_id: Optional[str]) -> str:
+    candidate = str(playbook_id or DEFAULT_PLAYBOOK_ID).strip().lower()
+    return candidate if candidate in PLAYBOOK_LIBRARY else DEFAULT_PLAYBOOK_ID
+
+
+def build_playbook_snapshot(playbook_id: Optional[str]):
+    selected_id = normalize_playbook_id(playbook_id)
+    catalog = []
+    for key, config in PLAYBOOK_LIBRARY.items():
+        catalog.append({
+            "id": key,
+            "active": key == selected_id,
+            **config,
+        })
+    return {
+        "active_id": selected_id,
+        "active": {"id": selected_id, **PLAYBOOK_LIBRARY[selected_id]},
+        "catalog": catalog,
+    }
+
+
+def ensure_exit_ladder_config(raw_config):
+    config = dict(DEFAULT_EXIT_LADDER)
+    if isinstance(raw_config, dict):
+        config.update(raw_config)
+    normalized = {
+        "enabled": bool(config.get("enabled", True)),
+        "partial_take_profit_pct": round(max(0.5, min(float(config.get("partial_take_profit_pct", 3.0) or 3.0), 20.0)), 2),
+        "partial_take_profit_share_pct": round(max(5.0, min(float(config.get("partial_take_profit_share_pct", 35.0) or 35.0), 80.0)), 2),
+        "breakeven_trigger_pct": round(max(0.2, min(float(config.get("breakeven_trigger_pct", 1.2) or 1.2), 10.0)), 2),
+        "breakeven_buffer_pct": round(max(0.0, min(float(config.get("breakeven_buffer_pct", 0.2) or 0.2), 3.0)), 2),
+        "trailing_activation_pct": round(max(0.5, min(float(config.get("trailing_activation_pct", 2.0) or 2.0), 15.0)), 2),
+        "trailing_loose_pct": round(max(0.2, min(float(config.get("trailing_loose_pct", 1.5) or 1.5), 10.0)), 2),
+        "trailing_tight_pct": round(max(0.2, min(float(config.get("trailing_tight_pct", 0.8) or 0.8), 5.0)), 2),
+        "hard_stop_loss_pct": round(max(0.5, min(float(config.get("hard_stop_loss_pct", 5.0) or 5.0), 20.0)), 2),
+    }
+    if normalized["trailing_tight_pct"] > normalized["trailing_loose_pct"]:
+        normalized["trailing_tight_pct"] = normalized["trailing_loose_pct"]
+    if normalized["trailing_activation_pct"] < normalized["breakeven_trigger_pct"]:
+        normalized["trailing_activation_pct"] = normalized["breakeven_trigger_pct"]
+    return normalized
+
+
+def classify_regime_for_row(row: Optional[dict], is_crypto: bool = False):
+    if not isinstance(row, dict):
+        return {
+            "id": "unknown",
+            "label": "Unknown",
+            "tone": "#64748b",
+            "summary": "Ancora nessun regime disponibile.",
+        }
+    if is_crypto:
+        return {
+            "id": "crypto_core",
+            "label": "Crypto Core",
+            "tone": "#8b5cf6",
+            "summary": "Asset crypto mantenuto attivo come nucleo osservato.",
+        }
+
+    breakout = float(row.get("distance_to_breakout", 1.0) or 1.0)
+    momentum_5d = float(row.get("momentum_5d", 0.0) or 0.0)
+    momentum_20d = float(row.get("momentum_20d", 0.0) or 0.0)
+    atr_percent = float(row.get("atr_percent", 0.0) or 0.0)
+    trend_strength = float(row.get("trend_strength", 0.0) or 0.0)
+    positive_ratio = float(row.get("positive_days_ratio", 0.5) or 0.5)
+
+    if breakout >= 0.985 and momentum_5d > 0.03 and atr_percent >= 0.025:
+        return {
+            "id": "breakout",
+            "label": "Breakout",
+            "tone": "#22c55e",
+            "summary": "Compressione matura con spazio per espansione e accelerazione.",
+        }
+    if momentum_20d > 0.12 and trend_strength > 0.04 and positive_ratio >= 0.58:
+        return {
+            "id": "trend",
+            "label": "Trend",
+            "tone": "#06b6d4",
+            "summary": "Forza persistente e struttura direzionale già ben leggibile.",
+        }
+    if momentum_20d > 0.03 and momentum_5d < 0.02 and breakout < 0.965:
+        return {
+            "id": "pullback",
+            "label": "Pullback",
+            "tone": "#f59e0b",
+            "summary": "Rientro ordinato dentro una struttura ancora costruttiva.",
+        }
+    return {
+        "id": "balanced",
+        "label": "Balanced",
+        "tone": "#94a3b8",
+        "summary": "Struttura mista: serve disciplina più che aggressione.",
+    }
+
+
+def playbook_fit_score(playbook_id: str, regime_id: str):
+    playbook = PLAYBOOK_LIBRARY.get(normalize_playbook_id(playbook_id), PLAYBOOK_LIBRARY[DEFAULT_PLAYBOOK_ID])
+    biases = playbook.get("regime_bias", [])
+    if regime_id in biases:
+        return 93
+    if playbook_id == "adaptive":
+        return 88
+    if regime_id in {"balanced", "pullback"} and playbook_id in {"dip", "rebalance"}:
+        return 82
+    return 68
+
 def get_db_file(user_id=None):
     if not user_id or user_id == "admin":
         return f"{DB_FILE_PREFIX}.json"
@@ -288,6 +446,8 @@ def load_db(user_id=None):
             "aggressiveness": 55.0,
             "modules": {"trading": False, "sports_arb": False, "ai_content": False},
             "dynamic_atr_stop": True,
+            "strategy_playbook": DEFAULT_PLAYBOOK_ID,
+            "exit_ladder": dict(DEFAULT_EXIT_LADDER),
             "trailing_stop_base_pct": 2.5,
             "telegram_alerts_enabled": True,
             "pushover_alerts_enabled": True,
@@ -655,6 +815,7 @@ def rank_stock_universe(max_symbols: int = 7):
             f"breakout={row['distance_to_breakout']*100:.1f}% 20d high | "
             f"gap={row['avg_gap_20d']*100:.1f}%"
         )
+        row["regime"] = classify_regime_for_row(row, is_crypto=False)
 
     ranked_rows.sort(key=lambda row: row["score"], reverse=True)
 
@@ -691,11 +852,13 @@ def rank_stock_universe(max_symbols: int = 7):
     return result
 
 
-def refresh_target_symbols(max_symbols: int = 7):
+def refresh_target_symbols(max_symbols: int = 7, state_override=None):
+    target_state = state_override or bot_state
     min_crypto = min(MIN_CRYPTO_WATCHLIST, max_symbols)
     stock_slots = max(0, max_symbols - min_crypto)
 
     selected_symbols, ranked_rows = rank_stock_universe(max_symbols=stock_slots)
+    playbook_id = normalize_playbook_id(getattr(target_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID))
 
     crypto_symbols = PREFERRED_CRYPTO_SYMBOLS[:min_crypto]
     crypto_rows = [
@@ -704,9 +867,22 @@ def refresh_target_symbols(max_symbols: int = 7):
             "price": None,
             "score": None,
             "selection_reason": "Crypto core mantenuta sempre attiva in watchlist",
+            "regime": classify_regime_for_row({}, is_crypto=True),
+            "playbook_fit": {
+                "playbook_id": playbook_id,
+                "score": playbook_fit_score(playbook_id, "crypto_core"),
+            },
         }
         for symbol in crypto_symbols
     ]
+
+    for row in ranked_rows:
+        regime = row.get("regime") or classify_regime_for_row(row, is_crypto=False)
+        row["regime"] = regime
+        row["playbook_fit"] = {
+            "playbook_id": playbook_id,
+            "score": playbook_fit_score(playbook_id, regime["id"]),
+        }
 
     combined_symbols = list(dict.fromkeys((selected_symbols or []) + crypto_symbols))
     combined_ranked_rows = ranked_rows + crypto_rows
@@ -714,14 +890,15 @@ def refresh_target_symbols(max_symbols: int = 7):
     if not combined_symbols:
         combined_symbols = DEFAULT_TARGET_SYMBOLS[:max_symbols]
 
-    bot_state.target_symbols = combined_symbols[:max_symbols]
-    bot_state.symbol_selection = {
+    target_state.target_symbols = combined_symbols[:max_symbols]
+    target_state.symbol_selection = {
         "updated_at": datetime.now().isoformat(),
         "method": "momentum_liquidity_volatility_plus_crypto_core",
+        "playbook_id": playbook_id,
         "ranked": combined_ranked_rows[:max_symbols],
     }
-    bot_state.save_state()
-    return bot_state.target_symbols
+    target_state.save_state()
+    return target_state.target_symbols
 
 def get_yf_symbol(symbol):
     """Converte simboli Alpaca in simboli Yahoo Finance."""
@@ -753,6 +930,8 @@ class BotState:
         self.auto_bet_enabled = db_data.get("auto_bet_enabled", False)
         self.auto_bet_threshold = db_data.get("auto_bet_threshold", 10.0)
         self.symbol_selection = db_data.get("symbol_selection", {"method": "static_default", "ranked": []})
+        self.strategy_playbook = normalize_playbook_id(db_data.get("strategy_playbook", DEFAULT_PLAYBOOK_ID))
+        self.exit_ladder = ensure_exit_ladder_config(db_data.get("exit_ladder", DEFAULT_EXIT_LADDER))
         self.dynamic_atr_stop = db_data.get("dynamic_atr_stop", True)
         self.trailing_stop_base_pct = db_data.get("trailing_stop_base_pct", 2.5)
         self.telegram_alerts_enabled = db_data.get("telegram_alerts_enabled", True)
@@ -829,6 +1008,8 @@ class BotState:
             "modules": self.modules,
             "target_symbols": self.target_symbols,
             "symbol_selection": self.symbol_selection,
+            "strategy_playbook": self.strategy_playbook,
+            "exit_ladder": self.exit_ladder,
             "dynamic_atr_stop": self.dynamic_atr_stop,
             "trailing_stop_base_pct": self.trailing_stop_base_pct,
             "telegram_alerts_enabled": self.telegram_alerts_enabled,
@@ -1041,11 +1222,6 @@ def _send_telegram_trade(event: str, symbol: str, qty: float, price: float,
 
 def _auto_exit_loop():
     """Loop background: monitora le posizioni aperte e vende con trailing stop / target price."""
-    # Gestione dinamica del Trailing Stop: 
-    # Meno profitto = stop più largo (-1.5%). Più profitto = stop stretto (-0.8%)
-    BASE_TRAILING_DROP  = 0.015   
-    TIGHT_TRAILING_DROP = 0.008
-    STOP_LOSS      = 0.05    # sell if drops 5% from buy
     CHECK_INTERVAL = 3       # seconds between checks (ULTRA FAST)
     MAX_HISTORY    = 50      # max price history points per position
 
@@ -1060,6 +1236,7 @@ def _auto_exit_loop():
                 amount     = pos["amount"]
                 peak_price = pos.get("peak_price", buy_price)
                 target_price = pos.get("target_price", None)
+                exit_ladder = ensure_exit_ladder_config(getattr(bot_state, "exit_ladder", DEFAULT_EXIT_LADDER))
 
                 current_price = _fetch_ccxt_price(symbol)
                 if current_price <= 0:
@@ -1087,27 +1264,70 @@ def _auto_exit_loop():
                 should_sell  = False
                 sell_reason  = ""
                 is_trailing  = False
+                partial_executed = False
 
-                # Gestione trailing dinamico
-                current_trailing = TIGHT_TRAILING_DROP if profit_pct > 0.05 else BASE_TRAILING_DROP
+                current_trailing = exit_ladder["trailing_tight_pct"] / 100 if profit_pct > 0.05 else exit_ladder["trailing_loose_pct"] / 100
+                breakeven_trigger = exit_ladder["breakeven_trigger_pct"] / 100
+                breakeven_buffer = exit_ladder["breakeven_buffer_pct"] / 100
+                trailing_activation = exit_ladder["trailing_activation_pct"] / 100
+                partial_take_profit = exit_ladder["partial_take_profit_pct"] / 100
+                hard_stop_loss = exit_ladder["hard_stop_loss_pct"] / 100
+
+                if exit_ladder["enabled"]:
+                    if profit_pct >= breakeven_trigger and not pos.get("breakeven_armed"):
+                        pos["breakeven_armed"] = True
+                        pos["stop_floor_price"] = round(buy_price * (1 + breakeven_buffer), 8)
+                        bot_state.high_risk_arb_logs.insert(0, f"[{datetime.now().strftime('%H:%M:%S')}] 🧷 BREAK-EVEN armato su {symbol} @ ${pos['stop_floor_price']:.8f}")
+
+                    if (
+                        profit_pct >= partial_take_profit
+                        and not pos.get("partial_taken")
+                        and qty > 0
+                    ):
+                        partial_ratio = max(0.05, min(exit_ladder["partial_take_profit_share_pct"] / 100, 0.8))
+                        partial_qty = round(qty * partial_ratio, 6)
+                        if partial_qty > 0 and partial_qty < qty:
+                            partial_value = partial_qty * current_price
+                            partial_cost = amount * partial_ratio
+                            partial_profit = partial_value - partial_cost
+                            pos["qty"] = round(qty - partial_qty, 6)
+                            pos["amount"] = round(max(amount - partial_cost, 0.0), 8)
+                            pos["partial_taken"] = True
+                            pos["partial_taken_at"] = datetime.now().strftime("%H:%M:%S")
+                            bot_state.virtual_cash += partial_value
+                            partial_executed = True
+                            log_msg = (
+                                f"[{datetime.now().strftime('%H:%M:%S')}] "
+                                f"🪜 PARTIAL TAKE PROFIT {symbol} {partial_qty:.4f} @ ${current_price:.8f} "
+                                f"(+{profit_pct*100:.2f}% | realized {partial_profit:+.2f}$)"
+                            )
+                            bot_state.high_risk_arb_logs.insert(0, log_msg)
+                            bot_state.add_log(log_msg)
 
                 # 1) Target price raggiunto
                 if target_price and current_price >= target_price:
                     should_sell = True
                     sell_reason = f"🎯 TARGET RAGGIUNTO: ${target_price:.8f}"
 
-                # 2) Trailing stop dinamico
-                elif profit_pct > 0 and drop_from_peak >= current_trailing:
+                # 2) Break-even difensivo dopo attivazione
+                elif pos.get("breakeven_armed") and pos.get("stop_floor_price") and current_price <= pos["stop_floor_price"]:
+                    should_sell = True
+                    sell_reason = f"🧷 BREAK-EVEN DEFENSE: ritorno a ${pos['stop_floor_price']:.8f}"
+
+                # 3) Trailing stop dinamico attivato solo dopo profitto minimo
+                elif profit_pct >= trailing_activation and drop_from_peak >= current_trailing:
                     should_sell = True
                     is_trailing = True
                     sell_reason = f"🔔 TRAILING STOP DINAMICO (-{current_trailing*100:.1f}%): -{drop_from_peak*100:.1f}% dal picco (+{profit_pct*100:.1f}%)"
 
-                # 3) Hard stop loss
-                elif profit_pct <= -STOP_LOSS:
+                # 4) Hard stop loss
+                elif profit_pct <= -hard_stop_loss:
                     should_sell = True
                     sell_reason = f"🛡️ STOP LOSS: -{abs(profit_pct)*100:.1f}% dal prezzo d'acquisto"
 
                 if should_sell:
+                    qty = pos["qty"]
+                    amount = pos["amount"]
                     realized_value  = qty * current_price
                     realized_profit = realized_value - amount
                     bot_state.virtual_cash += realized_value
@@ -1169,11 +1389,14 @@ def _auto_exit_loop():
                     bot_state.save_state()
 
                 else:
+                    if partial_executed:
+                        bot_state.save_state()
                     log_snap = (
                         f"[{datetime.now().strftime('%H:%M:%S')}] "
                         f"👁️ {symbol} @ ${current_price:.8f} "
                         f"P&L: {profit_pct*100:+.2f}% | picco: ${peak_price:.8f}"
                         + (f" | 🎯 target: ${target_price:.8f}" if target_price else "")
+                        + (" | 🪜 partial presa" if pos.get("partial_taken") else "")
                     )
                     bot_state.high_risk_arb_logs.insert(0, log_snap)
                     if len(bot_state.high_risk_arb_logs) > 100:
@@ -1365,6 +1588,8 @@ def get_status(user_id="admin", scope: str = "core"):
             "modules": bot_state.modules,
             "auto_bet_enabled": bot_state.auto_bet_enabled,
             "auto_bet_threshold": bot_state.auto_bet_threshold,
+            "strategy_playbook": build_playbook_snapshot(getattr(bot_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID)),
+            "exit_ladder": ensure_exit_ladder_config(getattr(bot_state, "exit_ladder", DEFAULT_EXIT_LADDER)),
             "dynamic_atr_stop": getattr(bot_state, "dynamic_atr_stop", True),
             "trailing_stop_base_pct": getattr(bot_state, "trailing_stop_base_pct", 2.5),
             "runtime_health": build_runtime_health_snapshot(bot_state),
@@ -1970,7 +2195,7 @@ def start_bot(_: str = Depends(require_admin)):
     if not alpaca_engine: raise HTTPException(status_code=500, detail="Alpaca non configurata")
     if not bot_state.is_running:
         try:
-            selected = refresh_target_symbols(max_symbols=7)
+            selected = refresh_target_symbols(max_symbols=7, state_override=bot_state)
             bot_state.add_log(f"🎯 Watchlist aggiornata: {', '.join(selected)}")
         except Exception as e:
             bot_state.add_log(f"⚠️ Ranking watchlist fallito, uso fallback: {e}")
@@ -1991,12 +2216,32 @@ async def update_config(config: dict, user: dict = Depends(require_user)):
     if config.get("refresh_symbols"):
         symbol_count = int(config.get("symbol_count", 7))
         symbol_count = max(3, min(symbol_count, 12))
-        selected = refresh_target_symbols(max_symbols=symbol_count)
+        selected = refresh_target_symbols(max_symbols=symbol_count, state_override=u_state)
         u_state.add_log(f"🎯 Nuova selezione titoli: {', '.join(selected)}")
         return {
             "message": "Watchlist aggiornata",
             "symbols": selected,
             "symbol_selection": u_state.symbol_selection,
+        }
+    if "strategy_playbook" in config:
+        u_state.strategy_playbook = normalize_playbook_id(config.get("strategy_playbook"))
+        try:
+            refresh_target_symbols(max_symbols=len(getattr(u_state, "target_symbols", []) or []) or 7, state_override=u_state)
+        except Exception:
+            pass
+        u_state.add_log(f"🧭 Playbook operativo impostato su {PLAYBOOK_LIBRARY[u_state.strategy_playbook]['label']}")
+        return {
+            "message": "Playbook aggiornato",
+            "strategy_playbook": build_playbook_snapshot(u_state.strategy_playbook),
+            "symbol_selection": u_state.symbol_selection,
+        }
+    if "exit_ladder" in config:
+        u_state.exit_ladder = ensure_exit_ladder_config(config.get("exit_ladder"))
+        u_state.save_state()
+        u_state.add_log("🪜 Smart Exit Ladder aggiornata")
+        return {
+            "message": "Exit ladder aggiornata",
+            "exit_ladder": u_state.exit_ladder,
         }
     return {"error": "Parametri non validi"}
 
