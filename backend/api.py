@@ -3572,6 +3572,8 @@ def get_saas_overview_db(admin_token: str = Depends(require_admin)):
             "email": u["email"],
             "status": u["status"],
             "role": u["role"],
+            "email_verified": bool(u.get("email_verified_at")),
+            "email_verified_at": u.get("email_verified_at"),
             "next_billing_at": sub_expires or "N/A",
             "monthly_amount": 99,
             "created_at": u.get("created_at"),

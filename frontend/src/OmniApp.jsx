@@ -6861,6 +6861,7 @@ function OmniAppInner() {
                   <tr>
                     <th>Email</th>
                     <th>Status</th>
+                    <th>Email</th>
                     <th>Pagamento</th>
                     <th>Scadenza</th>
                     <th>Azioni</th>
@@ -6877,6 +6878,25 @@ function OmniAppInner() {
                         {user.status === 'active' && user.is_paid && <span className="badge badge-active" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid #10b981' }}>ATTIVO</span>}
                         {user.status === 'active' && !user.is_paid && <span className="badge badge-idle" style={{ background: 'rgba(148,163,184,0.12)', color: '#94a3b8', border: '1px solid #475569' }}>ATTIVATO GRATIS</span>}
                         {user.status === 'pending' && <span className="badge badge-idle" style={{ background: 'rgba(245,158,11,0.15)', color: '#f59e0b', border: '1px solid #f59e0b' }}>IN ATTESA</span>}
+                      </td>
+                      <td>
+                        {user.email_verified ? (
+                          <span style={{ color: '#10b981', fontWeight: 600 }}>
+                            ✅ Verificata
+                            <br />
+                            <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 400 }}>
+                              {user.email_verified_at ? user.email_verified_at.slice(0, 10) : 'confermata'}
+                            </span>
+                          </span>
+                        ) : (
+                          <span style={{ color: '#f59e0b', fontWeight: 600 }}>
+                            ⏳ Da confermare
+                            <br />
+                            <span style={{ color: '#64748b', fontSize: '0.75rem', fontWeight: 400 }}>
+                              accesso bloccato finché non clicca la mail
+                            </span>
+                          </span>
+                        )}
                       </td>
                       <td>
                         {user.is_paid
