@@ -3578,6 +3578,7 @@ def list_crypto_payments(admin_token: str = Depends(require_admin)):
 @app.get("/api/saas/overview")
 def get_saas_overview_db(admin_token: str = Depends(require_admin)):
     users = db.get_all_users()
+    email_history = db.get_email_history(100)
     payments = db.get_all_payments()
     
     from datetime import datetime as _dt
@@ -3634,6 +3635,7 @@ def get_saas_overview_db(admin_token: str = Depends(require_admin)):
         "paying_customers": len(paying_users),
         "recent_activity": payments[:10], # Ultimi pagamenti
         "customers": customers,
+        "email_history": email_history,
         "settings": {"currency": "USDT"}
     }
 

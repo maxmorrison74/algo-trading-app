@@ -85,6 +85,10 @@ const DEMO_BILLING_OVERVIEW = {
     { id: 'act_1', user_email: 'marco@alphaquant.studio', amount: 120, currency: 'USDT', txid: 'T...X8Y9', status: 'verified' },
     { id: 'act_2', user_email: 'giulia@betacapitallab.com', amount: 1000, currency: 'USDT', txid: 'T...J3K4', status: 'pending' },
   ],
+  email_history: [
+    { email: 'marco@alphaquant.studio', first_seen_at: '2026-07-01 09:15:00', last_seen_at: '2026-07-12 11:30:00', uses_count: 1, last_status: 'active', last_role: 'user', currently_active: 1 },
+    { email: 'oldlead@closeddesk.io', first_seen_at: '2026-06-22 14:00:00', last_seen_at: '2026-07-03 18:40:00', uses_count: 1, last_status: 'deleted', last_role: 'user', currently_active: 0 },
+  ],
   settings: { trial_days: 7, currency: 'EUR' },
 };
 
@@ -6750,6 +6754,7 @@ function OmniAppInner() {
     const customers = overview.customers || [];
     const leads = overview.leads || [];
     const activity = overview.recent_activity || [];
+    const emailHistory = overview.email_history || [];
 
     return (
       <div className="module-content module-content--billing">
@@ -7789,6 +7794,56 @@ function OmniAppInner() {
                 <span>Private crypto & investment operating experience</span>
               </div>
             </footer>
+          </div>
+
+          <div className="card col-span-12">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                <h3 style={{ margin: 0, color: '#e2e8f0' }}>Email già usate in passato</h3>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
+                  Storico utile per evitare doppioni, ricicli e indirizzi già transitati in Aureo.
+                </div>
+              </div>
+              <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{emailHistory.length} email in storico</div>
+            </div>
+            <div className="data-table-wrapper">
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Email</th>
+                    <th>Ultimo stato</th>
+                    <th>Uso</th>
+                    <th>Prima volta</th>
+                    <th>Ultima volta</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {emailHistory.map((entry) => (
+                    <tr key={entry.email}>
+                      <td>
+                        <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{entry.email}</div>
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.78rem', marginTop: '2px' }}>
+                          {entry.currently_active ? 'presente nel sistema' : 'non più attiva'}
+                        </div>
+                      </td>
+                      <td>
+                        {entry.last_status === 'deleted' ? (
+                          <span className="badge badge-idle" style={{ background: 'rgba(239,68,68,0.14)', color: '#f87171', border: '1px solid rgba(239,68,68,0.32)' }}>ELIMINATA</span>
+                        ) : entry.currently_active ? (
+                          <span className="badge badge-active" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid #10b981' }}>ATTUALE</span>
+                        ) : (
+                          <span className="badge badge-idle" style={{ background: 'rgba(148,163,184,0.12)', color: '#94a3b8', border: '1px solid #475569' }}>{String(entry.last_status || 'storico').toUpperCase()}</span>
+                        )}
+                      </td>
+                      <td style={{ color: '#e2e8f0', fontWeight: 600 }}>{entry.uses_count || 1}x</td>
+                      <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{entry.first_seen_at ? entry.first_seen_at.slice(0, 10) : '-'}</td>
+                      <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{entry.last_seen_at ? entry.last_seen_at.slice(0, 10) : '-'}</td>
+                    </tr>
+                  ))}
+                  {!emailHistory.length && <tr><td colSpan="5" style={{ textAlign:'center', color:'#888' }}>Nessuna email storica registrata</td></tr>}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       );

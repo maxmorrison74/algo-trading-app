@@ -137,6 +137,19 @@ def init_db():
             FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
         )
     ''')
+
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_email_history (
+            email TEXT PRIMARY KEY,
+            first_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_seen_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_user_id TEXT,
+            uses_count INTEGER DEFAULT 1,
+            last_status TEXT DEFAULT 'pending',
+            last_role TEXT DEFAULT 'user',
+            currently_active INTEGER DEFAULT 1
+        )
+    ''')
     
     conn.commit()
     conn.close()
@@ -154,6 +167,21 @@ def create_user(user_id: str, email: str, password: str, role: str = 'user', sta
     try:
         cursor.execute("INSERT INTO users (id, email, password_hash, role, status) VALUES (?, ?, ?, ?, ?)",
                        (user_id, email, password_hash, role, status))
+        now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute(
+            """
+            INSERT INTO user_email_history (email, first_seen_at, last_seen_at, last_user_id, uses_count, last_status, last_role, currently_active)
+            VALUES (?, ?, ?, ?, 1, ?, ?, 1)
+            ON CONFLICT(email) DO UPDATE SET
+                last_seen_at = excluded.last_seen_at,
+                last_user_id = excluded.last_user_id,
+                uses_count = user_email_history.uses_count + 1,
+                last_status = excluded.last_status,
+                last_role = excluded.last_role,
+                currently_active = 1
+            """,
+            (email, now, now, user_id, status, role),
+        )
         conn.commit()
         return True
     except sqlite3.IntegrityError:
@@ -212,6 +240,22 @@ def get_all_users():
     cursor = conn.cursor()
     cursor.execute(
         "SELECT id, email, role, status, email_verified_at, subscription_expires_at, paid_at, created_at FROM users ORDER BY created_at DESC"
+    )
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(row) for row in rows]
+
+def get_email_history(limit: int = 100):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT email, first_seen_at, last_seen_at, last_user_id, uses_count, last_status, last_role, currently_active
+        FROM user_email_history
+        ORDER BY last_seen_at DESC
+        LIMIT ?
+        """,
+        (max(1, min(int(limit), 500)),),
     )
     rows = cursor.fetchall()
     conn.close()
@@ -299,7 +343,14 @@ def confirm_user_email(token: str):
 def delete_user(user_id: str):
     conn = get_db_connection()
     cursor = conn.cursor()
+    cursor.execute("SELECT email FROM users WHERE id = ?", (user_id,))
+    row = cursor.fetchone()
     cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
+    if row and row["email"]:
+        cursor.execute(
+            "UPDATE user_email_history SET currently_active = 0, last_status = 'deleted' WHERE email = ?",
+            (row["email"],),
+        )
     conn.commit()
     conn.close()
 
