@@ -1932,11 +1932,30 @@ const BottomReminderBar = ({ status, risk, savedKeys, isBackendOnline, syncLabel
 const RiskStatus = ({ riskSnapshot, status }) => {
   const [risk, setRisk] = useState(riskSnapshot || null);
   const [isTogglingRisk, setIsTogglingRisk] = useState(false);
+  const [isSavingLimits, setIsSavingLimits] = useState(false);
   const userRole = safeStorageGet('USER_ROLE', 'user');
+  const [riskLimitsForm, setRiskLimitsForm] = useState({
+    max_open_positions: 5,
+    max_position_exposure_pct: 20,
+    min_cash_reserve_pct: 15,
+    trade_cooldown_seconds: 180,
+    max_consecutive_losses: 3,
+    max_spread_pct_stock: 0.35,
+    max_spread_pct_crypto: 0.8,
+  });
 
   useEffect(() => {
     if (riskSnapshot) {
       setRisk(riskSnapshot);
+      setRiskLimitsForm({
+        max_open_positions: Number(riskSnapshot.max_open_positions ?? 5),
+        max_position_exposure_pct: Number(riskSnapshot.max_position_exposure_pct ?? 20),
+        min_cash_reserve_pct: Number(riskSnapshot.min_cash_reserve_pct ?? 15),
+        trade_cooldown_seconds: Number(riskSnapshot.trade_cooldown_seconds ?? 180),
+        max_consecutive_losses: Number(riskSnapshot.max_consecutive_losses ?? riskSnapshot.consecutive_losses ?? 3),
+        max_spread_pct_stock: Number(riskSnapshot.max_spread_pct_stock ?? 0.35),
+        max_spread_pct_crypto: Number(riskSnapshot.max_spread_pct_crypto ?? 0.8),
+      });
     }
   }, [riskSnapshot]);
 
@@ -2006,6 +2025,9 @@ const RiskStatus = ({ riskSnapshot, status }) => {
         ? { label: 'Tesa', tone: '#F59E0B', detail: 'Resta un solo slot operativo prima del limite.' }
         : { label: 'Libera', tone: '#10B981', detail: 'C’è ancora spazio per nuove operazioni filtrate.' };
   const alertFeed = Array.isArray(risk.alerts) ? risk.alerts.slice(0, 4) : [];
+  const cooldownLabel = risk.cooldown_until
+    ? new Date(risk.cooldown_until).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
+    : null;
 
   const handleRiskToggle = async () => {
     if (userRole !== 'admin' || isTogglingRisk || !risk) return;
@@ -2026,6 +2048,38 @@ const RiskStatus = ({ riskSnapshot, status }) => {
       pushNotice('error', 'Risk Management non aggiornato', error.message || 'Impossibile aggiornare Risk Management');
     } finally {
       setIsTogglingRisk(false);
+    }
+  };
+
+  const handleSaveLimits = async () => {
+    if (userRole !== 'admin' || isSavingLimits) return;
+    setIsSavingLimits(true);
+    try {
+      const payload = {
+        ...riskLimitsForm,
+        max_open_positions: Math.max(1, Math.round(Number(riskLimitsForm.max_open_positions || 5))),
+        max_position_exposure_pct: Number(riskLimitsForm.max_position_exposure_pct || 20),
+        min_cash_reserve_pct: Number(riskLimitsForm.min_cash_reserve_pct || 15),
+        trade_cooldown_seconds: Math.max(0, Math.round(Number(riskLimitsForm.trade_cooldown_seconds || 180))),
+        max_consecutive_losses: Math.max(1, Math.round(Number(riskLimitsForm.max_consecutive_losses || 3))),
+        max_spread_pct_stock: Number(riskLimitsForm.max_spread_pct_stock || 0.35),
+        max_spread_pct_crypto: Number(riskLimitsForm.max_spread_pct_crypto || 0.8),
+      };
+      const res = await authFetch('/api/risk/limits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.detail || data?.message || 'Impossibile aggiornare i limiti');
+      }
+      setRisk((prev) => ({ ...(prev || {}), ...(data?.limits || {}) }));
+      pushNotice('success', 'Limiti aggiornati', 'Nuove protezioni rischio salvate correttamente.');
+    } catch (error) {
+      pushNotice('error', 'Limiti non salvati', error.message || 'Impossibile salvare i limiti.');
+    } finally {
+      setIsSavingLimits(false);
     }
   };
   
@@ -2112,6 +2166,51 @@ const RiskStatus = ({ riskSnapshot, status }) => {
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Daily P&L <strong style={{ color: 'var(--text-primary)' }}>{risk.daily_pnl_pct}%</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Drawdown <strong style={{ color: 'var(--text-primary)' }}>{risk.max_drawdown_pct}%</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Trade oggi <strong style={{ color: 'var(--text-primary)' }}>{risk.trades_today}</strong></div>
+        <div className={`badge ${Number(risk.consecutive_losses || 0) >= Number(riskLimitsForm.max_consecutive_losses || 3) ? 'badge-danger' : 'badge-idle'}`} style={{ justifyContent: 'space-between' }}>Loss di fila <strong style={{ color: 'var(--text-primary)' }}>{risk.consecutive_losses || 0}</strong></div>
+        <div className={`badge ${cooldownLabel ? 'badge-gold' : 'badge-idle'}`} style={{ justifyContent: 'space-between' }}>Cooldown <strong style={{ color: 'var(--text-primary)' }}>{cooldownLabel ? `fino alle ${cooldownLabel}` : 'nessuno'}</strong></div>
+      </div>
+      <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '0.8rem', flexWrap: 'wrap' }}>
+          <div>
+            <div style={{ color: '#e2e8f0', fontWeight: 800 }}>Risk Controls</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginTop: '0.2rem' }}>Qui decidi quanto Aureo deve essere aggressivo o prudente prima di aprire un trade.</div>
+          </div>
+          <button
+            type="button"
+            className="btn"
+            onClick={handleSaveLimits}
+            disabled={userRole !== 'admin' || isSavingLimits}
+            style={{ opacity: userRole === 'admin' ? 1 : 0.55 }}
+          >
+            {isSavingLimits ? 'Salvo…' : 'Salva limiti'}
+          </button>
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
+          {[
+            { key: 'max_open_positions', label: 'Max posizioni', hint: 'Quante operazioni insieme può tenere aperte', min: 1, max: 12, step: 1 },
+            { key: 'max_position_exposure_pct', label: 'Max esposizione %', hint: 'Quota massima del capitale su una singola idea', min: 5, max: 50, step: 1 },
+            { key: 'min_cash_reserve_pct', label: 'Cash reserve %', hint: 'Liquidità minima che resta sempre libera', min: 5, max: 40, step: 1 },
+            { key: 'trade_cooldown_seconds', label: 'Cooldown trade', hint: 'Pausa minima tra due ingressi nuovi', min: 0, max: 1800, step: 30 },
+            { key: 'max_consecutive_losses', label: 'Loss consecutive', hint: 'Quante loss di fila tollerare prima della pausa', min: 1, max: 8, step: 1 },
+            { key: 'max_spread_pct_stock', label: 'Spread max stock %', hint: 'Blocca azioni con spread troppo largo', min: 0.05, max: 2, step: 0.05 },
+            { key: 'max_spread_pct_crypto', label: 'Spread max crypto %', hint: 'Blocca crypto con spread troppo largo', min: 0.1, max: 3, step: 0.05 },
+          ].map((field) => (
+            <label key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', padding: '0.8rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: '1px solid rgba(255,255,255,0.05)' }}>
+              <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.9rem' }}>{field.label}</span>
+              <span style={{ color: 'var(--text-secondary)', fontSize: '0.77rem', lineHeight: 1.4 }}>{field.hint}</span>
+              <input
+                type="number"
+                min={field.min}
+                max={field.max}
+                step={field.step}
+                value={riskLimitsForm[field.key]}
+                disabled={userRole !== 'admin'}
+                onChange={(e) => setRiskLimitsForm((prev) => ({ ...prev, [field.key]: e.target.value }))}
+                style={{ background: 'rgba(15,23,42,0.9)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '0.7rem 0.8rem' }}
+              />
+            </label>
+          ))}
+        </div>
       </div>
       <div style={{ marginTop: '1rem', padding: '0.95rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ color: '#e2e8f0', fontWeight: 800, marginBottom: '0.55rem' }}>Ultimi alert del Risk Engine</div>

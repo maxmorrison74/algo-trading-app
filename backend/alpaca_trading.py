@@ -221,6 +221,49 @@ class AlpacaEngine:
     def _get_time_in_force(self, symbol):
         return 'gtc' if '/' in symbol else 'day'
 
+    def _get_asset_class(self, symbol):
+        return "crypto" if "/" in str(symbol) else "stock"
+
+    def _get_spread_snapshot(self, symbol):
+        if not self.alpaca_rest:
+            return None
+
+        try:
+            clean_symbol = self.clean_sym(symbol)
+            quote = None
+            if "/" in str(symbol):
+                for method_name in ("get_latest_crypto_quote", "get_crypto_latest_quote"):
+                    method = getattr(self.alpaca_rest, method_name, None)
+                    if callable(method):
+                        quote = method(clean_symbol)
+                        break
+            else:
+                method = getattr(self.alpaca_rest, "get_latest_quote", None)
+                if callable(method):
+                    quote = method(clean_symbol)
+
+            if quote is None:
+                return None
+
+            bid = float(getattr(quote, "bp", getattr(quote, "bid_price", 0)) or 0)
+            ask = float(getattr(quote, "ap", getattr(quote, "ask_price", 0)) or 0)
+            if bid <= 0 or ask <= 0 or ask < bid:
+                return None
+
+            mid = (bid + ask) / 2.0
+            if mid <= 0:
+                return None
+
+            spread_pct = ((ask - bid) / mid) * 100.0
+            return {
+                "bid": bid,
+                "ask": ask,
+                "mid": mid,
+                "spread_pct": round(spread_pct, 4),
+            }
+        except Exception:
+            return None
+
     def _log_throttled_skip(self, symbol, reason_key, message, cooldown_seconds=900):
         now = time.time()
         cache_key = f"{symbol}:{reason_key}"
@@ -228,6 +271,18 @@ class AlpacaEngine:
         if now - last_logged_at >= cooldown_seconds:
             self._skip_log_cache[cache_key] = now
             self._log(message)
+
+    def _register_closed_trade(self, symbol, side, qty, entry_price, exit_price):
+        try:
+            pnl = ((exit_price - entry_price) * qty) if side == "LONG" else ((entry_price - exit_price) * qty)
+            profit_pct = ((exit_price - entry_price) / entry_price * 100.0) if side == "LONG" else ((entry_price - exit_price) / entry_price * 100.0)
+            get_risk_manager(self.bot_state.virtual_cash).record_trade(symbol, "AUTO-EXIT", qty=qty, price=exit_price, pnl=pnl)
+            if hasattr(self.bot_state, "close_trade"):
+                self.bot_state.close_trade(symbol, "AUTO-EXIT", pnl, profit_pct / 100.0)
+            return pnl
+        except Exception as exc:
+            self._log(f"⚠️ Errore registrazione trade chiuso su {symbol}: {exc}")
+            return 0.0
 
     def _normalize_llm_confidence(self, raw_confidence):
         try:
@@ -522,7 +577,7 @@ class AlpacaEngine:
                     msg_log = f"🛑 TRAILING STOP COLPITO su {sym} (LONG). Prezzo è sceso del {trail['trail_percent']}% dal picco massimo."
                     self._log(msg_log)
                     self._execute_exit(sym, trail['qty'], 'sell')
-                    pnl = (current_price - trail['entry_price']) * trail['qty']
+                    pnl = self._register_closed_trade(sym, "LONG", trail['qty'], trail['entry_price'], current_price)
                     get_capital_manager().record_trade_result(pnl)
                     del self.active_trails[sym]
                     
@@ -541,7 +596,7 @@ class AlpacaEngine:
                     msg_log = f"🛑 TRAILING STOP COLPITO su {sym} (SHORT). Prezzo è salito del {trail['trail_percent']}% dal picco minimo."
                     self._log(msg_log)
                     self._execute_exit(sym, trail['qty'], 'buy')
-                    pnl = (trail['entry_price'] - current_price) * trail['qty']
+                    pnl = self._register_closed_trade(sym, "SHORT", trail['qty'], trail['entry_price'], current_price)
                     get_capital_manager().record_trade_result(pnl)
                     del self.active_trails[sym]
                     
@@ -824,6 +879,24 @@ class AlpacaEngine:
                 return
         
         if qty <= 0.0001: return
+
+        spread_snapshot = self._get_spread_snapshot(symbol)
+        asset_class = self._get_asset_class(symbol)
+        spread_pct = spread_snapshot.get("spread_pct") if spread_snapshot else None
+        entry_allowed, entry_reason = risk.validate_entry(
+            symbol=symbol,
+            side=side,
+            qty=qty,
+            price=current_price,
+            available_cash=self.bot_state.virtual_cash,
+            spread_pct=spread_pct,
+            asset_class=asset_class,
+        )
+        if not entry_allowed:
+            self._log(f"🧱 ENTRY FILTER su {symbol}: {entry_reason}. Trade annullato.")
+            return
+        if spread_snapshot:
+            self._log(f"🫧 Spread check {symbol}: bid ${spread_snapshot['bid']:.4f} / ask ${spread_snapshot['ask']:.4f} ({spread_snapshot['spread_pct']:.3f}%)")
         
         alpaca_side = 'buy' if side == "LONG" else 'sell'
         clean_symbol = self.clean_sym(symbol)

@@ -24,6 +24,14 @@ class RiskLimits:
     max_single_trade_loss_pct: float = 2.0    # Max perdita per trade %
     max_drawdown_pct: float = 10.0            # Max drawdown totale %
     max_open_positions: int = 5               # Max posizioni aperte
+    max_position_exposure_pct: float = 20.0   # Max esposizione per singola idea
+    min_cash_reserve_pct: float = 15.0        # Liquidità minima da tenere libera
+    min_trade_notional_usd: float = 25.0      # Evita trade troppo piccoli / rumorosi
+    trade_cooldown_seconds: int = 180         # Pausa minima tra due nuovi ingressi
+    max_consecutive_losses: int = 3           # Numero di loss di fila tollerate
+    loss_streak_cooldown_minutes: int = 90    # Pausa se il bot entra in tilt
+    max_spread_pct_stock: float = 0.35        # Spread massimo tollerato su equities
+    max_spread_pct_crypto: float = 0.80       # Spread massimo tollerato su crypto
     max_correlation: float = 0.7              # Max correlazione tra posizioni
     max_leverage: float = 1.0                 # NO LEVERAGE default
     circuit_breaker_cooldown_hours: int = 24   # Ore di stop dopo circuit breaker
@@ -42,6 +50,8 @@ class RiskState:
     status: str = "green"
     last_trade_time: Optional[str] = None
     circuit_breaker_until: Optional[str] = None
+    cooldown_until: Optional[str] = None
+    consecutive_losses: int = 0
     alerts: List[str] = None
     
     def __post_init__(self):
@@ -108,6 +118,14 @@ class RiskManager:
 
             if not self.state.enabled:
                 return True, "⏸️ Risk Management disattivato manualmente"
+
+            if self.state.cooldown_until:
+                cooldown_until = datetime.fromisoformat(self.state.cooldown_until)
+                if datetime.now() < cooldown_until:
+                    remaining_minutes = max(1, int((cooldown_until - datetime.now()).total_seconds() / 60))
+                    return False, f"🧊 Cooldown attivo per altri {remaining_minutes} min"
+                self.state.cooldown_until = None
+                self._add_alert("🟢 Cooldown operativo terminato")
             
             # 1. Verifica circuit breaker
             if self.state.circuit_breaker_until:
@@ -140,6 +158,12 @@ class RiskManager:
             # 5. Verifica max posizioni
             if self.state.open_positions >= self.limits.max_open_positions:
                 return False, f"⚠️ Max posizioni aperte ({self.limits.max_open_positions}) raggiunto"
+
+            if self.state.last_trade_time and self.limits.trade_cooldown_seconds > 0:
+                elapsed = (datetime.now() - datetime.fromisoformat(self.state.last_trade_time)).total_seconds()
+                if elapsed < self.limits.trade_cooldown_seconds:
+                    wait_seconds = max(1, int(self.limits.trade_cooldown_seconds - elapsed))
+                    return False, f"⏳ Cooldown tra trade attivo ({wait_seconds}s)"
                 
             return True, "✅ Trading consentito"
 
@@ -175,6 +199,23 @@ class RiskManager:
                 event_key=f"circuit_breaker:{reason}",
                 message=f"⛔ Circuit breaker attivato\nMotivo: {reason}\nStop operativo per {self.limits.circuit_breaker_cooldown_hours} ore.",
                 cooldown_seconds=3600,
+            )
+        except Exception:
+            pass
+        self._save_state()
+
+    def _activate_cooldown(self, reason: str):
+        cooldown = timedelta(minutes=max(1, self.limits.loss_streak_cooldown_minutes))
+        until = datetime.now() + cooldown
+        self.state.cooldown_until = until.isoformat()
+        self.state.status = "yellow"
+        self._add_alert(f"🧊 COOLdown: {reason}. Pausa per {self.limits.loss_streak_cooldown_minutes} min")
+        try:
+            from api import send_critical_alert_once
+            send_critical_alert_once(
+                event_key=f"risk_cooldown:{reason}",
+                message=f"🧊 Cooldown operativo attivato\nMotivo: {reason}\nPausa di {self.limits.loss_streak_cooldown_minutes} minuti.",
+                cooldown_seconds=1800,
             )
         except Exception:
             pass
@@ -225,9 +266,42 @@ class RiskManager:
             
             if pnl != 0:
                 self.update_equity(self.state.current_equity + pnl)
+                if pnl < 0:
+                    self.state.consecutive_losses += 1
+                    if self.state.consecutive_losses >= self.limits.max_consecutive_losses:
+                        self._activate_cooldown(f"{self.state.consecutive_losses} loss consecutive")
+                elif pnl > 0:
+                    self.state.consecutive_losses = 0
                 
             self._add_alert(f"📊 Trade: {side} {qty} {symbol} @ ${price:.2f} | P&L: ${pnl:.2f}")
             self._save_state()
+
+    def validate_entry(self, symbol: str, side: str, qty: float, price: float, available_cash: float, spread_pct: Optional[float] = None, asset_class: str = "stock") -> tuple[bool, str]:
+        with self._lock:
+            if qty <= 0 or price <= 0:
+                return False, "Size o prezzo non validi"
+
+            notional = abs(qty * price)
+            if notional < self.limits.min_trade_notional_usd:
+                return False, f"Notional troppo basso (${notional:.2f})"
+
+            equity = max(float(self.state.current_equity or self.initial_capital or 0), 1.0)
+            exposure_pct = (notional / equity) * 100.0
+            if exposure_pct > self.limits.max_position_exposure_pct:
+                return False, f"Esposizione singola {exposure_pct:.1f}% oltre limite {self.limits.max_position_exposure_pct:.1f}%"
+
+            if side.upper() == "LONG":
+                residual_cash = float(available_cash or 0) - notional
+                min_cash_required = equity * (self.limits.min_cash_reserve_pct / 100.0)
+                if residual_cash < min_cash_required:
+                    return False, f"Cash reserve insufficiente: resterebbero ${residual_cash:.2f}"
+
+            if spread_pct is not None:
+                max_spread = self.limits.max_spread_pct_crypto if asset_class == "crypto" else self.limits.max_spread_pct_stock
+                if spread_pct > max_spread:
+                    return False, f"Spread {spread_pct:.2f}% troppo ampio"
+
+            return True, "Entry quality ok"
             
     def get_position_size(self, confidence: float, price: float) -> float:
         """
@@ -276,6 +350,14 @@ class RiskManager:
                 "max_open_positions": self.limits.max_open_positions,
                 "positions_remaining": max(0, self.limits.max_open_positions - self.state.open_positions),
                 "positions_usage_pct": round((self.state.open_positions / self.limits.max_open_positions) * 100, 1) if self.limits.max_open_positions else 0,
+                "consecutive_losses": self.state.consecutive_losses,
+                "cooldown_until": self.state.cooldown_until,
+                "max_position_exposure_pct": self.limits.max_position_exposure_pct,
+                "min_cash_reserve_pct": self.limits.min_cash_reserve_pct,
+                "trade_cooldown_seconds": self.limits.trade_cooldown_seconds,
+                "max_consecutive_losses": self.limits.max_consecutive_losses,
+                "max_spread_pct_stock": self.limits.max_spread_pct_stock,
+                "max_spread_pct_crypto": self.limits.max_spread_pct_crypto,
                 "trades_today": self.state.trades_today,
                 "initial_capital": self.initial_capital,
                 "alerts": self.state.alerts[:10],  # Solo ultimi 10
