@@ -3363,12 +3363,13 @@ function OmniAppInner() {
     }
   }, [status, tableDataBySymbol]);
 
-  const completeAuthenticatedSession = (token, role = 'user', status = 'active') => {
+  const completeAuthenticatedSession = (token, role = 'user', status = 'active', loginEmail = '') => {
     setIsAuthenticated(true);
     const demo = (status === 'pending');
     setIsDemoMode(demo);
     setUserRole(role);
     setUserStatus(status);
+    setEmail(role === 'admin' ? '' : loginEmail);
     if (demo) {
       safeStorageSet(DEMO_MODE_KEY, '1');
     } else {
@@ -3511,7 +3512,7 @@ function OmniAppInner() {
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
-          completeAuthenticatedSession(data.token, data.role || 'user', data.user_status || 'active');
+          completeAuthenticatedSession(data.token, data.role || 'user', data.user_status || 'active', email);
         } else {
           clearAuthSession();
           setIsAuthenticated(false);
@@ -8173,7 +8174,7 @@ function OmniAppInner() {
           )}
 
           <div className="sidebar-user-pill" style={{ marginTop: '1rem', textAlign: 'center', color: 'var(--text-secondary)' }}>
-            👤 {email}
+            {userRole === 'admin' ? '👑 ADMIN' : `👤 ${email}`}
           </div>
           {userRole !== 'admin' && (
             <div style={{
