@@ -86,8 +86,8 @@ const DEMO_BILLING_OVERVIEW = {
     { id: 'act_2', user_email: 'giulia@betacapitallab.com', amount: 1000, currency: 'USDT', txid: 'T...J3K4', status: 'pending' },
   ],
   email_history: [
-    { email: 'marco@alphaquant.studio', first_seen_at: '2026-07-01 09:15:00', last_seen_at: '2026-07-12 11:30:00', uses_count: 1, last_status: 'active', last_role: 'user', currently_active: 1 },
-    { email: 'oldlead@closeddesk.io', first_seen_at: '2026-06-22 14:00:00', last_seen_at: '2026-07-03 18:40:00', uses_count: 1, last_status: 'deleted', last_role: 'user', currently_active: 0 },
+    { email: 'marco@alphaquant.studio', first_seen_at: '2026-07-01 09:15:00', last_seen_at: '2026-07-12 11:30:00', uses_count: 1, last_status: 'active', last_role: 'user', currently_active: 1, is_spam: 0, spam_marked_at: null, spam_reason: '' },
+    { email: 'oldlead@closeddesk.io', first_seen_at: '2026-06-22 14:00:00', last_seen_at: '2026-07-03 18:40:00', uses_count: 1, last_status: 'deleted', last_role: 'user', currently_active: 0, is_spam: 1, spam_marked_at: '2026-07-04 09:20:00', spam_reason: 'Lead tossico / riciclato' },
   ],
   settings: { trial_days: 7, currency: 'EUR' },
 };
@@ -7286,6 +7286,7 @@ function OmniAppInner() {
                     <th>Uso</th>
                     <th>Prima volta</th>
                     <th>Ultima volta</th>
+                    <th>Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -7298,20 +7299,91 @@ function OmniAppInner() {
                         </div>
                       </td>
                       <td>
-                        {entry.last_status === 'deleted' ? (
+                        {entry.is_spam ? (
+                          <span className="badge badge-idle" style={{ background: 'rgba(239,68,68,0.14)', color: '#f87171', border: '1px solid rgba(239,68,68,0.32)' }}>SPAM</span>
+                        ) : entry.last_status === 'deleted' ? (
                           <span className="badge badge-idle" style={{ background: 'rgba(239,68,68,0.14)', color: '#f87171', border: '1px solid rgba(239,68,68,0.32)' }}>ELIMINATA</span>
                         ) : entry.currently_active ? (
                           <span className="badge badge-active" style={{ background: 'rgba(16,185,129,0.15)', color: '#10b981', border: '1px solid #10b981' }}>ATTUALE</span>
                         ) : (
                           <span className="badge badge-idle" style={{ background: 'rgba(148,163,184,0.12)', color: '#94a3b8', border: '1px solid #475569' }}>{String(entry.last_status || 'storico').toUpperCase()}</span>
                         )}
+                        {entry.is_spam && (
+                          <div style={{ color: '#fca5a5', fontSize: '0.75rem', marginTop: '0.35rem', lineHeight: 1.4 }}>
+                            {entry.spam_reason || 'Marcata da admin'}
+                          </div>
+                        )}
                       </td>
                       <td style={{ color: '#e2e8f0', fontWeight: 600 }}>{entry.uses_count || 1}x</td>
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{entry.first_seen_at ? entry.first_seen_at.slice(0, 10) : '-'}</td>
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{entry.last_seen_at ? entry.last_seen_at.slice(0, 10) : '-'}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                          {entry.is_spam ? (
+                            <button
+                              className="btn btn-outline"
+                              onClick={async () => {
+                                try {
+                                  const res = await authFetch('/api/saas/email-history/unmark-spam', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ email: entry.email })
+                                  });
+                                  const data = await res.json();
+                                  if (res.ok) {
+                                    await refreshBillingOverview();
+                                    pushNotice('success', 'Email sbloccata', data.message || `${entry.email} rimossa dalla lista spam.`);
+                                  } else {
+                                    pushNotice('error', 'Sblocco non riuscito', data.detail || 'Impossibile rimuovere il blocco spam.');
+                                  }
+                                } catch (e) {
+                                  pushNotice('error', 'Rete non disponibile', 'Errore di rete durante lo sblocco spam.');
+                                }
+                              }}
+                              style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}
+                            >
+                              Togli spam
+                            </button>
+                          ) : (
+                            <button
+                              className="btn btn-outline"
+                              onClick={() => {
+                                openConfirmDialog({
+                                  tone: 'danger',
+                                  kicker: 'Blocco email',
+                                  title: 'Segnare questa email come spam?',
+                                  message: `${entry.email} verrà bloccata nei flussi Aureo: registrazione, creazione utente e login con questa mail non saranno più consentiti.`,
+                                  confirmLabel: 'Segna come spam',
+                                  onConfirmAction: async () => {
+                                    try {
+                                      const res = await authFetch('/api/saas/email-history/mark-spam', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ email: entry.email, reason: 'Marcata come spam da admin' })
+                                      });
+                                      const data = await res.json();
+                                      if (res.ok) {
+                                        await refreshBillingOverview();
+                                        pushNotice('success', 'Email bloccata', data.message || `${entry.email} è ora marcata come spam.`);
+                                      } else {
+                                        pushNotice('error', 'Blocco non riuscito', data.detail || 'Impossibile bloccare questa email.');
+                                      }
+                                    } catch (e) {
+                                      pushNotice('error', 'Rete non disponibile', 'Errore di rete durante il blocco spam.');
+                                    }
+                                  }
+                                });
+                              }}
+                              style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem', borderColor: '#ef4444', color: '#ef4444' }}
+                            >
+                              Segna spam
+                            </button>
+                          )}
+                        </div>
+                      </td>
                     </tr>
                   ))}
-                  {!filteredEmailHistory.length && <tr><td colSpan="5" style={{ textAlign:'center', color:'#888' }}>{normalizedBillingSearch ? 'Nessuna email storica corrisponde alla ricerca' : 'Nessuna email storica registrata'}</td></tr>}
+                  {!filteredEmailHistory.length && <tr><td colSpan="6" style={{ textAlign:'center', color:'#888' }}>{normalizedBillingSearch ? 'Nessuna email storica corrisponde alla ricerca' : 'Nessuna email storica registrata'}</td></tr>}
                 </tbody>
               </table>
             </div>

@@ -2608,6 +2608,8 @@ def validate_signup_email(email: str) -> str:
     domain = normalized_email.split("@", 1)[1]
     if domain in DISPOSABLE_DOMAINS:
         raise HTTPException(status_code=400, detail="L'utilizzo di email temporanee o usa e getta non è consentito.")
+    if db.is_email_blocked_as_spam(normalized_email):
+        raise HTTPException(status_code=403, detail="Questa email è stata bloccata come spam e non può essere usata.")
     return normalized_email
 
 def validate_admin_target_email(email: str) -> str:
@@ -2726,6 +2728,9 @@ def login(req: LoginRequest, request: Request):
     else:
         # Se c'è l'email, prova a loggare come Cliente SaaS
         email = req.email.lower().strip()
+        if db.is_email_blocked_as_spam(email):
+            record_login_failure(client_id)
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Questa email è stata bloccata come spam e non può accedere.")
         user = db.verify_user_login(email, req.password)
         if user:
             if not user.get("email_verified_at"):
@@ -3407,6 +3412,10 @@ class AdminCreateUserRequest(BaseModel):
     password: str
     role: str = "user"
 
+class AdminEmailSpamRequest(BaseModel):
+    email: str
+    reason: str = ""
+
 @app.post("/api/saas/create-user")
 def admin_create_user(req: AdminCreateUserRequest, admin_token: str = Depends(require_admin)):
     import uuid
@@ -3431,6 +3440,28 @@ def admin_create_user(req: AdminCreateUserRequest, admin_token: str = Depends(re
         "status": "success",
         "message": "Utente creato e mail di conferma inviata. L’accesso si attiva dopo il click nella mail.",
         "user_id": new_user_id,
+        "email": email,
+    }
+
+@app.post("/api/saas/email-history/mark-spam")
+def admin_mark_email_spam(req: AdminEmailSpamRequest, admin_token: str = Depends(require_admin)):
+    email = validate_admin_target_email(req.email)
+    db.set_email_spam_status(email, True, req.reason)
+    return {
+        "status": "success",
+        "message": f"{email} è stata marcata come spam e bloccata nei flussi Aureo.",
+        "email": email,
+    }
+
+@app.post("/api/saas/email-history/unmark-spam")
+def admin_unmark_email_spam(req: AdminEmailSpamRequest, admin_token: str = Depends(require_admin)):
+    email = (req.email or "").lower().strip()
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Inserisci una email valida.")
+    db.set_email_spam_status(email, False, "")
+    return {
+        "status": "success",
+        "message": f"{email} è stata rimossa dalla lista spam.",
         "email": email,
     }
 

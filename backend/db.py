@@ -148,9 +148,22 @@ def init_db():
             uses_count INTEGER DEFAULT 1,
             last_status TEXT DEFAULT 'pending',
             last_role TEXT DEFAULT 'user',
-            currently_active INTEGER DEFAULT 1
+            currently_active INTEGER DEFAULT 1,
+            is_spam INTEGER DEFAULT 0,
+            spam_marked_at DATETIME,
+            spam_reason TEXT
         )
     ''')
+    for migration in (
+        "ALTER TABLE user_email_history ADD COLUMN is_spam INTEGER DEFAULT 0",
+        "ALTER TABLE user_email_history ADD COLUMN spam_marked_at DATETIME",
+        "ALTER TABLE user_email_history ADD COLUMN spam_reason TEXT",
+    ):
+        try:
+            cursor.execute(migration)
+            conn.commit()
+        except Exception:
+            pass
 
     cursor.execute(
         """
@@ -279,7 +292,8 @@ def get_email_history(limit: int = 100):
     cursor = conn.cursor()
     cursor.execute(
         """
-        SELECT email, first_seen_at, last_seen_at, last_user_id, uses_count, last_status, last_role, currently_active
+        SELECT email, first_seen_at, last_seen_at, last_user_id, uses_count, last_status, last_role, currently_active,
+               is_spam, spam_marked_at, spam_reason
         FROM user_email_history
         ORDER BY last_seen_at DESC
         LIMIT ?
@@ -380,6 +394,52 @@ def delete_user(user_id: str):
             "UPDATE user_email_history SET currently_active = 0, last_status = 'deleted' WHERE email = ?",
             (row["email"],),
         )
+    conn.commit()
+    conn.close()
+
+def get_email_history_entry(email: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT email, first_seen_at, last_seen_at, last_user_id, uses_count, last_status, last_role, currently_active,
+               is_spam, spam_marked_at, spam_reason
+        FROM user_email_history
+        WHERE lower(email) = lower(?)
+        """,
+        (email,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def is_email_blocked_as_spam(email: str) -> bool:
+    entry = get_email_history_entry(email)
+    return bool(entry and int(entry.get("is_spam") or 0) == 1)
+
+def set_email_spam_status(email: str, is_spam: bool, reason: str = ""):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    spam_reason = ((reason or "").strip() or None) if is_spam else None
+    cursor.execute(
+        """
+        INSERT INTO user_email_history (email, first_seen_at, last_seen_at, uses_count, last_status, last_role, currently_active, is_spam, spam_marked_at, spam_reason)
+        VALUES (?, ?, ?, 1, 'blocked', 'user', 0, ?, ?, ?)
+        ON CONFLICT(email) DO UPDATE SET
+            is_spam = excluded.is_spam,
+            spam_marked_at = excluded.spam_marked_at,
+            spam_reason = excluded.spam_reason
+        """,
+        (
+            email,
+            now,
+            now,
+            1 if is_spam else 0,
+            now if is_spam else None,
+            spam_reason,
+        ),
+    )
     conn.commit()
     conn.close()
 
