@@ -1252,15 +1252,18 @@ class BotState:
             "runtime_health": self.runtime_health,
         }, self.user_id)
 
-    def close_trade(self, symbol: str, side: str, profit_usd: float, profit_pct: float):
+    def close_trade(self, symbol: str, side: str, profit_usd: float, profit_pct: float, meta: dict = None):
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M")
-        self.trade_history.append({
+        record = {
             "symbol": symbol,
             "side": side,
             "profit_usd": round(profit_usd, 2),
             "profit_pct": round(profit_pct * 100, 2),
             "date": timestamp
-        })
+        }
+        if isinstance(meta, dict):
+            record.update(meta)
+        self.trade_history.append(record)
         if symbol in self.high_watermarks:
             del self.high_watermarks[symbol]
         self.save_state()

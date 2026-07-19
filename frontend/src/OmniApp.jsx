@@ -888,6 +888,62 @@ const deriveTradePerformance = (tradeHistory = []) => {
   };
 };
 
+const deriveTradeSetupReview = (tradeHistory = []) => {
+  const trades = Array.isArray(tradeHistory) ? tradeHistory.filter((trade) => Number(trade?.profit_usd || 0) !== 0) : [];
+  const bySetup = {};
+
+  trades.forEach((trade) => {
+    const setupProfile = String(trade?.setup_profile || 'Non classificato').trim();
+    const assetClass = String(trade?.asset_class || 'unknown').trim();
+    const setupKey = `${setupProfile} • ${assetClass}`;
+    const profitUsd = Number(trade?.profit_usd || 0);
+    const profitPct = Number(trade?.profit_pct || 0);
+
+    if (!bySetup[setupKey]) {
+      bySetup[setupKey] = {
+        key: setupKey,
+        profile: setupProfile,
+        assetClass,
+        trades: 0,
+        wins: 0,
+        losses: 0,
+        totalPnl: 0,
+        totalPct: 0,
+        avgLstmProb: 0,
+        lastSentiment: trade?.llm_sentiment || 'N/A',
+        trailMode: trade?.trail_mode || 'n/a',
+      };
+    }
+
+    const row = bySetup[setupKey];
+    row.trades += 1;
+    row.totalPnl += profitUsd;
+    row.totalPct += profitPct;
+    row.avgLstmProb += Number(trade?.lstm_prob || 0);
+    row.lastSentiment = trade?.llm_sentiment || row.lastSentiment;
+    row.trailMode = trade?.trail_mode || row.trailMode;
+    if (profitUsd > 0) row.wins += 1;
+    if (profitUsd < 0) row.losses += 1;
+  });
+
+  const rows = Object.values(bySetup)
+    .map((row) => ({
+      ...row,
+      avgLstmProb: row.trades ? row.avgLstmProb / row.trades : 0,
+      avgPct: row.trades ? row.totalPct / row.trades : 0,
+      winRate: row.trades ? (row.wins / row.trades) * 100 : 0,
+      expectancy: row.trades ? row.totalPnl / row.trades : 0,
+    }))
+    .sort((a, b) => b.totalPnl - a.totalPnl);
+
+  return {
+    rows,
+    best: rows[0] || null,
+    weakest: [...rows].sort((a, b) => a.totalPnl - b.totalPnl)[0] || null,
+    totalReviewed: trades.length,
+  };
+};
+
 const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}, readinessMap = {}, headlineMap = {}, rankedMap = {} }) => {
   const symbols = Array.isArray(status?.symbols) ? status.symbols : [];
 
@@ -1934,6 +1990,7 @@ const RiskStatus = ({ riskSnapshot, status }) => {
   const [isTogglingRisk, setIsTogglingRisk] = useState(false);
   const [isSavingLimits, setIsSavingLimits] = useState(false);
   const userRole = safeStorageGet('USER_ROLE', 'user');
+  const tradeSetupReview = useMemo(() => deriveTradeSetupReview(status?.trade_history || []), [status?.trade_history]);
   const [riskLimitsForm, setRiskLimitsForm] = useState({
     max_open_positions: 5,
     max_position_exposure_pct: 20,
@@ -2028,6 +2085,50 @@ const RiskStatus = ({ riskSnapshot, status }) => {
   const cooldownLabel = risk.cooldown_until
     ? new Date(risk.cooldown_until).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })
     : null;
+  const riskPresets = [
+    {
+      id: 'conservative',
+      label: 'Conservativo',
+      note: 'Più difesa, meno rumore',
+      values: {
+        max_open_positions: 3,
+        max_position_exposure_pct: 12,
+        min_cash_reserve_pct: 25,
+        trade_cooldown_seconds: 420,
+        max_consecutive_losses: 2,
+        max_spread_pct_stock: 0.2,
+        max_spread_pct_crypto: 0.45,
+      },
+    },
+    {
+      id: 'balanced',
+      label: 'Bilanciato',
+      note: 'Buon compromesso qualità/attività',
+      values: {
+        max_open_positions: 5,
+        max_position_exposure_pct: 20,
+        min_cash_reserve_pct: 15,
+        trade_cooldown_seconds: 180,
+        max_consecutive_losses: 3,
+        max_spread_pct_stock: 0.35,
+        max_spread_pct_crypto: 0.8,
+      },
+    },
+    {
+      id: 'aggressive',
+      label: 'Aggressivo',
+      note: 'Più opportunità, più rischio',
+      values: {
+        max_open_positions: 7,
+        max_position_exposure_pct: 28,
+        min_cash_reserve_pct: 8,
+        trade_cooldown_seconds: 45,
+        max_consecutive_losses: 4,
+        max_spread_pct_stock: 0.55,
+        max_spread_pct_crypto: 1.2,
+      },
+    },
+  ];
 
   const handleRiskToggle = async () => {
     if (userRole !== 'admin' || isTogglingRisk || !risk) return;
@@ -2081,6 +2182,12 @@ const RiskStatus = ({ riskSnapshot, status }) => {
     } finally {
       setIsSavingLimits(false);
     }
+  };
+
+  const applyRiskPreset = (preset) => {
+    if (!preset?.values || userRole !== 'admin') return;
+    setRiskLimitsForm((prev) => ({ ...prev, ...preset.values }));
+    pushNotice('success', `Preset ${preset.label}`, 'Valori caricati nel pannello. Salvali per renderli operativi.');
   };
   
   return (
@@ -2186,6 +2293,21 @@ const RiskStatus = ({ riskSnapshot, status }) => {
           </button>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
+          {riskPresets.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className="btn"
+              onClick={() => applyRiskPreset(preset)}
+              disabled={userRole !== 'admin'}
+              style={{ textAlign: 'left', padding: '0.9rem 1rem', borderRadius: '12px', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.18)', opacity: userRole === 'admin' ? 1 : 0.55 }}
+            >
+              <div style={{ color: '#e2e8f0', fontWeight: 800 }}>{preset.label}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.76rem', marginTop: '0.25rem' }}>{preset.note}</div>
+            </button>
+          ))}
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', marginTop: '0.75rem' }}>
           {[
             { key: 'max_open_positions', label: 'Max posizioni', hint: 'Quante operazioni insieme può tenere aperte', min: 1, max: 12, step: 1 },
             { key: 'max_position_exposure_pct', label: 'Max esposizione %', hint: 'Quota massima del capitale su una singola idea', min: 5, max: 50, step: 1 },
@@ -2211,6 +2333,40 @@ const RiskStatus = ({ riskSnapshot, status }) => {
             </label>
           ))}
         </div>
+      </div>
+      <div style={{ marginTop: '1rem', padding: '1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+        <div style={{ color: '#e2e8f0', fontWeight: 800, marginBottom: '0.35rem' }}>Review post-trade automatica</div>
+        <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginBottom: '0.85rem' }}>
+          Aureo sta iniziando a misurare quali profili di setup performano meglio, così puoi stringere il motore sui pattern che davvero pagano.
+        </div>
+        {tradeSetupReview.totalReviewed > 0 ? (
+          <>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '0.85rem' }}>
+              <div className="badge badge-active" style={{ justifyContent: 'space-between' }}>Setup migliori <strong style={{ color: 'var(--text-primary)' }}>{tradeSetupReview.best?.profile || 'n/a'}</strong></div>
+              <div className="badge badge-danger" style={{ justifyContent: 'space-between' }}>Setup debole <strong style={{ color: 'var(--text-primary)' }}>{tradeSetupReview.weakest?.profile || 'n/a'}</strong></div>
+              <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Trade analizzati <strong style={{ color: 'var(--text-primary)' }}>{tradeSetupReview.totalReviewed}</strong></div>
+            </div>
+            <div style={{ display: 'grid', gap: '0.55rem' }}>
+              {tradeSetupReview.rows.slice(0, 4).map((row) => (
+                <div key={row.key} style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: `1px solid ${row.totalPnl >= 0 ? 'rgba(16,185,129,0.22)' : 'rgba(239,68,68,0.22)'}` }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.35rem' }}>
+                    <div style={{ color: '#e2e8f0', fontWeight: 800 }}>{row.profile} · {row.assetClass}</div>
+                    <div style={{ color: row.totalPnl >= 0 ? '#10b981' : '#ef4444', fontWeight: 800 }}>
+                      {row.totalPnl >= 0 ? '+' : ''}${row.totalPnl.toFixed(2)}
+                    </div>
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: 1.45 }}>
+                    Win rate {row.winRate.toFixed(0)}% · Expectancy ${row.expectancy.toFixed(2)} · LSTM medio {row.avgLstmProb.toFixed(0)}% · Trail {String(row.trailMode).toUpperCase()} · Sentiment {row.lastSentiment}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        ) : (
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem' }}>
+            Appena Aureo chiude abbastanza trade con metadati completi, qui vedrai quali setup rendono meglio e quali vanno stretti.
+          </div>
+        )}
       </div>
       <div style={{ marginTop: '1rem', padding: '0.95rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
         <div style={{ color: '#e2e8f0', fontWeight: 800, marginBottom: '0.55rem' }}>Ultimi alert del Risk Engine</div>

@@ -277,8 +277,10 @@ class AlpacaEngine:
             pnl = ((exit_price - entry_price) * qty) if side == "LONG" else ((entry_price - exit_price) * qty)
             profit_pct = ((exit_price - entry_price) / entry_price * 100.0) if side == "LONG" else ((entry_price - exit_price) / entry_price * 100.0)
             get_risk_manager(self.bot_state.virtual_cash).record_trade(symbol, "AUTO-EXIT", qty=qty, price=exit_price, pnl=pnl)
+            trail_meta = dict(self.active_trails.get(symbol, {}) or {})
+            review_meta = dict(trail_meta.get("review_meta", {}) or {})
             if hasattr(self.bot_state, "close_trade"):
-                self.bot_state.close_trade(symbol, "AUTO-EXIT", pnl, profit_pct / 100.0)
+                self.bot_state.close_trade(symbol, "AUTO-EXIT", pnl, profit_pct / 100.0, meta=review_meta)
             return pnl
         except Exception as exc:
             self._log(f"⚠️ Errore registrazione trade chiuso su {symbol}: {exc}")
@@ -942,7 +944,19 @@ class AlpacaEngine:
                 'qty': qty,
                 'entry_price': current_price,
                 'peak_price': current_price,
-                'trail_percent': trail_percent
+                'trail_percent': trail_percent,
+                'review_meta': {
+                    'asset_class': asset_class,
+                    'setup_profile': 'Aggressivo' if base_confidence >= 0.8 else ('Bilanciato' if base_confidence >= 0.65 else 'Conservativo'),
+                    'llm_sentiment': sentiment,
+                    'llm_confidence': confidence,
+                    'lstm_prob': round(float(lstm_prob or 0) * 100, 1),
+                    'aggressiveness': round(float(self.bot_state.aggressiveness or 0), 1),
+                    'trail_mode': 'atr' if dynamic_atr_stop else 'fixed',
+                    'trail_percent': trail_percent,
+                    'spread_pct': spread_pct,
+                    'entry_filter': 'passed',
+                }
             }
             
             # Notifica Telegram
