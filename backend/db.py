@@ -41,6 +41,7 @@ def decrypt_value(encrypted_value: str) -> str:
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
     cursor = conn.cursor()
     
     # Users table
@@ -150,6 +151,34 @@ def init_db():
             currently_active INTEGER DEFAULT 1
         )
     ''')
+
+    cursor.execute(
+        """
+        SELECT id, email, role, status, created_at
+        FROM users
+        WHERE email IS NOT NULL AND TRIM(email) != ''
+        """
+    )
+    existing_users = cursor.fetchall()
+    for user in existing_users:
+        seen_at = user["created_at"] or datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+        cursor.execute(
+            """
+            INSERT INTO user_email_history (email, first_seen_at, last_seen_at, last_user_id, uses_count, last_status, last_role, currently_active)
+            VALUES (?, ?, ?, ?, 1, ?, ?, 1)
+            ON CONFLICT(email) DO UPDATE SET
+                last_seen_at = CASE
+                    WHEN user_email_history.last_seen_at IS NULL OR user_email_history.last_seen_at < excluded.last_seen_at
+                    THEN excluded.last_seen_at
+                    ELSE user_email_history.last_seen_at
+                END,
+                last_user_id = excluded.last_user_id,
+                last_status = excluded.last_status,
+                last_role = excluded.last_role,
+                currently_active = 1
+            """,
+            (user["email"], seen_at, seen_at, user["id"], user["status"], user["role"]),
+        )
     
     conn.commit()
     conn.close()
