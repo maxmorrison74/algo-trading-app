@@ -893,6 +893,142 @@ body {
   min-width: 0;
 }
 
+.billing-metric-card,
+.billing-panel-card {
+  position: relative;
+  overflow: hidden;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.015)),
+    rgba(17, 24, 39, 0.92);
+  border: 1px solid rgba(255,255,255,0.06);
+  box-shadow:
+    0 20px 48px rgba(2, 8, 23, 0.24),
+    inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.billing-metric-card::before,
+.billing-panel-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(135deg, rgba(255,255,255,0.05), transparent 35%, transparent 72%, rgba(56, 189, 248, 0.04));
+}
+
+.billing-inline-creator {
+  background: linear-gradient(180deg, rgba(56,189,248,0.07), rgba(255,255,255,0.02));
+  padding: 1.5rem;
+  border-radius: 16px;
+  margin-bottom: 1.5rem;
+  border: 1px solid rgba(56,189,248,0.12);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.billing-governance-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.2rem;
+}
+
+.billing-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.7rem;
+  padding: 0.42rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.16);
+  color: #9ddcff;
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.billing-governance-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.9rem;
+  margin-bottom: 1.2rem;
+}
+
+.billing-governance-stat {
+  padding: 1rem 1.05rem;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.025);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.03);
+}
+
+.billing-governance-stat span {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.billing-governance-stat strong {
+  display: block;
+  margin-top: 0.35rem;
+  color: #f8fafc;
+  font-size: 1.35rem;
+  font-weight: 800;
+}
+
+.billing-governance-stat small {
+  display: block;
+  margin-top: 0.45rem;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.5;
+}
+
+.billing-filter-row {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.billing-filter-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.72rem 0.95rem;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: transform 0.22s ease, border-color 0.22s ease, background 0.22s ease, box-shadow 0.22s ease;
+}
+
+.billing-filter-pill:hover {
+  transform: translateY(-1px);
+  border-color: rgba(56, 189, 248, 0.2);
+  box-shadow: 0 12px 28px rgba(2, 8, 23, 0.18);
+}
+
+.billing-filter-pill.is-active {
+  border-color: rgba(56, 189, 248, 0.28);
+  background: linear-gradient(135deg, rgba(56,189,248,0.12), rgba(139,92,246,0.08));
+  box-shadow: 0 14px 30px rgba(2, 8, 23, 0.22), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+
+.billing-filter-pill span {
+  font-size: 0.84rem;
+  color: var(--text-secondary);
+}
+
+.billing-filter-pill strong {
+  font-size: 0.84rem;
+  color: #f8fafc;
+}
+
 /* MAIN CONTENT */
 .main-content {
   flex: 1;
@@ -3277,6 +3413,10 @@ input:focus, textarea:focus, select:focus {
     min-width: 0;
   }
 
+  .billing-governance-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
   .sentiment-cards-grid {
     grid-template-columns: 1fr !important;
   }
@@ -3332,6 +3472,24 @@ input:focus, textarea:focus, select:focus {
   .card div[style*="overflow: hidden"] {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+  .billing-governance-grid {
+    grid-template-columns: 1fr;
+  }
+  .billing-governance-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .billing-filter-row {
+    width: 100%;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+    padding-bottom: 0.25rem;
+    -webkit-overflow-scrolling: touch;
+  }
+  .billing-filter-pill {
+    white-space: nowrap;
+    flex: 0 0 auto;
   }
   .dashboard-grid { gap: 1rem; }
   .card { padding: 1rem; border-radius: 14px; }

@@ -2712,6 +2712,7 @@ function OmniAppInner() {
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'user' });
   const [billingSearch, setBillingSearch] = useState('');
+  const [billingHistoryFilter, setBillingHistoryFilter] = useState('all');
   const [billingLead, setBillingLead] = useState({ company: '', contact_name: '', email: '', plan_id: 'monthly', seats: 1 });
   const [userIsPaid, setUserIsPaid] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
@@ -6899,12 +6900,29 @@ function OmniAppInner() {
     const activity = overview.recent_activity || [];
     const emailHistory = overview.email_history || [];
     const normalizedBillingSearch = billingSearch.trim().toLowerCase();
+    const emailHistoryStats = {
+      total: emailHistory.length,
+      active: emailHistory.filter((entry) => entry.currently_active && !entry.is_spam).length,
+      spam: emailHistory.filter((entry) => entry.is_spam).length,
+      archived: emailHistory.filter((entry) => !entry.currently_active && !entry.is_spam).length,
+    };
+    const emailHistoryFilters = [
+      { id: 'all', label: 'Tutto storico', value: emailHistoryStats.total },
+      { id: 'active', label: 'Attuali', value: emailHistoryStats.active },
+      { id: 'spam', label: 'Spam', value: emailHistoryStats.spam },
+      { id: 'archived', label: 'Archiviate', value: emailHistoryStats.archived },
+    ];
     const filteredCustomers = normalizedBillingSearch
       ? customers.filter((user) => String(user.email || '').toLowerCase().includes(normalizedBillingSearch))
       : customers;
-    const filteredEmailHistory = normalizedBillingSearch
-      ? emailHistory.filter((entry) => String(entry.email || '').toLowerCase().includes(normalizedBillingSearch))
-      : emailHistory;
+    const filteredEmailHistory = emailHistory.filter((entry) => {
+      const matchesSearch = !normalizedBillingSearch || String(entry.email || '').toLowerCase().includes(normalizedBillingSearch);
+      if (!matchesSearch) return false;
+      if (billingHistoryFilter === 'active') return entry.currently_active && !entry.is_spam;
+      if (billingHistoryFilter === 'spam') return !!entry.is_spam;
+      if (billingHistoryFilter === 'archived') return !entry.currently_active && !entry.is_spam;
+      return true;
+    });
 
     return (
       <div className="module-content module-content--billing">
@@ -6928,19 +6946,19 @@ function OmniAppInner() {
         )}
 
         <div className="dashboard-grid">
-          <div className="card col-span-3">
+          <div className="card col-span-3 billing-metric-card">
             <div className="card-title">MRR</div>
             <div className="portfolio-value" style={{ color: '#10b981' }}>€{Number(metrics.monthly_recurring_revenue || 0).toFixed(0)}</div>
           </div>
-          <div className="card col-span-3">
+          <div className="card col-span-3 billing-metric-card">
             <div className="card-title">ARR</div>
             <div className="portfolio-value" style={{ color: '#38bdf8' }}>€{Number(metrics.annual_run_rate || 0).toFixed(0)}</div>
           </div>
-          <div className="card col-span-3">
+          <div className="card col-span-3 billing-metric-card">
             <div className="card-title">Clienti Attivi</div>
             <div className="portfolio-value">{Number(metrics.active_customers || 0)}</div>
           </div>
-          <div className="card col-span-3">
+          <div className="card col-span-3 billing-metric-card">
             <div className="card-title">Trial / Lead</div>
             <div className="portfolio-value" style={{ color: '#f59e0b' }}>
               {Number(metrics.trialing_customers || 0)} / {Number(metrics.leads_count || 0)}
@@ -6949,7 +6967,7 @@ function OmniAppInner() {
         </div>
 
         <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
-          <div className="card col-span-12">
+          <div className="card col-span-12 billing-panel-card">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
               <h3 style={{ margin: 0, color: '#e2e8f0' }}>Clienti Iscritti</h3>
               <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -6972,7 +6990,7 @@ function OmniAppInner() {
             </div>
 
             {showCreateUser && (
-              <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '12px', marginBottom: '1.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+              <div className="billing-inline-creator">
                 <h4 style={{ margin: '0 0 1rem 0' }}>Nuovo Utente</h4>
                 <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                   <div style={{ flex: 1, minWidth: '200px' }}>
@@ -7205,7 +7223,7 @@ function OmniAppInner() {
             </div>
           </div>
 
-          <div className="card col-span-12">
+          <div className="card col-span-12 billing-panel-card">
             <h3 style={{ marginBottom: '1rem', color: '#e2e8f0' }}>Verifica Pagamenti Crypto</h3>
             <div className="data-table-wrapper">
               <table className="data-table">
@@ -7267,15 +7285,55 @@ function OmniAppInner() {
             </div>
           </div>
 
-          <div className="card col-span-12">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+          <div className="card col-span-12 billing-panel-card">
+            <div className="billing-governance-hero">
               <div>
+                <div className="billing-eyebrow">Email governance</div>
                 <h3 style={{ margin: 0, color: '#e2e8f0' }}>Email già usate in passato</h3>
-                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.25rem' }}>
-                  Storico utile per evitare doppioni, ricicli e indirizzi già transitati in Aureo.
+                <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: '0.35rem', lineHeight: 1.6 }}>
+                  Storico utile per evitare doppioni, ricicli, indirizzi tossici e accessi che non vuoi più rivedere in Aureo.
                 </div>
               </div>
-              <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{filteredEmailHistory.length} / {emailHistory.length} email in storico</div>
+              <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{filteredEmailHistory.length} / {emailHistory.length} email visibili</div>
+            </div>
+            <div className="billing-governance-grid">
+              <div className="billing-governance-stat">
+                <span>Storico totale</span>
+                <strong>{emailHistoryStats.total}</strong>
+                <small>Tutte le email che sono già passate da Aureo.</small>
+              </div>
+              <div className="billing-governance-stat">
+                <span>Attuali</span>
+                <strong style={{ color: '#10b981' }}>{emailHistoryStats.active}</strong>
+                <small>Email oggi attive e sane dentro il sistema.</small>
+              </div>
+              <div className="billing-governance-stat">
+                <span>Spam</span>
+                <strong style={{ color: '#f87171' }}>{emailHistoryStats.spam}</strong>
+                <small>Email bloccate manualmente nei flussi Aureo.</small>
+              </div>
+              <div className="billing-governance-stat">
+                <span>Archiviate</span>
+                <strong style={{ color: '#94a3b8' }}>{emailHistoryStats.archived}</strong>
+                <small>Storico non attivo ma ancora utile come memoria operativa.</small>
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
+              <div>
+                <div className="billing-filter-row">
+                  {emailHistoryFilters.map((filter) => (
+                    <button
+                      key={filter.id}
+                      type="button"
+                      className={`billing-filter-pill ${billingHistoryFilter === filter.id ? 'is-active' : ''}`}
+                      onClick={() => setBillingHistoryFilter(filter.id)}
+                    >
+                      <span>{filter.label}</span>
+                      <strong>{filter.value}</strong>
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             <div className="data-table-wrapper">
               <table className="data-table">
