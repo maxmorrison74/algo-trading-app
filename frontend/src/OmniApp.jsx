@@ -4670,6 +4670,64 @@ function OmniAppInner() {
         tone: (status.risk?.positions_remaining || 0) > 1 ? '#38bdf8' : '#f59e0b',
       },
     ];
+    const accountPlanLabel = userProfile?.plan_label || userProfile?.step_name || userProfile?.plan_name || (userIsPaid ? 'Accesso attivo' : 'Demo / trial');
+    const readinessItems = [
+      {
+        label: 'Email confermata',
+        ready: !!userProfile?.email_verified,
+        detail: userProfile?.email_verified ? 'Identità confermata: accesso più solido e recupero più semplice.' : 'Conferma la mail per consolidare accesso, notifiche e recupero credenziali.',
+        actionLabel: userProfile?.email_verified ? '' : 'Conferma via mail',
+        action: null,
+      },
+      {
+        label: 'Broker collegato',
+        ready: !!(savedKeys['ALPACA_KEY'] && savedKeys['ALPACA_SECRET']),
+        detail: savedKeys['ALPACA_KEY'] ? 'Aureo può leggere il broker e prepararsi all’operatività reale.' : 'Collega Alpaca Paper o Live per trasformare Aureo in una control room davvero operativa.',
+        actionLabel: savedKeys['ALPACA_KEY'] ? '' : 'Apri Security',
+        action: () => openDevelopSection('security'),
+      },
+      {
+        label: 'AI core attivo',
+        ready: !!savedKeys['GROQ_KEY'],
+        detail: savedKeys['GROQ_KEY'] ? 'Le letture AI sono pronte per supportare segnali e analisi.' : 'Aggiungi Groq per sbloccare analisi, sentiment e supporto decisionale.',
+        actionLabel: savedKeys['GROQ_KEY'] ? '' : 'Collega Groq',
+        action: () => openDevelopSection('security'),
+      },
+      {
+        label: 'Alert esterni armati',
+        ready: alertArmed,
+        detail: alertArmed ? 'Telegram o Pushover sono pronti a portarti fuori piattaforma gli eventi critici.' : 'Arma almeno un canale esterno per non perderti pause di sicurezza e warning importanti.',
+        actionLabel: alertArmed ? '' : 'Configura alert',
+        action: () => openDevelopSection('security'),
+      },
+      {
+        label: 'Accesso commerciale attivo',
+        ready: !accountAccessMeta.isExpired,
+        detail: accountAccessMeta.detail,
+        actionLabel: accountAccessMeta.isExpired || accountAccessMeta.isExpiringSoon ? 'Apri rinnovo' : '',
+        action: () => setShowPaymentModal(true),
+      },
+    ];
+    const readinessReadyCount = readinessItems.filter((item) => item.ready).length;
+    const readinessPercent = Math.round((readinessReadyCount / readinessItems.length) * 100);
+    const nextReadinessItem = readinessItems.find((item) => !item.ready);
+    const accountMoments = [
+      {
+        label: 'Formula attuale',
+        value: accountPlanLabel,
+        tone: '#38bdf8',
+      },
+      {
+        label: 'Stato accesso',
+        value: accountAccessMeta.title,
+        tone: accountAccessMeta.tone,
+      },
+      {
+        label: 'Prossimo passo',
+        value: nextReadinessItem ? nextReadinessItem.label : 'Aureo pronto',
+        tone: nextReadinessItem ? '#f59e0b' : '#10b981',
+      },
+    ];
     
     const pieData = [
       { name: 'Liquidità', value: virtualCash, color: 'var(--text-secondary)' },
@@ -4734,6 +4792,89 @@ function OmniAppInner() {
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
+          <div className="card col-span-6 home-readiness-card">
+            <div className="home-section-head">
+              <div>
+                <h3 className="card-title" style={{ marginBottom: '0.35rem' }}>🚀 Go-Live Readiness</h3>
+                <div className="home-section-subtitle">Qui vedi in un colpo solo quanto Aureo è pronto per girare davvero senza sorprese.</div>
+              </div>
+              <div className="home-readiness-score" style={{ borderColor: `${nextReadinessItem ? '#f59e0b' : '#10b981'}44` }}>
+                <strong style={{ color: nextReadinessItem ? '#f59e0b' : '#10b981' }}>{readinessPercent}%</strong>
+                <span>{readinessReadyCount}/{readinessItems.length} pronti</span>
+              </div>
+            </div>
+            <div className="home-readiness-list">
+              {readinessItems.map((item) => (
+                <div key={item.label} className={`home-readiness-item ${item.ready ? 'is-ready' : 'is-pending'}`}>
+                  <div className="home-readiness-copy">
+                    <div className="home-readiness-title-row">
+                      <strong>{item.label}</strong>
+                      <span className="home-readiness-pill">{item.ready ? 'Pronto' : 'Da completare'}</span>
+                    </div>
+                    <span>{item.detail}</span>
+                  </div>
+                  {!item.ready && item.actionLabel && item.action && (
+                    <button type="button" className="btn btn-outline home-inline-action" onClick={item.action}>
+                      {item.actionLabel}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <div className="home-readiness-footer">
+              <div className="home-readiness-footer-copy">
+                <strong>{nextReadinessItem ? 'Priorità consigliata' : 'Setup maturo'}</strong>
+                <span>{nextReadinessItem ? `Chiudi adesso “${nextReadinessItem.label}” e Aureo apparirà molto più completo e professionale.` : 'Hai già una base molto solida: ora puoi concentrarti su continuità operativa e qualità del servizio.'}</span>
+              </div>
+              <div className="home-readiness-actions">
+                <button type="button" className="btn btn-outline" onClick={() => openDevelopSection('guide')}>Apri guida</button>
+                <button type="button" className="btn btn-start" onClick={() => openDevelopSection('security')}>Apri Security</button>
+              </div>
+            </div>
+          </div>
+
+          <div className="card col-span-6 home-account-card">
+            <div className="home-section-head">
+              <div>
+                <h3 className="card-title" style={{ marginBottom: '0.35rem' }}>🧾 Account & continuità</h3>
+                <div className="home-section-subtitle">La parte commerciale deve essere chiara quanto quella tecnica: stato, durata e prossima azione.</div>
+              </div>
+            </div>
+            <div className="home-account-metrics">
+              {accountMoments.map((item) => (
+                <div key={item.label} className="home-account-metric" style={{ borderColor: `${item.tone}33` }}>
+                  <span>{item.label}</span>
+                  <strong style={{ color: item.tone }}>{item.value}</strong>
+                </div>
+              ))}
+            </div>
+            <div className="home-account-story">
+              <div className="home-account-story-block">
+                <span>Durata accesso</span>
+                <strong style={{ color: accountAccessMeta.tone }}>{accountAccessMeta.detail}</strong>
+              </div>
+              <div className="home-account-story-block">
+                <span>Supporto operativo</span>
+                <strong style={{ color: '#e2e8f0' }}>
+                  {missingSetupItems.length > 0
+                    ? `Mancano ancora: ${missingSetupItems.join(' · ')}`
+                    : 'Base chiavi completa: broker, AI e alert risultano già allineati.'}
+                </strong>
+              </div>
+            </div>
+            <div className="home-account-cta">
+              <div>
+                <strong>{accountAccessMeta.isExpired ? 'Accesso da riattivare' : accountAccessMeta.isExpiringSoon ? 'Conviene rinnovare adesso' : 'Account sotto controllo'}</strong>
+                <span>{accountAccessMeta.isExpired || accountAccessMeta.isExpiringSoon ? 'Eviti interruzioni e mantieni continuità operativa per utente, alert e setup.' : 'Hai visibilità chiara su ciò che è attivo, su ciò che manca e su come presentare meglio il servizio.'}</span>
+              </div>
+              <button type="button" className="btn btn-start" onClick={() => setShowPaymentModal(true)}>
+                {accountAccessMeta.isExpired ? 'Riattiva accesso' : accountAccessMeta.isExpiringSoon ? 'Rinnova adesso' : 'Apri piano account'}
+              </button>
+            </div>
+          </div>
         </div>
 
         <div className="dashboard-grid">
@@ -7356,31 +7497,45 @@ function OmniAppInner() {
       },
     ];
     const landingProofPoints = [
-      { value: 'Premium', label: 'impatto percepito fin dal primo scroll' },
-      { value: 'Guidato', label: 'percorso chiaro dalla scelta alla richiesta' },
-      { value: 'Controllato', label: 'abilitazione verificata prima dell’accesso pieno' },
+      { value: 'Esclusivo', label: 'Ti fa percepire subito che non stai entrando in qualcosa di comune.' },
+      { value: 'Chiaro', label: 'Ti accompagna nella scelta senza farti perdere il filo.' },
+      { value: 'Continuo', label: 'Ti fa capire che dietro c’è un servizio pensato per durare nel tempo.' },
     ];
     const landingTrustPillars = [
-      'Presenza privata ad alto valore percepito',
-      'Percorso commerciale pulito e guidato',
-      'Coerenza piena tra promessa, canone e accesso',
+      'Accesso riservato e percezione alta fin dal primo click',
+      'Onboarding semplice, pulito e accompagnato',
+      'Un abbonamento che appare serio prima ancora di essere spiegato',
+    ];
+    const landingSupportBlocks = [
+      {
+        title: 'Prima settimana full power',
+        text: 'Entri subito con tutto il potenziale attivo, così capisci bene il livello dell’ambiente e il ritmo del servizio.',
+      },
+      {
+        title: 'Continuità mensile o annuale',
+        text: 'Dopo il primo ingresso scegli se restare agile mese per mese oppure consolidare tutto su base annuale.',
+      },
+      {
+        title: 'Attivazione e supporto guidati',
+        text: 'Non vieni lasciato solo: accesso, chiavi e primi passaggi sono pensati per portarti dentro Aureo con ordine.',
+      },
     ];
     const landingFaq = [
       {
-        question: 'Come avviene l’attivazione di un cliente?',
-        answer: 'Scegli la formula più adatta, invii la richiesta e ricevi l’attivazione dopo la verifica finale. Un percorso semplice, guidato e sempre sotto controllo.',
+        question: 'Cosa succede dopo che scegli il tuo accesso?',
+        answer: 'Completi la richiesta, confermi la tua mail e ricevi i prossimi passaggi per entrare in Aureo in modo pulito, senza confusione e senza perdere tempo.',
       },
       {
-        question: 'Aureo è pensato per uso pubblico o privato?',
-        answer: 'Aureo nasce con un’impostazione chiaramente privata: tono, funnel e accesso selettivo raccontano un ambiente riservato, non una piattaforma aperta a tutti.',
+        question: 'Stai comprando un software o un accesso continuativo?',
+        answer: 'Tu attivi un abbonamento per usare Aureo nel tempo, con un ambiente già impostato per accompagnarti e restare ordinato anche dopo il primo ingresso.',
       },
       {
-        question: 'Perché questa struttura aiuta a vendere meglio?',
-        answer: 'Perché fa percepire subito una differenza: tutto appare più curato, più solido e più credibile. E quando la sensazione è quella giusta, anche la scelta diventa più naturale.',
+        question: 'Perché la prima settimana è diversa?',
+        answer: 'Perché ti permette di vedere Aureo al massimo del suo potenziale, senza dover immaginare nulla: entri, guardi, capisci e poi scegli come proseguire.',
       },
       {
-        question: 'Cosa differenzia gli step di accesso?',
-        answer: 'Cambiano il ritmo, la durata e il livello di continuità con cui entri in Aureo. L’esperienza resta coerente; cambia il modo in cui scegli di viverla.',
+        question: 'Cosa cambia tra mese e anno?',
+        answer: 'Cambia il modo in cui vuoi vivere Aureo: più flessibile se preferisci muoverti leggero, più stabile e conveniente se vuoi continuità piena.',
       },
     ];
     if (showLanding) {
@@ -7390,7 +7545,7 @@ function OmniAppInner() {
           <div className="sales-bg-animation sales-bg-animation--second" />
           <div className="sales-topbar">
             <span className="sales-topbar-label">Private Preview</span>
-            <span className="sales-topbar-text">Un accesso in abbonamento a una control room privata, premium e attivata con cura.</span>
+            <span className="sales-topbar-text">Un abbonamento riservato per entrare in Aureo con ordine, continuità e una presenza davvero premium.</span>
           </div>
 
           <nav className="sales-nav">
@@ -7427,10 +7582,10 @@ function OmniAppInner() {
               <div className="sales-hero-content">
                 <div className="sales-badge">⚡ Private Access Operating System</div>
                 <h1>
-                  Accedi a una <span>control room privata</span> pensata per chi pretende controllo, ordine e discrezione
+                  Entri in una <span>control room privata</span> che ti fa percepire subito ordine, protezione e qualità
                 </h1>
                 <p>
-                  Un ambiente operativo riservato, guidato e continuativo, dove ogni dettaglio comunica qualità, presidio e valore percepito.
+                  Aureo non ti accoglie come una dashboard qualsiasi: ti accompagna dentro un ambiente riservato, chiaro e continuo, costruito per farti restare.
                 </p>
                 <div className="sales-hero-buttons">
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
@@ -7532,9 +7687,9 @@ function OmniAppInner() {
 
             <section className="sales-section" id="landing-features">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Cosa acquista davvero il cliente</div>
-                <h2>Un accesso riservato a un ambiente operativo che trasmette ordine, controllo e valore</h2>
-                <p>Non un software da esplorare distrattamente, ma un’esperienza premium da attivare e mantenere nel tempo.</p>
+                <div className="sales-section-eyebrow">Cosa ottieni davvero</div>
+                <h2>Non stai aprendo un pannello qualsiasi: stai entrando in un ambiente che deve sembrarti solido dal primo minuto</h2>
+                <p>Qui tutto è pensato per farti capire subito perché vale la pena restare: lettura chiara, presenza alta e accesso costruito con criterio.</p>
               </div>
               <div className="sales-features-grid">
                 {landingFeatures.map((item) => (
@@ -7549,9 +7704,9 @@ function OmniAppInner() {
 
             <section className="sales-section sales-section--assurance" id="landing-assurance">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Perché appare più serio</div>
-                <h2>Ogni dettaglio racconta rigore, selezione e governo del processo</h2>
-                <p>Qui tutto deve trasmettere una sensazione precisa: Aureo non è aperto a tutti, non è improvvisato e non lascia nulla al caso.</p>
+                <div className="sales-section-eyebrow">Perché ti dà fiducia</div>
+                <h2>Ogni dettaglio ti fa sentire dentro qualcosa di seguito, curato e sotto controllo</h2>
+                <p>Quando l’esperienza è coerente, anche il valore è più facile da capire: meno sensazione retail, più sensazione di servizio serio.</p>
               </div>
               <div className="sales-assurance-grid">
                 {landingAssuranceBlocks.map((item) => (
@@ -7565,9 +7720,9 @@ function OmniAppInner() {
 
             <section className="sales-section sales-section--enterprise">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Per chi è pensato</div>
-                <h2>Una proposta adatta a chi compra qualità, ordine e continuità</h2>
-                <p>Un accesso pensato per chi vuole sentirsi dentro un ambiente privato, ben governato e costruito per durare.</p>
+                <div className="sales-section-eyebrow">Per chi vuole un livello alto</div>
+                <h2>Se cerchi ordine, continuità e una presenza premium, qui capisci subito di essere nel posto giusto</h2>
+                <p>Aureo parla bene a chi vuole un abbonamento da usare davvero, non un giocattolo da aprire due minuti e dimenticare.</p>
               </div>
               <div className="sales-enterprise-grid">
                 {landingAudience.map((item) => (
@@ -7581,9 +7736,9 @@ function OmniAppInner() {
 
             <section className="sales-section">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Cosa c’è dentro Aureo</div>
-                <h2>I moduli chiave sono comprensibili subito, senza dover spiegare tutto a voce</h2>
-                <p>I servizi migliori si capiscono in pochi istanti. Qui Aureo racconta i suoi pilastri in modo chiaro, ordinato e convincente.</p>
+                <div className="sales-section-eyebrow">Cosa trovi dentro</div>
+                <h2>Dentro Aureo ogni modulo ha un ruolo chiaro, così tu percepisci subito completezza e non confusione</h2>
+                <p>Analisi, controllo, segnali e protezione convivono nello stesso ambiente con una logica leggibile e molto più vendibile.</p>
               </div>
               <div className="sales-module-grid">
                 {landingModuleShowcase.map((item) => (
@@ -7598,9 +7753,9 @@ function OmniAppInner() {
 
             <section className="sales-section sales-section--soft">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Cosa cambia davvero</div>
-                <h2>La sensazione cambia subito: Aureo appare più esclusivo, più credibile, più desiderabile</h2>
-                <p>Non è solo una questione visiva. È il modo in cui tutto si allinea — tono, accesso, ritmo e presenza — fino a far sembrare Aureo esattamente ciò che deve essere: un ambiente a cui vale la pena accedere.</p>
+                <div className="sales-section-eyebrow">Perché resta in testa</div>
+                <h2>Quando tutto è allineato, Aureo sembra subito qualcosa che vuoi tenere acceso</h2>
+                <p>La differenza la senti nel ritmo: capisci più in fretta, ti orienti meglio e percepisci un abbonamento che può accompagnarti davvero.</p>
               </div>
               <div className="sales-stats-row sales-stats-row--proof">
                 {landingDecisionStrip.map((item) => (
@@ -7622,9 +7777,9 @@ function OmniAppInner() {
 
             <section className="sales-section sales-section--soft" id="landing-flow">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Come si entra in Aureo</div>
-                <h2>Un percorso pulito in 3 passaggi, senza spezzare il ritmo</h2>
-                <p>Dalla prima impressione alla richiesta finale, il flusso accompagna verso l’attivazione senza perdere controllo né qualità percepita.</p>
+                <div className="sales-section-eyebrow">Come inizi</div>
+                <h2>Tre passaggi puliti, così entri senza attrito e senza sentirti perso</h2>
+                <p>Ti accompagniamo dalla scelta iniziale fino all’attivazione senza spezzare il ritmo e senza farti uscire dalla sensazione giusta.</p>
               </div>
               <div className="sales-steps-container">
                 {landingFlow.map((step) => (
@@ -7640,8 +7795,8 @@ function OmniAppInner() {
             <section className="sales-section" id="landing-pricing">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Step di accesso</div>
-                <h2>Scegli la formula di accesso più adatta al tuo profilo</h2>
-                <p>Ogni formula definisce un diverso ritmo di accesso ad Aureo, con il giusto livello di accompagnamento e continuità.</p>
+                <h2>Scegli come vuoi entrare: prima full power, poi continuità mensile o annuale</h2>
+                <p>La logica è semplice: prima capisci davvero il livello di Aureo, poi scegli il ritmo con cui vuoi continuare a usarlo.</p>
               </div>
               <div className="sales-pricing-grid">
                 {landingPlans.map((plan) => (
@@ -7690,10 +7845,10 @@ function OmniAppInner() {
                     <h3>{isRegistering ? `Invia la richiesta per ${selectedPlan.name}` : `Accedi per riprendere il percorso ${selectedPlan.name}`}</h3>
                     <p>
                       {isRegistering
-                        ? 'Compila i dati essenziali e invia la tua richiesta senza uscire da questo percorso.'
-                        : 'Se hai già ricevuto il tuo accesso, rientra qui e prosegui senza perdere il filo.'}
+                        ? 'Inserisci i tuoi dati, conferma la mail e ti accompagniamo nei prossimi passaggi senza rompere l’esperienza.'
+                        : 'Se hai già il tuo accesso, rientra qui e riprendi il percorso esattamente da dove lo avevi lasciato.'}
                     </p>
-                    <div className="sales-inline-form-note">Ogni richiesta viene verificata e allineata allo step selezionato prima dell’attivazione completa.</div>
+                    <div className="sales-inline-form-note">Dopo la richiesta ricevi una mail di conferma e i passaggi per completare attivazione, chiavi e accesso in modo ordinato.</div>
                   </div>
                   <input
                     type="email"
@@ -7767,8 +7922,8 @@ function OmniAppInner() {
             <section className="sales-section sales-section--proof" id="landing-proof">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Impatto percepito</div>
-                <h2>Quando la cornice è giusta, tutto il prodotto sale di livello</h2>
-                <p>Un’offerta più ordinata e più privata rende Aureo più desiderabile, più difendibile e più memorabile.</p>
+                <h2>Quando l’ingresso è fatto bene, tutto Aureo ti sembra più forte</h2>
+                <p>Non cambia solo il colpo d’occhio: cambia il modo in cui interpreti qualità, continuità e valore dell’abbonamento.</p>
               </div>
               <div className="sales-stats-row sales-stats-row--proof">
                 {landingProofPoints.map((item) => (
@@ -7795,11 +7950,27 @@ function OmniAppInner() {
               </div>
             </section>
 
+            <section className="sales-section sales-section--support">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Dopo l’ingresso</div>
+                <h2>Tu non vieni lasciato solo: la prima esperienza deve essere chiara, attiva e già concreta</h2>
+                <p>Dalla conferma mail alle chiavi essenziali, Aureo accompagna il cliente verso un utilizzo reale e non verso una semplice area membri vuota.</p>
+              </div>
+              <div className="sales-support-grid">
+                {landingSupportBlocks.map((item) => (
+                  <article key={item.title} className="sales-support-card">
+                    <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
             <section className="sales-section sales-section--soft">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Domande che chiudono le obiezioni</div>
-                <h2>Le informazioni importanti sono già lì, senza costringerti a spiegarle ogni volta</h2>
-                <p>Le migliori esperienze riducono l’attrito rispondendo subito ai dubbi principali. Qui succede con un tono più esclusivo.</p>
+                <div className="sales-section-eyebrow">Domande importanti</div>
+                <h2>Le risposte che ti servono sono già qui, senza costringerti a inseguire spiegazioni</h2>
+                <p>Se una pagina vende bene, chiarisce subito i dubbi veri. Qui lo fa parlando a te in modo semplice, diretto e più autorevole.</p>
               </div>
               <div className="sales-faq-grid">
                 {landingFaq.map((item) => (
@@ -7816,8 +7987,8 @@ function OmniAppInner() {
                 <div className="sales-cta-content">
                   <img src="/aureoos-logo.png" alt="Aureo OS" className="sales-cta-logo" />
                   <div className="sales-section-eyebrow">Call to action finale</div>
-                  <h2>Entra in Aureo come si entra in un ambiente riservato, non in una semplice app</h2>
-                  <p>Non l’idea di un software da usare al volo, ma quella di un accesso selettivo a un ambiente di valore, curato e continuativo.</p>
+                  <h2>Se vuoi capire davvero Aureo, il modo giusto è entrarci dentro</h2>
+                  <p>Inizi con una settimana full power, tocchi con mano il livello dell’ambiente e poi scegli se renderlo parte stabile della tua operatività.</p>
                   <div className="sales-trust-row">
                     {landingTrustPillars.map((item) => (
                       <div key={item} className="sales-trust-pill">{item}</div>
