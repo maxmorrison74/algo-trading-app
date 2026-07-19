@@ -2529,6 +2529,10 @@ class BillingLeadRequest(BaseModel):
 import requests
 
 DISPOSABLE_DOMAINS = set()
+SIGNUP_MAX_ATTEMPTS = int(os.getenv("SIGNUP_MAX_ATTEMPTS", "4"))
+SIGNUP_WINDOW_SECONDS = int(os.getenv("SIGNUP_WINDOW_SECONDS", "3600"))
+_signup_attempts = {}
+
 try:
     _res = requests.get("https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/master/disposable_email_blocklist.conf", timeout=5)
     if _res.status_code == 200:
@@ -2536,6 +2540,36 @@ try:
         print(f"Loaded {len(DISPOSABLE_DOMAINS)} disposable email domains.")
 except Exception as e:
     print(f"Failed to load disposable domains: {e}")
+
+def _prune_signup_attempts() -> None:
+    now = time.time()
+    expired = []
+    for key, attempt_times in _signup_attempts.items():
+        valid_attempts = [ts for ts in attempt_times if now - ts < SIGNUP_WINDOW_SECONDS]
+        if valid_attempts:
+            _signup_attempts[key] = valid_attempts
+        else:
+            expired.append(key)
+    for key in expired:
+        _signup_attempts.pop(key, None)
+
+def assert_signup_allowed(client_id: str) -> None:
+    _prune_signup_attempts()
+    attempt_times = _signup_attempts.get(client_id, [])
+    if len(attempt_times) >= SIGNUP_MAX_ATTEMPTS:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Troppe richieste di registrazione da questa origine. Riprova più tardi.",
+        )
+
+def record_signup_attempt(client_id: str) -> None:
+    now = time.time()
+    attempt_times = [ts for ts in _signup_attempts.get(client_id, []) if now - ts < SIGNUP_WINDOW_SECONDS]
+    attempt_times.append(now)
+    _signup_attempts[client_id] = attempt_times
+
+def clear_signup_attempts(client_id: str) -> None:
+    _signup_attempts.pop(client_id, None)
 
 def validate_signup_email(email: str) -> str:
     normalized_email = (email or "").lower().strip()
@@ -2550,16 +2584,20 @@ class BillingCustomerStatusRequest(BaseModel):
     status: str
 
 @app.post("/api/register")
-def register(req: RegisterRequest):
+def register(req: RegisterRequest, request: Request):
+    client_id = request.client.host if request.client else "unknown"
+    assert_signup_allowed(client_id)
     user_id = f"usr_{int(time.time())}"
     email = validate_signup_email(req.email)
     password = (req.password or "").strip()
 
     if len(password) < 8:
+        record_signup_attempt(client_id)
         raise HTTPException(status_code=400, detail="Scegli una password di almeno 8 caratteri.")
 
     success = db.create_user(user_id, email, password, role="user", status="pending")
     if not success:
+        record_signup_attempt(client_id)
         raise HTTPException(status_code=400, detail="L'email è già registrata.")
 
     confirmation_token = secrets.token_urlsafe(32)
@@ -2569,11 +2607,13 @@ def register(req: RegisterRequest):
         send_welcome_email(email, confirmation_token)
     except Exception as exc:
         db.delete_user(user_id)
+        record_signup_attempt(client_id)
         raise HTTPException(
             status_code=500,
             detail=f"Registrazione non completata: impossibile inviare la mail di conferma. {exc}",
         )
 
+    clear_signup_attempts(client_id)
     return {
         "status": "success",
         "message": "Ti abbiamo inviato una mail di benvenuto. Apri la mail e premi il pulsante di conferma per attivare davvero il tuo accesso.",
@@ -2581,11 +2621,14 @@ def register(req: RegisterRequest):
     }
 
 @app.post("/api/resend-confirmation")
-def resend_confirmation(req: EmailRequest):
+def resend_confirmation(req: EmailRequest, request: Request):
+    client_id = request.client.host if request.client else "unknown"
+    assert_signup_allowed(client_id)
     email = validate_signup_email(req.email)
 
     user = db.get_user_by_email(email)
     if not user:
+        record_signup_attempt(client_id)
         raise HTTPException(status_code=404, detail="Nessun account trovato con questa email.")
     if user.get("email_verified_at"):
         return {
@@ -2616,11 +2659,13 @@ def resend_confirmation(req: EmailRequest):
     try:
         send_welcome_email(email, confirmation_token)
     except Exception as exc:
+        record_signup_attempt(client_id)
         raise HTTPException(
             status_code=500,
             detail=f"Impossibile inviare la mail di conferma in questo momento. {exc}",
         )
 
+    clear_signup_attempts(client_id)
     return {
         "status": "success",
         "message": "Mail di conferma reinviata. Aprila e premi il pulsante per attivare l’accesso.",
