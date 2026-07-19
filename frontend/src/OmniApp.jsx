@@ -2711,6 +2711,7 @@ function OmniAppInner() {
   const [billingMessage, setBillingMessage] = useState('');
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [newUser, setNewUser] = useState({ email: '', password: '', role: 'user' });
+  const [billingSearch, setBillingSearch] = useState('');
   const [billingLead, setBillingLead] = useState({ company: '', contact_name: '', email: '', plan_id: 'monthly', seats: 1 });
   const [userIsPaid, setUserIsPaid] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
@@ -6755,6 +6756,13 @@ function OmniAppInner() {
     const leads = overview.leads || [];
     const activity = overview.recent_activity || [];
     const emailHistory = overview.email_history || [];
+    const normalizedBillingSearch = billingSearch.trim().toLowerCase();
+    const filteredCustomers = normalizedBillingSearch
+      ? customers.filter((user) => String(user.email || '').toLowerCase().includes(normalizedBillingSearch))
+      : customers;
+    const filteredEmailHistory = normalizedBillingSearch
+      ? emailHistory.filter((entry) => String(entry.email || '').toLowerCase().includes(normalizedBillingSearch))
+      : emailHistory;
 
     return (
       <div className="module-content module-content--billing">
@@ -6800,15 +6808,25 @@ function OmniAppInner() {
 
         <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
           <div className="card col-span-12">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', gap: '1rem', flexWrap: 'wrap' }}>
               <h3 style={{ margin: 0, color: '#e2e8f0' }}>Clienti Iscritti</h3>
-              <button 
-                className="btn" 
-                onClick={() => setShowCreateUser(!showCreateUser)}
-                style={{ background: 'var(--primary-color)', color: 'white', padding: '0.4rem 1rem', fontSize: '0.9rem' }}
-              >
-                {showCreateUser ? 'Annulla' : '+ Crea Utente'}
-              </button>
+              <div style={{ display: 'flex', gap: '0.8rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <input
+                  type="text"
+                  className="settings-input"
+                  value={billingSearch}
+                  onChange={(e) => setBillingSearch(e.target.value)}
+                  placeholder="Cerca email attuali o storiche"
+                  style={{ minWidth: '260px' }}
+                />
+                <button 
+                  className="btn" 
+                  onClick={() => setShowCreateUser(!showCreateUser)}
+                  style={{ background: 'var(--primary-color)', color: 'white', padding: '0.4rem 1rem', fontSize: '0.9rem' }}
+                >
+                  {showCreateUser ? 'Annulla' : '+ Crea Utente'}
+                </button>
+              </div>
             </div>
 
             {showCreateUser && (
@@ -6873,7 +6891,7 @@ function OmniAppInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {customers?.map((user) => (
+                  {filteredCustomers?.map((user) => (
                     <tr key={user.id}>
                       <td>
                         <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{user.email}</div>
@@ -7039,7 +7057,7 @@ function OmniAppInner() {
                       </td>
                     </tr>
                   ))}
-                  {!customers?.length && <tr><td colSpan="6" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
+                  {!filteredCustomers?.length && <tr><td colSpan="6" style={{textAlign:'center', color:'#888'}}>{normalizedBillingSearch ? 'Nessun cliente corrisponde alla ricerca' : 'Nessun cliente registrato'}</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -7115,7 +7133,7 @@ function OmniAppInner() {
                   Storico utile per evitare doppioni, ricicli e indirizzi già transitati in Aureo.
                 </div>
               </div>
-              <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{emailHistory.length} email in storico</div>
+              <div style={{ color: '#94a3b8', fontSize: '0.85rem' }}>{filteredEmailHistory.length} / {emailHistory.length} email in storico</div>
             </div>
             <div className="data-table-wrapper">
               <table className="data-table">
@@ -7129,7 +7147,7 @@ function OmniAppInner() {
                   </tr>
                 </thead>
                 <tbody>
-                  {emailHistory.map((entry) => (
+                  {filteredEmailHistory.map((entry) => (
                     <tr key={entry.email}>
                       <td>
                         <div style={{ fontFamily: 'var(--font-sans)', fontWeight: 700 }}>{entry.email}</div>
@@ -7151,7 +7169,7 @@ function OmniAppInner() {
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{entry.last_seen_at ? entry.last_seen_at.slice(0, 10) : '-'}</td>
                     </tr>
                   ))}
-                  {!emailHistory.length && <tr><td colSpan="5" style={{ textAlign:'center', color:'#888' }}>Nessuna email storica registrata</td></tr>}
+                  {!filteredEmailHistory.length && <tr><td colSpan="5" style={{ textAlign:'center', color:'#888' }}>{normalizedBillingSearch ? 'Nessuna email storica corrisponde alla ricerca' : 'Nessuna email storica registrata'}</td></tr>}
                 </tbody>
               </table>
             </div>
