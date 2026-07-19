@@ -936,11 +936,14 @@ const deriveTradeSetupReview = (tradeHistory = []) => {
     }))
     .sort((a, b) => b.totalPnl - a.totalPnl);
 
+  const freezeCandidate = rows.find((row) => row.trades >= 3 && row.expectancy < 0) || null;
+
   return {
     rows,
     best: rows[0] || null,
     weakest: [...rows].sort((a, b) => a.totalPnl - b.totalPnl)[0] || null,
     totalReviewed: trades.length,
+    freezeCandidate,
   };
 };
 
@@ -2465,6 +2468,15 @@ const RiskStatus = ({ riskSnapshot, status }) => {
             </button>
           ) : null}
         </div>
+        {tradeSetupReview.freezeCandidate ? (
+          <div style={{ marginBottom: '0.85rem', padding: '0.85rem 0.95rem', borderRadius: '12px', background: 'rgba(239,68,68,0.10)', border: '1px solid rgba(239,68,68,0.22)' }}>
+            <div style={{ color: '#ef4444', fontWeight: 800, marginBottom: '0.2rem' }}>Setup da raffreddare</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.45 }}>
+              `{tradeSetupReview.freezeCandidate.profile} · {tradeSetupReview.freezeCandidate.assetClass}` ha già {tradeSetupReview.freezeCandidate.trades} trade chiusi con expectancy negativa ({tradeSetupReview.freezeCandidate.expectancy.toFixed(2)}$).
+              Meglio stringere il profilo o ridurne l’esposizione finché non recupera qualità.
+            </div>
+          </div>
+        ) : null}
         {tradeSetupReview.totalReviewed > 0 ? (
           <>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginBottom: '0.85rem' }}>
@@ -4630,28 +4642,6 @@ function OmniAppInner() {
     }
   };
 
-  const handleReset = async () => {
-    openConfirmDialog({
-      tone: 'danger',
-      kicker: 'Reset simulazione',
-      title: 'Azzerare stato e cronologia?',
-      message: 'La simulazione tornerà al capitale iniziale e lo storico operativo verrà cancellato.',
-      confirmLabel: 'Resetta simulazione',
-      onConfirmAction: async () => {
-        try {
-          const res = await authFetch('/api/reset', { method: 'POST' });
-          const data = await res.json();
-          if (!data.error) {
-            setStatus(data.state);
-            pushNotice('success', 'Simulazione resettata', 'Stato e cronologia sono stati azzerati correttamente.');
-          }
-        } catch (err) {
-          pushNotice('error', 'Reset non riuscito', 'Errore di connessione al backend.');
-        }
-      }
-    });
-  };
-
   // Rendering Helper per Trading
   
   
@@ -6256,9 +6246,6 @@ function OmniAppInner() {
               style={demoActionStyle}
             >
               {status.modules?.trading ? 'FERMA SCANNER' : 'AVVIA SCANNER AUTOMATICO'}
-            </button>
-            <button className="btn btn-stop" style={{ background: 'rgba(239, 68, 68, 0.2)', border: '1px solid rgba(239, 68, 68, 0.5)', ...demoActionStyle }} onClick={handleReset} {...demoActionButtonProps()}>
-              RESET SIMULAZIONE
             </button>
         </div>
       </div>
