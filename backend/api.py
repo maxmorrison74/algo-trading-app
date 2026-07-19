@@ -3434,6 +3434,53 @@ def admin_create_user(req: AdminCreateUserRequest, admin_token: str = Depends(re
         "email": email,
     }
 
+@app.post("/api/saas/resend-confirmation")
+def admin_resend_confirmation(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
+    user = db.get_user_by_id(req.user_id)
+    if not user:
+        raise HTTPException(status_code=404, detail="Utente non trovato.")
+
+    email = validate_signup_email(user.get("email", ""))
+    if user.get("email_verified_at"):
+        return {
+            "status": "success",
+            "message": "Questa email è già confermata. Non serve un nuovo invio.",
+            "email": email,
+            "already_verified": True,
+        }
+
+    sent_at = user.get("email_confirmation_sent_at")
+    if sent_at:
+        try:
+            sent_dt = datetime.strptime(sent_at, "%Y-%m-%d %H:%M:%S")
+            seconds_since = (datetime.utcnow() - sent_dt).total_seconds()
+            if seconds_since < EMAIL_CONFIRMATION_RESEND_COOLDOWN_SECONDS:
+                wait_seconds = int(EMAIL_CONFIRMATION_RESEND_COOLDOWN_SECONDS - seconds_since)
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Aspetta ancora {wait_seconds} secondi prima di reinviare la conferma.",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    confirmation_token = secrets.token_urlsafe(32)
+    db.set_email_confirmation_token(req.user_id, confirmation_token)
+    try:
+        send_welcome_email(email, confirmation_token)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Impossibile inviare la mail di conferma in questo momento. {exc}",
+        )
+
+    return {
+        "status": "success",
+        "message": f"Mail di conferma reinviata a {email}.",
+        "email": email,
+    }
+
 @app.post("/api/saas/activate-user")
 def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
     conn = db.get_db_connection()

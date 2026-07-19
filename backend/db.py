@@ -179,7 +179,12 @@ def get_user_by_id(user_id: str):
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "SELECT id, email, role, status, email_verified_at, subscription_expires_at, paid_at FROM users WHERE id = ?",
+        """
+        SELECT id, email, role, status, email_verified_at, email_confirmation_token,
+               email_confirmation_sent_at, subscription_expires_at, paid_at
+        FROM users
+        WHERE id = ?
+        """,
         (user_id,),
     )
     row = cursor.fetchone()

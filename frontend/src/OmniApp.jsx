@@ -6907,6 +6907,28 @@ function OmniAppInner() {
                       <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>{user.next_billing_at !== 'N/A' ? user.next_billing_at?.slice(0,10) : '-'}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '0.5rem' }}>
+                          {!user.email_verified && (
+                            <button className="btn btn-outline" onClick={async () => {
+                              try {
+                                const res = await authFetch('/api/saas/resend-confirmation', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ user_id: user.id })
+                                });
+                                const data = await res.json();
+                                if (res.ok) {
+                                  await refreshBillingOverview();
+                                  pushNotice('success', 'Conferma reinviata', data.message || `Mail reinviata a ${user.email}.`);
+                                } else {
+                                  pushNotice('error', 'Reinvio non riuscito', data.detail || 'Impossibile reinviare la conferma.');
+                                }
+                              } catch (e) {
+                                pushNotice('error', 'Rete non disponibile', 'Errore di rete durante il reinvio della conferma.');
+                              }
+                            }} style={{ width: 'auto', minHeight: 0, padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}>
+                              Reinvia conferma
+                            </button>
+                          )}
                           {user.status !== 'active' && (
                             <>
                             <button className="btn btn-start" onClick={async (e) => {
@@ -7012,7 +7034,7 @@ function OmniAppInner() {
                       </td>
                     </tr>
                   ))}
-                  {!customers?.length && <tr><td colSpan="5" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
+                  {!customers?.length && <tr><td colSpan="6" style={{textAlign:'center', color:'#888'}}>Nessun cliente registrato</td></tr>}
                 </tbody>
               </table>
             </div>
