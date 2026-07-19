@@ -2129,6 +2129,100 @@ const RiskStatus = ({ riskSnapshot, status }) => {
       },
     },
   ];
+  const assetMixPresets = [
+    {
+      id: 'stocks_focus',
+      label: 'Stock Focus',
+      note: 'Più selettivo sulle azioni, più severo sullo spread',
+      values: {
+        max_open_positions: 4,
+        max_position_exposure_pct: 18,
+        min_cash_reserve_pct: 18,
+        trade_cooldown_seconds: 240,
+        max_consecutive_losses: 3,
+        max_spread_pct_stock: 0.22,
+        max_spread_pct_crypto: 0.6,
+      },
+    },
+    {
+      id: 'crypto_focus',
+      label: 'Crypto Focus',
+      note: 'Più spazio alle crypto, ma con difese dedicate',
+      values: {
+        max_open_positions: 6,
+        max_position_exposure_pct: 16,
+        min_cash_reserve_pct: 20,
+        trade_cooldown_seconds: 120,
+        max_consecutive_losses: 2,
+        max_spread_pct_stock: 0.3,
+        max_spread_pct_crypto: 0.95,
+      },
+    },
+    {
+      id: 'mixed_flow',
+      label: 'Mixed Flow',
+      note: 'Mix equilibrato tra equity e crypto',
+      values: {
+        max_open_positions: 5,
+        max_position_exposure_pct: 20,
+        min_cash_reserve_pct: 15,
+        trade_cooldown_seconds: 180,
+        max_consecutive_losses: 3,
+        max_spread_pct_stock: 0.35,
+        max_spread_pct_crypto: 0.8,
+      },
+    },
+  ];
+  const adaptiveSuggestion = useMemo(() => {
+    const rows = Array.isArray(tradeSetupReview.rows) ? tradeSetupReview.rows : [];
+    if (!rows.length) {
+      return {
+        title: 'Ancora presto per adattarsi',
+        detail: 'Servono più trade chiusi per capire se oggi sta pagando di più un motore stock, crypto o misto.',
+        tone: '#94a3b8',
+        presetId: 'mixed_flow',
+      };
+    }
+
+    const aggregate = rows.reduce((acc, row) => {
+      const assetClass = String(row.assetClass || 'unknown');
+      if (!acc[assetClass]) {
+        acc[assetClass] = { pnl: 0, trades: 0, expectancy: 0 };
+      }
+      acc[assetClass].pnl += Number(row.totalPnl || 0);
+      acc[assetClass].trades += Number(row.trades || 0);
+      acc[assetClass].expectancy += Number(row.expectancy || 0);
+      return acc;
+    }, {});
+
+    const stock = aggregate.stock || { pnl: 0, trades: 0, expectancy: 0 };
+    const crypto = aggregate.crypto || { pnl: 0, trades: 0, expectancy: 0 };
+
+    if (crypto.trades >= 2 && crypto.pnl > stock.pnl + 10) {
+      return {
+        title: 'Momento favorevole alle crypto',
+        detail: `Le crypto stanno rendendo meglio (${crypto.pnl.toFixed(2)}$) rispetto alle azioni. Ha senso partire da Crypto Focus.`,
+        tone: '#38bdf8',
+        presetId: 'crypto_focus',
+      };
+    }
+
+    if (stock.trades >= 2 && stock.pnl > crypto.pnl + 10) {
+      return {
+        title: 'Momento favorevole alle azioni',
+        detail: `Le azioni stanno difendendo meglio il P&L (${stock.pnl.toFixed(2)}$). Ha senso partire da Stock Focus.`,
+        tone: '#10b981',
+        presetId: 'stocks_focus',
+      };
+    }
+
+    return {
+      title: 'Momento misto',
+      detail: 'Nessun lato domina in modo netto: il profilo Mixed Flow resta il punto di partenza più pulito.',
+      tone: '#f59e0b',
+      presetId: 'mixed_flow',
+    };
+  }, [tradeSetupReview]);
 
   const handleRiskToggle = async () => {
     if (userRole !== 'admin' || isTogglingRisk || !risk) return;
@@ -2307,6 +2401,21 @@ const RiskStatus = ({ riskSnapshot, status }) => {
             </button>
           ))}
         </div>
+        <div style={{ marginTop: '0.75rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
+          {assetMixPresets.map((preset) => (
+            <button
+              key={preset.id}
+              type="button"
+              className="btn"
+              onClick={() => applyRiskPreset(preset)}
+              disabled={userRole !== 'admin'}
+              style={{ textAlign: 'left', padding: '0.9rem 1rem', borderRadius: '12px', background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.18)', opacity: userRole === 'admin' ? 1 : 0.55 }}
+            >
+              <div style={{ color: '#e2e8f0', fontWeight: 800 }}>{preset.label}</div>
+              <div style={{ color: 'var(--text-secondary)', fontSize: '0.76rem', marginTop: '0.25rem' }}>{preset.note}</div>
+            </button>
+          ))}
+        </div>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem', marginTop: '0.75rem' }}>
           {[
             { key: 'max_open_positions', label: 'Max posizioni', hint: 'Quante operazioni insieme può tenere aperte', min: 1, max: 12, step: 1 },
@@ -2338,6 +2447,23 @@ const RiskStatus = ({ riskSnapshot, status }) => {
         <div style={{ color: '#e2e8f0', fontWeight: 800, marginBottom: '0.35rem' }}>Review post-trade automatica</div>
         <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', marginBottom: '0.85rem' }}>
           Aureo sta iniziando a misurare quali profili di setup performano meglio, così puoi stringere il motore sui pattern che davvero pagano.
+        </div>
+        <div style={{ marginBottom: '0.85rem', padding: '0.85rem 0.95rem', borderRadius: '12px', background: `${adaptiveSuggestion.tone}12`, border: `1px solid ${adaptiveSuggestion.tone}33` }}>
+          <div style={{ color: adaptiveSuggestion.tone, fontWeight: 800, marginBottom: '0.2rem' }}>{adaptiveSuggestion.title}</div>
+          <div style={{ color: 'var(--text-secondary)', fontSize: '0.82rem', lineHeight: 1.45 }}>{adaptiveSuggestion.detail}</div>
+          {userRole === 'admin' ? (
+            <button
+              type="button"
+              className="btn"
+              onClick={() => {
+                const preset = assetMixPresets.find((item) => item.id === adaptiveSuggestion.presetId);
+                if (preset) applyRiskPreset(preset);
+              }}
+              style={{ marginTop: '0.65rem', background: `${adaptiveSuggestion.tone}18`, border: `1px solid ${adaptiveSuggestion.tone}40`, color: adaptiveSuggestion.tone }}
+            >
+              Applica suggerimento
+            </button>
+          ) : null}
         </div>
         {tradeSetupReview.totalReviewed > 0 ? (
           <>
