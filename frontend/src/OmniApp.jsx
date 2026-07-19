@@ -3053,6 +3053,9 @@ function OmniAppInner() {
   const [userRole, setUserRole] = useState(safeStorageGet('USER_ROLE', 'user'));
   const [userStatus, setUserStatus] = useState(safeStorageGet('USER_STATUS', 'active'));
   const [loginError, setLoginError] = useState('');
+  const [authNotice, setAuthNotice] = useState('');
+  const [pendingVerificationEmail, setPendingVerificationEmail] = useState('');
+  const [resendBusy, setResendBusy] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [developSection, setDevelopSection] = useState('health');
   const [passkeySupported, setPasskeySupported] = useState(false);
@@ -3439,13 +3442,44 @@ function OmniAppInner() {
     setSelectedPlanId(planId);
     setBillingLead((prev) => ({ ...prev, plan_id: planId }));
     setLoginError('');
+    setAuthNotice('');
+    setPendingVerificationEmail('');
     setPassword('');
     setEmail('');
+  };
+
+  const handleResendConfirmation = async () => {
+    const targetEmail = (pendingVerificationEmail || email || '').trim();
+    if (!targetEmail) {
+      setLoginError('Inserisci prima la tua email per ricevere di nuovo il link di conferma.');
+      return;
+    }
+    setResendBusy(true);
+    setLoginError('');
+    try {
+      const res = await fetch('/api/resend-confirmation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: targetEmail })
+      });
+      const data = await res.json();
+      if (res.ok && data.status === 'success') {
+        setPendingVerificationEmail(data.email || targetEmail);
+        setAuthNotice(data.message || 'Mail di conferma reinviata.');
+      } else {
+        setLoginError(data.detail || data.message || 'Impossibile reinviare la mail di conferma');
+      }
+    } catch (err) {
+      setLoginError('Errore di connessione durante il reinvio della mail');
+    } finally {
+      setResendBusy(false);
+    }
   };
 
   const handleLogin = async (e) => {
     e.preventDefault();
     setLoginError('');
+    setAuthNotice('');
     try {
       if (isRegistering) {
         const res = await fetch('/api/register', {
@@ -3454,20 +3488,13 @@ function OmniAppInner() {
         });
         const data = await res.json();
         if (res.ok && data.status === 'success') {
-          // Auto-login after successful registration
-          const loginRes = await fetch('/api/login', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
-          });
-          const loginData = await loginRes.json();
-          if (loginRes.ok) {
-            completeAuthenticatedSession(loginData.token, loginData.role, loginData.user_status);
-            // Show paywall immediately to prompt payment
-            setShowPaymentModal(true);
-          } else {
-            setLoginError('Registrazione ok, ma login automatico fallito. Riprova.');
-          }
+          setAuthNotice(data.message || 'Controlla la tua casella email e premi il pulsante di conferma per attivare il tuo accesso.');
+          setPendingVerificationEmail(data.email || email);
+          setIsRegistering(false);
+          setPassword('');
+          setLoginError('');
         } else {
+          setPendingVerificationEmail('');
           setLoginError(data.detail || 'Errore durante la registrazione');
         }
       } else {
@@ -3483,6 +3510,10 @@ function OmniAppInner() {
         } else {
           clearAuthSession();
           setIsAuthenticated(false);
+          if (data?.code === 'email_not_verified') {
+            setPendingVerificationEmail(data.email || email);
+            setAuthNotice('Ti manca solo l’ultimo passaggio: apri la mail ricevuta e conferma il tuo accesso.');
+          }
           setLoginError(data.detail || data.message || 'Accesso negato');
         }
       }
@@ -7553,24 +7584,47 @@ function OmniAppInner() {
                     type="email"
                     placeholder="Email di riferimento"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => {
+                      setEmail(e.target.value);
+                      if (authNotice) setAuthNotice('');
+                      if (loginError) setLoginError('');
+                    }}
                     className="sales-input"
                   />
                   <input
                     type="password"
                     placeholder={isRegistering ? 'Imposta una password riservata' : 'Inserisci la tua password'}
                     value={password}
-                    onChange={(e) => setPassword(e.target.value)}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (authNotice) setAuthNotice('');
+                      if (loginError) setLoginError('');
+                    }}
                     className="sales-input"
                   />
+                  {authNotice && (
+                    <div className="sales-form-message sales-form-message--success">
+                      {authNotice}
+                    </div>
+                  )}
                   {loginError && (
-                    <div className={`sales-form-message ${loginError.toLowerCase().includes('successo') || loginError.toLowerCase().includes('creato') ? 'sales-form-message--success' : ''}`}>
+                    <div className="sales-form-message">
                       {loginError}
                     </div>
                   )}
                   <button type="submit" className="btn btn-start sales-submit-button">
                     {isRegistering ? `Richiedi attivazione ${selectedPlan.name}` : `Accedi e prosegui`}
                   </button>
+                  {!!pendingVerificationEmail && (
+                    <button
+                      type="button"
+                      className="btn btn-outline sales-alt-button"
+                      onClick={handleResendConfirmation}
+                      disabled={resendBusy}
+                    >
+                      {resendBusy ? 'Reinvio in corso…' : 'Reinvia mail di conferma'}
+                    </button>
+                  )}
                   {/*
                   <button type="button" className="btn btn-outline sales-alt-button" onClick={() => setIsRegistering(!isRegistering)}>
                     {isRegistering ? 'Hai già un account? Accedi' : 'Non hai un account? Registrati'}
@@ -7583,6 +7637,8 @@ function OmniAppInner() {
                       setSelectedPlanId('');
                       setIsRegistering(false);
                       setLoginError('');
+                      setAuthNotice('');
+                      setPendingVerificationEmail('');
                       setPassword('');
                       setEmail('');
                     }}
@@ -7708,20 +7764,40 @@ function OmniAppInner() {
               type="email" 
               placeholder={isRegistering ? "Email di riferimento" : "Email riservata"}
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (authNotice) setAuthNotice('');
+                if (loginError) setLoginError('');
+              }}
               style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
             />
             <input 
               type="password" 
               placeholder={isRegistering ? "Crea una password riservata" : "Password"}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                if (authNotice) setAuthNotice('');
+                if (loginError) setLoginError('');
+              }}
               style={{ width: '100%', padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff', marginBottom: '1rem', boxSizing: 'border-box' }}
             />
+            {authNotice && <div style={{ color: '#34d399', marginBottom: '1rem', fontSize: '0.9rem', lineHeight: 1.5 }}>{authNotice}</div>}
             {loginError && <div style={{ color: 'var(--accent-red)', marginBottom: '1rem', fontSize: '0.9rem' }}>{loginError}</div>}
             <button type="submit" className="btn btn-start" style={{ width: '100%', padding: '1rem', fontSize: '1rem' }}>
               {isRegistering ? 'INVIA RICHIESTA DI ACCESSO' : 'ACCEDI ALLA CONTROL ROOM'}
             </button>
+            {!!pendingVerificationEmail && (
+              <button
+                type="button"
+                className="btn btn-outline"
+                onClick={handleResendConfirmation}
+                disabled={resendBusy}
+                style={{ width: '100%', marginTop: '0.9rem', padding: '0.95rem', fontSize: '0.95rem' }}
+              >
+                {resendBusy ? 'Reinvio in corso…' : 'REINVIA MAIL DI CONFERMA'}
+              </button>
+            )}
           </form>
           {/* <button
             type="button"

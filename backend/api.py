@@ -4,10 +4,12 @@ from capital_manager import get_capital_manager
 from dataclasses import asdict
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from pydantic import BaseModel
 import alpaca_trade_api as tradeapi
 import os
+import secrets
+import smtplib
 from dotenv import load_dotenv
 import random
 import asyncio
@@ -36,6 +38,8 @@ from uuid import uuid4
 import yfinance as yf
 import pandas as pd
 import sys
+from email.message import EmailMessage
+from urllib.parse import quote_plus
 import routers_ai_invest
 from auth import (
     assert_login_allowed,
@@ -67,6 +71,114 @@ except Exception as e:
 # Carica le variabili d'ambiente in modo esplicito (risolve il problema dei percorsi)
 env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(dotenv_path=env_path)
+
+APP_BASE_URL = (os.getenv("APP_BASE_URL") or os.getenv("PUBLIC_APP_URL") or "https://aureoos.it").rstrip("/")
+EMAIL_CONFIRMATION_RESEND_COOLDOWN_SECONDS = 90
+
+def build_confirmation_url(token: str) -> str:
+    return f"{APP_BASE_URL}/api/confirm-email?token={quote_plus(token)}"
+
+def send_welcome_email(email: str, confirmation_token: str):
+    smtp_host = os.getenv("SMTP_HOST", "").strip()
+    smtp_port = int(os.getenv("SMTP_PORT", "587") or "587")
+    smtp_user = os.getenv("SMTP_USER", "").strip()
+    smtp_password = os.getenv("SMTP_PASSWORD", "").strip()
+    smtp_from = os.getenv("SMTP_FROM_EMAIL", smtp_user).strip()
+    smtp_from_name = os.getenv("SMTP_FROM_NAME", "Aureo OS").strip()
+
+    if not smtp_host or not smtp_from:
+        raise RuntimeError("SMTP non configurato")
+
+    confirmation_url = build_confirmation_url(confirmation_token)
+    subject = "Benvenuto in Aureo — conferma la tua email"
+    text_body = f"""Ciao,
+
+benvenuto in Aureo.
+
+Per attivare davvero il tuo accesso, conferma prima la tua email:
+{confirmation_url}
+
+Una volta confermata, potrai entrare nella tua area e completare il setup.
+
+Chiavi utili per partire:
+- Alpaca (obbligatoria): https://alpaca.markets
+- Groq (consigliata): https://console.groq.com
+- Telegram BotFather (opzionale): https://t.me/BotFather
+- Pushover (opzionale): https://pushover.net
+
+Indicazioni rapide:
+- Alpaca: genera API Key e Secret Key
+- Groq: crea una nuova API key dalla console
+- Telegram: crea il bot con BotFather e recupera Bot Token + Chat ID
+- Pushover: crea account, app token e user key
+
+Se hai ricevuto questa mail per errore, puoi ignorarla.
+
+Aureo OS
+"""
+    html_body = f"""
+    <html>
+      <body style="margin:0;padding:0;background:#07111f;color:#e5eefc;font-family:Arial,sans-serif;">
+        <div style="max-width:700px;margin:0 auto;padding:32px 20px;">
+          <div style="background:#0b1626;border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:32px;">
+            <div style="display:inline-block;padding:10px 16px;border-radius:999px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.24);color:#bfe6ff;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;font-size:12px;">Aureo OS · Welcome</div>
+            <h1 style="font-size:40px;line-height:1.05;margin:24px 0 16px;color:#f8fafc;">Benvenuto in Aureo</h1>
+            <p style="font-size:18px;line-height:1.7;color:#b7c5d9;margin:0 0 20px;">
+              Il tuo accesso è quasi pronto. Per completare l’attivazione, ti basta confermare questa email.
+            </p>
+            <a href="{confirmation_url}" style="display:inline-block;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#08111b;text-decoration:none;font-weight:800;padding:16px 24px;border-radius:14px;font-size:16px;">
+              Conferma email e attiva accesso
+            </a>
+            <p style="font-size:14px;line-height:1.7;color:#8ea2bd;margin:18px 0 0;">
+              Dopo il click verrai riportato in Aureo e potrai accedere con le credenziali che hai appena creato.
+            </p>
+
+            <div style="margin-top:28px;padding:22px;border-radius:18px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);">
+              <h2 style="margin:0 0 14px;font-size:20px;color:#f8fafc;">Tutorial rapido chiavi</h2>
+              <div style="display:grid;gap:14px;">
+                <div>
+                  <div style="font-weight:800;color:#fcd34d;">1. Alpaca · Broker trading</div>
+                  <div style="color:#b7c5d9;line-height:1.6;">Obbligatoria. Ti serve API Key + Secret Key per collegare il broker.</div>
+                  <a href="https://alpaca.markets" style="color:#7dd3fc;">Apri Alpaca</a>
+                </div>
+                <div>
+                  <div style="font-weight:800;color:#c084fc;">2. Groq · Layer AI</div>
+                  <div style="color:#b7c5d9;line-height:1.6;">Consigliata. Crea una API key dalla console Groq.</div>
+                  <a href="https://console.groq.com" style="color:#7dd3fc;">Apri Groq</a>
+                </div>
+                <div>
+                  <div style="font-weight:800;color:#38bdf8;">3. Telegram · Alert esterni</div>
+                  <div style="color:#b7c5d9;line-height:1.6;">Opzionale. Ti servono Bot Token e Chat ID.</div>
+                  <a href="https://t.me/BotFather" style="color:#7dd3fc;">Apri BotFather</a>
+                </div>
+                <div>
+                  <div style="font-weight:800;color:#22c55e;">4. Pushover · Alert push</div>
+                  <div style="color:#b7c5d9;line-height:1.6;">Opzionale. Ti servono App Token e User Key.</div>
+                  <a href="https://pushover.net" style="color:#7dd3fc;">Apri Pushover</a>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </body>
+    </html>
+    """
+
+    msg = EmailMessage()
+    msg["Subject"] = subject
+    msg["From"] = f"{smtp_from_name} <{smtp_from}>"
+    msg["To"] = email
+    msg.set_content(text_body)
+    msg.add_alternative(html_body, subtype="html")
+
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=20) as server:
+        server.ehlo()
+        if os.getenv("SMTP_USE_TLS", "true").lower() not in ("0", "false", "no"):
+            server.starttls()
+            server.ehlo()
+        if smtp_user and smtp_password:
+            server.login(smtp_user, smtp_password)
+        server.send_message(msg)
 
 def send_telegram_message(message: str, user_id: str = "admin"):
     try:
@@ -2372,6 +2484,9 @@ class RegisterRequest(BaseModel):
     email: str
     password: str
 
+class EmailRequest(BaseModel):
+    email: str
+
 
 class PasskeyCredentialAttestationRequest(BaseModel):
     client_data_json: str
@@ -2426,21 +2541,90 @@ class BillingCustomerStatusRequest(BaseModel):
     status: str
 
 @app.post("/api/register")
-def register(req: LoginRequest):
-    # Genera user_id
+def register(req: RegisterRequest):
     user_id = f"usr_{int(time.time())}"
     email = req.email.lower().strip() if req.email else ""
-    
-    # Check disposable
-    if "@" in email:
-        domain = email.split("@")[1]
-        if domain in DISPOSABLE_DOMAINS:
-            raise HTTPException(status_code=400, detail="L'utilizzo di email usa e getta non è consentito.")
-            
-    success = db.create_user(user_id, email, req.password, role="user", status="pending")
+    password = (req.password or "").strip()
+
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Inserisci una email valida.")
+    if len(password) < 8:
+        raise HTTPException(status_code=400, detail="Scegli una password di almeno 8 caratteri.")
+
+    domain = email.split("@")[1]
+    if domain in DISPOSABLE_DOMAINS:
+        raise HTTPException(status_code=400, detail="L'utilizzo di email usa e getta non è consentito.")
+
+    success = db.create_user(user_id, email, password, role="user", status="pending")
     if not success:
         raise HTTPException(status_code=400, detail="L'email è già registrata.")
-    return {"status": "success", "message": "Registrazione completata! Ora puoi fare il login per accedere alla Demo."}
+
+    confirmation_token = secrets.token_urlsafe(32)
+    db.set_email_confirmation_token(user_id, confirmation_token)
+
+    try:
+        send_welcome_email(email, confirmation_token)
+    except Exception as exc:
+        db.delete_user(user_id)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Registrazione non completata: impossibile inviare la mail di conferma. {exc}",
+        )
+
+    return {
+        "status": "success",
+        "message": "Ti abbiamo inviato una mail di benvenuto. Apri la mail e premi il pulsante di conferma per attivare davvero il tuo accesso.",
+        "email": email,
+    }
+
+@app.post("/api/resend-confirmation")
+def resend_confirmation(req: EmailRequest):
+    email = req.email.lower().strip() if req.email else ""
+    if not email or "@" not in email:
+        raise HTTPException(status_code=400, detail="Inserisci una email valida.")
+
+    user = db.get_user_by_email(email)
+    if not user:
+        raise HTTPException(status_code=404, detail="Nessun account trovato con questa email.")
+    if user.get("email_verified_at"):
+        return {
+            "status": "success",
+            "message": "Questa email è già confermata. Puoi entrare direttamente in Aureo.",
+            "email": email,
+            "already_verified": True,
+        }
+
+    sent_at = user.get("email_confirmation_sent_at")
+    if sent_at:
+        try:
+            sent_dt = datetime.strptime(sent_at, "%Y-%m-%d %H:%M:%S")
+            seconds_since = (datetime.utcnow() - sent_dt).total_seconds()
+            if seconds_since < EMAIL_CONFIRMATION_RESEND_COOLDOWN_SECONDS:
+                wait_seconds = int(EMAIL_CONFIRMATION_RESEND_COOLDOWN_SECONDS - seconds_since)
+                raise HTTPException(
+                    status_code=429,
+                    detail=f"Aspetta ancora {wait_seconds} secondi prima di richiedere una nuova mail.",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
+    confirmation_token = secrets.token_urlsafe(32)
+    db.set_email_confirmation_token(user["id"], confirmation_token)
+    try:
+        send_welcome_email(email, confirmation_token)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Impossibile inviare la mail di conferma in questo momento. {exc}",
+        )
+
+    return {
+        "status": "success",
+        "message": "Mail di conferma reinviata. Aprila e premi il pulsante per attivare l’accesso.",
+        "email": email,
+    }
 
 @app.post("/api/login")
 def login(req: LoginRequest, request: Request):
@@ -2458,6 +2642,15 @@ def login(req: LoginRequest, request: Request):
         email = req.email.lower().strip()
         user = db.verify_user_login(email, req.password)
         if user:
+            if not user.get("email_verified_at"):
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content={
+                        "detail": "Prima di entrare in Aureo devi confermare la tua email dal pulsante che ti abbiamo inviato.",
+                        "code": "email_not_verified",
+                        "email": email,
+                    },
+                )
             clear_login_failures(client_id)
             token = create_user_token(user["id"], user["email"], user["role"])
             return {
@@ -2470,6 +2663,59 @@ def login(req: LoginRequest, request: Request):
 
     record_login_failure(client_id)
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenziali non valide o accesso negato")
+
+@app.get("/api/confirm-email", response_class=HTMLResponse)
+def confirm_email(token: str = ""):
+    token = (token or "").strip()
+    if not token:
+        return HTMLResponse(
+            """
+            <html><body style="background:#07111f;color:#e5eefc;font-family:Arial,sans-serif;padding:40px;">
+            <div style="max-width:720px;margin:0 auto;background:#0b1626;border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:32px;">
+            <h1>Link non valido</h1>
+            <p>Manca il token di conferma. Torna alla mail ricevuta e usa il pulsante corretto.</p>
+            <a href="https://aureoos.it" style="color:#7dd3fc;">Torna ad Aureo</a>
+            </div></body></html>
+            """,
+            status_code=400,
+        )
+
+    user = db.confirm_user_email(token)
+    if not user:
+        return HTMLResponse(
+            """
+            <html><body style="background:#07111f;color:#e5eefc;font-family:Arial,sans-serif;padding:40px;">
+            <div style="max-width:720px;margin:0 auto;background:#0b1626;border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:32px;">
+            <h1>Conferma non valida</h1>
+            <p>Questo link è scaduto oppure è già stato usato. Se serve, crea di nuovo il tuo accesso.</p>
+            <a href="https://aureoos.it" style="color:#7dd3fc;">Apri Aureo</a>
+            </div></body></html>
+            """,
+            status_code=400,
+        )
+
+    return HTMLResponse(
+        f"""
+        <html>
+          <body style="margin:0;padding:0;background:#07111f;color:#e5eefc;font-family:Arial,sans-serif;">
+            <div style="max-width:760px;margin:0 auto;padding:40px 20px;">
+              <div style="background:#0b1626;border:1px solid rgba(255,255,255,0.08);border-radius:24px;padding:34px;">
+                <div style="display:inline-block;padding:10px 16px;border-radius:999px;background:rgba(16,185,129,0.14);border:1px solid rgba(16,185,129,0.24);color:#86efac;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;font-size:12px;">Email confermata</div>
+                <h1 style="font-size:42px;line-height:1.05;margin:22px 0 14px;">Accesso verificato</h1>
+                <p style="font-size:18px;line-height:1.7;color:#b7c5d9;">
+                  Perfetto: la tua email è stata confermata. Ora puoi entrare in Aureo con le credenziali che hai appena creato.
+                </p>
+                <a href="{APP_BASE_URL}" style="display:inline-block;margin-top:10px;background:linear-gradient(135deg,#fbbf24,#f59e0b);color:#08111b;text-decoration:none;font-weight:800;padding:16px 24px;border-radius:14px;font-size:16px;">
+                  Apri Aureo
+                </a>
+                <p style="margin-top:18px;color:#8ea2bd;font-size:14px;">Email verificata: {user["email"]}</p>
+              </div>
+            </div>
+          </body>
+        </html>
+        """,
+        status_code=200,
+    )
 
 
 @app.post("/api/logout")
@@ -2517,6 +2763,8 @@ def get_current_user(user: dict = Depends(require_user)):
         "email": user_data["email"],
         "role": user_data["role"],
         "status": user_data["status"],
+        "email_verified_at": user_data.get("email_verified_at"),
+        "email_verified": bool(user_data.get("email_verified_at")),
         "is_paid": is_paid,
         "paid_at": paid_at,
         "subscription_expires_at": sub_expires,
@@ -3079,6 +3327,7 @@ def admin_create_user(req: AdminCreateUserRequest, admin_token: str = Depends(re
     new_user_id = str(uuid.uuid4())
     success = db.create_user(new_user_id, req.email, req.password, role=req.role, status="pending")
     if success:
+        db.mark_user_email_verified(new_user_id)
         return {"status": "success", "message": "Utente creato con successo (IN ATTESA).", "user_id": new_user_id}
     else:
         raise HTTPException(status_code=400, detail="Email già in uso.")

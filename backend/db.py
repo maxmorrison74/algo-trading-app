@@ -51,6 +51,9 @@ def init_db():
             password_hash TEXT NOT NULL,
             role TEXT DEFAULT 'user',
             status TEXT DEFAULT 'pending',
+            email_verified_at DATETIME,
+            email_confirmation_token TEXT,
+            email_confirmation_sent_at DATETIME,
             subscription_expires_at DATETIME,
             paid_at DATETIME,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -63,6 +66,16 @@ def init_db():
         conn.commit()
     except Exception:
         pass  # Column already exists
+    for migration in (
+        "ALTER TABLE users ADD COLUMN email_verified_at DATETIME",
+        "ALTER TABLE users ADD COLUMN email_confirmation_token TEXT",
+        "ALTER TABLE users ADD COLUMN email_confirmation_sent_at DATETIME",
+    ):
+        try:
+            cursor.execute(migration)
+            conn.commit()
+        except Exception:
+            pass
     
     # API Keys table (encrypted)
     cursor.execute('''
@@ -151,7 +164,10 @@ def create_user(user_id: str, email: str, password: str, role: str = 'user', sta
 def verify_user_login(email: str, password: str):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, password_hash, role, status FROM users WHERE email = ?", (email,))
+    cursor.execute(
+        "SELECT id, email, password_hash, role, status, email_verified_at FROM users WHERE email = ?",
+        (email,),
+    )
     row = cursor.fetchone()
     conn.close()
     
@@ -162,7 +178,26 @@ def verify_user_login(email: str, password: str):
 def get_user_by_id(user_id: str):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, role, status, subscription_expires_at, paid_at FROM users WHERE id = ?", (user_id,))
+    cursor.execute(
+        "SELECT id, email, role, status, email_verified_at, subscription_expires_at, paid_at FROM users WHERE id = ?",
+        (user_id,),
+    )
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def get_user_by_email(email: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT id, email, role, status, email_verified_at, email_confirmation_token,
+               email_confirmation_sent_at, subscription_expires_at, paid_at
+        FROM users
+        WHERE email = ?
+        """,
+        (email,),
+    )
     row = cursor.fetchone()
     conn.close()
     return dict(row) if row else None
@@ -170,7 +205,9 @@ def get_user_by_id(user_id: str):
 def get_all_users():
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, email, role, status, subscription_expires_at, paid_at, created_at FROM users ORDER BY created_at DESC")
+    cursor.execute(
+        "SELECT id, email, role, status, email_verified_at, subscription_expires_at, paid_at, created_at FROM users ORDER BY created_at DESC"
+    )
     rows = cursor.fetchall()
     conn.close()
     return [dict(row) for row in rows]
@@ -191,6 +228,73 @@ def update_subscription(user_id: str, expires_at: str):
         "UPDATE users SET subscription_expires_at = ?, status = 'active', paid_at = ? WHERE id = ?",
         (expires_at, now, user_id)
     )
+    conn.commit()
+    conn.close()
+
+def set_email_confirmation_token(user_id: str, token: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        "UPDATE users SET email_confirmation_token = ?, email_confirmation_sent_at = ? WHERE id = ?",
+        (token, now, user_id),
+    )
+    conn.commit()
+    conn.close()
+
+def mark_user_email_verified(user_id: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        """
+        UPDATE users
+        SET email_verified_at = ?, email_confirmation_token = NULL
+        WHERE id = ?
+        """,
+        (now, user_id),
+    )
+    conn.commit()
+    conn.close()
+
+def confirm_user_email(token: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT id, email, role, status, email_verified_at, subscription_expires_at, paid_at
+        FROM users
+        WHERE email_confirmation_token = ?
+        """,
+        (token,),
+    )
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        return None
+
+    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    cursor.execute(
+        """
+        UPDATE users
+        SET email_verified_at = ?, email_confirmation_token = NULL
+        WHERE id = ?
+        """,
+        (now, row["id"]),
+    )
+    conn.commit()
+    cursor.execute(
+        "SELECT id, email, role, status, email_verified_at, subscription_expires_at, paid_at FROM users WHERE id = ?",
+        (row["id"],),
+    )
+    updated = cursor.fetchone()
+    conn.close()
+    return dict(updated) if updated else None
+
+def delete_user(user_id: str):
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM users WHERE id = ?", (user_id,))
     conn.commit()
     conn.close()
 
