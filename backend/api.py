@@ -2532,6 +2532,7 @@ DISPOSABLE_DOMAINS = set()
 SIGNUP_MAX_ATTEMPTS = int(os.getenv("SIGNUP_MAX_ATTEMPTS", "4"))
 SIGNUP_WINDOW_SECONDS = int(os.getenv("SIGNUP_WINDOW_SECONDS", "3600"))
 _signup_attempts = {}
+_email_domain_cache = {}
 
 try:
     _res = requests.get("https://raw.githubusercontent.com/disposable-email-domains/disposable-email-domains/master/disposable_email_blocklist.conf", timeout=5)
@@ -2571,6 +2572,35 @@ def record_signup_attempt(client_id: str) -> None:
 def clear_signup_attempts(client_id: str) -> None:
     _signup_attempts.pop(client_id, None)
 
+def _domain_accepts_mail(domain: str) -> bool:
+    now = time.time()
+    cached = _email_domain_cache.get(domain)
+    if cached and now - cached["checked_at"] < 3600:
+        return cached["result"]
+
+    result = True
+    try:
+        for record_type in ("MX", "A"):
+            response = requests.get(
+                "https://dns.google/resolve",
+                params={"name": domain, "type": record_type},
+                timeout=4,
+            )
+            if response.status_code == 200:
+                payload = response.json()
+                answers = payload.get("Answer") or []
+                if answers:
+                    result = True
+                    break
+                if record_type == "A":
+                    result = False
+    except Exception as exc:
+        print(f"Email domain check skipped for {domain}: {exc}")
+        result = True
+
+    _email_domain_cache[domain] = {"result": result, "checked_at": now}
+    return result
+
 def validate_signup_email(email: str) -> str:
     normalized_email = (email or "").lower().strip()
     if not normalized_email or "@" not in normalized_email:
@@ -2578,6 +2608,16 @@ def validate_signup_email(email: str) -> str:
     domain = normalized_email.split("@", 1)[1]
     if domain in DISPOSABLE_DOMAINS:
         raise HTTPException(status_code=400, detail="L'utilizzo di email temporanee o usa e getta non è consentito.")
+    return normalized_email
+
+def validate_admin_target_email(email: str) -> str:
+    normalized_email = validate_signup_email(email)
+    domain = normalized_email.split("@", 1)[1]
+    if not _domain_accepts_mail(domain):
+        raise HTTPException(
+            status_code=400,
+            detail="Questa email sembra non poter ricevere posta. Controlla l’indirizzo prima di creare l’utente.",
+        )
     return normalized_email
 
 class BillingCustomerStatusRequest(BaseModel):
@@ -3371,7 +3411,7 @@ class AdminCreateUserRequest(BaseModel):
 def admin_create_user(req: AdminCreateUserRequest, admin_token: str = Depends(require_admin)):
     import uuid
     new_user_id = str(uuid.uuid4())
-    email = validate_signup_email(req.email)
+    email = validate_admin_target_email(req.email)
     success = db.create_user(new_user_id, email, req.password, role=req.role, status="pending")
     if not success:
         raise HTTPException(status_code=400, detail="Email già in uso.")
