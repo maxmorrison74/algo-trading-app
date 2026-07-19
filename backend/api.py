@@ -3325,12 +3325,28 @@ class AdminCreateUserRequest(BaseModel):
 def admin_create_user(req: AdminCreateUserRequest, admin_token: str = Depends(require_admin)):
     import uuid
     new_user_id = str(uuid.uuid4())
-    success = db.create_user(new_user_id, req.email, req.password, role=req.role, status="pending")
-    if success:
-        db.mark_user_email_verified(new_user_id)
-        return {"status": "success", "message": "Utente creato con successo (IN ATTESA).", "user_id": new_user_id}
-    else:
+    email = (req.email or "").lower().strip()
+    success = db.create_user(new_user_id, email, req.password, role=req.role, status="pending")
+    if not success:
         raise HTTPException(status_code=400, detail="Email già in uso.")
+
+    confirmation_token = secrets.token_urlsafe(32)
+    db.set_email_confirmation_token(new_user_id, confirmation_token)
+    try:
+        send_welcome_email(email, confirmation_token)
+    except Exception as exc:
+        db.delete_user(new_user_id)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Utente non creato: impossibile inviare la mail di conferma. {exc}",
+        )
+
+    return {
+        "status": "success",
+        "message": "Utente creato e mail di conferma inviata. L’accesso si attiva dopo il click nella mail.",
+        "user_id": new_user_id,
+        "email": email,
+    }
 
 @app.post("/api/saas/activate-user")
 def admin_activate_user(req: AdminUserActionRequest, admin_token: str = Depends(require_admin)):
