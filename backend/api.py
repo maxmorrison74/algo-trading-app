@@ -33,7 +33,7 @@ from alpaca_trading import AlpacaEngine
 import concurrent.futures
 import gc
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import uuid4
 import yfinance as yf
 import pandas as pd
@@ -785,6 +785,7 @@ def build_playbook_rotation_snapshot(target_state=None):
     current_state = target_state or bot_state
     active_id = normalize_playbook_id(getattr(current_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID))
     ranked_rows = list((getattr(current_state, "symbol_selection", {}) or {}).get("ranked", []) or [])
+    session_bias = build_session_bias_snapshot(current_state)
     if not ranked_rows:
         return {
             "active_id": active_id,
@@ -804,7 +805,8 @@ def build_playbook_rotation_snapshot(target_state=None):
         regime_id = regime.get("id") if isinstance(regime, dict) else "unknown"
         row_weight = 1.0 + max(0.0, float(row.get("score") or 0.0) * 2.5)
         for playbook_id in PLAYBOOK_LIBRARY.keys():
-            weighted_scores[playbook_id] += playbook_fit_score(playbook_id, regime_id) * row_weight
+            bias_boost = 6.0 if playbook_id in session_bias.get("preferred_playbooks", []) else 0.0
+            weighted_scores[playbook_id] += (playbook_fit_score(playbook_id, regime_id) + bias_boost) * row_weight
             weights[playbook_id] += row_weight
     averaged_scores = {
         key: round(weighted_scores[key] / weights[key], 1) if weights[key] else 0.0
@@ -840,6 +842,89 @@ def build_playbook_rotation_snapshot(target_state=None):
         "score_gap": score_gap,
         "summary": summary,
         "contenders": contenders[:3],
+    }
+
+
+def build_session_bias_snapshot(target_state=None):
+    current_state = target_state or bot_state
+    symbols = list(getattr(current_state, "target_symbols", []) or [])
+    has_crypto = any("/" in str(symbol) for symbol in symbols)
+    has_equities = any("/" not in str(symbol) for symbol in symbols)
+    now_ny = datetime.utcnow() - timedelta(hours=4)
+    total_minutes = now_ny.hour * 60 + now_ny.minute
+
+    if has_equities:
+        if total_minutes < (9 * 60 + 30):
+            session_id = "premarket"
+            label = "Pre-market"
+            headline = "Meglio preparare watchlist e breakout, non forzare size piena."
+            preferred_playbooks = ["breakout", "adaptive"]
+            sizing_multiplier = 0.82
+        elif total_minutes < (10 * 60 + 30):
+            session_id = "opening_drive"
+            label = "Opening Drive"
+            headline = "Fascia veloce: premia breakout puliti e trend che partono bene."
+            preferred_playbooks = ["breakout", "trend"]
+            sizing_multiplier = 1.05
+        elif total_minutes < (13 * 60):
+            session_id = "mid_morning"
+            label = "Mid Morning"
+            headline = "La lettura migliore spesso arriva qui: setup più affidabili e conferme più pulite."
+            preferred_playbooks = ["trend", "adaptive", "dip"]
+            sizing_multiplier = 1.0
+        elif total_minutes < (14 * 60 + 30):
+            session_id = "midday"
+            label = "Midday"
+            headline = "Fascia lenta: meglio size più leggere e filtro più severo."
+            preferred_playbooks = ["rebalance", "dip", "adaptive"]
+            sizing_multiplier = 0.84
+        elif total_minutes <= (16 * 60):
+            session_id = "power_hour"
+            label = "Power Hour"
+            headline = "Ultima spinta del cash market: seguire forza vera, evitare setup mediocri."
+            preferred_playbooks = ["trend", "breakout", "adaptive"]
+            sizing_multiplier = 1.08
+        else:
+            session_id = "after_hours"
+            label = "After Hours"
+            headline = "Equity fuori orario: meglio watchlist, review e nessun overtrade."
+            preferred_playbooks = ["rebalance", "adaptive"]
+            sizing_multiplier = 0.76
+    else:
+        if total_minutes < (7 * 60):
+            session_id = "crypto_asia"
+            label = "Crypto Asia"
+            headline = "Fascia più prudente: focus su range puliti e size controllata."
+            preferred_playbooks = ["rebalance", "dip", "adaptive"]
+            sizing_multiplier = 0.9
+        elif total_minutes < (13 * 60):
+            session_id = "crypto_europe"
+            label = "Crypto Europe"
+            headline = "Sessione costruttiva: buon equilibrio tra trend, breakout e follow-through."
+            preferred_playbooks = ["trend", "breakout", "adaptive"]
+            sizing_multiplier = 1.0
+        elif total_minutes < (21 * 60):
+            session_id = "crypto_us_overlap"
+            label = "Crypto US Overlap"
+            headline = "Fascia più viva: premia segnali rapidi ma richiede filtro forte."
+            preferred_playbooks = ["breakout", "trend", "adaptive"]
+            sizing_multiplier = 1.06
+        else:
+            session_id = "crypto_late"
+            label = "Crypto Late"
+            headline = "Meglio ridurre rumore e preservare capitale se il movimento non è davvero netto."
+            preferred_playbooks = ["rebalance", "adaptive"]
+            sizing_multiplier = 0.88
+
+    return {
+        "id": session_id,
+        "label": label,
+        "headline": headline,
+        "preferred_playbooks": preferred_playbooks,
+        "sizing_multiplier": sizing_multiplier,
+        "has_crypto": has_crypto,
+        "has_equities": has_equities,
+        "market_clock_ny": now_ny.strftime("%H:%M"),
     }
 
 
@@ -2353,6 +2438,7 @@ def get_status(user_id="admin", scope: str = "core"):
             "strategy_playbook": build_playbook_snapshot(getattr(bot_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID)),
             "auto_playbook": ensure_auto_playbook_config(getattr(bot_state, "auto_playbook", DEFAULT_AUTO_PLAYBOOK_CONFIG)),
             "playbook_rotation": build_playbook_rotation_snapshot(bot_state),
+            "session_bias": build_session_bias_snapshot(bot_state),
             "exit_ladder": ensure_exit_ladder_config(getattr(bot_state, "exit_ladder", DEFAULT_EXIT_LADDER)),
             "signal_hub": build_public_signal_hub_snapshot(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG)),
             "trade_journal": build_trade_journal_snapshot(bot_state.trade_history),

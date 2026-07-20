@@ -966,20 +966,54 @@ const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}
       const tableRow = tableDataBySymbol[symbol] || rankedMap[symbol] || null;
       const readiness = readinessMap[symbol] || deriveEntryReadiness({ status, risk, symbol, row: tableRow });
       const headline = headlineMap[symbol] || deriveEntryHeadline(readiness);
+      const conviction = deriveConvictionScore({ symbol, readiness, row: tableRow, rankedRow: rankedMap[symbol], status });
       return {
         symbol,
         readiness,
         headline,
+        conviction,
         rankingScore: Number(rankedMap[symbol]?.score ?? -1),
         selectionReason: rankedMap[symbol]?.selection_reason || '',
         sentiment: tableRow?.sentiment || 'NEUTRAL',
       };
     })
     .sort((a, b) => {
+      if (b.conviction.score !== a.conviction.score) return b.conviction.score - a.conviction.score;
       if (b.readiness.score !== a.readiness.score) return b.readiness.score - a.readiness.score;
       return b.rankingScore - a.rankingScore;
     })
     .slice(0, 3);
+};
+
+const deriveConvictionScore = ({ symbol = '', readiness = null, row = null, rankedRow = null, status = {} }) => {
+  const readinessScore = Number(readiness?.score || 0);
+  const playbookFit = Number(rankedRow?.playbook_fit?.score || 0);
+  const rankingScore = rankedRow?.score == null ? 52 : Number(rankedRow.score) * 100;
+  const lstm = parsePredictionMetrics(row?.prediction || '').lstm;
+  const lstmScore = lstm == null ? 55 : Math.max(0, Math.min(Number(lstm), 100));
+  const sentimentMap = { BULLISH: 84, NEUTRAL: 58, BEARISH: 36 };
+  const sentimentScore = sentimentMap[String(row?.sentiment || 'NEUTRAL').toUpperCase()] || 58;
+  const sessionBias = status?.session_bias || {};
+  const sessionBoost = Array.isArray(sessionBias.preferred_playbooks) && sessionBias.preferred_playbooks.includes(status?.strategy_playbook?.active?.id)
+    ? 4
+    : 0;
+  const score = Math.max(0, Math.min(
+    (readinessScore * 0.34) +
+    (playbookFit * 0.24) +
+    (rankingScore * 0.18) +
+    (lstmScore * 0.14) +
+    (sentimentScore * 0.10) +
+    sessionBoost,
+    100
+  ));
+  const tone = score >= 84 ? '#10b981' : score >= 72 ? '#38bdf8' : score >= 60 ? '#f59e0b' : '#94a3b8';
+  const label = score >= 84 ? 'High Conviction' : score >= 72 ? 'Strong' : score >= 60 ? 'Selective' : 'Low Edge';
+  return {
+    score: Math.round(score),
+    tone,
+    label,
+    detail: `${symbol} combina readiness ${Math.round(readinessScore)}/100, fit ${Math.round(playbookFit)}/100 e ranking ${Math.round(rankingScore)}/100.`,
+  };
 };
 
 const deriveExecutionPlan = ({ opportunity = null, risk = {}, status = {} }) => {
@@ -994,25 +1028,26 @@ const deriveExecutionPlan = ({ opportunity = null, risk = {}, status = {} }) => 
   }
 
   const score = Number(opportunity.readiness?.score || 0);
+  const convictionScore = Number(opportunity.conviction?.score || 0);
   const openSlots = Number(risk?.positions_remaining ?? 0);
   const playbookName = status?.strategy_playbook?.active?.label || 'Playbook attivo';
 
-  if (score >= 82 && openSlots > 0) {
+  if (score >= 82 && convictionScore >= 80 && openSlots > 0) {
     return {
       urgency: 'High Conviction',
       capitalMode: openSlots <= 1 ? 'Slot quasi saturi' : 'Slot disponibili',
       action: `Mantieni ${opportunity.symbol} in cima al monitor esecutivo`,
-      note: `${playbookName} è coerente con il simbolo e il capitale può ancora essere allocato con disciplina.`,
+      note: `${playbookName} è coerente con il simbolo e il conviction score è già da size piena controllata.`,
       tone: '#10b981',
     };
   }
 
-  if (score >= 65) {
+  if (score >= 65 || convictionScore >= 68) {
     return {
       urgency: 'Warm Setup',
       capitalMode: openSlots > 0 ? 'Capitale pronto' : 'Prima libera uno slot',
       action: `Osserva ${opportunity.symbol} e aspetta conferma finale`,
-      note: `Il quadro è interessante, ma conviene evitare ingressi forzati finché la lettura non sale di livello.`,
+      note: `Il quadro è interessante, ma Aureo chiede ancora una conferma per alzare davvero la conviction.`,
       tone: '#38bdf8',
     };
   }
@@ -1034,6 +1069,7 @@ const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, t
       const row = tableDataBySymbol[symbol] || rankedMap[symbol] || null;
       const readiness = readinessMap[symbol] || deriveEntryReadiness({ status, risk, symbol, row });
       const headline = headlineMap[symbol] || deriveEntryHeadline(readiness);
+      const conviction = deriveConvictionScore({ symbol, readiness, row, rankedRow: rankedMap[symbol], status });
       const performanceRow = tradePerformance?.symbolRows?.find((item) => item.symbol === symbol) || null;
       const playbookFitScore = Number(rankedMap[symbol]?.playbook_fit?.score || 0);
       const rankingScore = Number(rankedMap[symbol]?.score ?? -1);
@@ -1060,6 +1096,7 @@ const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, t
         liveState,
         action,
         rankingScore,
+        conviction,
         playbookFitScore,
         sentiment: row?.sentiment || 'NEUTRAL',
         pnl: performanceRow?.totalPnl ?? null,
@@ -1067,6 +1104,7 @@ const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, t
       };
     })
     .sort((a, b) => {
+      if (b.conviction.score !== a.conviction.score) return b.conviction.score - a.conviction.score;
       if (b.readiness.score !== a.readiness.score) return b.readiness.score - a.readiness.score;
       if (b.playbookFitScore !== a.playbookFitScore) return b.playbookFitScore - a.playbookFitScore;
       return b.rankingScore - a.rankingScore;
@@ -6471,6 +6509,9 @@ function OmniAppInner() {
               <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem', fontSize: '0.84rem' }}>
                 {opportunitySpotlight.spotlight.headline.detail}
               </div>
+              <div style={{ color: opportunitySpotlight.spotlight.conviction.tone, marginTop: '0.35rem', fontSize: '0.82rem', fontWeight: 800 }}>
+                {opportunitySpotlight.spotlight.conviction.label} · {opportunitySpotlight.spotlight.conviction.score}/100
+              </div>
             </div>
             <button
               className="btn"
@@ -6598,6 +6639,9 @@ function OmniAppInner() {
                   {item.headline.label} · {item.readiness.score}
                 </div>
               </div>
+              <div style={{ color: item.conviction.tone, fontSize: '0.78rem', fontWeight: 800, marginBottom: '0.45rem' }}>
+                {item.conviction.label} · conviction {item.conviction.score}/100
+              </div>
               <div style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: 1.45, marginBottom: '0.55rem' }}>
                 {item.headline.detail}
               </div>
@@ -6647,7 +6691,27 @@ function OmniAppInner() {
           </div>
         </div>
 
-        <div className="card col-span-8" style={{ background: 'rgba(255,255,255,0.025)' }}>
+        <div className="card col-span-3" style={{ border: '1px solid rgba(56, 189, 248, 0.24)', background: 'rgba(56,189,248,0.08)' }}>
+          <div className="card-title">🕒 Session Bias</div>
+          <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.7rem' }}>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Finestra</div>
+              <div style={{ color: '#38bdf8', fontWeight: 900, fontSize: '1.1rem' }}>{status.session_bias?.label || 'n/d'}</div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Desk clock NY</div>
+              <div style={{ color: '#e2e8f0', fontWeight: 800 }}>{status.session_bias?.market_clock_ny || '--:--'}</div>
+            </div>
+            <div style={{ color: '#cbd5e1', lineHeight: 1.45, fontSize: '0.84rem' }}>
+              {status.session_bias?.headline || 'Aureo adatta la lettura al momento di mercato.'}
+            </div>
+            <div style={{ color: '#94a3b8', fontSize: '0.78rem', lineHeight: 1.45 }}>
+              Playbook favoriti: {(status.session_bias?.preferred_playbooks || []).join(' • ') || 'n/d'}
+            </div>
+          </div>
+        </div>
+
+        <div className="card col-span-5" style={{ background: 'rgba(255,255,255,0.025)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
             <div>
               <div className="card-title">🧠 Trade Desk Matrix</div>
@@ -6672,7 +6736,7 @@ function OmniAppInner() {
                   cursor: 'pointer',
                 }}
               >
-                <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.8fr 0.8fr 1fr 1.2fr', gap: '0.8rem', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.8fr 0.8fr 0.8fr 1fr 1.2fr', gap: '0.8rem', alignItems: 'center' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                       <SymbolLinkButton symbol={item.symbol} onOpen={() => openSymbolReview(item.symbol, 'trading')} variant="inline" style={{ color: '#f8fafc', fontWeight: 900, padding: 0 }}>
@@ -6690,6 +6754,10 @@ function OmniAppInner() {
                   <div>
                     <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Readiness</div>
                     <div style={{ color: item.headline.tone, fontWeight: 800 }}>{item.readiness.score}/100</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Conviction</div>
+                    <div style={{ color: item.conviction.tone, fontWeight: 800 }}>{item.conviction.score}/100</div>
                   </div>
                   <div>
                     <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Playbook fit</div>

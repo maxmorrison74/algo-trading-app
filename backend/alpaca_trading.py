@@ -2,6 +2,7 @@ import os
 import time
 import asyncio
 import datetime
+import math
 import threading
 import pandas as pd
 from groq import Groq
@@ -500,6 +501,79 @@ class AlpacaEngine:
             pass
         return self.is_market_open_for_symbol("SPY")
 
+    def _get_symbol_rank_context(self, symbol):
+        ranked_rows = list((getattr(self.bot_state, "symbol_selection", {}) or {}).get("ranked", []) or [])
+        symbol_upper = str(symbol or "").strip().upper()
+        for row in ranked_rows:
+            if str(row.get("symbol") or "").strip().upper() == symbol_upper:
+                return row
+        return None
+
+    def _get_session_profile(self, symbol):
+        now_ny = datetime.datetime.utcnow() - datetime.timedelta(hours=4)
+        total_minutes = now_ny.hour * 60 + now_ny.minute
+        is_crypto = "/" in str(symbol or "")
+        if is_crypto:
+            if total_minutes < 7 * 60:
+                return {"id": "crypto_asia", "label": "Crypto Asia", "sizing_multiplier": 0.92}
+            if total_minutes < 13 * 60:
+                return {"id": "crypto_europe", "label": "Crypto Europe", "sizing_multiplier": 1.0}
+            if total_minutes < 21 * 60:
+                return {"id": "crypto_us_overlap", "label": "Crypto US Overlap", "sizing_multiplier": 1.08}
+            return {"id": "crypto_late", "label": "Crypto Late", "sizing_multiplier": 0.88}
+        if total_minutes < 9 * 60 + 30:
+            return {"id": "premarket", "label": "Pre-market", "sizing_multiplier": 0.82}
+        if total_minutes < 10 * 60 + 30:
+            return {"id": "opening_drive", "label": "Opening Drive", "sizing_multiplier": 1.06}
+        if total_minutes < 13 * 60:
+            return {"id": "mid_morning", "label": "Mid Morning", "sizing_multiplier": 1.0}
+        if total_minutes < 14 * 60 + 30:
+            return {"id": "midday", "label": "Midday", "sizing_multiplier": 0.84}
+        if total_minutes <= 16 * 60:
+            return {"id": "power_hour", "label": "Power Hour", "sizing_multiplier": 1.08}
+        return {"id": "after_hours", "label": "After Hours", "sizing_multiplier": 0.76}
+
+    def _compute_conviction_bundle(self, symbol, side, lstm_prob, llm_confidence, spread_pct, asset_class):
+        rank_context = self._get_symbol_rank_context(symbol) or {}
+        session_profile = self._get_session_profile(symbol)
+        direction_prob = float(lstm_prob if side == "LONG" else (1.0 - lstm_prob))
+        direction_prob = max(0.0, min(direction_prob, 1.0))
+        llm_score = max(20.0, min((float(llm_confidence or 0) / 5.0) * 100.0, 100.0))
+        playbook_fit = float(((rank_context.get("playbook_fit") or {}).get("score")) or 68.0)
+        ranking_score = float(rank_context.get("score") or 0.0) * 100.0 if rank_context.get("score") is not None else 52.0
+        spread_limit = 0.8 if asset_class == "crypto" else 0.35
+        if spread_pct is None:
+            spread_score = 58.0
+        else:
+            spread_score = max(0.0, min(100.0 * (1.0 - (float(spread_pct) / max(spread_limit, 0.01))), 100.0))
+        conviction_score = max(0.0, min(
+            (direction_prob * 100.0) * 0.36 +
+            llm_score * 0.17 +
+            playbook_fit * 0.22 +
+            ranking_score * 0.17 +
+            spread_score * 0.08,
+            100.0
+        ))
+        if conviction_score >= 90:
+            size_multiplier = 1.22
+        elif conviction_score >= 82:
+            size_multiplier = 1.08
+        elif conviction_score >= 72:
+            size_multiplier = 1.0
+        elif conviction_score >= 62:
+            size_multiplier = 0.88
+        else:
+            size_multiplier = 0.72
+        size_multiplier *= float(session_profile.get("sizing_multiplier", 1.0))
+        return {
+            "conviction_score": round(conviction_score, 1),
+            "size_multiplier": round(max(0.55, min(size_multiplier, 1.35)), 2),
+            "playbook_fit": round(playbook_fit, 1),
+            "ranking_score": round(ranking_score, 1),
+            "spread_score": round(spread_score, 1),
+            "session_profile": session_profile,
+        }
+
     def _is_expected_feed_idle(self):
         return self._has_stock_symbols() and not self._has_crypto_symbols() and not self._is_equity_market_open()
 
@@ -846,6 +920,18 @@ class AlpacaEngine:
         if not can_trade:
             self._log(f"⛔ {risk_reason}")
             return
+
+        spread_snapshot = self._get_spread_snapshot(symbol)
+        asset_class = self._get_asset_class(symbol)
+        spread_pct = spread_snapshot.get("spread_pct") if spread_snapshot else None
+        conviction_bundle = self._compute_conviction_bundle(
+            symbol=symbol,
+            side=side,
+            lstm_prob=lstm_prob,
+            llm_confidence=confidence,
+            spread_pct=spread_pct,
+            asset_class=asset_class,
+        )
             
         # Position Sizing con Advanced Kelly Criterion (dal Risk Manager)
         # Per SHORT, la confidence è l'inverso della probabilità LSTM di salire
@@ -860,6 +946,7 @@ class AlpacaEngine:
             base_confidence = min(base_confidence * 1.5, 0.95)
             
         qty = risk.get_position_size(confidence=base_confidence, price=current_price)
+        qty *= conviction_bundle["size_multiplier"]
         
         # Moltiplichiamo per l'aggressività dell'utente (0 - 100)
         agg_factor = self.bot_state.aggressiveness / 50.0  # Default 55 = 1.1x
@@ -882,9 +969,6 @@ class AlpacaEngine:
         
         if qty <= 0.0001: return
 
-        spread_snapshot = self._get_spread_snapshot(symbol)
-        asset_class = self._get_asset_class(symbol)
-        spread_pct = spread_snapshot.get("spread_pct") if spread_snapshot else None
         entry_allowed, entry_reason = risk.validate_entry(
             symbol=symbol,
             side=side,
@@ -899,6 +983,11 @@ class AlpacaEngine:
             return
         if spread_snapshot:
             self._log(f"🫧 Spread check {symbol}: bid ${spread_snapshot['bid']:.4f} / ask ${spread_snapshot['ask']:.4f} ({spread_snapshot['spread_pct']:.3f}%)")
+        self._log(
+            f"🎚️ CONVICTION {symbol}: {conviction_bundle['conviction_score']}/100 · "
+            f"fit {conviction_bundle['playbook_fit']:.0f} · rank {conviction_bundle['ranking_score']:.0f} · "
+            f"session {conviction_bundle['session_profile']['label']} · size x{conviction_bundle['size_multiplier']:.2f}"
+        )
         
         alpaca_side = 'buy' if side == "LONG" else 'sell'
         clean_symbol = self.clean_sym(symbol)
@@ -951,6 +1040,11 @@ class AlpacaEngine:
                     'playbook_id': str(getattr(self.bot_state, "strategy_playbook", "adaptive") or "adaptive").strip().lower(),
                     'entry_at': datetime.now().isoformat(),
                     'source_channel': 'native_scanner',
+                    'conviction_score': conviction_bundle['conviction_score'],
+                    'position_size_multiplier': conviction_bundle['size_multiplier'],
+                    'playbook_fit_score': conviction_bundle['playbook_fit'],
+                    'ranking_score': conviction_bundle['ranking_score'],
+                    'session_profile': conviction_bundle['session_profile']['label'],
                     'llm_sentiment': sentiment,
                     'llm_confidence': confidence,
                     'lstm_prob': round(float(lstm_prob or 0) * 100, 1),
