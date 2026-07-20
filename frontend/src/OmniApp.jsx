@@ -5357,7 +5357,8 @@ function OmniAppInner() {
   };
 
   const renderSettingsView = () => {
-    const vaultCards = [
+    const isSimpleUser = userRole !== 'admin';
+      const vaultCards = [
       {
         label: 'Broker live',
         value: savedKeys['ALPACA_KEY'] ? 'Alpaca armato' : 'Alpaca da collegare',
@@ -5389,8 +5390,12 @@ function OmniAppInner() {
       <div className="card security-hero-card" style={{ marginBottom: '1.6rem' }}>
         <div className="security-hero-top">
           <div>
-            <h2 style={{ margin: 0 }}>🔐 Security & API Vault</h2>
-            <div className="security-hero-subtitle">Gestione chiavi crittografate per broker, alert, AI e protezioni operative di Aureo.</div>
+            <h2 style={{ margin: 0 }}>{isSimpleUser ? '🔐 Connessioni' : '🔐 Security & API Vault'}</h2>
+            <div className="security-hero-subtitle">
+              {isSimpleUser
+                ? 'Qui colleghi broker, AI e alert esterni. Pochi passaggi, tutto in un solo posto.'
+                : 'Gestione chiavi crittografate per broker, alert, AI e protezioni operative di Aureo.'}
+            </div>
           </div>
           <div className="security-hero-badges">
             <div className={`badge ${hasArmedAlertChannel(savedKeys) ? 'badge-active' : 'badge-gold'}`}>
@@ -5412,6 +5417,27 @@ function OmniAppInner() {
           ))}
         </div>
       </div>
+
+      {isSimpleUser && (
+        <div className="card security-section-card" style={{ marginBottom: '1.5rem', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.9rem', alignItems: 'start' }}>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Ordine consigliato</div>
+              <div style={{ color: '#f8fafc', fontWeight: 800, lineHeight: 1.5 }}>
+                1. Collega Alpaca<br />
+                2. Aggiungi Groq<br />
+                3. Attiva Telegram o Pushover
+              </div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>Risultato</div>
+              <div style={{ color: '#cbd5e1', lineHeight: 1.55 }}>
+                Quando questi tre punti sono completi, Aureo è pronto per lavorare con più continuità e avvisarti anche fuori piattaforma.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isDemoMode && (
         <div className="card demo-mode-card" style={{ marginBottom: '2rem' }}>
@@ -5452,8 +5478,11 @@ function OmniAppInner() {
 
       <div className="card security-section-card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Alpaca (Stock & Options) {savedKeys['ALPACA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Alpaca {savedKeys['ALPACA_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Pronto</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Mancante</span>}</h3>
           <button onClick={() => testConnection('alpaca')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
+        </div>
+        <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
+          Collega il broker per permettere ad Aureo di leggere il conto e operare quando il tuo accesso è attivo.
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <input type="password" placeholder="API Key" value={apiKeys.alpaca_key} onChange={e => setApiKeys({...apiKeys, alpaca_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
@@ -5465,15 +5494,15 @@ function OmniAppInner() {
       <div className="card security-section-card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>
-            Telegram Alerts
+            Telegram
             {savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID']
-              ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span>
-              : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}
+              ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Pronto</span>
+              : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Mancante</span>}
           </h3>
           <button onClick={() => testConnection('telegram')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Telegram</button>
         </div>
         <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
-          Utile come canale secondario per alert critici e messaggi operativi. Inserisci token del bot e chat id personale.
+          Ideale per ricevere eventi importanti fuori da Aureo. Ti basta il token del bot e il tuo chat id.
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <div>
@@ -5553,6 +5582,7 @@ function OmniAppInner() {
         {testResults['telegram'] && <div style={{ color: testResults['telegram'].includes('success') ? '#10b981' : '#f59e0b', fontSize: '0.8rem' }}>{testResults['telegram']}</div>}
       </div>
 
+      {userRole === 'admin' && (
       <div className="card security-section-card" style={{ marginBottom: '2rem', border: '1px solid rgba(239, 68, 68, 0.3)' }}>
         <h3 style={{ margin: 0, color: '#ef4444', marginBottom: '1.5rem', display: 'flex', alignItems: 'center' }}>
           <span style={{ marginRight: '0.5rem' }}>🛡️</span> Risk Management
@@ -5604,11 +5634,15 @@ function OmniAppInner() {
           </div>
         </div>
       </div>
+      )}
 
       <div className="card security-section-card" style={{ marginBottom: '2rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Groq AI (Sentiment & Investments) {savedKeys['GROQ_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}</h3>
+          <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>Groq AI {savedKeys['GROQ_KEY'] ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Pronto</span> : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Mancante</span>}</h3>
           <button onClick={() => testConnection('groq')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Connessione</button>
+        </div>
+        <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
+          Migliora analisi, sentiment e supporto decisionale. È consigliata, ma non blocca il broker.
         </div>
         <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem' }}>
           <input type="password" placeholder="Groq API Key" value={apiKeys.groq_key} onChange={e => setApiKeys({...apiKeys, groq_key: e.target.value})} style={{ flex: 1, padding: '0.8rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#fff' }} />
@@ -5619,15 +5653,15 @@ function OmniAppInner() {
       <div className="card security-section-card" style={{ marginBottom: '2rem', border: '1px solid rgba(16, 185, 129, 0.22)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
           <h3 style={{ margin: 0, color: '#e2e8f0', display: 'flex', alignItems: 'center' }}>
-            Pushover (iPhone / Apple Watch)
+            Pushover
             {savedKeys['PUSHOVER_APP_TOKEN'] && savedKeys['PUSHOVER_USER_KEY']
-              ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Presente</span>
-              : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Assente</span>}
+              ? <span style={{ color: '#10b981', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981', marginRight: '6px' }}></span>Pronto</span>
+              : <span style={{ color: '#ef4444', marginLeft: '0.8rem', fontSize: '0.8rem', display: 'flex', alignItems: 'center' }}><span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444', marginRight: '6px' }}></span>Mancante</span>}
           </h3>
           <button onClick={() => testConnection('pushover')} className="btn" {...demoActionButtonProps()} style={{ padding: '0.5rem 1rem', ...demoActionStyle }}>Test Pushover</button>
         </div>
         <div style={{ color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.5 }}>
-          Per alert critici al polso. Il server invia a Pushover, l’iPhone la riceve e Apple Watch la mostra subito.
+          Ottimo per notifiche critiche immediate su iPhone e Apple Watch.
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <div>
@@ -5671,6 +5705,7 @@ function OmniAppInner() {
   };
 
   const renderHomeView = () => {
+    const isAdminHome = userRole === 'admin';
     const initialCash = status.initial_cash || 1000;
     const virtualCash = Number(status.portfolio_value || 1000);
     const tradingProfit = virtualCash - initialCash;
@@ -5820,12 +5855,40 @@ function OmniAppInner() {
       { name: 'Liquidità', value: virtualCash, color: 'var(--text-secondary)' },
       { name: 'Azioni (Trading)', value: Math.abs(tradingProfit) || 100, color: '#38bdf8' }
     ].filter(item => item.value > 0);
+    const simpleStatusCards = [
+      {
+        label: 'Stato motore',
+        value: status.modules?.trading ? 'Attivo' : 'In pausa',
+        detail: status.modules?.trading ? 'Aureo sta monitorando i mercati.' : 'Il motore non sta aprendo nuovi setup in questo momento.',
+        tone: status.modules?.trading ? '#10b981' : '#94a3b8',
+      },
+      {
+        label: 'Broker',
+        value: savedKeys['ALPACA_KEY'] ? 'Collegato' : 'Da collegare',
+        detail: savedKeys['ALPACA_KEY'] ? 'Il conto è pronto per dialogare con Aureo.' : 'Collega Alpaca per attivare la parte operativa.',
+        tone: savedKeys['ALPACA_KEY'] ? '#10b981' : '#f59e0b',
+      },
+      {
+        label: 'AI',
+        value: savedKeys['GROQ_KEY'] ? 'Pronta' : 'Opzionale',
+        detail: savedKeys['GROQ_KEY'] ? 'Le analisi AI sono disponibili.' : 'Puoi aggiungerla quando vuoi per analisi più ricche.',
+        tone: savedKeys['GROQ_KEY'] ? '#38bdf8' : '#94a3b8',
+      },
+      {
+        label: 'Alert',
+        value: alertArmed ? 'Armati' : 'Da attivare',
+        detail: alertArmed ? 'Ricevi eventi critici anche fuori piattaforma.' : 'Attiva Telegram o Pushover per non perderti nulla.',
+        tone: alertArmed ? '#10b981' : '#f59e0b',
+      },
+    ];
 
     return (
       <div className="module-content module-content--home">
         <div className="header module-page-header" style={{ marginBottom: '2rem' }}>
-          <h2>Dashboard 📊</h2>
-          <div className="page-subtitle" style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>Dashboard Aggregata delle Rendite Passive</div>
+          <h2>{isAdminHome ? 'Dashboard 📊' : 'Dashboard'}</h2>
+          <div className="page-subtitle" style={{ color: 'var(--text-secondary)', marginTop: '0.5rem' }}>
+            {isAdminHome ? 'Dashboard Aggregata delle Rendite Passive' : 'Tutto quello che conta, in modo chiaro e immediato.'}
+          </div>
         </div>
 
         {status.alpaca_connected === false && (
@@ -5866,7 +5929,7 @@ function OmniAppInner() {
         </div>
 
         <div className="dashboard-grid" style={{ marginBottom: '1.5rem' }}>
-          {executiveCards.map((item) => (
+          {(isAdminHome ? executiveCards : simpleStatusCards).map((item) => (
             <div key={item.label} className="card col-span-3 home-executive-card" style={{ border: `1px solid ${item.tone}33`, background: 'rgba(255,255,255,0.025)' }}>
               <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>
                 {item.label}
@@ -5885,8 +5948,12 @@ function OmniAppInner() {
           <div className="card col-span-6 home-readiness-card">
             <div className="home-section-head">
               <div>
-                <h3 className="card-title" style={{ marginBottom: '0.35rem' }}>🚀 Go-Live Readiness</h3>
-                <div className="home-section-subtitle">Qui vedi in un colpo solo quanto Aureo è pronto per girare davvero senza sorprese.</div>
+                <h3 className="card-title" style={{ marginBottom: '0.35rem' }}>{isAdminHome ? '🚀 Go-Live Readiness' : '✅ Setup essenziale'}</h3>
+                <div className="home-section-subtitle">
+                  {isAdminHome
+                    ? 'Qui vedi in un colpo solo quanto Aureo è pronto per girare davvero senza sorprese.'
+                    : 'Qui completi i passaggi minimi per usare Aureo con serenità.'}
+                </div>
               </div>
               <div className="home-readiness-score" style={{ borderColor: `${nextReadinessItem ? '#f59e0b' : '#10b981'}44` }}>
                 <strong style={{ color: nextReadinessItem ? '#f59e0b' : '#10b981' }}>{readinessPercent}%</strong>
@@ -5917,8 +5984,10 @@ function OmniAppInner() {
                 <span>{nextReadinessItem ? `Chiudi adesso “${nextReadinessItem.label}” e Aureo apparirà molto più completo e professionale.` : 'Hai già una base molto solida: ora puoi concentrarti su continuità operativa e qualità del servizio.'}</span>
               </div>
               <div className="home-readiness-actions">
-                <button type="button" className="btn btn-outline" onClick={() => openDevelopSection('guide')}>Apri guida</button>
-                <button type="button" className="btn btn-start" onClick={() => openDevelopSection('security')}>Apri Security</button>
+                {!isAdminHome && <button type="button" className="btn btn-outline" onClick={() => openDevelopSection('guide')}>Apri guida</button>}
+                <button type="button" className="btn btn-start" onClick={() => openDevelopSection('security')}>
+                  {isAdminHome ? 'Apri Security' : 'Completa connessioni'}
+                </button>
               </div>
             </div>
           </div>
@@ -5964,6 +6033,7 @@ function OmniAppInner() {
           </div>
         </div>
 
+        {isAdminHome ? (
         <div className="dashboard-grid">
           <div className="card col-span-6 home-overview-card" style={{ background: 'rgba(255,255,255,0.025)' }}>
             <h3 className="card-title" style={{ marginBottom: '1rem' }}>🧭 Executive Overview</h3>
@@ -6035,6 +6105,21 @@ function OmniAppInner() {
             </div>
           </div>
         </div>
+        ) : (
+        <div className="dashboard-grid">
+          <div className="card col-span-12 home-priority-card" style={{ background: 'rgba(255,255,255,0.025)' }}>
+            <h3 className="card-title" style={{ marginBottom: '1rem' }}>Oggi conta questo</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
+              {priorityItems.map((item) => (
+                <div key={item.title} style={{ padding: '0.95rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: `1px solid ${item.tone}22` }}>
+                  <div style={{ color: item.tone, fontWeight: 800, marginBottom: '0.25rem' }}>{item.title}</div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.84rem', lineHeight: 1.5 }}>{item.detail}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+        )}
       </div>
     );
   };
