@@ -6443,6 +6443,7 @@ function OmniAppInner() {
   const renderTradingView = () => (
     <div className="module-content module-content--trading">
       {(() => {
+        const isAdminView = userRole === 'admin';
         const tradingLogs = logsList;
         const logSummary = tradingLogSummary;
         const summaryCards = [
@@ -6452,6 +6453,7 @@ function OmniAppInner() {
           { key: 'exit', label: 'Exit / gestione', value: logSummary.exit || 0, tone: '#38bdf8' },
           { key: 'critical', label: 'Criticità', value: logSummary.critical || 0, tone: '#ef4444' },
         ];
+        if (!isAdminView) return null;
         return (
           <div className="card" style={{ marginBottom: '1rem', background: 'rgba(255,255,255,0.025)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -6475,13 +6477,13 @@ function OmniAppInner() {
       })()}
       <div className="header module-page-header trading-page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          <h2>Trading Command</h2>
+          <h2>{userRole === 'admin' ? 'Trading Command' : 'Trading'}</h2>
           <div style={{ color: 'var(--text-secondary)', marginTop: '0.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
               <div style={{ width: '10px', height: '10px', borderRadius: '50%', background: status.market_open ? '#10b981' : '#f59e0b' }}></div>
               Mercato {status.market_open ? 'aperto' : 'chiuso'}
             </span>
-            {status.alpaca_info && (
+            {status.alpaca_info && userRole === 'admin' && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', borderLeft: '1px solid var(--border)', paddingLeft: '1rem' }}>
                 <span style={{ 
                   padding: '2px 8px', 
@@ -6498,6 +6500,7 @@ function OmniAppInner() {
             )}
           </div>
         </div>
+        {userRole === 'admin' && (
         <div className="trading-header-actions" style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
             <button 
               className={`btn ${status.modules?.trading ? 'btn-stop' : 'btn-start'}`}
@@ -6508,6 +6511,7 @@ function OmniAppInner() {
               {status.modules?.trading ? 'FERMA SCANNER' : 'AVVIA SCANNER AUTOMATICO'}
             </button>
         </div>
+        )}
       </div>
 
       <div className="dashboard-grid" style={{ marginTop: '1.5rem' }}>
@@ -6518,6 +6522,39 @@ function OmniAppInner() {
         <SystemHealthCard snapshot={systemHealthSnapshot} />
         <EntryReadinessCard readiness={entryReadiness} symbol={selectedSymbol} />
       </div>
+
+      {userRole !== 'admin' && (
+        <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '0.2rem' }}>
+          <div className="card col-span-12" style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.85rem' }}>
+              <div>
+                <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Stato</div>
+                <div style={{ color: status.modules?.trading ? '#10b981' : '#94a3b8', fontWeight: 800, fontSize: '1.02rem' }}>
+                  {status.modules?.trading ? 'Motore attivo' : 'Motore in pausa'}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Miglior focus</div>
+                <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: '1.02rem' }}>
+                  {opportunitySpotlight.spotlight?.symbol || 'In attesa'}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Livello</div>
+                <div style={{ color: opportunitySpotlight.spotlight?.conviction?.tone || '#cbd5e1', fontWeight: 800, fontSize: '1.02rem' }}>
+                  {opportunitySpotlight.spotlight?.conviction?.label || 'Neutro'}
+                </div>
+              </div>
+              <div>
+                <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Cash libero</div>
+                <div style={{ color: '#f8fafc', fontWeight: 800, fontSize: '1.02rem' }}>
+                  ${Number(status.cash || 0).toFixed(2)}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {opportunitySpotlight.spotlight && (
         <div
@@ -6559,6 +6596,7 @@ function OmniAppInner() {
         </div>
       )}
 
+      {userRole === 'admin' && (
       <div className="card trading-alert-center-card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <div>
@@ -6617,6 +6655,7 @@ function OmniAppInner() {
           )}
         </div>
       </div>
+      )}
 
       <div className="card trading-opportunities-card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -6670,16 +6709,16 @@ function OmniAppInner() {
                 </div>
               </div>
               <div style={{ color: item.conviction.tone, fontSize: '0.78rem', fontWeight: 800, marginBottom: '0.45rem' }}>
-                {item.conviction.label} · conviction {item.conviction.score}/100
+                {item.conviction.label} · {item.conviction.score}/100
               </div>
               <div style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: 1.45, marginBottom: '0.55rem' }}>
                 {item.headline.detail}
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap', color: 'var(--text-secondary)', fontSize: '0.76rem' }}>
-                <span>Sentiment: {item.sentiment}</span>
-                <span>{item.rankingScore >= 0 ? `Score ${item.rankingScore.toFixed(3)}` : 'Score n/d'}</span>
+                <span>{item.sentiment === 'BULLISH' ? 'Tono positivo' : item.sentiment === 'BEARISH' ? 'Tono prudente' : 'Tono neutro'}</span>
+                <span>{item.allocation?.target_pct ? `Quota ${Number(item.allocation.target_pct).toFixed(1)}%` : 'Quota dinamica'}</span>
               </div>
-              {!!item.selectionReason && (
+              {!!item.selectionReason && userRole === 'admin' && (
                 <div style={{ marginTop: '0.45rem', color: '#94a3b8', fontSize: '0.76rem', lineHeight: 1.4 }}>
                   {item.selectionReason}
                 </div>
@@ -6689,6 +6728,7 @@ function OmniAppInner() {
         </div>
       </div>
 
+      {userRole === 'admin' && (
       <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
         <div className="card col-span-4" style={{ border: `1px solid ${executionPlan.tone}33`, background: `${executionPlan.tone}10` }}>
           <div className="card-title">🎯 Executive Trade Brief</div>
@@ -6780,7 +6820,9 @@ function OmniAppInner() {
           </div>
         </div>
       </div>
+      )}
 
+      {userRole === 'admin' && (
       <div className="dashboard-grid" style={{ marginTop: '0.2rem', marginBottom: '1.3rem' }}>
         <div className="card col-span-12" style={{ background: 'rgba(255,255,255,0.025)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
@@ -6862,7 +6904,9 @@ function OmniAppInner() {
           </div>
         </div>
       </div>
+      )}
 
+      {userRole === 'admin' && (
       <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '1.4rem' }}>
         <div className="card col-span-12" style={{ border: '1px solid rgba(56, 189, 248, 0.22)', background: 'rgba(255,255,255,0.025)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '0.95rem' }}>
@@ -6939,6 +6983,7 @@ function OmniAppInner() {
           </div>
         </div>
       </div>
+      )}
 
       {selectedSymbol && (
         <div
@@ -7211,6 +7256,7 @@ function OmniAppInner() {
       )}
 
 
+      {userRole === 'admin' && (
       <div className="dashboard-grid" style={{ marginTop: '1.6rem', marginBottom: '1.4rem' }}>
         <div className="card col-span-7" style={{ border: '1px solid rgba(56, 189, 248, 0.22)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -7342,6 +7388,7 @@ function OmniAppInner() {
           </div>
         </div>
       </div>
+      )}
 
       <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '1.6rem' }}>
         <div className="card col-span-12" style={{ border: '1px solid rgba(244, 114, 182, 0.24)', background: 'rgba(244,114,182,0.06)' }}>
