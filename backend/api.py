@@ -351,7 +351,16 @@ DEFAULT_SIGNAL_HUB_CONFIG = {
     "accept_buy": True,
     "accept_sell": False,
     "min_confidence": 70,
+    "min_alignment_score": 72,
+    "min_playbook_fit": 68,
+    "require_watchlist_match": True,
     "allowed_sources": ["tradingview", "webhook"],
+    "source_weights": {
+        "tradingview": 1.0,
+        "webhook": 0.92,
+        "manual": 0.88,
+        "ai": 0.95,
+    },
     "recent_signals": [],
     "last_signal_at": None,
     "last_signal_summary": None,
@@ -412,13 +421,28 @@ def ensure_signal_hub_config(raw_config):
     if not isinstance(allowed_sources, list):
         allowed_sources = ["tradingview", "webhook"]
     recent_signals = config.get("recent_signals") if isinstance(config.get("recent_signals"), list) else []
+    source_weights = dict(DEFAULT_SIGNAL_HUB_CONFIG["source_weights"])
+    raw_source_weights = config.get("source_weights")
+    if isinstance(raw_source_weights, dict):
+        for source, weight in raw_source_weights.items():
+            normalized_source = str(source).strip().lower()
+            if not normalized_source:
+                continue
+            try:
+                source_weights[normalized_source] = round(max(0.5, min(float(weight), 1.25)), 2)
+            except Exception:
+                continue
     return {
         "enabled": bool(config.get("enabled", False)),
         "token": token,
         "accept_buy": bool(config.get("accept_buy", True)),
         "accept_sell": bool(config.get("accept_sell", False)),
         "min_confidence": max(1, min(int(config.get("min_confidence", 70) or 70), 100)),
+        "min_alignment_score": max(1, min(int(config.get("min_alignment_score", 72) or 72), 100)),
+        "min_playbook_fit": max(1, min(int(config.get("min_playbook_fit", 68) or 68), 100)),
+        "require_watchlist_match": bool(config.get("require_watchlist_match", True)),
         "allowed_sources": [str(source).strip().lower() for source in allowed_sources if str(source).strip()][:6] or ["tradingview", "webhook"],
+        "source_weights": source_weights,
         "recent_signals": recent_signals[:25],
         "last_signal_at": config.get("last_signal_at"),
         "last_signal_summary": config.get("last_signal_summary"),
@@ -493,16 +517,155 @@ def build_public_signal_hub_snapshot(signal_hub_config: dict):
     config = ensure_signal_hub_config(signal_hub_config)
     token = config["token"]
     masked = f"{token[:6]}***{token[-4:]}" if len(token) > 12 else "***"
+    recent_signals = config["recent_signals"][:8]
+    accepted_count = sum(1 for event in recent_signals if event.get("accepted"))
+    filtered_count = sum(1 for event in recent_signals if recent_signals and not event.get("accepted"))
+    avg_alignment = round(sum(float(event.get("alignment_score") or 0) for event in recent_signals) / len(recent_signals), 1) if recent_signals else 0.0
+    source_counter = {}
+    for event in recent_signals:
+        source = str(event.get("source") or "unknown").strip().lower()
+        source_counter[source] = source_counter.get(source, 0) + 1
+    top_source = max(source_counter.items(), key=lambda item: item[1])[0] if source_counter else None
     return {
         "enabled": config["enabled"],
         "accept_buy": config["accept_buy"],
         "accept_sell": config["accept_sell"],
         "min_confidence": config["min_confidence"],
+        "min_alignment_score": config["min_alignment_score"],
+        "min_playbook_fit": config["min_playbook_fit"],
+        "require_watchlist_match": config["require_watchlist_match"],
         "allowed_sources": config["allowed_sources"],
-        "recent_signals": config["recent_signals"][:8],
+        "source_weights": config["source_weights"],
+        "recent_signals": recent_signals,
         "last_signal_at": config["last_signal_at"],
         "last_signal_summary": config["last_signal_summary"],
         "token_masked": masked,
+        "metrics": {
+            "accepted_count": accepted_count,
+            "filtered_count": filtered_count,
+            "acceptance_rate": round((accepted_count / len(recent_signals)) * 100, 1) if recent_signals else 0.0,
+            "avg_alignment_score": avg_alignment,
+            "top_source": top_source,
+        },
+    }
+
+
+def build_signal_context_snapshot(symbol: str, confidence: int, source: str, target_state=None):
+    current_state = target_state or bot_state
+    symbol = str(symbol or "").strip().upper()
+    source = str(source or "webhook").strip().lower()
+    playbook_id = normalize_playbook_id(getattr(current_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID))
+    ranked_rows = list((getattr(current_state, "symbol_selection", {}) or {}).get("ranked", []) or [])
+    ranked_row = next((row for row in ranked_rows if str(row.get("symbol") or "").upper() == symbol), None)
+    is_crypto = "/" in symbol
+    is_watchlist_match = symbol in list(getattr(current_state, "target_symbols", []) or [])
+    regime = None
+    if isinstance(ranked_row, dict):
+        regime = ranked_row.get("regime") or classify_regime_for_row(ranked_row, is_crypto=is_crypto)
+    elif is_crypto and is_watchlist_match:
+        regime = classify_regime_for_row({}, is_crypto=True)
+    regime_id = regime.get("id") if isinstance(regime, dict) else ("crypto_core" if is_crypto else "unknown")
+    playbook_fit = 68
+    if isinstance(ranked_row, dict):
+        playbook_fit = int(float(((ranked_row.get("playbook_fit") or {}).get("score")) or playbook_fit_score(playbook_id, regime_id)))
+    elif is_watchlist_match:
+        playbook_fit = int(playbook_fit_score(playbook_id, regime_id))
+    source_weights = ensure_signal_hub_config(getattr(current_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG)).get("source_weights", {})
+    source_weight = float(source_weights.get(source, source_weights.get("webhook", 0.9)))
+    if isinstance(ranked_row, dict) and ranked_row.get("score") is not None:
+        ranking_score = round(max(0.0, min(float(ranked_row.get("score") or 0.0) * 100, 100.0)), 1)
+    elif is_watchlist_match and is_crypto:
+        ranking_score = 76.0
+    elif is_watchlist_match:
+        ranking_score = 62.0
+    else:
+        ranking_score = 42.0
+    alignment_score = round(max(0.0, min(
+        (float(confidence) * 0.5) +
+        (float(playbook_fit) * 0.23) +
+        (float(ranking_score) * 0.17) +
+        ((source_weight * 100.0) * 0.10) +
+        (6.0 if is_watchlist_match else -10.0),
+        100.0
+    )), 1)
+    reasons = []
+    reasons.append("watchlist coerente" if is_watchlist_match else "simbolo fuori watchlist")
+    reasons.append(f"fit playbook {playbook_fit}/100")
+    reasons.append(f"ranking interno {ranking_score:.0f}/100")
+    reasons.append(f"fonte {source} peso {source_weight:.2f}")
+    return {
+        "symbol": symbol,
+        "source": source,
+        "confidence": int(confidence),
+        "alignment_score": alignment_score,
+        "playbook_fit_score": playbook_fit,
+        "ranking_score": ranking_score,
+        "watchlist_match": is_watchlist_match,
+        "regime": regime,
+        "source_weight": source_weight,
+        "reasons": reasons,
+    }
+
+
+def build_playbook_rotation_snapshot(target_state=None):
+    current_state = target_state or bot_state
+    active_id = normalize_playbook_id(getattr(current_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID))
+    ranked_rows = list((getattr(current_state, "symbol_selection", {}) or {}).get("ranked", []) or [])
+    if not ranked_rows:
+        return {
+            "active_id": active_id,
+            "active_label": PLAYBOOK_LIBRARY[active_id]["label"],
+            "recommended": False,
+            "recommended_id": active_id,
+            "recommended_label": PLAYBOOK_LIBRARY[active_id]["label"],
+            "score_gap": 0,
+            "summary": "Watchlist ancora troppo vuota per suggerire una rotazione del playbook.",
+            "contenders": [],
+        }
+
+    weighted_scores = {key: 0.0 for key in PLAYBOOK_LIBRARY.keys()}
+    weights = {key: 0.0 for key in PLAYBOOK_LIBRARY.keys()}
+    for row in ranked_rows[:6]:
+        regime = row.get("regime") if isinstance(row, dict) else None
+        regime_id = regime.get("id") if isinstance(regime, dict) else "unknown"
+        row_weight = 1.0 + max(0.0, float(row.get("score") or 0.0) * 2.5)
+        for playbook_id in PLAYBOOK_LIBRARY.keys():
+            weighted_scores[playbook_id] += playbook_fit_score(playbook_id, regime_id) * row_weight
+            weights[playbook_id] += row_weight
+    averaged_scores = {
+        key: round(weighted_scores[key] / weights[key], 1) if weights[key] else 0.0
+        for key in PLAYBOOK_LIBRARY.keys()
+    }
+    contenders = sorted(
+        (
+            {
+                "id": key,
+                "label": PLAYBOOK_LIBRARY[key]["label"],
+                "score": averaged_scores[key],
+            }
+            for key in PLAYBOOK_LIBRARY.keys()
+        ),
+        key=lambda item: item["score"],
+        reverse=True,
+    )
+    best = contenders[0] if contenders else {"id": active_id, "label": PLAYBOOK_LIBRARY[active_id]["label"], "score": 0}
+    active_score = next((item["score"] for item in contenders if item["id"] == active_id), 0.0)
+    score_gap = round(float(best["score"]) - float(active_score), 1)
+    recommended = best["id"] != active_id and score_gap >= 4.0
+    summary = (
+        f"La watchlist oggi premia di più {best['label']} ({best['score']}/100) rispetto a {PLAYBOOK_LIBRARY[active_id]['label']}."
+        if recommended else
+        f"Il playbook attivo resta coerente con la watchlist ({active_score}/100)."
+    )
+    return {
+        "active_id": active_id,
+        "active_label": PLAYBOOK_LIBRARY[active_id]["label"],
+        "recommended": recommended,
+        "recommended_id": best["id"],
+        "recommended_label": best["label"],
+        "score_gap": score_gap,
+        "summary": summary,
+        "contenders": contenders[:3],
     }
 
 
@@ -1950,6 +2113,7 @@ def get_status(user_id="admin", scope: str = "core"):
             "auto_bet_enabled": bot_state.auto_bet_enabled,
             "auto_bet_threshold": bot_state.auto_bet_threshold,
             "strategy_playbook": build_playbook_snapshot(getattr(bot_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID)),
+            "playbook_rotation": build_playbook_rotation_snapshot(bot_state),
             "exit_ladder": ensure_exit_ladder_config(getattr(bot_state, "exit_ladder", DEFAULT_EXIT_LADDER)),
             "signal_hub": build_public_signal_hub_snapshot(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG)),
             "options_lab": build_options_lab_snapshot(bot_state, user_id),
@@ -2513,6 +2677,7 @@ async def get_signal_hub_config(_: str = Depends(require_admin)):
     config = ensure_signal_hub_config(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
     return {
         **config,
+        "metrics": build_public_signal_hub_snapshot(config)["metrics"],
         "webhook_url": f"{APP_BASE_URL}/api/signal-hub/webhook/{config['token']}",
     }
 
@@ -2526,7 +2691,11 @@ async def save_signal_hub_config(payload: dict, _: str = Depends(require_admin))
         "accept_buy": payload.get("accept_buy", current["accept_buy"]),
         "accept_sell": payload.get("accept_sell", current["accept_sell"]),
         "min_confidence": payload.get("min_confidence", current["min_confidence"]),
+        "min_alignment_score": payload.get("min_alignment_score", current["min_alignment_score"]),
+        "min_playbook_fit": payload.get("min_playbook_fit", current["min_playbook_fit"]),
+        "require_watchlist_match": payload.get("require_watchlist_match", current["require_watchlist_match"]),
         "allowed_sources": payload.get("allowed_sources", current["allowed_sources"]),
+        "source_weights": payload.get("source_weights", current["source_weights"]),
         "token": current["token"],
         "recent_signals": current["recent_signals"],
         "last_signal_at": current["last_signal_at"],
@@ -2537,6 +2706,7 @@ async def save_signal_hub_config(payload: dict, _: str = Depends(require_admin))
     bot_state.add_log(f"📡 Signal Hub {'attivato' if next_config['enabled'] else 'disattivato'}")
     return {
         **next_config,
+        "metrics": build_public_signal_hub_snapshot(next_config)["metrics"],
         "webhook_url": f"{APP_BASE_URL}/api/signal-hub/webhook/{next_config['token']}",
     }
 
@@ -2550,6 +2720,7 @@ async def rotate_signal_hub_token(_: str = Depends(require_admin)):
     bot_state.add_log("🔐 Token Signal Hub rigenerato")
     return {
         **current,
+        "metrics": build_public_signal_hub_snapshot(current)["metrics"],
         "webhook_url": f"{APP_BASE_URL}/api/signal-hub/webhook/{current['token']}",
     }
 
@@ -2573,11 +2744,34 @@ async def signal_hub_webhook(token: str, payload: dict):
     if source not in config["allowed_sources"]:
         raise HTTPException(status_code=400, detail="Source non abilitata")
 
-    accepted = config["enabled"] and (
+    signal_context = build_signal_context_snapshot(symbol=symbol, confidence=confidence, source=source, target_state=bot_state)
+    fits_watchlist = signal_context["watchlist_match"]
+    meets_alignment = signal_context["alignment_score"] >= config["min_alignment_score"]
+    meets_playbook = signal_context["playbook_fit_score"] >= config["min_playbook_fit"]
+    side_allowed = (
         (signal == "BUY" and config["accept_buy"]) or
         (signal == "SELL" and config["accept_sell"]) or
         signal not in {"BUY", "SELL"}
-    ) and confidence >= config["min_confidence"]
+    )
+    accepted = config["enabled"] and (
+        side_allowed
+    ) and confidence >= config["min_confidence"] and meets_alignment and meets_playbook and (
+        fits_watchlist or not config["require_watchlist_match"]
+    )
+
+    decision_reasons = []
+    if not config["enabled"]:
+        decision_reasons.append("hub spento")
+    if not side_allowed:
+        decision_reasons.append(f"lato {signal} non abilitato")
+    if confidence < config["min_confidence"]:
+        decision_reasons.append(f"confidenza sotto soglia ({confidence}% < {config['min_confidence']}%)")
+    if config["require_watchlist_match"] and not fits_watchlist:
+        decision_reasons.append("simbolo fuori watchlist")
+    if not meets_playbook:
+        decision_reasons.append(f"fit playbook basso ({signal_context['playbook_fit_score']}/100)")
+    if not meets_alignment:
+        decision_reasons.append(f"alignment basso ({signal_context['alignment_score']}/100)")
 
     event = {
         "received_at": datetime.now().isoformat(),
@@ -2589,16 +2783,27 @@ async def signal_hub_webhook(token: str, payload: dict):
         "price": price,
         "note": note,
         "accepted": accepted,
+        "alignment_score": signal_context["alignment_score"],
+        "playbook_fit_score": signal_context["playbook_fit_score"],
+        "ranking_score": signal_context["ranking_score"],
+        "watchlist_match": signal_context["watchlist_match"],
+        "source_weight": signal_context["source_weight"],
+        "decision_reason": "Segnale promosso dal desk filter" if accepted else " · ".join(decision_reasons[:3]) or "Filtrato dal desk filter",
+        "regime_label": (signal_context["regime"] or {}).get("label"),
     }
     config["recent_signals"].insert(0, event)
     config["recent_signals"] = config["recent_signals"][:25]
     config["last_signal_at"] = event["received_at"]
-    config["last_signal_summary"] = f"{source.upper()} {signal} {symbol} ({confidence}%)"
+    config["last_signal_summary"] = f"{source.upper()} {signal} {symbol} · conf {confidence}% · align {signal_context['alignment_score']}/100"
     bot_state.signal_hub = config
     bot_state.save_state()
 
     tone = "🟢" if accepted else "🟡"
-    bot_state.add_log(f"{tone} SIGNAL HUB {source.upper()} {signal} {symbol} conf {confidence}%{' · ' + timeframe if timeframe else ''}")
+    bot_state.add_log(
+        f"{tone} SIGNAL HUB {source.upper()} {signal} {symbol} conf {confidence}% · "
+        f"align {signal_context['alignment_score']}/100 · fit {signal_context['playbook_fit_score']}/100"
+        f"{' · ' + timeframe if timeframe else ''}"
+    )
     return {"status": "received", "accepted": accepted, "event": event}
 
 
@@ -2706,6 +2911,7 @@ async def update_config(config: dict, user: dict = Depends(require_user)):
         return {
             "message": "Playbook aggiornato",
             "strategy_playbook": build_playbook_snapshot(u_state.strategy_playbook),
+            "playbook_rotation": build_playbook_rotation_snapshot(u_state),
             "symbol_selection": u_state.symbol_selection,
         }
     if "exit_ladder" in config:

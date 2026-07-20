@@ -3950,6 +3950,7 @@ function OmniAppInner() {
         throw new Error(data?.detail || 'Signal Hub non disponibile');
       }
       setSignalHubConfig(data);
+      setStatus((prev) => ({ ...prev, signal_hub: data }));
       return data;
     } catch (error) {
       pushNotice('warning', 'Signal Hub non sincronizzato', error.message || 'Impossibile leggere la configurazione.');
@@ -3970,6 +3971,7 @@ function OmniAppInner() {
         throw new Error(data?.detail || 'Configurazione non salvata');
       }
       setSignalHubConfig(data);
+      setStatus((prev) => ({ ...prev, signal_hub: data }));
       pushNotice('success', 'Signal Hub aggiornato', 'Nuove regole webhook salvate correttamente.', 2400);
     } catch (error) {
       pushNotice('error', 'Signal Hub non aggiornato', error.message || 'Errore durante il salvataggio.');
@@ -3987,6 +3989,7 @@ function OmniAppInner() {
         throw new Error(data?.detail || 'Token non rigenerato');
       }
       setSignalHubConfig(data);
+      setStatus((prev) => ({ ...prev, signal_hub: data }));
       pushNotice('success', 'Token rigenerato', 'Il nuovo ingresso webhook è già pronto.', 2600);
     } catch (error) {
       pushNotice('error', 'Rotazione fallita', error.message || 'Impossibile rigenerare il token.');
@@ -7013,6 +7016,7 @@ function OmniAppInner() {
                     setStatus((prev) => ({
                       ...prev,
                       strategy_playbook: data.strategy_playbook,
+                      playbook_rotation: data.playbook_rotation || prev.playbook_rotation,
                       symbol_selection: data.symbol_selection || prev.symbol_selection,
                     }));
                   }
@@ -7114,6 +7118,71 @@ function OmniAppInner() {
       </div>
 
       <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '1.6rem' }}>
+        <div className="card col-span-12" style={{ border: '1px solid rgba(244, 114, 182, 0.24)', background: 'rgba(244,114,182,0.06)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+            <div>
+              <div className="card-title">Playbook Rotation Coach</div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Ti suggerisce se la watchlist sta premiando un carattere operativo diverso da quello attivo.
+              </div>
+            </div>
+            <div className={`badge ${status.playbook_rotation?.recommended ? 'badge-idle' : 'badge-active'}`} style={{ fontSize: '0.8rem' }}>
+              {status.playbook_rotation?.recommended ? 'SWITCH READY' : 'COERENTE'}
+            </div>
+          </div>
+          <div style={{ display: 'grid', gap: '0.7rem' }}>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Adesso</div>
+              <div style={{ color: '#f8fafc', fontWeight: 800 }}>{status.playbook_rotation?.active_label || strategyPlaybook?.active?.label || 'Adaptive Core'}</div>
+            </div>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Miglior fit oggi</div>
+              <div style={{ color: status.playbook_rotation?.recommended ? '#f472b6' : '#10b981', fontWeight: 900 }}>
+                {status.playbook_rotation?.recommended_label || status.playbook_rotation?.active_label || 'Adaptive Core'}
+              </div>
+            </div>
+            <div style={{ color: '#cbd5e1', lineHeight: 1.5, fontSize: '0.84rem' }}>
+              {status.playbook_rotation?.summary || 'Il motore sta leggendo la composizione della watchlist per suggerire il playbook migliore.'}
+            </div>
+            {(status.playbook_rotation?.contenders || []).length > 0 && (
+              <div style={{ display: 'grid', gap: '0.55rem' }}>
+                {status.playbook_rotation.contenders.map((contender) => (
+                  <div key={contender.id} style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', padding: '0.65rem 0.8rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.05)' }}>
+                    <span style={{ color: '#cbd5e1', fontSize: '0.82rem' }}>{contender.label}</span>
+                    <strong style={{ color: contender.id === status.playbook_rotation?.recommended_id ? '#f472b6' : '#38bdf8', fontSize: '0.82rem' }}>{Number(contender.score || 0).toFixed(1)}/100</strong>
+                  </div>
+                ))}
+              </div>
+            )}
+            {userRole === 'admin' && status.playbook_rotation?.recommended && status.playbook_rotation?.recommended_id && (
+              <button
+                type="button"
+                className="btn"
+                onClick={async () => {
+                  const res = await authFetch('/api/config', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ strategy_playbook: status.playbook_rotation.recommended_id })
+                  });
+                  const data = await res.json();
+                  if (res.ok) {
+                    setStatus((prev) => ({
+                      ...prev,
+                      strategy_playbook: data.strategy_playbook,
+                      playbook_rotation: data.playbook_rotation || prev.playbook_rotation,
+                      symbol_selection: data.symbol_selection || prev.symbol_selection,
+                    }));
+                    pushNotice('success', 'Playbook riallineato', `Aureo passa su ${status.playbook_rotation.recommended_label}.`, 2400);
+                  }
+                }}
+                style={{ background: 'rgba(244,114,182,0.16)', border: '1px solid rgba(244,114,182,0.32)', color: '#fbcfe8' }}
+              >
+                Applica {status.playbook_rotation?.recommended_label}
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="card col-span-7" style={{ border: '1px solid rgba(167, 139, 250, 0.24)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
             <div>
@@ -7239,6 +7308,20 @@ function OmniAppInner() {
 
           {userRole === 'admin' ? (
             <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.7rem', marginBottom: '1rem' }}>
+                {[
+                  ['Promossi', signalHubConfig?.metrics?.accepted_count ?? 0, '#10b981'],
+                  ['Filtrati', signalHubConfig?.metrics?.filtered_count ?? 0, '#f59e0b'],
+                  ['Hit rate', `${Number(signalHubConfig?.metrics?.acceptance_rate || 0).toFixed(0)}%`, '#38bdf8'],
+                  ['Desk score', `${Number(signalHubConfig?.metrics?.avg_alignment_score || 0).toFixed(0)}/100`, '#c084fc'],
+                ].map(([label, value, tone]) => (
+                  <div key={label} style={{ padding: '0.75rem 0.85rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                    <div style={{ color: 'var(--text-muted)', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.28rem' }}>{label}</div>
+                    <div style={{ color: tone, fontWeight: 800 }}>{value}</div>
+                  </div>
+                ))}
+              </div>
+
               <div style={{ display: 'grid', gap: '0.7rem', marginBottom: '1rem' }}>
                 <div style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.3rem' }}>Webhook URL</div>
@@ -7297,6 +7380,72 @@ function OmniAppInner() {
                 </div>
               </div>
 
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ color: '#cbd5e1', fontSize: '0.82rem', marginBottom: '0.45rem' }}>Desk alignment minimo</div>
+                <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
+                  {[65, 72, 78, 84].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className="btn"
+                      disabled={signalHubBusy}
+                      onClick={() => saveSignalHubConfig({ min_alignment_score: value })}
+                      style={{
+                        padding: '0.5rem 0.8rem',
+                        background: Math.round(Number(signalHubConfig?.min_alignment_score || 0)) === value ? 'rgba(192,132,252,0.16)' : 'rgba(255,255,255,0.04)',
+                        border: Math.round(Number(signalHubConfig?.min_alignment_score || 0)) === value ? '1px solid rgba(192,132,252,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                        color: Math.round(Number(signalHubConfig?.min_alignment_score || 0)) === value ? '#d8b4fe' : '#cbd5e1',
+                      }}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '1rem' }}>
+                <div style={{ color: '#cbd5e1', fontSize: '0.82rem', marginBottom: '0.45rem' }}>Fit playbook minimo</div>
+                <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
+                  {[60, 68, 75, 82].map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      className="btn"
+                      disabled={signalHubBusy}
+                      onClick={() => saveSignalHubConfig({ min_playbook_fit: value })}
+                      style={{
+                        padding: '0.5rem 0.8rem',
+                        background: Math.round(Number(signalHubConfig?.min_playbook_fit || 0)) === value ? 'rgba(16,185,129,0.14)' : 'rgba(255,255,255,0.04)',
+                        border: Math.round(Number(signalHubConfig?.min_playbook_fit || 0)) === value ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                        color: Math.round(Number(signalHubConfig?.min_playbook_fit || 0)) === value ? '#6ee7b7' : '#cbd5e1',
+                      }}
+                    >
+                      {value}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                className="btn"
+                disabled={signalHubBusy}
+                onClick={() => saveSignalHubConfig({ require_watchlist_match: !signalHubConfig?.require_watchlist_match })}
+                style={{
+                  marginBottom: '1rem',
+                  padding: '0.8rem 0.9rem',
+                  textAlign: 'left',
+                  width: '100%',
+                  background: signalHubConfig?.require_watchlist_match ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
+                  border: signalHubConfig?.require_watchlist_match ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                }}
+              >
+                <div style={{ color: '#f8fafc', fontWeight: 700, marginBottom: '0.2rem' }}>Solo simboli in watchlist</div>
+                <div style={{ color: signalHubConfig?.require_watchlist_match ? '#10b981' : '#94a3b8', fontSize: '0.78rem' }}>
+                  {signalHubConfig?.require_watchlist_match ? 'Attivo: i webhook devono combaciare con la watchlist Aureo.' : 'Spento: accetta anche simboli fuori radar.'}
+                </div>
+              </button>
+
               <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 <button
                   type="button"
@@ -7336,10 +7485,18 @@ function OmniAppInner() {
                       </span>
                     </div>
                     <div style={{ color: '#94a3b8', fontSize: '0.8rem', lineHeight: 1.45 }}>
-                      {event.source || 'source'} · conf {Math.round(Number(event.confidence || 0) * 100)}% · {event.timeframe || 'n/a'}
+                      {event.source || 'source'} · conf {Math.round(Number(event.confidence || 0))}% · align {Math.round(Number(event.alignment_score || 0))}/100 · {event.timeframe || 'n/a'}
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: '0.76rem', lineHeight: 1.4, marginTop: '0.22rem' }}>
+                      fit {Math.round(Number(event.playbook_fit_score || 0))}/100 · rank {Math.round(Number(event.ranking_score || 0))}/100 · {event.watchlist_match ? 'in watchlist' : 'fuori watchlist'}
                     </div>
                     {event.note && (
                       <div style={{ color: '#cbd5e1', fontSize: '0.82rem', marginTop: '0.25rem', lineHeight: 1.45 }}>{event.note}</div>
+                    )}
+                    {event.decision_reason && (
+                      <div style={{ color: event.accepted ? '#86efac' : '#fcd34d', fontSize: '0.78rem', marginTop: '0.3rem', lineHeight: 1.4 }}>
+                        {event.decision_reason}
+                      </div>
                     )}
                   </div>
                 )) : (
@@ -7357,12 +7514,12 @@ function OmniAppInner() {
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.7rem' }}>
                 <div style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Canali</div>
-                  <div style={{ color: '#38bdf8', fontWeight: 800, marginTop: '0.25rem' }}>{Array.isArray(status.signal_hub?.recent_signals) ? status.signal_hub.recent_signals.length : 0}</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Hit rate</div>
+                  <div style={{ color: '#38bdf8', fontWeight: 800, marginTop: '0.25rem' }}>{Number(status.signal_hub?.metrics?.acceptance_rate || 0).toFixed(0)}%</div>
                 </div>
                 <div style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Confidenza minima</div>
-                  <div style={{ color: '#10b981', fontWeight: 800, marginTop: '0.25rem' }}>{Math.round(Number(status.signal_hub?.min_confidence || 0))}%</div>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Desk score</div>
+                  <div style={{ color: '#10b981', fontWeight: 800, marginTop: '0.25rem' }}>{Math.round(Number(status.signal_hub?.metrics?.avg_alignment_score || 0))}/100</div>
                 </div>
               </div>
             </div>
