@@ -6815,8 +6815,8 @@ function OmniAppInner() {
 
       {userRole === 'admin' && (
       <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
-        <div className="card col-span-4" style={{ border: `1px solid ${executionPlan.tone}33`, background: `${executionPlan.tone}10` }}>
-          <div className="card-title">🎯 Executive Trade Brief</div>
+        <div className="card col-span-3" style={{ border: `1px solid ${executionPlan.tone}33`, background: `${executionPlan.tone}10`, minWidth: 0 }}>
+          <div className="card-title" style={{ lineHeight: 1.18 }}>🎯 Executive Trade Brief</div>
           <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.7rem' }}>
             <div>
               <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Urgenza</div>
@@ -6846,8 +6846,8 @@ function OmniAppInner() {
           </div>
         </div>
 
-        <div className="card col-span-3" style={{ border: '1px solid rgba(56, 189, 248, 0.24)', background: 'rgba(56,189,248,0.08)' }}>
-          <div className="card-title">🕒 Session Bias</div>
+        <div className="card col-span-3" style={{ border: '1px solid rgba(56, 189, 248, 0.24)', background: 'rgba(56,189,248,0.08)', minWidth: 0 }}>
+          <div className="card-title" style={{ lineHeight: 1.18 }}>🕒 Session Bias</div>
           <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.7rem' }}>
             <div>
               <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Finestra</div>
@@ -6865,26 +6865,26 @@ function OmniAppInner() {
             </div>
           </div>
         </div>
-        <div className="card col-span-2" style={{ border: '1px solid rgba(16, 185, 129, 0.22)', background: 'rgba(16,185,129,0.08)' }}>
-          <div className="card-title">💸 Allocation Engine</div>
+        <div className="card col-span-3" style={{ border: '1px solid rgba(16, 185, 129, 0.22)', background: 'rgba(16,185,129,0.08)', minWidth: 0 }}>
+          <div className="card-title" style={{ lineHeight: 1.18 }}>💸 Allocation Engine</div>
           <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.7rem' }}>
             <div>
               <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Top pick</div>
               <div style={{ color: '#10b981', fontWeight: 900, fontSize: '1.05rem' }}>{status.symbol_allocation?.top_pick?.symbol || 'n/d'}</div>
             </div>
-            <div style={{ color: '#cbd5e1', fontSize: '0.82rem', lineHeight: 1.45 }}>
+            <div style={{ color: '#cbd5e1', fontSize: '0.82rem', lineHeight: 1.45, wordBreak: 'break-word' }}>
               {status.symbol_allocation?.summary || 'Piano allocazione in attesa.'}
             </div>
             {status.symbol_allocation?.top_pick && (
-              <div style={{ color: '#86efac', fontSize: '0.8rem', fontWeight: 800 }}>
+              <div style={{ color: '#86efac', fontSize: '0.8rem', fontWeight: 800, wordBreak: 'break-word' }}>
                 {status.symbol_allocation.top_pick.target_pct}% · {status.symbol_allocation.top_pick.band}
               </div>
             )}
           </div>
         </div>
 
-        <div className="card col-span-3" style={{ border: '1px solid rgba(244, 114, 182, 0.22)', background: 'rgba(244,114,182,0.06)' }}>
-          <div className="card-title">🧊 Setup Guard</div>
+        <div className="card col-span-3" style={{ border: '1px solid rgba(244, 114, 182, 0.22)', background: 'rgba(244,114,182,0.06)', minWidth: 0 }}>
+          <div className="card-title" style={{ lineHeight: 1.18 }}>🧊 Setup Guard</div>
           <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.7rem' }}>
             <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
               <span className={`badge ${status.setup_guard?.blocked?.length ? 'badge-gold' : 'badge-active'}`}>
