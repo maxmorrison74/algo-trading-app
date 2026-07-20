@@ -840,11 +840,22 @@ class AlpacaEngine:
             if lstm_prob > long_threshold:
                 pattern = self.predict_pattern_with_groq(symbol, close_prices)
                 if pattern in ["UP", "NO_LLM"]:
-                    if is_macd_vwap_long: strategy_name = "MACD TREND"
-                    elif is_momentum_long: strategy_name = "MOMENTUM SCALPING"
-                    else: strategy_name = "MEAN REVERSION"
+                    if playbook == "breakout":
+                        strategy_name = "CRYPTO BREAKOUT BURST" if "/" in symbol else "EQUITY BREAKOUT BURST"
+                    elif playbook == "trend":
+                        strategy_name = "CRYPTO TREND SURF" if "/" in symbol else "EQUITY TREND FOLLOW"
+                    elif playbook == "dip":
+                        strategy_name = "DIP RECOVERY"
+                    elif playbook == "rebalance":
+                        strategy_name = "REBALANCE DRIFT"
+                    elif is_macd_vwap_long:
+                        strategy_name = "MACD TREND"
+                    elif is_momentum_long:
+                        strategy_name = "MOMENTUM SCALPING"
+                    else:
+                        strategy_name = "MEAN REVERSION"
                     self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol} [{playbook.upper()}]")
-                    self.execute_trade(symbol, current_price, "LONG", atr, lstm_prob)
+                    self.execute_trade(symbol, current_price, "LONG", atr, lstm_prob, setup_profile=strategy_name)
                 else:
                     self._log(f"🧠 AI VETO: Groq non conferma UP. Scalp annullato.")
             else:
@@ -855,7 +866,7 @@ class AlpacaEngine:
             if pattern in ["DOWN", "NO_LLM"]:
                 strategy_name = "MACD TREND SHORT" if is_macd_vwap_short else "MEAN REVERSION SHORT"
                 self._log(f"⚡ FAST SCALP {strategy_name} ATTIVATO su {symbol} [{playbook.upper()}]")
-                self.execute_trade(symbol, current_price, "SHORT", atr, lstm_prob)
+                self.execute_trade(symbol, current_price, "SHORT", atr, lstm_prob, setup_profile=strategy_name)
             else:
                 self._log(f"🧠 AI VETO: Groq non conferma DOWN. Scalp annullato.")
         elif "/" in symbol:
@@ -883,7 +894,7 @@ class AlpacaEngine:
 
 
 
-    def execute_trade(self, symbol, current_price, side, atr, lstm_prob=0.5):
+    def execute_trade(self, symbol, current_price, side, atr, lstm_prob=0.5, setup_profile=None):
         self._log(f"⚡ SETUP {side} RILEVATO su {symbol}: Prezzo {current_price:.2f} (ATR: {atr:.2f})")
         
         if not self.is_market_open_for_symbol(symbol):
@@ -923,6 +934,26 @@ class AlpacaEngine:
 
         spread_snapshot = self._get_spread_snapshot(symbol)
         asset_class = self._get_asset_class(symbol)
+        setup_profile = str(setup_profile or (f"{str(getattr(self.bot_state, 'strategy_playbook', 'adaptive')).strip().upper()} EXECUTION")).strip()
+        allocation_row = None
+        try:
+            from api import is_setup_guard_blocking, build_symbol_allocation_snapshot
+            blocked, blocked_row = is_setup_guard_blocking(
+                setup_profile=setup_profile,
+                asset_class=asset_class,
+                trade_history=getattr(self.bot_state, "trade_history", []),
+                config=getattr(self.bot_state, "setup_guard", None),
+            )
+            if blocked:
+                self._log(
+                    f"🧊 SETUP GUARD: {setup_profile} su {symbol} resta in cooldown "
+                    f"(expectancy {float(blocked_row.get('expectancy') or 0):+.2f}$ · streak {blocked_row.get('loss_streak')})."
+                )
+                return
+            allocation_rows = build_symbol_allocation_snapshot(self.bot_state).get("rows", [])
+            allocation_row = next((row for row in allocation_rows if str(row.get("symbol") or "").upper() == symbol.upper()), None)
+        except Exception:
+            allocation_row = None
         spread_pct = spread_snapshot.get("spread_pct") if spread_snapshot else None
         conviction_bundle = self._compute_conviction_bundle(
             symbol=symbol,
@@ -947,6 +978,8 @@ class AlpacaEngine:
             
         qty = risk.get_position_size(confidence=base_confidence, price=current_price)
         qty *= conviction_bundle["size_multiplier"]
+        allocation_multiplier = float((allocation_row or {}).get("size_multiplier") or 1.0)
+        qty *= allocation_multiplier
         
         # Moltiplichiamo per l'aggressività dell'utente (0 - 100)
         agg_factor = self.bot_state.aggressiveness / 50.0  # Default 55 = 1.1x
@@ -986,8 +1019,15 @@ class AlpacaEngine:
         self._log(
             f"🎚️ CONVICTION {symbol}: {conviction_bundle['conviction_score']}/100 · "
             f"fit {conviction_bundle['playbook_fit']:.0f} · rank {conviction_bundle['ranking_score']:.0f} · "
-            f"session {conviction_bundle['session_profile']['label']} · size x{conviction_bundle['size_multiplier']:.2f}"
+            f"session {conviction_bundle['session_profile']['label']} · size x{conviction_bundle['size_multiplier']:.2f} · "
+            f"alloc x{allocation_multiplier:.2f}"
         )
+        if allocation_row:
+            self._log(
+                f"🪙 CAPITAL PLAN {symbol}: banda {allocation_row.get('band')} · "
+                f"target {float(allocation_row.get('target_pct') or 0):.1f}% · "
+                f"notional ${float(allocation_row.get('suggested_notional_usd') or 0):.2f}"
+            )
         
         alpaca_side = 'buy' if side == "LONG" else 'sell'
         clean_symbol = self.clean_sym(symbol)
@@ -1036,12 +1076,15 @@ class AlpacaEngine:
                 'trail_percent': trail_percent,
                 'review_meta': {
                     'asset_class': asset_class,
-                    'setup_profile': 'Aggressivo' if base_confidence >= 0.8 else ('Bilanciato' if base_confidence >= 0.65 else 'Conservativo'),
+                    'setup_profile': setup_profile,
                     'playbook_id': str(getattr(self.bot_state, "strategy_playbook", "adaptive") or "adaptive").strip().lower(),
                     'entry_at': datetime.now().isoformat(),
                     'source_channel': 'native_scanner',
                     'conviction_score': conviction_bundle['conviction_score'],
                     'position_size_multiplier': conviction_bundle['size_multiplier'],
+                    'allocation_multiplier': allocation_multiplier,
+                    'allocation_band': (allocation_row or {}).get('band'),
+                    'allocation_target_pct': (allocation_row or {}).get('target_pct'),
                     'playbook_fit_score': conviction_bundle['playbook_fit'],
                     'ranking_score': conviction_bundle['ranking_score'],
                     'session_profile': conviction_bundle['session_profile']['label'],

@@ -958,7 +958,12 @@ const deriveTradeSetupReview = (tradeHistory = []) => {
   };
 };
 
-const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}, readinessMap = {}, headlineMap = {}, rankedMap = {} }) => {
+const getSymbolAllocationMap = (status = {}) => {
+  const rows = Array.isArray(status?.symbol_allocation?.rows) ? status.symbol_allocation.rows : [];
+  return Object.fromEntries(rows.map((row) => [row.symbol, row]));
+};
+
+const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}, readinessMap = {}, headlineMap = {}, rankedMap = {}, allocationMap = {} }) => {
   const symbols = Array.isArray(status?.symbols) ? status.symbols : [];
 
   return symbols
@@ -972,6 +977,7 @@ const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}
         readiness,
         headline,
         conviction,
+        allocation: allocationMap[symbol] || null,
         rankingScore: Number(rankedMap[symbol]?.score ?? -1),
         selectionReason: rankedMap[symbol]?.selection_reason || '',
         sentiment: tableRow?.sentiment || 'NEUTRAL',
@@ -1037,7 +1043,7 @@ const deriveExecutionPlan = ({ opportunity = null, risk = {}, status = {} }) => 
       urgency: 'High Conviction',
       capitalMode: openSlots <= 1 ? 'Slot quasi saturi' : 'Slot disponibili',
       action: `Mantieni ${opportunity.symbol} in cima al monitor esecutivo`,
-      note: `${playbookName} è coerente con il simbolo e il conviction score è già da size piena controllata.`,
+      note: `${playbookName} è coerente con il simbolo e il conviction score è già da size piena controllata${opportunity.allocation?.target_pct ? ` · target ${opportunity.allocation.target_pct}%` : ''}.`,
       tone: '#10b981',
     };
   }
@@ -1061,7 +1067,7 @@ const deriveExecutionPlan = ({ opportunity = null, risk = {}, status = {} }) => 
   };
 };
 
-const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, tradePerformance = null, readinessMap = {}, headlineMap = {}, rankedMap = {} }) => {
+const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, tradePerformance = null, readinessMap = {}, headlineMap = {}, rankedMap = {}, allocationMap = {}, setupGuard = null }) => {
   const symbols = Array.isArray(status?.symbols) ? status.symbols : [];
 
   return symbols
@@ -1073,9 +1079,28 @@ const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, t
       const performanceRow = tradePerformance?.symbolRows?.find((item) => item.symbol === symbol) || null;
       const playbookFitScore = Number(rankedMap[symbol]?.playbook_fit?.score || 0);
       const rankingScore = Number(rankedMap[symbol]?.score ?? -1);
+      const allocation = allocationMap[symbol] || null;
+      const symbolAssetClass = allocation?.asset_class || (symbol.includes('/') ? 'crypto' : 'stock');
       const position = status?.positions?.[symbol];
+      const guardRow = (setupGuard?.blocked || []).find((item) => {
+        const guardAsset = String(item?.asset_class || '').toLowerCase();
+        const guardProfile = String(item?.setup_profile || '').toLowerCase();
+        const regimeId = String(rankedMap[symbol]?.regime?.id || '').toLowerCase();
+        const playbookId = String(status?.strategy_playbook?.active?.id || '').toLowerCase();
+        if (guardAsset !== String(symbolAssetClass).toLowerCase()) return false;
+        return (
+          (regimeId && guardProfile.includes(regimeId)) ||
+          (playbookId === 'breakout' && guardProfile.includes('breakout')) ||
+          (playbookId === 'trend' && guardProfile.includes('trend')) ||
+          (playbookId === 'dip' && (guardProfile.includes('dip') || guardProfile.includes('recovery'))) ||
+          (playbookId === 'rebalance' && guardProfile.includes('rebalance'))
+        );
+      });
+      const isGuardBlocked = !!guardRow;
       const liveState = position && position !== 'LIQUID'
         ? (position.side === 'short' ? 'Short live' : 'Long live')
+        : isGuardBlocked
+          ? 'Cooldown'
         : readiness.score >= 78
           ? 'Ready'
           : readiness.score >= 58
@@ -1083,6 +1108,8 @@ const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, t
             : 'Blocked';
       const action = position && position !== 'LIQUID'
         ? 'Gestisci la posizione'
+        : isGuardBlocked
+          ? 'Aspetta reset del setup'
         : readiness.score >= 78
           ? 'Pronto per review finale'
           : readiness.score >= 58
@@ -1097,6 +1124,8 @@ const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, t
         action,
         rankingScore,
         conviction,
+        allocation,
+        isGuardBlocked,
         playbookFitScore,
         sentiment: row?.sentiment || 'NEUTRAL',
         pnl: performanceRow?.totalPnl ?? null,
@@ -3434,6 +3463,7 @@ function OmniAppInner() {
   );
   const rankedRows = useMemo(() => (Array.isArray(status.symbol_selection?.ranked) ? status.symbol_selection.ranked : []), [status.symbol_selection]);
   const rankedMap = useMemo(() => Object.fromEntries(rankedRows.map((row) => [row.symbol, row])), [rankedRows]);
+  const allocationMap = useMemo(() => getSymbolAllocationMap(status), [status]);
   const landingPlans = useMemo(() => DEMO_BILLING_OVERVIEW.plans || [], []);
   const landingPlanMap = useMemo(() => Object.fromEntries(landingPlans.map((plan) => [plan.id, plan])), [landingPlans]);
   const symbolDiagnostics = useMemo(() => {
@@ -3492,8 +3522,8 @@ function OmniAppInner() {
     [logsList]
   );
   const topOpportunities = useMemo(
-    () => deriveTopOpportunities({ status, risk: status.risk, tableDataBySymbol, readinessMap: symbolDiagnostics.readinessMap, headlineMap: symbolDiagnostics.headlineMap, rankedMap }),
-    [status, tableDataBySymbol, symbolDiagnostics, rankedMap]
+    () => deriveTopOpportunities({ status, risk: status.risk, tableDataBySymbol, readinessMap: symbolDiagnostics.readinessMap, headlineMap: symbolDiagnostics.headlineMap, rankedMap, allocationMap }),
+    [status, tableDataBySymbol, symbolDiagnostics, rankedMap, allocationMap]
   );
   const opportunitySpotlight = useMemo(() => deriveOpportunitySpotlight(topOpportunities), [topOpportunities]);
   const executionPlan = useMemo(
@@ -3501,8 +3531,8 @@ function OmniAppInner() {
     [opportunitySpotlight, status]
   );
   const tradeDeskRows = useMemo(
-    () => deriveTradeDeskRows({ status, risk: status.risk, tableDataBySymbol, tradePerformance, readinessMap: symbolDiagnostics.readinessMap, headlineMap: symbolDiagnostics.headlineMap, rankedMap }),
-    [status, tableDataBySymbol, tradePerformance, symbolDiagnostics, rankedMap]
+    () => deriveTradeDeskRows({ status, risk: status.risk, tableDataBySymbol, tradePerformance, readinessMap: symbolDiagnostics.readinessMap, headlineMap: symbolDiagnostics.headlineMap, rankedMap, allocationMap, setupGuard: status.setup_guard }),
+    [status, tableDataBySymbol, tradePerformance, symbolDiagnostics, rankedMap, allocationMap]
   );
   const systemHealthSnapshot = useMemo(
     () => deriveSystemHealthSnapshot({ status, risk: status.risk, savedKeys, isBackendOnline, cryptoEngine }),
@@ -6659,7 +6689,7 @@ function OmniAppInner() {
         </div>
       </div>
 
-      <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '1.3rem' }}>
+      <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '1rem' }}>
         <div className="card col-span-4" style={{ border: `1px solid ${executionPlan.tone}33`, background: `${executionPlan.tone}10` }}>
           <div className="card-title">🎯 Executive Trade Brief</div>
           <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.7rem' }}>
@@ -6710,13 +6740,54 @@ function OmniAppInner() {
             </div>
           </div>
         </div>
+        <div className="card col-span-2" style={{ border: '1px solid rgba(16, 185, 129, 0.22)', background: 'rgba(16,185,129,0.08)' }}>
+          <div className="card-title">💸 Allocation Engine</div>
+          <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.7rem' }}>
+            <div>
+              <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Top pick</div>
+              <div style={{ color: '#10b981', fontWeight: 900, fontSize: '1.05rem' }}>{status.symbol_allocation?.top_pick?.symbol || 'n/d'}</div>
+            </div>
+            <div style={{ color: '#cbd5e1', fontSize: '0.82rem', lineHeight: 1.45 }}>
+              {status.symbol_allocation?.summary || 'Piano allocazione in attesa.'}
+            </div>
+            {status.symbol_allocation?.top_pick && (
+              <div style={{ color: '#86efac', fontSize: '0.8rem', fontWeight: 800 }}>
+                {status.symbol_allocation.top_pick.target_pct}% · {status.symbol_allocation.top_pick.band}
+              </div>
+            )}
+          </div>
+        </div>
 
-        <div className="card col-span-5" style={{ background: 'rgba(255,255,255,0.025)' }}>
+        <div className="card col-span-3" style={{ border: '1px solid rgba(244, 114, 182, 0.22)', background: 'rgba(244,114,182,0.06)' }}>
+          <div className="card-title">🧊 Setup Guard</div>
+          <div style={{ marginTop: '0.9rem', display: 'grid', gap: '0.7rem' }}>
+            <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
+              <span className={`badge ${status.setup_guard?.blocked?.length ? 'badge-gold' : 'badge-active'}`}>
+                {status.setup_guard?.blocked?.length ? `${status.setup_guard.blocked.length} cooldown` : 'CLEAR'}
+              </span>
+              <span className={`badge ${status.setup_guard?.armed ? 'badge-active' : 'badge-idle'}`}>
+                {status.setup_guard?.armed ? 'ARMED' : 'OFF'}
+              </span>
+            </div>
+            <div style={{ color: '#cbd5e1', fontSize: '0.82rem', lineHeight: 1.45 }}>
+              {status.setup_guard?.summary || 'Nessun blocco attivo.'}
+            </div>
+            {status.setup_guard?.blocked?.[0] && (
+              <div style={{ color: '#fbcfe8', fontSize: '0.78rem', lineHeight: 1.45 }}>
+                Più debole ora: {status.setup_guard.blocked[0].setup_profile} · expectancy {Number(status.setup_guard.blocked[0].expectancy || 0).toFixed(2)}$
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="dashboard-grid" style={{ marginTop: '0.2rem', marginBottom: '1.3rem' }}>
+        <div className="card col-span-12" style={{ background: 'rgba(255,255,255,0.025)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '0.9rem' }}>
             <div>
               <div className="card-title">🧠 Trade Desk Matrix</div>
               <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
-                Un colpo d’occhio da desk: priorità, fit, stato live e uso intelligente del capitale.
+                Priorità, fit, sizing e guardrail nello stesso colpo d’occhio.
               </div>
             </div>
             <div className="badge badge-idle">{tradeDeskRows.length} simboli attivi</div>
@@ -6736,7 +6807,7 @@ function OmniAppInner() {
                   cursor: 'pointer',
                 }}
               >
-                <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.8fr 0.8fr 0.8fr 1fr 1.2fr', gap: '0.8rem', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.7fr 0.7fr 0.8fr 0.8fr 0.8fr 1fr', gap: '0.8rem', alignItems: 'center' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                       <SymbolLinkButton symbol={item.symbol} onOpen={() => openSymbolReview(item.symbol, 'trading')} variant="inline" style={{ color: '#f8fafc', fontWeight: 900, padding: 0 }}>
@@ -6766,14 +6837,24 @@ function OmniAppInner() {
                     </div>
                   </div>
                   <div>
-                    <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Stato live</div>
-                    <div style={{ color: '#cbd5e1', fontWeight: 800 }}>{item.liveState}</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Allocazione</div>
+                    <div style={{ color: item.allocation?.target_pct >= 12 ? '#10b981' : '#cbd5e1', fontWeight: 800 }}>
+                      {item.allocation?.target_pct ? `${Number(item.allocation.target_pct).toFixed(1)}%` : 'n/d'}
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: '0.72rem', marginTop: '0.16rem' }}>{item.allocation?.band || '—'}</div>
+                  </div>
+                  <div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Guard</div>
+                    <div style={{ color: item.isGuardBlocked ? '#f59e0b' : '#10b981', fontWeight: 800 }}>
+                      {item.isGuardBlocked ? 'Cooldown' : 'Free'}
+                    </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
                     <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Storico</div>
                     <div style={{ color: item.pnl == null ? '#94a3b8' : item.pnl >= 0 ? '#10b981' : '#ef4444', fontWeight: 800 }}>
                       {item.pnl == null ? 'n/d' : `${item.pnl >= 0 ? '+' : ''}$${Number(item.pnl).toFixed(2)}`}
                     </div>
+                    <div style={{ color: '#64748b', fontSize: '0.72rem', marginTop: '0.16rem' }}>{item.liveState}</div>
                   </div>
                 </div>
               </button>

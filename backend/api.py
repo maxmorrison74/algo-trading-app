@@ -374,6 +374,25 @@ DEFAULT_AUTO_PLAYBOOK_CONFIG = {
     "last_auto_switch_reason": None,
 }
 
+DEFAULT_ALLOCATION_ENGINE_CONFIG = {
+    "enabled": True,
+    "base_target_pct": 8.0,
+    "max_target_pct": 16.0,
+    "crypto_cap_pct": 11.0,
+    "conviction_weight": 0.42,
+    "ranking_weight": 0.33,
+    "playbook_weight": 0.25,
+}
+
+DEFAULT_SETUP_GUARD_CONFIG = {
+    "enabled": True,
+    "min_trades": 3,
+    "expectancy_floor_usd": -1.25,
+    "loss_streak_trigger": 2,
+    "cooldown_minutes": 300,
+    "max_blocked_setups": 4,
+}
+
 
 def normalize_playbook_id(playbook_id: Optional[str]) -> str:
     candidate = str(playbook_id or DEFAULT_PLAYBOOK_ID).strip().lower()
@@ -470,6 +489,42 @@ def ensure_auto_playbook_config(raw_config):
     }
 
 
+def ensure_allocation_engine_config(raw_config):
+    config = dict(DEFAULT_ALLOCATION_ENGINE_CONFIG)
+    if isinstance(raw_config, dict):
+        config.update({k: v for k, v in raw_config.items() if v is not None})
+    base_target_pct = round(max(3.0, min(float(config.get("base_target_pct", 8.0) or 8.0), 20.0)), 1)
+    max_target_pct = round(max(base_target_pct, min(float(config.get("max_target_pct", 16.0) or 16.0), 30.0)), 1)
+    crypto_cap_pct = round(max(3.0, min(float(config.get("crypto_cap_pct", 11.0) or 11.0), max_target_pct)), 1)
+    conviction_weight = max(0.1, min(float(config.get("conviction_weight", 0.42) or 0.42), 0.7))
+    ranking_weight = max(0.1, min(float(config.get("ranking_weight", 0.33) or 0.33), 0.7))
+    playbook_weight = max(0.1, min(float(config.get("playbook_weight", 0.25) or 0.25), 0.7))
+    total_weight = conviction_weight + ranking_weight + playbook_weight
+    return {
+        "enabled": bool(config.get("enabled", True)),
+        "base_target_pct": base_target_pct,
+        "max_target_pct": max_target_pct,
+        "crypto_cap_pct": crypto_cap_pct,
+        "conviction_weight": round(conviction_weight / total_weight, 3),
+        "ranking_weight": round(ranking_weight / total_weight, 3),
+        "playbook_weight": round(playbook_weight / total_weight, 3),
+    }
+
+
+def ensure_setup_guard_config(raw_config):
+    config = dict(DEFAULT_SETUP_GUARD_CONFIG)
+    if isinstance(raw_config, dict):
+        config.update({k: v for k, v in raw_config.items() if v is not None})
+    return {
+        "enabled": bool(config.get("enabled", True)),
+        "min_trades": max(2, min(int(config.get("min_trades", 3) or 3), 12)),
+        "expectancy_floor_usd": round(min(float(config.get("expectancy_floor_usd", -1.25) or -1.25), 0.0), 2),
+        "loss_streak_trigger": max(2, min(int(config.get("loss_streak_trigger", 2) or 2), 6)),
+        "cooldown_minutes": max(30, min(int(config.get("cooldown_minutes", 300) or 300), 2880)),
+        "max_blocked_setups": max(1, min(int(config.get("max_blocked_setups", 4) or 4), 12)),
+    }
+
+
 def classify_regime_for_row(row: Optional[dict], is_crypto: bool = False):
     if not isinstance(row, dict):
         return {
@@ -522,16 +577,65 @@ def classify_regime_for_row(row: Optional[dict], is_crypto: bool = False):
     }
 
 
-def playbook_fit_score(playbook_id: str, regime_id: str):
+def get_asset_class_for_symbol(symbol: str):
+    return "crypto" if "/" in str(symbol or "") else "stock"
+
+
+def describe_playbook_specialization(playbook_id: str, asset_class: str):
+    playbook_id = normalize_playbook_id(playbook_id)
+    asset_class = str(asset_class or "stock").strip().lower()
+    mapping = {
+        "adaptive": {
+            "stock": {"label": "Multi-regime stock", "summary": "Tiene insieme breakout, trend e pullback senza sbilanciarsi."},
+            "crypto": {"label": "Crypto core bilanciato", "summary": "Resta duttile su asset veloci ma evita overfit sulle fiammate."},
+        },
+        "breakout": {
+            "stock": {"label": "Breakout equity", "summary": "Premia espansioni pulite, opening drive e nuovi massimi confermati."},
+            "crypto": {"label": "Momentum crypto", "summary": "Più adatto a compressioni che esplodono e accelerazioni veloci."},
+        },
+        "trend": {
+            "stock": {"label": "Trend equity", "summary": "Segue follow-through ordinati e titoli con leadership continua."},
+            "crypto": {"label": "Trend crypto", "summary": "Cavalca movimenti puliti ma richiede struttura meno rumorosa."},
+        },
+        "dip": {
+            "stock": {"label": "Pullback stock", "summary": "Lavora meglio su rientri ordinati dentro trend ancora sani."},
+            "crypto": {"label": "Dip crypto selettivo", "summary": "Usabile solo su drawdown controllati, non su accelerazioni caotiche."},
+        },
+        "rebalance": {
+            "stock": {"label": "Flow difensivo", "summary": "Conserva capitale quando conta più la disciplina che la spinta."},
+            "crypto": {"label": "Rotation crypto", "summary": "Meglio per fasi piatte o di redistribuzione tra asset core."},
+        },
+    }
+    return mapping.get(playbook_id, mapping[DEFAULT_PLAYBOOK_ID]).get(asset_class, mapping[DEFAULT_PLAYBOOK_ID]["stock"])
+
+
+def playbook_fit_score(playbook_id: str, regime_id: str, asset_class: str = "stock"):
     playbook = PLAYBOOK_LIBRARY.get(normalize_playbook_id(playbook_id), PLAYBOOK_LIBRARY[DEFAULT_PLAYBOOK_ID])
     biases = playbook.get("regime_bias", [])
+    asset_class = str(asset_class or "stock").strip().lower()
+    specialist_bonus = {
+        "adaptive": {"stock": 4, "crypto": 5},
+        "breakout": {"stock": 6, "crypto": 10},
+        "trend": {"stock": 8, "crypto": 7},
+        "dip": {"stock": 5, "crypto": 1},
+        "rebalance": {"stock": 2, "crypto": 6},
+    }.get(normalize_playbook_id(playbook_id), {}).get(asset_class, 0)
+    if asset_class == "crypto" and regime_id == "crypto_core":
+        crypto_specialist = {
+            "breakout": 92,
+            "trend": 88,
+            "adaptive": 86,
+            "rebalance": 82,
+            "dip": 72,
+        }
+        return crypto_specialist.get(normalize_playbook_id(playbook_id), 80)
     if regime_id in biases:
-        return 93
+        return min(98, 93 + specialist_bonus)
     if playbook_id == "adaptive":
-        return 88
+        return min(96, 88 + specialist_bonus)
     if regime_id in {"balanced", "pullback"} and playbook_id in {"dip", "rebalance"}:
-        return 82
-    return 68
+        return min(94, 82 + specialist_bonus)
+    return min(90, 68 + specialist_bonus)
 
 
 def build_signal_source_snapshot(signal_hub_config: dict, trade_history=None):
@@ -681,6 +785,169 @@ def build_trade_journal_snapshot(trade_history=None):
     }
 
 
+def build_setup_guard_snapshot(trade_history=None, config=None):
+    guard_config = ensure_setup_guard_config(config)
+    history = trade_history if isinstance(trade_history, list) else []
+    rows = [trade for trade in history if isinstance(trade, dict) and "profit_usd" in trade and trade.get("setup_profile")]
+    grouped = {}
+    for trade in rows:
+        setup_profile = str(trade.get("setup_profile") or "Non classificato").strip()
+        asset_class = str(trade.get("asset_class") or get_asset_class_for_symbol(trade.get("symbol"))).strip().lower()
+        key = f"{setup_profile} • {asset_class}"
+        if key not in grouped:
+            grouped[key] = {
+                "key": key,
+                "setup_profile": setup_profile,
+                "asset_class": asset_class,
+                "trades": 0,
+                "pnl": 0.0,
+                "wins": 0,
+                "recent_outcomes": [],
+                "last_loss_at": None,
+            }
+        row = grouped[key]
+        profit_usd = float(trade.get("profit_usd") or 0.0)
+        row["trades"] += 1
+        row["pnl"] += profit_usd
+        row["wins"] += 1 if profit_usd > 0 else 0
+        row["recent_outcomes"].append(profit_usd)
+        if profit_usd < 0:
+            row["last_loss_at"] = trade.get("date") or row["last_loss_at"]
+
+    blocked = []
+    summary_rows = []
+    now = datetime.now()
+    for key, row in grouped.items():
+        trades = row["trades"]
+        expectancy = round(row["pnl"] / trades, 2) if trades else 0.0
+        loss_streak = 0
+        for value in reversed(row["recent_outcomes"]):
+            if value < 0:
+                loss_streak += 1
+            else:
+                break
+        expires_at = None
+        is_recent = False
+        last_loss_at = row.get("last_loss_at")
+        if last_loss_at:
+            try:
+                last_dt = datetime.strptime(str(last_loss_at), "%Y-%m-%d %H:%M")
+                expires_dt = last_dt + timedelta(minutes=guard_config["cooldown_minutes"])
+                expires_at = expires_dt.isoformat()
+                is_recent = expires_dt > now
+            except Exception:
+                pass
+        summary_row = {
+            "key": key,
+            "setup_profile": row["setup_profile"],
+            "asset_class": row["asset_class"],
+            "trades": trades,
+            "expectancy": expectancy,
+            "win_rate": round((row["wins"] / trades) * 100, 1) if trades else 0.0,
+            "loss_streak": loss_streak,
+            "last_loss_at": last_loss_at,
+            "expires_at": expires_at,
+        }
+        summary_rows.append(summary_row)
+        should_block = (
+            guard_config["enabled"] and
+            trades >= guard_config["min_trades"] and
+            is_recent and
+            (
+                expectancy <= guard_config["expectancy_floor_usd"] or
+                loss_streak >= guard_config["loss_streak_trigger"]
+            )
+        )
+        if should_block:
+            blocked.append(summary_row)
+
+    summary_rows.sort(key=lambda item: (item["expectancy"], -item["trades"]))
+    blocked.sort(key=lambda item: (item["expectancy"], -item["trades"]))
+    return {
+        "config": guard_config,
+        "blocked": blocked[:guard_config["max_blocked_setups"]],
+        "rows": summary_rows[:8],
+        "armed": guard_config["enabled"],
+        "summary": (
+            f"{len(blocked)} setup in raffreddamento automatico."
+            if blocked else
+            "Nessun setup sotto osservazione: il motore può allocare capitale senza freeze tattici."
+        ),
+    }
+
+
+def is_setup_guard_blocking(setup_profile: str, asset_class: str, trade_history=None, config=None):
+    setup_profile = str(setup_profile or "Non classificato").strip()
+    asset_class = str(asset_class or "stock").strip().lower()
+    blocked_rows = build_setup_guard_snapshot(trade_history=trade_history, config=config).get("blocked", [])
+    key = f"{setup_profile} • {asset_class}"
+    blocked_row = next((row for row in blocked_rows if row.get("key") == key), None)
+    return blocked_row is not None, blocked_row
+
+
+def build_symbol_allocation_snapshot(target_state=None):
+    current_state = target_state or bot_state
+    config = ensure_allocation_engine_config(getattr(current_state, "allocation_engine", DEFAULT_ALLOCATION_ENGINE_CONFIG))
+    ranked_rows = list((getattr(current_state, "symbol_selection", {}) or {}).get("ranked", []) or [])
+    session_bias = build_session_bias_snapshot(current_state)
+    active_playbook_id = normalize_playbook_id(getattr(current_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID))
+    cash_base = max(0.0, float(getattr(current_state, "virtual_cash", 0.0) or 0.0))
+    plan_rows = []
+
+    for row in ranked_rows[:10]:
+        symbol = str(row.get("symbol") or "").strip().upper()
+        if not symbol:
+            continue
+        asset_class = get_asset_class_for_symbol(symbol)
+        regime = row.get("regime") if isinstance(row.get("regime"), dict) else classify_regime_for_row(row, is_crypto=asset_class == "crypto")
+        ranking_score = 62.0 if row.get("score") is None else max(0.0, min(float(row.get("score") or 0.0) * 100.0, 100.0))
+        playbook_fit = float(((row.get("playbook_fit") or {}).get("score")) or playbook_fit_score(active_playbook_id, regime.get("id"), asset_class=asset_class))
+        specialist = describe_playbook_specialization(active_playbook_id, asset_class)
+        session_bonus = 5.0 if active_playbook_id in (session_bias.get("preferred_playbooks") or []) else 0.0
+        conviction_hint = max(0.0, min((playbook_fit * 0.48) + (ranking_score * 0.38) + session_bonus + (5.0 if asset_class == "crypto" and regime.get("id") == "crypto_core" else 0.0), 100.0))
+        edge_score = (
+            conviction_hint * config["conviction_weight"] +
+            ranking_score * config["ranking_weight"] +
+            playbook_fit * config["playbook_weight"]
+        )
+        normalized_edge = max(0.0, min(edge_score / 100.0, 1.0))
+        target_pct = config["base_target_pct"] + ((config["max_target_pct"] - config["base_target_pct"]) * normalized_edge)
+        if asset_class == "crypto":
+            target_pct = min(target_pct, config["crypto_cap_pct"])
+        target_pct = round(target_pct, 1)
+        size_multiplier = round(max(0.7, min(target_pct / max(config["base_target_pct"], 0.1), 1.45)), 2)
+        notional = round(cash_base * (target_pct / 100.0), 2)
+        band = "Press" if target_pct >= (config["max_target_pct"] - 1.5) else ("Core" if target_pct >= (config["base_target_pct"] + 2.0) else "Probe")
+        plan_rows.append({
+            "symbol": symbol,
+            "asset_class": asset_class,
+            "target_pct": target_pct,
+            "suggested_notional_usd": notional,
+            "size_multiplier": size_multiplier,
+            "conviction_hint": round(conviction_hint, 1),
+            "ranking_score": round(ranking_score, 1),
+            "playbook_fit_score": round(playbook_fit, 1),
+            "band": band,
+            "specialist_label": specialist["label"],
+            "specialist_summary": specialist["summary"],
+            "regime": regime,
+        })
+
+    plan_rows.sort(key=lambda item: (item["target_pct"], item["conviction_hint"], item["playbook_fit_score"]), reverse=True)
+    top_pick = plan_rows[0] if plan_rows else None
+    return {
+        "config": config,
+        "enabled": config["enabled"],
+        "summary": (
+            f"Capitale concentrato prima su {top_pick['symbol']} ({top_pick['target_pct']}% · {top_pick['band']})."
+            if top_pick else
+            "Piano allocazione in attesa della prossima watchlist."
+        ),
+        "rows": plan_rows[:7],
+        "top_pick": top_pick,
+    }
+
+
 def build_public_signal_hub_snapshot(signal_hub_config: dict):
     config = ensure_signal_hub_config(signal_hub_config)
     token = config["token"]
@@ -728,6 +995,7 @@ def build_signal_context_snapshot(symbol: str, confidence: int, source: str, tar
     ranked_rows = list((getattr(current_state, "symbol_selection", {}) or {}).get("ranked", []) or [])
     ranked_row = next((row for row in ranked_rows if str(row.get("symbol") or "").upper() == symbol), None)
     is_crypto = "/" in symbol
+    asset_class = "crypto" if is_crypto else "stock"
     is_watchlist_match = symbol in list(getattr(current_state, "target_symbols", []) or [])
     regime = None
     if isinstance(ranked_row, dict):
@@ -737,9 +1005,9 @@ def build_signal_context_snapshot(symbol: str, confidence: int, source: str, tar
     regime_id = regime.get("id") if isinstance(regime, dict) else ("crypto_core" if is_crypto else "unknown")
     playbook_fit = 68
     if isinstance(ranked_row, dict):
-        playbook_fit = int(float(((ranked_row.get("playbook_fit") or {}).get("score")) or playbook_fit_score(playbook_id, regime_id)))
+        playbook_fit = int(float(((ranked_row.get("playbook_fit") or {}).get("score")) or playbook_fit_score(playbook_id, regime_id, asset_class=asset_class)))
     elif is_watchlist_match:
-        playbook_fit = int(playbook_fit_score(playbook_id, regime_id))
+        playbook_fit = int(playbook_fit_score(playbook_id, regime_id, asset_class=asset_class))
     dynamic_source_weight, source_weight_meta = derive_dynamic_source_weight(
         source=source,
         signal_hub_config=getattr(current_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG),
@@ -806,7 +1074,7 @@ def build_playbook_rotation_snapshot(target_state=None):
         row_weight = 1.0 + max(0.0, float(row.get("score") or 0.0) * 2.5)
         for playbook_id in PLAYBOOK_LIBRARY.keys():
             bias_boost = 6.0 if playbook_id in session_bias.get("preferred_playbooks", []) else 0.0
-            weighted_scores[playbook_id] += (playbook_fit_score(playbook_id, regime_id) + bias_boost) * row_weight
+            weighted_scores[playbook_id] += (playbook_fit_score(playbook_id, regime_id, asset_class=get_asset_class_for_symbol(row.get("symbol"))) + bias_boost) * row_weight
             weights[playbook_id] += row_weight
     averaged_scores = {
         key: round(weighted_scores[key] / weights[key], 1) if weights[key] else 0.0
@@ -1171,6 +1439,8 @@ def load_db(user_id=None):
             "dynamic_atr_stop": True,
             "strategy_playbook": DEFAULT_PLAYBOOK_ID,
             "auto_playbook": dict(DEFAULT_AUTO_PLAYBOOK_CONFIG),
+            "allocation_engine": dict(DEFAULT_ALLOCATION_ENGINE_CONFIG),
+            "setup_guard": dict(DEFAULT_SETUP_GUARD_CONFIG),
             "exit_ladder": dict(DEFAULT_EXIT_LADDER),
             "signal_hub": dict(DEFAULT_SIGNAL_HUB_CONFIG),
             "trailing_stop_base_pct": 2.5,
@@ -1618,8 +1888,9 @@ def refresh_target_symbols(max_symbols: int = 7, state_override=None):
             "regime": classify_regime_for_row({}, is_crypto=True),
             "playbook_fit": {
                 "playbook_id": active_playbook_id,
-                "score": playbook_fit_score(active_playbook_id, "crypto_core"),
+                "score": playbook_fit_score(active_playbook_id, "crypto_core", asset_class="crypto"),
             },
+            "specialist_profile": describe_playbook_specialization(active_playbook_id, "crypto"),
         }
         for symbol in crypto_symbols
     ]
@@ -1629,8 +1900,9 @@ def refresh_target_symbols(max_symbols: int = 7, state_override=None):
         row["regime"] = regime
         row["playbook_fit"] = {
             "playbook_id": active_playbook_id,
-            "score": playbook_fit_score(active_playbook_id, regime["id"]),
+            "score": playbook_fit_score(active_playbook_id, regime["id"], asset_class="stock"),
         }
+        row["specialist_profile"] = describe_playbook_specialization(active_playbook_id, "stock")
 
     combined_symbols = list(dict.fromkeys((selected_symbols or []) + crypto_symbols))
     combined_ranked_rows = ranked_rows + crypto_rows
@@ -1646,6 +1918,7 @@ def refresh_target_symbols(max_symbols: int = 7, state_override=None):
         "ranked": combined_ranked_rows[:max_symbols],
         "auto_rotation": auto_rotation,
     }
+    target_state.symbol_selection["allocation"] = build_symbol_allocation_snapshot(target_state)
     target_state.save_state()
     return target_state.target_symbols
 
@@ -1761,6 +2034,8 @@ class BotState:
         self.symbol_selection = db_data.get("symbol_selection", {"method": "static_default", "ranked": []})
         self.strategy_playbook = normalize_playbook_id(db_data.get("strategy_playbook", DEFAULT_PLAYBOOK_ID))
         self.auto_playbook = ensure_auto_playbook_config(db_data.get("auto_playbook", DEFAULT_AUTO_PLAYBOOK_CONFIG))
+        self.allocation_engine = ensure_allocation_engine_config(db_data.get("allocation_engine", DEFAULT_ALLOCATION_ENGINE_CONFIG))
+        self.setup_guard = ensure_setup_guard_config(db_data.get("setup_guard", DEFAULT_SETUP_GUARD_CONFIG))
         self.exit_ladder = ensure_exit_ladder_config(db_data.get("exit_ladder", DEFAULT_EXIT_LADDER))
         self.signal_hub = ensure_signal_hub_config(db_data.get("signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
         self.options_lab = ensure_options_lab_config(db_data.get("options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
@@ -1842,6 +2117,8 @@ class BotState:
             "symbol_selection": self.symbol_selection,
             "strategy_playbook": self.strategy_playbook,
             "auto_playbook": self.auto_playbook,
+            "allocation_engine": self.allocation_engine,
+            "setup_guard": self.setup_guard,
             "exit_ladder": self.exit_ladder,
             "signal_hub": self.signal_hub,
             "options_lab": self.options_lab,
@@ -2437,6 +2714,9 @@ def get_status(user_id="admin", scope: str = "core"):
             "auto_bet_threshold": bot_state.auto_bet_threshold,
             "strategy_playbook": build_playbook_snapshot(getattr(bot_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID)),
             "auto_playbook": ensure_auto_playbook_config(getattr(bot_state, "auto_playbook", DEFAULT_AUTO_PLAYBOOK_CONFIG)),
+            "allocation_engine": ensure_allocation_engine_config(getattr(bot_state, "allocation_engine", DEFAULT_ALLOCATION_ENGINE_CONFIG)),
+            "symbol_allocation": build_symbol_allocation_snapshot(bot_state),
+            "setup_guard": build_setup_guard_snapshot(bot_state.trade_history, getattr(bot_state, "setup_guard", DEFAULT_SETUP_GUARD_CONFIG)),
             "playbook_rotation": build_playbook_rotation_snapshot(bot_state),
             "session_bias": build_session_bias_snapshot(bot_state),
             "exit_ladder": ensure_exit_ladder_config(getattr(bot_state, "exit_ladder", DEFAULT_EXIT_LADDER)),
@@ -3256,6 +3536,26 @@ async def update_config(config: dict, user: dict = Depends(require_user)):
             "message": "Auto Playbook aggiornato",
             "auto_playbook": merged,
             "playbook_rotation": build_playbook_rotation_snapshot(u_state),
+        }
+    if "allocation_engine" in config:
+        current = ensure_allocation_engine_config(getattr(u_state, "allocation_engine", DEFAULT_ALLOCATION_ENGINE_CONFIG))
+        merged = ensure_allocation_engine_config({**current, **(config.get("allocation_engine") or {})})
+        u_state.allocation_engine = merged
+        u_state.save_state()
+        return {
+            "message": "Allocation Engine aggiornato",
+            "allocation_engine": merged,
+            "symbol_allocation": build_symbol_allocation_snapshot(u_state),
+        }
+    if "setup_guard" in config:
+        current = ensure_setup_guard_config(getattr(u_state, "setup_guard", DEFAULT_SETUP_GUARD_CONFIG))
+        merged = ensure_setup_guard_config({**current, **(config.get("setup_guard") or {})})
+        u_state.setup_guard = merged
+        u_state.save_state()
+        u_state.add_log(f"🧊 Setup Guard {'attivato' if merged['enabled'] else 'disattivato'}")
+        return {
+            "message": "Setup Guard aggiornato",
+            "setup_guard": build_setup_guard_snapshot(u_state.trade_history, merged),
         }
     if "exit_ladder" in config:
         u_state.exit_ladder = ensure_exit_ladder_config(config.get("exit_ladder"))
