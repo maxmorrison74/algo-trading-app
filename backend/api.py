@@ -315,6 +315,36 @@ DEFAULT_EXIT_LADDER = {
     "hard_stop_loss_pct": 5.0,
 }
 
+DEFAULT_OPTIONS_LAB_CONFIG = {
+    "enabled": False,
+    "paper_only": True,
+    "underlying": "SPY",
+    "strategy": "bull_put_spread",
+    "bias": "bullish",
+    "spread_width_points": 3,
+    "contracts": 1,
+    "short_put_offset_pct": 0.15,
+    "entry_start_et": "09:45",
+    "entry_end_et": "11:30",
+    "max_risk_usd": 275,
+    "notes": "Paper-only lab. Nessun invio automatico ordini.",
+}
+
+def ensure_options_lab_config(config):
+    current = dict(DEFAULT_OPTIONS_LAB_CONFIG)
+    if isinstance(config, dict):
+        current.update({k: v for k, v in config.items() if v is not None})
+    current["underlying"] = str(current.get("underlying") or "SPY").upper().strip()
+    current["spread_width_points"] = max(1, int(current.get("spread_width_points") or 3))
+    current["contracts"] = max(1, int(current.get("contracts") or 1))
+    current["short_put_offset_pct"] = max(0.0, float(current.get("short_put_offset_pct") or 0.15))
+    current["max_risk_usd"] = max(50, float(current.get("max_risk_usd") or 275))
+    current["enabled"] = bool(current.get("enabled", False))
+    current["paper_only"] = bool(current.get("paper_only", True))
+    current["strategy"] = str(current.get("strategy") or "bull_put_spread")
+    current["bias"] = str(current.get("bias") or "bullish")
+    return current
+
 DEFAULT_SIGNAL_HUB_CONFIG = {
     "enabled": False,
     "token": "",
@@ -760,6 +790,17 @@ def emergency_stop(_: str = Depends(require_admin)):
         
     return {"status": "ok", "message": "🛑 EMERGENCY STOP eseguito"}
 
+@app.post("/api/options-lab/config")
+def save_options_lab_config(payload: dict, user: dict = Depends(require_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Solo admin")
+    user_id = user.get("sub", "admin")
+    target_state = get_user_bot_state(user_id)
+    current = ensure_options_lab_config(getattr(target_state, "options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
+    target_state.options_lab = ensure_options_lab_config({**current, **(payload or {})})
+    target_state.save_state()
+    return {"status": "ok", "options_lab": build_options_lab_snapshot(target_state, user_id)}
+
 @app.get("/api/capital/status")
 def capital_status():
     """Stato gestione capitale"""
@@ -1137,6 +1178,86 @@ def get_yf_symbol(symbol):
     """Converte simboli Alpaca in simboli Yahoo Finance."""
     return symbol.replace("/", "-")
 
+def build_options_lab_snapshot(bot_state, user_id="admin"):
+    config = ensure_options_lab_config(getattr(bot_state, "options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
+    warnings = []
+    underlying = config.get("underlying", "SPY")
+    quote_payload = get_stock_quote(underlying, user_id)
+    quote_price = None
+    if isinstance(quote_payload, dict) and "price" in quote_payload:
+        try:
+            quote_price = float(quote_payload["price"])
+        except Exception:
+            quote_price = None
+    else:
+        warnings.append(f"Prezzo live {underlying} non disponibile.")
+
+    engine = get_user_alpaca_engine(user_id)
+    base_url = str(getattr(engine, "alpaca_base", "") or "")
+    is_paper_account = "paper-api" in base_url if base_url else False
+    account_mode = "PAPER" if is_paper_account else "LIVE/UNKNOWN"
+    paper_guard_ok = is_paper_account or not config.get("paper_only", True)
+    if config.get("paper_only", True) and not is_paper_account:
+        warnings.append("Options Lab bloccato: il modulo è solo paper e l’account Alpaca non risulta paper.")
+
+    spread_width = int(config.get("spread_width_points", 3) or 3)
+    contracts = int(config.get("contracts", 1) or 1)
+    offset_pct = float(config.get("short_put_offset_pct", 0.15) or 0.15)
+    strategy = str(config.get("strategy") or "bull_put_spread")
+
+    plan = {
+        "underlying": underlying,
+        "strategy": strategy,
+        "strategy_label": "Bull Put Spread 0DTE" if strategy == "bull_put_spread" else "Bull Call Spread 0DTE",
+        "bias": config.get("bias", "bullish"),
+        "entry_window": f"{config.get('entry_start_et', '09:45')}–{config.get('entry_end_et', '11:30')} ET",
+        "contracts": contracts,
+        "paper_only": bool(config.get("paper_only", True)),
+        "enabled": bool(config.get("enabled", False)),
+        "account_mode": account_mode,
+        "paper_guard_ok": paper_guard_ok,
+        "warnings": warnings,
+        "quote_price": quote_price,
+        "max_risk_usd": float(config.get("max_risk_usd", 275) or 275),
+        "notes": config.get("notes") or "",
+    }
+
+    if quote_price and quote_price > 0:
+        rounded_price = round(quote_price, 2)
+        if strategy == "bull_put_spread":
+            short_strike = math.floor(rounded_price * (1 - (offset_pct / 100.0)))
+            long_strike = short_strike - spread_width
+            est_credit = round(max(0.25, min(spread_width * 0.42, spread_width * 0.28)), 2)
+            max_loss = round(((spread_width - est_credit) * 100.0) * contracts, 2)
+            plan.update({
+                "short_strike": short_strike,
+                "long_strike": long_strike,
+                "estimated_credit_per_spread": est_credit,
+                "estimated_max_loss_usd": max_loss,
+                "thesis": "Scenario rialzista moderato: il sottostante deve restare sopra la short put.",
+            })
+        else:
+            long_strike = math.ceil(rounded_price)
+            short_strike = long_strike + spread_width
+            est_debit = round(max(0.35, min(spread_width * 0.55, spread_width * 0.34)), 2)
+            max_loss = round((est_debit * 100.0) * contracts, 2)
+            plan.update({
+                "long_strike": long_strike,
+                "short_strike": short_strike,
+                "estimated_debit_per_spread": est_debit,
+                "estimated_max_loss_usd": max_loss,
+                "thesis": "Scenario rialzista moderato: il sottostante deve salire sopra la long call e idealmente verso la short call.",
+            })
+
+        if plan.get("estimated_max_loss_usd", 0) > plan["max_risk_usd"]:
+            warnings.append("Il piano stimato supera il tetto di rischio configurato: riduci contratti o larghezza spread.")
+
+    return {
+        "config": config,
+        "plan": plan,
+        "generated_at": datetime.now().isoformat(),
+    }
+
 target_symbols = [] # Inizialmente vuoto, verrà popolato dinamicamente
 
 class BotState:
@@ -1166,6 +1287,7 @@ class BotState:
         self.strategy_playbook = normalize_playbook_id(db_data.get("strategy_playbook", DEFAULT_PLAYBOOK_ID))
         self.exit_ladder = ensure_exit_ladder_config(db_data.get("exit_ladder", DEFAULT_EXIT_LADDER))
         self.signal_hub = ensure_signal_hub_config(db_data.get("signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
+        self.options_lab = ensure_options_lab_config(db_data.get("options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
         self.dynamic_atr_stop = db_data.get("dynamic_atr_stop", True)
         self.trailing_stop_base_pct = db_data.get("trailing_stop_base_pct", 2.5)
         self.telegram_alerts_enabled = db_data.get("telegram_alerts_enabled", True)
@@ -1245,6 +1367,7 @@ class BotState:
             "strategy_playbook": self.strategy_playbook,
             "exit_ladder": self.exit_ladder,
             "signal_hub": self.signal_hub,
+            "options_lab": self.options_lab,
             "dynamic_atr_stop": self.dynamic_atr_stop,
             "trailing_stop_base_pct": self.trailing_stop_base_pct,
             "telegram_alerts_enabled": self.telegram_alerts_enabled,
@@ -1829,6 +1952,7 @@ def get_status(user_id="admin", scope: str = "core"):
             "strategy_playbook": build_playbook_snapshot(getattr(bot_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID)),
             "exit_ladder": ensure_exit_ladder_config(getattr(bot_state, "exit_ladder", DEFAULT_EXIT_LADDER)),
             "signal_hub": build_public_signal_hub_snapshot(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG)),
+            "options_lab": build_options_lab_snapshot(bot_state, user_id),
             "dynamic_atr_stop": getattr(bot_state, "dynamic_atr_stop", True),
             "trailing_stop_base_pct": getattr(bot_state, "trailing_stop_base_pct", 2.5),
             "runtime_health": build_runtime_health_snapshot(bot_state),

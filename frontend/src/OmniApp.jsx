@@ -2868,7 +2868,7 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
   );
 };
 
-const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, developSection, setDevelopSection, renderSettingsView, renderGuideView }) => {
+const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, developSection, setDevelopSection, renderSettingsView, renderGuideView, renderOptionsLabView }) => {
   const risk = status?.risk || {};
   const runtimeHealth = status?.runtime_health || {};
   const cryptoEngine = deriveCryptoEngineState(status);
@@ -2880,7 +2880,7 @@ const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, develo
     savedKeys['TELEGRAM_BOT_TOKEN'] && savedKeys['TELEGRAM_CHAT_ID'] && savedKeys['TELEGRAM_ALERTS_ENABLED'] !== false ? 'Telegram live' : null,
   ].filter(Boolean);
   const runtimeTone = runtimeHealth?.status === 'red' ? '#ef4444' : runtimeHealth?.status === 'yellow' ? '#f59e0b' : '#10b981';
-  const activeSectionLabel = developSection === 'health' ? 'Health Console' : developSection === 'security' ? 'Security Vault' : 'Setup Guide';
+  const activeSectionLabel = developSection === 'health' ? 'Health Console' : developSection === 'security' ? 'Security Vault' : developSection === 'options' ? 'Options Lab' : 'Setup Guide';
 
   return (
   <div className="module-content module-content--develop">
@@ -2929,6 +2929,7 @@ const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, develo
     <div className="develop-tabbar">
       {[
         { id: 'health', label: 'Health Console', note: 'Runtime, watchdog e alert' },
+        { id: 'options', label: 'Options Lab', note: 'SPY 0DTE paper-only' },
         { id: 'security', label: 'Security Vault', note: 'Chiavi, switch e canali' },
         { id: 'guide', label: 'Setup Guide', note: 'Checklist e messa in opera' },
       ].map((item) => (
@@ -2966,6 +2967,7 @@ const DevelopView = ({ status, isBackendOnline, savedKeys, lastVaultSync, develo
       </>
     )}
 
+    {developSection === 'options' && renderOptionsLabView()}
     {developSection === 'security' && renderSettingsView()}
     {developSection === 'guide' && renderGuideView()}
   </div>
@@ -3323,6 +3325,21 @@ function OmniAppInner() {
   const [backtestLoading, setBacktestLoading] = useState(false);
   const [signalHubConfig, setSignalHubConfig] = useState(null);
   const [signalHubBusy, setSignalHubBusy] = useState(false);
+  const [optionsLabDraft, setOptionsLabDraft] = useState({
+    enabled: false,
+    paper_only: true,
+    underlying: 'SPY',
+    strategy: 'bull_put_spread',
+    bias: 'bullish',
+    spread_width_points: 3,
+    contracts: 1,
+    short_put_offset_pct: 0.15,
+    entry_start_et: '09:45',
+    entry_end_et: '11:30',
+    max_risk_usd: 275,
+    notes: 'Paper-only lab. Nessun invio automatico ordini.',
+  });
+  const [optionsLabSaving, setOptionsLabSaving] = useState(false);
   const [symbolReviewReturnTab, setSymbolReviewReturnTab] = useState('trading');
   const [tradingViewFilter, setTradingViewFilter] = useState('all');
   const [tradingAlerts, setTradingAlerts] = useState([]);
@@ -3966,6 +3983,11 @@ function OmniAppInner() {
       setSignalHubBusy(false);
     }
   }, [userRole, pushNotice]);
+  useEffect(() => {
+    const config = status?.options_lab?.config;
+    if (!config || typeof config !== 'object') return;
+    setOptionsLabDraft((prev) => ({ ...prev, ...config }));
+  }, [status?.options_lab]);
   const loadUserProfile = React.useCallback(async () => {
     try {
       const res = await authFetch('/api/user/me');
@@ -4893,6 +4915,135 @@ function OmniAppInner() {
       setBillingMessage('Errore di rete durante il rinnovo');
     }
     setBillingLoading(false);
+  };
+
+  const renderOptionsLabView = () => {
+    const snapshot = status?.options_lab || {};
+    const plan = snapshot?.plan || {};
+    const warnings = Array.isArray(plan?.warnings) ? plan.warnings : [];
+
+    const saveOptionsLabConfig = async () => {
+      if (userRole !== 'admin' || optionsLabSaving) return;
+      setOptionsLabSaving(true);
+      try {
+        const res = await authFetch('/api/options-lab/config', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...optionsLabDraft,
+            underlying: String(optionsLabDraft.underlying || 'SPY').toUpperCase().trim(),
+            spread_width_points: Math.max(1, Math.round(Number(optionsLabDraft.spread_width_points || 3))),
+            contracts: Math.max(1, Math.round(Number(optionsLabDraft.contracts || 1))),
+            short_put_offset_pct: Number(optionsLabDraft.short_put_offset_pct || 0.15),
+            max_risk_usd: Number(optionsLabDraft.max_risk_usd || 275),
+          }),
+        });
+        const data = await parseJsonSafely(res, {});
+        if (!res.ok) throw new Error(data?.detail || 'Salvataggio non riuscito');
+        setStatus((prev) => ({ ...prev, options_lab: data.options_lab }));
+        pushNotice('success', 'Options Lab aggiornato', 'Playbook paper 0DTE salvato correttamente.', 2400);
+      } catch (error) {
+        pushNotice('error', 'Options Lab non salvato', error.message || 'Errore durante il salvataggio.');
+      } finally {
+        setOptionsLabSaving(false);
+      }
+    };
+
+    return (
+      <div className="module-content module-content--develop">
+        <div className="card develop-hero-card" style={{ marginBottom: '1.5rem' }}>
+          <div className="develop-hero-top">
+            <div>
+              <h2 style={{ margin: 0 }}>🧪 Options Lab</h2>
+              <div className="develop-hero-subtitle">Sandbox admin per SPY 0DTE. Solo paper, nessun ordine automatico, solo struttura e guardrail.</div>
+            </div>
+            <div className="develop-hero-badges">
+              <div className={`badge ${plan?.paper_guard_ok ? 'badge-active' : 'badge-danger'}`}>{plan?.account_mode || 'ACCOUNT N/D'}</div>
+              <div className={`badge ${optionsLabDraft.enabled ? 'badge-active' : 'badge-idle'}`}>{optionsLabDraft.enabled ? 'Lab attivo' : 'Lab in pausa'}</div>
+            </div>
+          </div>
+          <div className="develop-summary-grid">
+            <div className="develop-summary-card" style={{ borderColor: 'rgba(56,189,248,0.25)' }}>
+              <span>Sottostante</span>
+              <strong style={{ color: '#38bdf8' }}>{plan?.underlying || optionsLabDraft.underlying || 'SPY'}</strong>
+              <small>{plan?.quote_price ? `Prezzo live $${Number(plan.quote_price).toFixed(2)}` : 'Prezzo live non disponibile'}</small>
+            </div>
+            <div className="develop-summary-card" style={{ borderColor: 'rgba(16,185,129,0.25)' }}>
+              <span>Strategia</span>
+              <strong style={{ color: '#10b981' }}>{plan?.strategy_label || '0DTE Paper Plan'}</strong>
+              <small>{plan?.entry_window || 'Finestra non definita'}</small>
+            </div>
+            <div className="develop-summary-card" style={{ borderColor: 'rgba(245,158,11,0.25)' }}>
+              <span>Rischio massimo</span>
+              <strong style={{ color: '#f59e0b' }}>${Number(plan?.max_risk_usd || optionsLabDraft.max_risk_usd || 0).toFixed(0)}</strong>
+              <small>{plan?.paper_only ? 'Paper-only enforcement' : 'Modalità libera'}</small>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-grid">
+          <div className="card col-span-7">
+            <div className="card-title">Playbook paper 0DTE</div>
+            <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem', lineHeight: 1.55 }}>
+              {plan?.thesis || 'Il lab costruisce una bozza paper su SPY e ti mostra i livelli stimati, senza mandare ordini al broker.'}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
+              <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Short strike <strong style={{ color: 'var(--text-primary)' }}>{plan?.short_strike ?? '—'}</strong></div>
+              <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Long strike <strong style={{ color: 'var(--text-primary)' }}>{plan?.long_strike ?? '—'}</strong></div>
+              <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Contratti <strong style={{ color: 'var(--text-primary)' }}>{plan?.contracts ?? optionsLabDraft.contracts ?? 1}</strong></div>
+              <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>{plan?.strategy === 'bull_put_spread' ? 'Credito stimato' : 'Debito stimato'} <strong style={{ color: 'var(--text-primary)' }}>{plan?.estimated_credit_per_spread ? `$${Number(plan.estimated_credit_per_spread).toFixed(2)}` : plan?.estimated_debit_per_spread ? `$${Number(plan.estimated_debit_per_spread).toFixed(2)}` : '—'}</strong></div>
+              <div className={`badge ${Number(plan?.estimated_max_loss_usd || 0) > Number(plan?.max_risk_usd || 0) ? 'badge-danger' : 'badge-active'}`} style={{ justifyContent: 'space-between' }}>Max loss stimata <strong style={{ color: 'var(--text-primary)' }}>{plan?.estimated_max_loss_usd ? `$${Number(plan.estimated_max_loss_usd).toFixed(2)}` : '—'}</strong></div>
+            </div>
+            {warnings.length ? (
+              <div style={{ display: 'grid', gap: '0.55rem', marginTop: '1rem' }}>
+                {warnings.map((warning, index) => (
+                  <div key={index} style={{ padding: '0.75rem 0.85rem', borderRadius: '12px', background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.18)', color: '#fbbf24' }}>{warning}</div>
+                ))}
+              </div>
+            ) : (
+              <div style={{ marginTop: '1rem', padding: '0.75rem 0.85rem', borderRadius: '12px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)', color: '#10b981' }}>
+                Guardrail ok: il lab è confinato in paper e il piano stimato resta leggibile e controllato.
+              </div>
+            )}
+          </div>
+
+          <div className="card col-span-5">
+            <div className="card-title">Configura il lab</div>
+            <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
+              {[
+                { key: 'enabled', label: 'Lab abilitato', type: 'checkbox' },
+                { key: 'paper_only', label: 'Solo paper', type: 'checkbox' },
+                { key: 'underlying', label: 'Sottostante', type: 'text' },
+                { key: 'strategy', label: 'Strategia', type: 'select', options: [{ value: 'bull_put_spread', label: 'Bull Put Spread' }, { value: 'bull_call_spread', label: 'Bull Call Spread' }] },
+                { key: 'spread_width_points', label: 'Larghezza spread', type: 'number', min: 1, step: 1 },
+                { key: 'contracts', label: 'Contratti', type: 'number', min: 1, step: 1 },
+                { key: 'short_put_offset_pct', label: 'Offset %', type: 'number', min: 0, step: 0.05 },
+                { key: 'max_risk_usd', label: 'Rischio max $', type: 'number', min: 50, step: 25 },
+              ].map((field) => (
+                <label key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
+                  <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.88rem' }}>{field.label}</span>
+                  {field.type === 'checkbox' ? (
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.55rem', color: 'var(--text-secondary)' }}>
+                      <input type="checkbox" checked={!!optionsLabDraft[field.key]} onChange={(e) => setOptionsLabDraft((prev) => ({ ...prev, [field.key]: e.target.checked }))} />
+                      {field.label}
+                    </label>
+                  ) : field.type === 'select' ? (
+                    <select value={optionsLabDraft[field.key]} onChange={(e) => setOptionsLabDraft((prev) => ({ ...prev, [field.key]: e.target.value }))} style={{ background: 'rgba(15,23,42,0.9)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '0.7rem 0.8rem' }}>
+                      {field.options.map((opt) => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                    </select>
+                  ) : (
+                    <input type={field.type} min={field.min} step={field.step} value={optionsLabDraft[field.key]} onChange={(e) => setOptionsLabDraft((prev) => ({ ...prev, [field.key]: field.type === 'number' ? e.target.value : e.target.value.toUpperCase() }))} style={{ background: 'rgba(15,23,42,0.9)', color: '#e2e8f0', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '0.7rem 0.8rem' }} />
+                  )}
+                </label>
+              ))}
+              <button type="button" className="btn" onClick={saveOptionsLabConfig} disabled={userRole !== 'admin' || optionsLabSaving}>
+                {optionsLabSaving ? 'Salvo…' : 'Salva Options Lab'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   };
 
   const renderGuideView = () => {
@@ -9955,6 +10106,7 @@ function OmniAppInner() {
             setDevelopSection={setDevelopSection}
             renderSettingsView={renderSettingsView}
             renderGuideView={renderGuideView}
+            renderOptionsLabView={renderOptionsLabView}
           />
         )}
         {activeTab === 'sports_arb' && renderSportsArbitrageView()}
