@@ -4998,12 +4998,35 @@ function OmniAppInner() {
             <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem', lineHeight: 1.55 }}>
               {plan?.thesis || 'Il lab costruisce una bozza paper su SPY e ti mostra i livelli stimati, senza mandare ordini al broker.'}
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
-              <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Short strike <strong style={{ color: 'var(--text-primary)' }}>{plan?.short_strike ?? '—'}</strong></div>
-              <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Long strike <strong style={{ color: 'var(--text-primary)' }}>{plan?.long_strike ?? '—'}</strong></div>
-              <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Contratti <strong style={{ color: 'var(--text-primary)' }}>{plan?.contracts ?? optionsLabDraft.contracts ?? 1}</strong></div>
-              <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>{plan?.strategy === 'bull_put_spread' ? 'Credito stimato' : 'Debito stimato'} <strong style={{ color: 'var(--text-primary)' }}>{plan?.estimated_credit_per_spread ? `$${Number(plan.estimated_credit_per_spread).toFixed(2)}` : plan?.estimated_debit_per_spread ? `$${Number(plan.estimated_debit_per_spread).toFixed(2)}` : '—'}</strong></div>
-              <div className={`badge ${Number(plan?.estimated_max_loss_usd || 0) > Number(plan?.max_risk_usd || 0) ? 'badge-danger' : 'badge-active'}`} style={{ justifyContent: 'space-between' }}>Max loss stimata <strong style={{ color: 'var(--text-primary)' }}>{plan?.estimated_max_loss_usd ? `$${Number(plan.estimated_max_loss_usd).toFixed(2)}` : '—'}</strong></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
+              {[
+                { label: 'Short strike', value: plan?.short_strike ?? '—' },
+                { label: 'Long strike', value: plan?.long_strike ?? '—' },
+                { label: 'Contratti', value: plan?.contracts ?? optionsLabDraft.contracts ?? 1 },
+                { label: plan?.strategy === 'bull_put_spread' ? 'Credito stimato' : 'Debito stimato', value: plan?.estimated_credit_per_spread ? `$${Number(plan.estimated_credit_per_spread).toFixed(2)}` : plan?.estimated_debit_per_spread ? `$${Number(plan.estimated_debit_per_spread).toFixed(2)}` : '—' },
+                { label: 'Max loss stimata', value: plan?.estimated_max_loss_usd ? `$${Number(plan.estimated_max_loss_usd).toFixed(2)}` : '—', tone: Number(plan?.estimated_max_loss_usd || 0) > Number(plan?.max_risk_usd || 0) ? '#ef4444' : '#10b981' },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  style={{
+                    minWidth: 0,
+                    padding: '0.85rem 1rem',
+                    borderRadius: '14px',
+                    background: 'rgba(255,255,255,0.03)',
+                    border: `1px solid ${item.tone ? `${item.tone}33` : 'rgba(255,255,255,0.08)'}`,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '0.35rem',
+                  }}
+                >
+                  <span style={{ color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.08em', lineHeight: 1.35 }}>
+                    {item.label}
+                  </span>
+                  <strong style={{ color: item.tone || 'var(--text-primary)', fontSize: '1.05rem', lineHeight: 1.25, wordBreak: 'break-word' }}>
+                    {item.value}
+                  </strong>
+                </div>
+              ))}
             </div>
             {warnings.length ? (
               <div style={{ display: 'grid', gap: '0.55rem', marginTop: '1rem' }}>
