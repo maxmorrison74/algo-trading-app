@@ -138,6 +138,17 @@ const getSymbolFromHash = (hash = '') => {
 };
 
 const formatAccountAccessMeta = (profile = {}, fallbackStatus = 'active') => {
+  if (String(profile?.role || '').toLowerCase() === 'admin') {
+    return {
+      title: 'Accesso admin',
+      detail: 'Profilo amministratore attivo e già abilitato.',
+      tone: '#10b981',
+      isExpired: false,
+      isExpiringSoon: false,
+      daysRemaining: null,
+      actionLabel: '',
+    };
+  }
   const status = String(profile?.status || fallbackStatus || 'active').toLowerCase();
   const expiresAt = profile?.subscription_expires_at || null;
   const isPaid = !!profile?.is_paid;
@@ -5652,9 +5663,13 @@ function OmniAppInner() {
     const readinessItems = [
       {
         label: 'Email confermata',
-        ready: !!userProfile?.email_verified,
-        detail: userProfile?.email_verified ? 'Identità confermata: accesso più solido e recupero più semplice.' : 'Conferma la mail per consolidare accesso, notifiche e recupero credenziali.',
-        actionLabel: userProfile?.email_verified ? '' : 'Conferma via mail',
+        ready: userRole === 'admin' || !!userProfile?.email_verified,
+        detail: userRole === 'admin'
+          ? 'Profilo admin interno: nessuna conferma mail richiesta.'
+          : userProfile?.email_verified
+            ? 'Identità confermata: accesso più solido e recupero più semplice.'
+            : 'Conferma la mail per consolidare accesso, notifiche e recupero credenziali.',
+        actionLabel: userRole === 'admin' || userProfile?.email_verified ? '' : 'Conferma via mail',
         action: null,
       },
       {
@@ -6959,7 +6974,7 @@ function OmniAppInner() {
               </div>
             )}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.8rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.8rem' }}>
             {(strategyPlaybook.catalog || []).map((playbook) => (
               <button
                 key={playbook.id}
@@ -6981,6 +6996,8 @@ function OmniAppInner() {
                 }}
                 className="btn"
                 style={{
+                  display: 'block',
+                  width: '100%',
                   textAlign: 'left',
                   minHeight: 'unset',
                   padding: '0.95rem 1rem',
@@ -6988,9 +7005,10 @@ function OmniAppInner() {
                   background: playbook.active ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
                   boxShadow: playbook.active ? '0 0 0 1px rgba(16,185,129,0.18) inset' : 'none',
                   cursor: 'pointer',
+                  whiteSpace: 'normal',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                   <strong style={{ color: '#f8fafc', fontSize: '0.98rem' }}>{playbook.label}</strong>
                   {playbook.active && <span style={{ color: '#10b981', fontSize: '0.76rem', fontWeight: 800 }}>LIVE</span>}
                 </div>
