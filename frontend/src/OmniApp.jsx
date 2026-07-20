@@ -5,8 +5,12 @@ import ChartsStudio from './ChartsStudio';
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
 const DEMO_MODE_KEY = 'omni_demo_mode';
+const COOKIE_NOTICE_ACK_KEY = 'aureo_cookie_notice_ack_v1';
 const BILLING_ENABLED = true;
 const SYMBOL_REVIEW_HASH_PREFIX = '#review=';
+const SITE_URL = 'https://aureoos.it/';
+const PRIVACY_CONTACT_EMAIL = 'info@maxmorrison.it';
+const LEGAL_UPDATED_AT = '20 luglio 2026';
 const TAB_TITLES = {
   home: 'Dashboard',
   trading: 'Stock Market',
@@ -237,6 +241,134 @@ const deriveMissingSetupItems = (savedKeys = {}) => {
 
 const getAuthToken = () => safeStorageGet(AUTH_TOKEN_KEY, '');
 const isDemoSession = () => safeStorageGet(DEMO_MODE_KEY, '') === '1';
+
+const LegalModal = ({ open, mode = 'privacy', onClose, onSwitchMode }) => {
+  if (!open) return null;
+  const isPrivacy = mode === 'privacy';
+  return (
+    <div className="legal-modal-backdrop" onClick={onClose}>
+      <div className="legal-modal-card" onClick={(event) => event.stopPropagation()}>
+        <button type="button" className="legal-modal-close" onClick={onClose} aria-label="Chiudi informativa">
+          ×
+        </button>
+        <div className="legal-modal-tabs">
+          <button
+            type="button"
+            className={`legal-modal-tab ${isPrivacy ? 'active' : ''}`}
+            onClick={() => onSwitchMode('privacy')}
+          >
+            Privacy
+          </button>
+          <button
+            type="button"
+            className={`legal-modal-tab ${!isPrivacy ? 'active' : ''}`}
+            onClick={() => onSwitchMode('cookies')}
+          >
+            Cookie & Storage
+          </button>
+        </div>
+        <div className="legal-modal-content">
+          {isPrivacy ? (
+            <>
+              <div className="legal-modal-kicker">Informativa privacy</div>
+              <h2>Come vengono trattati i dati in Aureo</h2>
+              <p>
+                Aureo tratta i dati necessari per creare e gestire l’account, proteggere l’accesso,
+                erogare il servizio e assisterti durante onboarding, rinnovi e supporto operativo.
+              </p>
+              <div className="legal-modal-grid">
+                <div className="legal-modal-panel">
+                  <h3>Titolare e contatto</h3>
+                  <p>AUREO OS</p>
+                  <p>
+                    Contatto privacy: <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`}>{PRIVACY_CONTACT_EMAIL}</a>
+                  </p>
+                </div>
+                <div className="legal-modal-panel">
+                  <h3>Dati che possono essere raccolti</h3>
+                  <ul>
+                    <li>Email, password hash e dati di profilo</li>
+                    <li>Stato dell’account, attivazioni e scadenze</li>
+                    <li>Chiavi API inserite volontariamente dall’utente</li>
+                    <li>Log tecnici e di sicurezza strettamente necessari</li>
+                  </ul>
+                </div>
+                <div className="legal-modal-panel">
+                  <h3>Perché vengono usati</h3>
+                  <ul>
+                    <li>Autenticazione e sicurezza dell’accesso</li>
+                    <li>Erogazione delle funzioni richieste</li>
+                    <li>Conferma email, onboarding e supporto</li>
+                    <li>Prevenzione abusi, spam e uso fraudolento</li>
+                  </ul>
+                </div>
+                <div className="legal-modal-panel">
+                  <h3>Conservazione e diritti</h3>
+                  <ul>
+                    <li>I dati restano per il tempo necessario al servizio e agli obblighi di sicurezza</li>
+                    <li>Puoi chiedere accesso, rettifica, cancellazione o limitazione</li>
+                    <li>Puoi scrivere a {PRIVACY_CONTACT_EMAIL} per richieste privacy</li>
+                  </ul>
+                </div>
+              </div>
+              <div className="legal-modal-note">
+                Ultimo aggiornamento: {LEGAL_UPDATED_AT}. Questo testo è una base operativa del sito e va eventualmente
+                rifinito con consulenza legale se attiverai analytics, advertising o terze parti di profilazione.
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="legal-modal-kicker">Cookie & storage</div>
+              <h2>Cosa usa oggi il sito sul tuo dispositivo</h2>
+              <p>
+                Aureo usa al momento solo strumenti tecnici e di memorizzazione locale strettamente necessari al
+                funzionamento del sito e dell’area riservata. Non risultano attivi cookie di profilazione o marketing di default.
+              </p>
+              <div className="legal-modal-grid">
+                <div className="legal-modal-panel">
+                  <h3>Strumenti tecnici attivi</h3>
+                  <ul>
+                    <li>Sessione di accesso</li>
+                    <li>Stato demo e preferenze dell’interfaccia</li>
+                    <li>Memoria dell’avviso informativo privacy/cookie</li>
+                    <li>Impostazioni locali necessarie a migliorare usabilità e continuità</li>
+                  </ul>
+                </div>
+                <div className="legal-modal-panel">
+                  <h3>Base giuridica</h3>
+                  <p>
+                    Per strumenti tecnici e strettamente necessari è richiesta l’informativa, non il consenso preventivo.
+                    Se in futuro verranno attivati analytics non anonimizzati, advertising o profilazione, Aureo mostrerà
+                    un banner di consenso prima di attivarli.
+                  </p>
+                </div>
+                <div className="legal-modal-panel">
+                  <h3>Come revocare o pulire</h3>
+                  <ul>
+                    <li>Puoi cancellare cookie e dati del sito dalle impostazioni del browser</li>
+                    <li>La rimozione può comportare logout e reset di alcune preferenze</li>
+                    <li>Puoi sempre riaprire questa informativa dal footer</li>
+                  </ul>
+                </div>
+                <div className="legal-modal-panel">
+                  <h3>Trasparenza futura</h3>
+                  <p>
+                    Se verranno introdotti strumenti di misurazione o marketing, aggiorneremo questa sezione, la
+                    privacy policy e il meccanismo di scelta granulare dell’utente.
+                  </p>
+                </div>
+              </div>
+              <div className="legal-modal-note">
+                Riferimento operativo: cookie e altri strumenti tecnici oggi usati solo per autenticazione, sicurezza,
+                preferenze e continuità dell’esperienza.
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const clearAuthSession = () => {
   safeStorageRemove(AUTH_TOKEN_KEY);
@@ -3837,6 +3969,9 @@ function OmniAppInner() {
   const [showLanding, setShowLanding] = useState(true);
   const [showLandingPlans, setShowLandingPlans] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState('');
+  const [legalModalMode, setLegalModalMode] = useState('privacy');
+  const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
+  const [cookieNoticeAck, setCookieNoticeAck] = useState(() => safeStorageGet(COOKIE_NOTICE_ACK_KEY, ''));
   const [isTourActive, setIsTourActive] = useState(false);
   const [tourStep, setTourStep] = useState(0);
 
@@ -3959,6 +4094,7 @@ function OmniAppInner() {
   const syncLabel = isBackendOnline
     ? (lastStatusSync ? `Live • ${lastStatusSync}` : 'Live')
     : 'Offline';
+  const isCookieNoticeVisible = cookieNoticeAck !== 'accepted';
   const accountAccessMeta = useMemo(
     () => formatAccountAccessMeta(userProfile, userStatus),
     [userProfile, userStatus]
@@ -3969,6 +4105,15 @@ function OmniAppInner() {
   );
   const dismissNotice = React.useCallback((id) => {
     setNotices((prev) => prev.filter((item) => item.id !== id));
+  }, []);
+  const openLegalModal = React.useCallback((mode = 'privacy') => {
+    setLegalModalMode(mode);
+    setIsLegalModalOpen(true);
+  }, []);
+  const closeLegalModal = React.useCallback(() => setIsLegalModalOpen(false), []);
+  const acknowledgeCookieNotice = React.useCallback(() => {
+    safeStorageSet(COOKIE_NOTICE_ACK_KEY, 'accepted');
+    setCookieNoticeAck('accepted');
   }, []);
   const pushNotice = React.useCallback((type, title, message = '', duration = 4200) => {
     const id = `${type}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
@@ -10063,6 +10208,33 @@ function OmniAppInner() {
         answer: 'Cambia il modo in cui vuoi vivere Aureo: più flessibile se preferisci muoverti leggero, più stabile e conveniente se vuoi continuità piena.',
       },
     ];
+    const legalModal = (
+      <LegalModal
+        open={isLegalModalOpen}
+        mode={legalModalMode}
+        onClose={closeLegalModal}
+        onSwitchMode={setLegalModalMode}
+      />
+    );
+    const cookieNotice = isCookieNoticeVisible ? (
+      <div className="cookie-notice-banner">
+        <div className="cookie-notice-copy">
+          <strong>Privacy & Cookie</strong>
+          <span>
+            Questo sito usa solo cookie tecnici e storage locale necessari a login, sicurezza e preferenze.
+            Nessuna profilazione marketing attiva di default.
+          </span>
+        </div>
+        <div className="cookie-notice-actions">
+          <button type="button" className="btn btn-outline cookie-notice-button" onClick={() => openLegalModal('cookies')}>
+            Dettagli
+          </button>
+          <button type="button" className="btn btn-start cookie-notice-button" onClick={acknowledgeCookieNotice}>
+            Ho capito
+          </button>
+        </div>
+      </div>
+    ) : null;
     if (showLanding) {
       return (
         <div className="sales-landing">
@@ -10369,11 +10541,14 @@ function OmniAppInner() {
                     <div className="sales-badge sales-badge--small">Attivazione guidata</div>
                     <h3>{isRegistering ? `Invia la richiesta per ${selectedPlan.name}` : `Accedi per riprendere il percorso ${selectedPlan.name}`}</h3>
                     <p>
-                      {isRegistering
+                  {isRegistering
                         ? 'Inserisci i tuoi dati, conferma la mail e ti accompagniamo nei prossimi passaggi senza rompere l’esperienza.'
                         : 'Se hai già il tuo accesso, rientra qui e riprendi il percorso esattamente da dove lo avevi lasciato.'}
                     </p>
                     <div className="sales-inline-form-note">Dopo la richiesta ricevi una mail di conferma e i passaggi per completare attivazione, chiavi e accesso in modo ordinato.</div>
+                    <div className="sales-inline-form-legal">
+                      Proseguendo confermi di aver letto <button type="button" onClick={() => openLegalModal('privacy')}>Informativa Privacy</button> e <button type="button" onClick={() => openLegalModal('cookies')}>Cookie & Storage</button>.
+                    </div>
                   </div>
                   <input
                     type="email"
@@ -10548,6 +10723,12 @@ function OmniAppInner() {
                   <a href="#landing-proof">Impatto</a>
                 </div>
                 <div className="sales-footer-links">
+                  <h4>Privacy</h4>
+                  <button type="button" className="sales-footer-button" onClick={() => openLegalModal('privacy')}>Informativa privacy</button>
+                  <button type="button" className="sales-footer-button" onClick={() => openLegalModal('cookies')}>Cookie & storage</button>
+                  <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`}>Contatto privacy</a>
+                </div>
+                <div className="sales-footer-links">
                   <h4>Accesso</h4>
                   <button type="button" className="sales-footer-button" onClick={() => setShowLanding(false)}>Area riservata</button>
                   <button type="button" className="sales-footer-button" onClick={openPricingSection}>Scopri gli step</button>
@@ -10555,9 +10736,11 @@ function OmniAppInner() {
               </div>
               <div className="sales-footer-bottom">
                 <span>© 2026 AUREO OS</span>
-                <span>Private crypto & investment operating experience</span>
+                <span>Private crypto & investment operating experience • Indicizzazione attiva • Policy aggiornate {LEGAL_UPDATED_AT}</span>
               </div>
             </footer>
+            {cookieNotice}
+            {legalModal}
           </div>
         </div>
       );
@@ -10633,7 +10816,13 @@ function OmniAppInner() {
           <div style={{ marginTop: '2rem', fontSize: '0.8rem', color: '#64748b' }}>
             🔒 Accesso protetto e ambiente riservato<br/>
           </div>
+          <div className="private-access-legal-links">
+            <button type="button" className="sales-footer-button" onClick={() => openLegalModal('privacy')}>Privacy</button>
+            <button type="button" className="sales-footer-button" onClick={() => openLegalModal('cookies')}>Cookie & Storage</button>
+          </div>
         </div>
+        {cookieNotice}
+        {legalModal}
       </div>
     );
   }
@@ -10919,8 +11108,10 @@ function OmniAppInner() {
           onOpenTrading={() => setActiveTab('trading')}
           onOpenSymbolReview={openSymbolReview}
         />
+        {cookieNotice}
       </div>
     </div>
+    {legalModal}
 
     {/* ===== AI SIGNAL MODAL ===== */}
     {aiModal && (
