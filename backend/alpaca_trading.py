@@ -948,6 +948,9 @@ class AlpacaEngine:
                 'review_meta': {
                     'asset_class': asset_class,
                     'setup_profile': 'Aggressivo' if base_confidence >= 0.8 else ('Bilanciato' if base_confidence >= 0.65 else 'Conservativo'),
+                    'playbook_id': str(getattr(self.bot_state, "strategy_playbook", "adaptive") or "adaptive").strip().lower(),
+                    'entry_at': datetime.now().isoformat(),
+                    'source_channel': 'native_scanner',
                     'llm_sentiment': sentiment,
                     'llm_confidence': confidence,
                     'lstm_prob': round(float(lstm_prob or 0) * 100, 1),

@@ -366,6 +366,14 @@ DEFAULT_SIGNAL_HUB_CONFIG = {
     "last_signal_summary": None,
 }
 
+DEFAULT_AUTO_PLAYBOOK_CONFIG = {
+    "enabled": False,
+    "min_score_gap": 6.0,
+    "cooldown_minutes": 180,
+    "last_auto_switch_at": None,
+    "last_auto_switch_reason": None,
+}
+
 
 def normalize_playbook_id(playbook_id: Optional[str]) -> str:
     candidate = str(playbook_id or DEFAULT_PLAYBOOK_ID).strip().lower()
@@ -449,6 +457,19 @@ def ensure_signal_hub_config(raw_config):
     }
 
 
+def ensure_auto_playbook_config(raw_config):
+    config = dict(DEFAULT_AUTO_PLAYBOOK_CONFIG)
+    if isinstance(raw_config, dict):
+        config.update({k: v for k, v in raw_config.items() if v is not None})
+    return {
+        "enabled": bool(config.get("enabled", False)),
+        "min_score_gap": round(max(2.0, min(float(config.get("min_score_gap", 6.0) or 6.0), 20.0)), 1),
+        "cooldown_minutes": max(15, min(int(config.get("cooldown_minutes", 180) or 180), 1440)),
+        "last_auto_switch_at": config.get("last_auto_switch_at"),
+        "last_auto_switch_reason": config.get("last_auto_switch_reason"),
+    }
+
+
 def classify_regime_for_row(row: Optional[dict], is_crypto: bool = False):
     if not isinstance(row, dict):
         return {
@@ -513,11 +534,159 @@ def playbook_fit_score(playbook_id: str, regime_id: str):
     return 68
 
 
+def build_signal_source_snapshot(signal_hub_config: dict, trade_history=None):
+    config = ensure_signal_hub_config(signal_hub_config)
+    history = trade_history if isinstance(trade_history, list) else []
+    recent_signals = config.get("recent_signals", []) or []
+    sources = set(config.get("allowed_sources", []) or [])
+    sources.update(str(event.get("source") or "unknown").strip().lower() for event in recent_signals if event.get("source"))
+    rows = []
+    for source in sorted(sources):
+        source_events = [event for event in recent_signals if str(event.get("source") or "").strip().lower() == source]
+        accepted = [event for event in source_events if event.get("accepted")]
+        source_trades = [trade for trade in history if str(trade.get("source_channel") or "").strip().lower() == source]
+        realized_pnl = round(sum(float(trade.get("profit_usd") or 0) for trade in source_trades), 2)
+        rows.append({
+            "source": source,
+            "weight": float(config.get("source_weights", {}).get(source, config.get("source_weights", {}).get("webhook", 0.9))),
+            "events": len(source_events),
+            "accepted": len(accepted),
+            "acceptance_rate": round((len(accepted) / len(source_events)) * 100, 1) if source_events else 0.0,
+            "avg_alignment": round(sum(float(event.get("alignment_score") or 0) for event in source_events) / len(source_events), 1) if source_events else 0.0,
+            "realized_pnl": realized_pnl,
+            "trade_count": len(source_trades),
+        })
+    rows.sort(key=lambda item: (item["acceptance_rate"], item["avg_alignment"], item["realized_pnl"]), reverse=True)
+    return rows
+
+
+def derive_dynamic_source_weight(source: str, signal_hub_config: dict, trade_history=None):
+    source = str(source or "webhook").strip().lower()
+    base_weight = float(ensure_signal_hub_config(signal_hub_config).get("source_weights", {}).get(source, 0.9))
+    matrix = build_signal_source_snapshot(signal_hub_config, trade_history=trade_history)
+    row = next((item for item in matrix if item["source"] == source), None)
+    if not row:
+        return round(base_weight, 2), {"base": base_weight, "acceptance_boost": 0.0, "pnl_boost": 0.0}
+    acceptance_boost = 0.0
+    pnl_boost = 0.0
+    if row["events"] >= 3:
+        acceptance_boost = ((row["acceptance_rate"] - 50.0) / 100.0) * 0.12
+    if row["trade_count"] >= 2:
+        pnl_boost = max(-0.08, min(row["realized_pnl"] / 250.0, 0.08))
+    dynamic = round(max(0.5, min(base_weight + acceptance_boost + pnl_boost, 1.25)), 2)
+    return dynamic, {
+        "base": base_weight,
+        "acceptance_boost": round(acceptance_boost, 3),
+        "pnl_boost": round(pnl_boost, 3),
+    }
+
+
+def compute_trade_review_grade(trade: dict):
+    profit_pct = float(trade.get("profit_pct") or 0.0)
+    profit_usd = float(trade.get("profit_usd") or 0.0)
+    if profit_pct >= 4 or profit_usd >= 20:
+        return "A"
+    if profit_pct >= 1.5 or profit_usd >= 8:
+        return "B"
+    if profit_pct >= 0:
+        return "C"
+    if profit_pct > -2:
+        return "D"
+    return "F"
+
+
+def build_trade_journal_snapshot(trade_history=None):
+    history = trade_history if isinstance(trade_history, list) else []
+    rows = [trade for trade in history if isinstance(trade, dict) and "profit_usd" in trade]
+    if not rows:
+        return {
+            "summary": "Ancora nessun trade chiuso: il journal si popola appena Aureo inizia a registrare uscite complete.",
+            "total_trades": 0,
+            "best_setup": None,
+            "weakest_setup": None,
+            "best_symbol": None,
+            "source_leader": None,
+            "lessons": [],
+            "recent_reviews": [],
+        }
+
+    setup_groups = {}
+    source_groups = {}
+    symbol_groups = {}
+    for trade in rows:
+        setup_profile = str(trade.get("setup_profile") or "Non classificato").strip()
+        asset_class = str(trade.get("asset_class") or "unknown").strip()
+        setup_key = f"{setup_profile} • {asset_class}"
+        symbol = str(trade.get("symbol") or "UNKNOWN").strip().upper()
+        source = str(trade.get("source_channel") or "native_scanner").strip().lower()
+        for container, key in ((setup_groups, setup_key), (source_groups, source), (symbol_groups, symbol)):
+            if key not in container:
+                container[key] = {"key": key, "trades": 0, "pnl": 0.0, "wins": 0}
+            container[key]["trades"] += 1
+            container[key]["pnl"] += float(trade.get("profit_usd") or 0)
+            container[key]["wins"] += 1 if float(trade.get("profit_usd") or 0) > 0 else 0
+
+    def finalize(group):
+        for row in group.values():
+            row["expectancy"] = round(row["pnl"] / row["trades"], 2) if row["trades"] else 0.0
+            row["win_rate"] = round((row["wins"] / row["trades"]) * 100, 1) if row["trades"] else 0.0
+        return list(group.values())
+
+    setup_rows = sorted(finalize(setup_groups), key=lambda item: (item["expectancy"], item["pnl"]), reverse=True)
+    source_rows = sorted(finalize(source_groups), key=lambda item: (item["expectancy"], item["pnl"]), reverse=True)
+    symbol_rows = sorted(finalize(symbol_groups), key=lambda item: (item["expectancy"], item["pnl"]), reverse=True)
+
+    best_setup = next((row for row in setup_rows if row["trades"] >= 2), setup_rows[0] if setup_rows else None)
+    weakest_setup = next((row for row in reversed(setup_rows) if row["trades"] >= 2), setup_rows[-1] if setup_rows else None)
+    best_symbol = next((row for row in symbol_rows if row["trades"] >= 2), symbol_rows[0] if symbol_rows else None)
+    source_leader = source_rows[0] if source_rows else None
+
+    lessons = []
+    if best_setup:
+        lessons.append(f"Spingi di più {best_setup['key']}: expectancy {best_setup['expectancy']:+.2f}$ su {best_setup['trades']} trade.")
+    if weakest_setup and weakest_setup != best_setup:
+        lessons.append(f"Raffredda {weakest_setup['key']}: expectancy {weakest_setup['expectancy']:+.2f}$, serve filtro più duro.")
+    if source_leader and source_leader["trades"] >= 2:
+        lessons.append(f"La fonte {source_leader['key']} sta reggendo meglio: {source_leader['win_rate']:.0f}% win rate.")
+    if best_symbol and best_symbol["trades"] >= 2:
+        lessons.append(f"{best_symbol['key']} è il simbolo più pulito nel campione recente.")
+
+    recent_reviews = []
+    for trade in rows[-8:][::-1]:
+        grade = compute_trade_review_grade(trade)
+        recent_reviews.append({
+            "symbol": trade.get("symbol"),
+            "setup_profile": trade.get("setup_profile") or "Non classificato",
+            "asset_class": trade.get("asset_class") or "unknown",
+            "source_channel": trade.get("source_channel") or "native_scanner",
+            "profit_usd": round(float(trade.get("profit_usd") or 0), 2),
+            "profit_pct": round(float(trade.get("profit_pct") or 0), 2),
+            "grade": grade,
+            "holding_minutes": trade.get("holding_minutes"),
+            "playbook_id": trade.get("playbook_id"),
+            "date": trade.get("date"),
+        })
+
+    return {
+        "summary": f"{len(rows)} trade chiusi analizzati. Aureo evidenzia cosa vale più capitale e cosa invece va stretto.",
+        "total_trades": len(rows),
+        "best_setup": best_setup,
+        "weakest_setup": weakest_setup,
+        "best_symbol": best_symbol,
+        "source_leader": source_leader,
+        "lessons": lessons[:4],
+        "recent_reviews": recent_reviews,
+        "setup_rows": setup_rows[:6],
+        "source_rows": source_rows[:5],
+    }
+
+
 def build_public_signal_hub_snapshot(signal_hub_config: dict):
     config = ensure_signal_hub_config(signal_hub_config)
     token = config["token"]
     masked = f"{token[:6]}***{token[-4:]}" if len(token) > 12 else "***"
     recent_signals = config["recent_signals"][:8]
+    source_matrix = build_signal_source_snapshot(config, trade_history=getattr(bot_state, "trade_history", []))
     accepted_count = sum(1 for event in recent_signals if event.get("accepted"))
     filtered_count = sum(1 for event in recent_signals if recent_signals and not event.get("accepted"))
     avg_alignment = round(sum(float(event.get("alignment_score") or 0) for event in recent_signals) / len(recent_signals), 1) if recent_signals else 0.0
@@ -536,6 +705,7 @@ def build_public_signal_hub_snapshot(signal_hub_config: dict):
         "require_watchlist_match": config["require_watchlist_match"],
         "allowed_sources": config["allowed_sources"],
         "source_weights": config["source_weights"],
+        "source_matrix": source_matrix,
         "recent_signals": recent_signals,
         "last_signal_at": config["last_signal_at"],
         "last_signal_summary": config["last_signal_summary"],
@@ -570,8 +740,11 @@ def build_signal_context_snapshot(symbol: str, confidence: int, source: str, tar
         playbook_fit = int(float(((ranked_row.get("playbook_fit") or {}).get("score")) or playbook_fit_score(playbook_id, regime_id)))
     elif is_watchlist_match:
         playbook_fit = int(playbook_fit_score(playbook_id, regime_id))
-    source_weights = ensure_signal_hub_config(getattr(current_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG)).get("source_weights", {})
-    source_weight = float(source_weights.get(source, source_weights.get("webhook", 0.9)))
+    dynamic_source_weight, source_weight_meta = derive_dynamic_source_weight(
+        source=source,
+        signal_hub_config=getattr(current_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG),
+        trade_history=getattr(current_state, "trade_history", []),
+    )
     if isinstance(ranked_row, dict) and ranked_row.get("score") is not None:
         ranking_score = round(max(0.0, min(float(ranked_row.get("score") or 0.0) * 100, 100.0)), 1)
     elif is_watchlist_match and is_crypto:
@@ -584,7 +757,7 @@ def build_signal_context_snapshot(symbol: str, confidence: int, source: str, tar
         (float(confidence) * 0.5) +
         (float(playbook_fit) * 0.23) +
         (float(ranking_score) * 0.17) +
-        ((source_weight * 100.0) * 0.10) +
+        ((dynamic_source_weight * 100.0) * 0.10) +
         (6.0 if is_watchlist_match else -10.0),
         100.0
     )), 1)
@@ -592,7 +765,7 @@ def build_signal_context_snapshot(symbol: str, confidence: int, source: str, tar
     reasons.append("watchlist coerente" if is_watchlist_match else "simbolo fuori watchlist")
     reasons.append(f"fit playbook {playbook_fit}/100")
     reasons.append(f"ranking interno {ranking_score:.0f}/100")
-    reasons.append(f"fonte {source} peso {source_weight:.2f}")
+    reasons.append(f"fonte {source} peso {dynamic_source_weight:.2f}")
     return {
         "symbol": symbol,
         "source": source,
@@ -602,7 +775,8 @@ def build_signal_context_snapshot(symbol: str, confidence: int, source: str, tar
         "ranking_score": ranking_score,
         "watchlist_match": is_watchlist_match,
         "regime": regime,
-        "source_weight": source_weight,
+        "source_weight": dynamic_source_weight,
+        "source_weight_meta": source_weight_meta,
         "reasons": reasons,
     }
 
@@ -667,6 +841,45 @@ def build_playbook_rotation_snapshot(target_state=None):
         "summary": summary,
         "contenders": contenders[:3],
     }
+
+
+def maybe_auto_rotate_playbook(target_state=None):
+    current_state = target_state or bot_state
+    auto_config = ensure_auto_playbook_config(getattr(current_state, "auto_playbook", DEFAULT_AUTO_PLAYBOOK_CONFIG))
+    if not auto_config["enabled"]:
+        return {"switched": False, "reason": "auto switch off", "config": auto_config}
+
+    if getattr(current_state, "monitored_positions", []):
+        return {"switched": False, "reason": "open positions", "config": auto_config}
+
+    rotation = build_playbook_rotation_snapshot(current_state)
+    if not rotation.get("recommended"):
+        return {"switched": False, "reason": "active already coherent", "config": auto_config, "rotation": rotation}
+
+    if float(rotation.get("score_gap") or 0) < float(auto_config["min_score_gap"]):
+        return {"switched": False, "reason": "gap below threshold", "config": auto_config, "rotation": rotation}
+
+    now = datetime.now()
+    last_auto_switch_at = auto_config.get("last_auto_switch_at")
+    if last_auto_switch_at:
+        try:
+            last_dt = datetime.fromisoformat(str(last_auto_switch_at))
+            elapsed_minutes = (now - last_dt).total_seconds() / 60.0
+            if elapsed_minutes < auto_config["cooldown_minutes"]:
+                return {"switched": False, "reason": "cooldown active", "config": auto_config, "rotation": rotation}
+        except Exception:
+            pass
+
+    previous_label = PLAYBOOK_LIBRARY[current_state.strategy_playbook]["label"]
+    current_state.strategy_playbook = normalize_playbook_id(rotation["recommended_id"])
+    auto_config["last_auto_switch_at"] = now.isoformat()
+    auto_config["last_auto_switch_reason"] = rotation["summary"]
+    current_state.auto_playbook = auto_config
+    current_state.add_log(
+        f"🧭 AUTO SWITCH PLAYBOOK: {previous_label} → {rotation['recommended_label']} "
+        f"(gap {rotation['score_gap']:.1f}/100)"
+    )
+    return {"switched": True, "reason": "auto rotated", "config": auto_config, "rotation": rotation}
 
 
 def _normalize_history_df(raw):
@@ -872,6 +1085,7 @@ def load_db(user_id=None):
             "modules": {"trading": False, "sports_arb": False, "ai_content": False},
             "dynamic_atr_stop": True,
             "strategy_playbook": DEFAULT_PLAYBOOK_ID,
+            "auto_playbook": dict(DEFAULT_AUTO_PLAYBOOK_CONFIG),
             "exit_ladder": dict(DEFAULT_EXIT_LADDER),
             "signal_hub": dict(DEFAULT_SIGNAL_HUB_CONFIG),
             "trailing_stop_base_pct": 2.5,
@@ -1295,8 +1509,20 @@ def refresh_target_symbols(max_symbols: int = 7, state_override=None):
     stock_slots = max(0, max_symbols - min_crypto)
 
     selected_symbols, ranked_rows = rank_stock_universe(max_symbols=stock_slots)
-    playbook_id = normalize_playbook_id(getattr(target_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID))
 
+    for row in ranked_rows:
+        regime = row.get("regime") or classify_regime_for_row(row, is_crypto=False)
+        row["regime"] = regime
+    target_state.target_symbols = list(dict.fromkeys((selected_symbols or []) + PREFERRED_CRYPTO_SYMBOLS[:min_crypto]))[:max_symbols] or DEFAULT_TARGET_SYMBOLS[:max_symbols]
+    target_state.symbol_selection = {
+        "updated_at": datetime.now().isoformat(),
+        "method": "momentum_liquidity_volatility_plus_crypto_core",
+        "playbook_id": normalize_playbook_id(getattr(target_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID)),
+        "ranked": ranked_rows[:max_symbols],
+    }
+
+    auto_rotation = maybe_auto_rotate_playbook(target_state)
+    active_playbook_id = normalize_playbook_id(getattr(target_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID))
     crypto_symbols = PREFERRED_CRYPTO_SYMBOLS[:min_crypto]
     crypto_rows = [
         {
@@ -1306,8 +1532,8 @@ def refresh_target_symbols(max_symbols: int = 7, state_override=None):
             "selection_reason": "Crypto core mantenuta sempre attiva in watchlist",
             "regime": classify_regime_for_row({}, is_crypto=True),
             "playbook_fit": {
-                "playbook_id": playbook_id,
-                "score": playbook_fit_score(playbook_id, "crypto_core"),
+                "playbook_id": active_playbook_id,
+                "score": playbook_fit_score(active_playbook_id, "crypto_core"),
             },
         }
         for symbol in crypto_symbols
@@ -1317,8 +1543,8 @@ def refresh_target_symbols(max_symbols: int = 7, state_override=None):
         regime = row.get("regime") or classify_regime_for_row(row, is_crypto=False)
         row["regime"] = regime
         row["playbook_fit"] = {
-            "playbook_id": playbook_id,
-            "score": playbook_fit_score(playbook_id, regime["id"]),
+            "playbook_id": active_playbook_id,
+            "score": playbook_fit_score(active_playbook_id, regime["id"]),
         }
 
     combined_symbols = list(dict.fromkeys((selected_symbols or []) + crypto_symbols))
@@ -1331,8 +1557,9 @@ def refresh_target_symbols(max_symbols: int = 7, state_override=None):
     target_state.symbol_selection = {
         "updated_at": datetime.now().isoformat(),
         "method": "momentum_liquidity_volatility_plus_crypto_core",
-        "playbook_id": playbook_id,
+        "playbook_id": active_playbook_id,
         "ranked": combined_ranked_rows[:max_symbols],
+        "auto_rotation": auto_rotation,
     }
     target_state.save_state()
     return target_state.target_symbols
@@ -1448,6 +1675,7 @@ class BotState:
         self.auto_bet_threshold = db_data.get("auto_bet_threshold", 10.0)
         self.symbol_selection = db_data.get("symbol_selection", {"method": "static_default", "ranked": []})
         self.strategy_playbook = normalize_playbook_id(db_data.get("strategy_playbook", DEFAULT_PLAYBOOK_ID))
+        self.auto_playbook = ensure_auto_playbook_config(db_data.get("auto_playbook", DEFAULT_AUTO_PLAYBOOK_CONFIG))
         self.exit_ladder = ensure_exit_ladder_config(db_data.get("exit_ladder", DEFAULT_EXIT_LADDER))
         self.signal_hub = ensure_signal_hub_config(db_data.get("signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
         self.options_lab = ensure_options_lab_config(db_data.get("options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
@@ -1528,6 +1756,7 @@ class BotState:
             "target_symbols": self.target_symbols,
             "symbol_selection": self.symbol_selection,
             "strategy_playbook": self.strategy_playbook,
+            "auto_playbook": self.auto_playbook,
             "exit_ladder": self.exit_ladder,
             "signal_hub": self.signal_hub,
             "options_lab": self.options_lab,
@@ -1549,6 +1778,15 @@ class BotState:
         }
         if isinstance(meta, dict):
             record.update(meta)
+        entry_at = record.get("entry_at")
+        if entry_at and not record.get("holding_minutes"):
+            try:
+                opened_at = datetime.fromisoformat(str(entry_at))
+                closed_at = datetime.now()
+                record["holding_minutes"] = max(0, int((closed_at - opened_at).total_seconds() // 60))
+            except Exception:
+                pass
+        record["review_grade"] = compute_trade_review_grade(record)
         self.trade_history.append(record)
         if symbol in self.high_watermarks:
             del self.high_watermarks[symbol]
@@ -2113,9 +2351,11 @@ def get_status(user_id="admin", scope: str = "core"):
             "auto_bet_enabled": bot_state.auto_bet_enabled,
             "auto_bet_threshold": bot_state.auto_bet_threshold,
             "strategy_playbook": build_playbook_snapshot(getattr(bot_state, "strategy_playbook", DEFAULT_PLAYBOOK_ID)),
+            "auto_playbook": ensure_auto_playbook_config(getattr(bot_state, "auto_playbook", DEFAULT_AUTO_PLAYBOOK_CONFIG)),
             "playbook_rotation": build_playbook_rotation_snapshot(bot_state),
             "exit_ladder": ensure_exit_ladder_config(getattr(bot_state, "exit_ladder", DEFAULT_EXIT_LADDER)),
             "signal_hub": build_public_signal_hub_snapshot(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG)),
+            "trade_journal": build_trade_journal_snapshot(bot_state.trade_history),
             "options_lab": build_options_lab_snapshot(bot_state, user_id),
             "dynamic_atr_stop": getattr(bot_state, "dynamic_atr_stop", True),
             "trailing_stop_base_pct": getattr(bot_state, "trailing_stop_base_pct", 2.5),
@@ -2675,9 +2915,11 @@ async def run_backtest_lite_endpoint(payload: dict, user: dict = Depends(require
 @app.get("/api/signal-hub/config")
 async def get_signal_hub_config(_: str = Depends(require_admin)):
     config = ensure_signal_hub_config(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
+    public_snapshot = build_public_signal_hub_snapshot(config)
     return {
         **config,
-        "metrics": build_public_signal_hub_snapshot(config)["metrics"],
+        "metrics": public_snapshot["metrics"],
+        "source_matrix": public_snapshot["source_matrix"],
         "webhook_url": f"{APP_BASE_URL}/api/signal-hub/webhook/{config['token']}",
     }
 
@@ -2704,9 +2946,11 @@ async def save_signal_hub_config(payload: dict, _: str = Depends(require_admin))
     bot_state.signal_hub = next_config
     bot_state.save_state()
     bot_state.add_log(f"📡 Signal Hub {'attivato' if next_config['enabled'] else 'disattivato'}")
+    public_snapshot = build_public_signal_hub_snapshot(next_config)
     return {
         **next_config,
-        "metrics": build_public_signal_hub_snapshot(next_config)["metrics"],
+        "metrics": public_snapshot["metrics"],
+        "source_matrix": public_snapshot["source_matrix"],
         "webhook_url": f"{APP_BASE_URL}/api/signal-hub/webhook/{next_config['token']}",
     }
 
@@ -2718,9 +2962,11 @@ async def rotate_signal_hub_token(_: str = Depends(require_admin)):
     bot_state.signal_hub = current
     bot_state.save_state()
     bot_state.add_log("🔐 Token Signal Hub rigenerato")
+    public_snapshot = build_public_signal_hub_snapshot(current)
     return {
         **current,
-        "metrics": build_public_signal_hub_snapshot(current)["metrics"],
+        "metrics": public_snapshot["metrics"],
+        "source_matrix": public_snapshot["source_matrix"],
         "webhook_url": f"{APP_BASE_URL}/api/signal-hub/webhook/{current['token']}",
     }
 
@@ -2913,6 +3159,17 @@ async def update_config(config: dict, user: dict = Depends(require_user)):
             "strategy_playbook": build_playbook_snapshot(u_state.strategy_playbook),
             "playbook_rotation": build_playbook_rotation_snapshot(u_state),
             "symbol_selection": u_state.symbol_selection,
+        }
+    if "auto_playbook" in config:
+        current = ensure_auto_playbook_config(getattr(u_state, "auto_playbook", DEFAULT_AUTO_PLAYBOOK_CONFIG))
+        merged = ensure_auto_playbook_config({**current, **(config.get("auto_playbook") or {})})
+        u_state.auto_playbook = merged
+        u_state.save_state()
+        u_state.add_log(f"🧠 Auto Playbook {'attivato' if merged['enabled'] else 'disattivato'}")
+        return {
+            "message": "Auto Playbook aggiornato",
+            "auto_playbook": merged,
+            "playbook_rotation": build_playbook_rotation_snapshot(u_state),
         }
     if "exit_ladder" in config:
         u_state.exit_ladder = ensure_exit_ladder_config(config.get("exit_ladder"))

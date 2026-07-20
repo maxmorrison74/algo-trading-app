@@ -6714,6 +6714,83 @@ function OmniAppInner() {
         </div>
       </div>
 
+      <div className="dashboard-grid" style={{ marginTop: '1rem', marginBottom: '1.4rem' }}>
+        <div className="card col-span-12" style={{ border: '1px solid rgba(56, 189, 248, 0.22)', background: 'rgba(255,255,255,0.025)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '0.95rem' }}>
+            <div>
+              <div className="card-title">🧠 Post-Trade Intelligence</div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Il journal trasforma i trade chiusi in istruzioni operative: cosa ripetere, cosa stringere, cosa rallentare.
+              </div>
+            </div>
+            <div className="badge badge-active">{status.trade_journal?.total_trades || 0} review</div>
+          </div>
+          <div style={{ color: '#cbd5e1', fontSize: '0.86rem', lineHeight: 1.5, marginBottom: '1rem' }}>
+            {status.trade_journal?.summary || 'Ancora nessuna review disponibile.'}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.8rem', marginBottom: '1rem' }}>
+            {[
+              ['Best setup', status.trade_journal?.best_setup ? `${status.trade_journal.best_setup.key} · ${Number(status.trade_journal.best_setup.expectancy || 0).toFixed(2)}$` : 'n/d', '#10b981'],
+              ['Weak setup', status.trade_journal?.weakest_setup ? `${status.trade_journal.weakest_setup.key} · ${Number(status.trade_journal.weakest_setup.expectancy || 0).toFixed(2)}$` : 'n/d', '#ef4444'],
+              ['Best symbol', status.trade_journal?.best_symbol ? `${status.trade_journal.best_symbol.key} · ${Number(status.trade_journal.best_symbol.expectancy || 0).toFixed(2)}$` : 'n/d', '#38bdf8'],
+              ['Source leader', status.trade_journal?.source_leader ? `${String(status.trade_journal.source_leader.key).toUpperCase()} · ${Number(status.trade_journal.source_leader.win_rate || 0).toFixed(0)}%` : 'n/d', '#c084fc'],
+            ].map(([label, value, tone]) => (
+              <div key={label} style={{ padding: '0.85rem 0.9rem', borderRadius: '12px', background: 'rgba(0,0,0,0.18)', border: `1px solid ${tone}33` }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>{label}</div>
+                <div style={{ color: tone, fontWeight: 800, lineHeight: 1.4 }}>{value}</div>
+              </div>
+            ))}
+          </div>
+          {(status.trade_journal?.lessons || []).length > 0 && (
+            <div style={{ display: 'grid', gap: '0.6rem', marginBottom: '1rem' }}>
+              {status.trade_journal.lessons.map((lesson, index) => (
+                <div key={index} style={{ padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', color: '#cbd5e1', lineHeight: 1.45 }}>
+                  {lesson}
+                </div>
+              ))}
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.9rem' }}>
+            <div style={{ display: 'grid', gap: '0.6rem' }}>
+              <div style={{ color: '#e2e8f0', fontWeight: 700 }}>Recent review</div>
+              {(status.trade_journal?.recent_reviews || []).length > 0 ? status.trade_journal.recent_reviews.map((trade, index) => (
+                <div key={`${trade.symbol}-${trade.date}-${index}`} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <div>
+                    <div style={{ color: '#f8fafc', fontWeight: 800 }}>{trade.symbol} · {trade.setup_profile}</div>
+                    <div style={{ color: '#94a3b8', fontSize: '0.78rem', marginTop: '0.2rem', lineHeight: 1.45 }}>
+                      {trade.asset_class} · {String(trade.source_channel || 'native_scanner').toUpperCase()} · {trade.holding_minutes != null ? `${trade.holding_minutes} min` : 'durata n/d'}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ color: ['A', 'B'].includes(trade.grade) ? '#10b981' : trade.grade === 'C' ? '#f59e0b' : '#ef4444', fontWeight: 900 }}>{trade.grade}</div>
+                    <div style={{ color: Number(trade.profit_usd || 0) >= 0 ? '#10b981' : '#ef4444', fontWeight: 800, marginTop: '0.2rem' }}>
+                      {Number(trade.profit_usd || 0) >= 0 ? '+' : ''}${Number(trade.profit_usd || 0).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+              )) : (
+                <div style={{ color: '#94a3b8', fontSize: '0.84rem' }}>Nessun trade chiuso ancora disponibile nel journal.</div>
+              )}
+            </div>
+            <div style={{ display: 'grid', gap: '0.6rem' }}>
+              <div style={{ color: '#e2e8f0', fontWeight: 700 }}>Setup scoreboard</div>
+              {(status.trade_journal?.setup_rows || []).length > 0 ? status.trade_journal.setup_rows.map((row) => (
+                <div key={row.key} style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: '0.75rem', padding: '0.8rem 0.9rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ color: '#f8fafc', fontWeight: 800 }}>{row.key}</div>
+                    <div style={{ color: '#64748b', fontSize: '0.76rem', marginTop: '0.2rem' }}>{row.trades} trade · win {Number(row.win_rate || 0).toFixed(0)}%</div>
+                  </div>
+                  <div style={{ color: Number(row.expectancy || 0) >= 0 ? '#10b981' : '#ef4444', fontWeight: 800 }}>{Number(row.expectancy || 0).toFixed(2)}$</div>
+                  <div style={{ color: Number(row.pnl || 0) >= 0 ? '#38bdf8' : '#f59e0b', fontWeight: 800 }}>{Number(row.pnl || 0) >= 0 ? '+' : ''}${Number(row.pnl || 0).toFixed(2)}</div>
+                </div>
+              )) : (
+                <div style={{ color: '#94a3b8', fontSize: '0.84rem' }}>Serve ancora uno storico più ricco per confrontare i setup.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {selectedSymbol && (
         <div
           className="card trading-focus-card"
@@ -7126,11 +7203,57 @@ function OmniAppInner() {
                 Ti suggerisce se la watchlist sta premiando un carattere operativo diverso da quello attivo.
               </div>
             </div>
-            <div className={`badge ${status.playbook_rotation?.recommended ? 'badge-idle' : 'badge-active'}`} style={{ fontSize: '0.8rem' }}>
-              {status.playbook_rotation?.recommended ? 'SWITCH READY' : 'COERENTE'}
+            <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div className={`badge ${status.playbook_rotation?.recommended ? 'badge-idle' : 'badge-active'}`} style={{ fontSize: '0.8rem' }}>
+                {status.playbook_rotation?.recommended ? 'SWITCH READY' : 'COERENTE'}
+              </div>
+              <div className={`badge ${status.auto_playbook?.enabled ? 'badge-active' : 'badge-idle'}`} style={{ fontSize: '0.8rem' }}>
+                {status.auto_playbook?.enabled ? 'AUTO ON' : 'AUTO OFF'}
+              </div>
             </div>
           </div>
           <div style={{ display: 'grid', gap: '0.7rem' }}>
+            {userRole === 'admin' && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: '0.75rem' }}>
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={async () => {
+                    const nextEnabled = !status.auto_playbook?.enabled;
+                    const res = await authFetch('/api/config', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ auto_playbook: { ...(status.auto_playbook || {}), enabled: nextEnabled } })
+                    });
+                    const data = await res.json();
+                    if (res.ok) {
+                      setStatus((prev) => ({ ...prev, auto_playbook: data.auto_playbook, playbook_rotation: data.playbook_rotation || prev.playbook_rotation }));
+                      pushNotice('success', 'Auto Playbook aggiornato', nextEnabled ? 'Aureo può ruotare il playbook da solo.' : 'La rotazione torna manuale.', 2400);
+                    }
+                  }}
+                  style={{
+                    padding: '0.85rem 0.95rem',
+                    textAlign: 'left',
+                    background: status.auto_playbook?.enabled ? 'rgba(16,185,129,0.12)' : 'rgba(255,255,255,0.03)',
+                    border: status.auto_playbook?.enabled ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                  }}
+                >
+                  <div style={{ color: '#f8fafc', fontWeight: 800, marginBottom: '0.2rem' }}>Auto-switch playbook</div>
+                  <div style={{ color: status.auto_playbook?.enabled ? '#10b981' : '#94a3b8', fontSize: '0.78rem', lineHeight: 1.45 }}>
+                    {status.auto_playbook?.enabled ? 'Attivo: ruota solo se la watchlist lo giustifica davvero.' : 'Spento: i cambi restano manuali.'}
+                  </div>
+                </button>
+                <div style={{ padding: '0.85rem 0.95rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ color: '#f8fafc', fontWeight: 800, marginBottom: '0.25rem' }}>Guardrail attuali</div>
+                  <div style={{ color: '#cbd5e1', fontSize: '0.82rem', lineHeight: 1.5 }}>
+                    Gap minimo {Number(status.auto_playbook?.min_score_gap || 0).toFixed(1)} · cooldown {Math.round(Number(status.auto_playbook?.cooldown_minutes || 0))} min
+                  </div>
+                  <div style={{ color: '#64748b', fontSize: '0.76rem', marginTop: '0.3rem', lineHeight: 1.4 }}>
+                    {status.auto_playbook?.last_auto_switch_reason || 'Nessuna rotazione automatica registrata.'}
+                  </div>
+                </div>
+              </div>
+            )}
             <div>
               <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.18rem' }}>Adesso</div>
               <div style={{ color: '#f8fafc', fontWeight: 800 }}>{status.playbook_rotation?.active_label || strategyPlaybook?.active?.label || 'Adaptive Core'}</div>
@@ -7445,6 +7568,26 @@ function OmniAppInner() {
                   {signalHubConfig?.require_watchlist_match ? 'Attivo: i webhook devono combaciare con la watchlist Aureo.' : 'Spento: accetta anche simboli fuori radar.'}
                 </div>
               </button>
+
+              {(signalHubConfig?.source_matrix || []).length > 0 && (
+                <div style={{ marginBottom: '1rem', display: 'grid', gap: '0.6rem' }}>
+                  <div style={{ color: '#e2e8f0', fontWeight: 700 }}>Source Matrix</div>
+                  {signalHubConfig.source_matrix.map((row) => (
+                    <div key={row.source} style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.7fr 0.8fr 0.8fr 0.8fr', gap: '0.7rem', padding: '0.75rem 0.85rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)', alignItems: 'center' }}>
+                      <div>
+                        <div style={{ color: '#f8fafc', fontWeight: 800 }}>{String(row.source || 'source').toUpperCase()}</div>
+                        <div style={{ color: '#64748b', fontSize: '0.74rem' }}>{row.events} eventi · {row.trade_count} trade</div>
+                      </div>
+                      <div style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>peso <strong style={{ color: '#38bdf8' }}>{Number(row.weight || 0).toFixed(2)}</strong></div>
+                      <div style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>hit <strong style={{ color: '#10b981' }}>{Number(row.acceptance_rate || 0).toFixed(0)}%</strong></div>
+                      <div style={{ color: '#cbd5e1', fontSize: '0.8rem' }}>align <strong style={{ color: '#c084fc' }}>{Number(row.avg_alignment || 0).toFixed(0)}</strong></div>
+                      <div style={{ color: Number(row.realized_pnl || 0) >= 0 ? '#10b981' : '#ef4444', fontSize: '0.8rem', textAlign: 'right', fontWeight: 800 }}>
+                        {Number(row.realized_pnl || 0) >= 0 ? '+' : ''}${Number(row.realized_pnl || 0).toFixed(2)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
                 <button
