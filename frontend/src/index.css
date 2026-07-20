@@ -3197,7 +3197,21 @@ input:focus, textarea:focus, select:focus {
     align-items: stretch;
   }
 
-  .omni-app { flex-direction: column; }
+  .omni-app {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .main-content,
+  .module-content,
+  .dashboard-grid,
+  .card,
+  .module-page-header,
+  .charts-canvas-frame,
+  .symbol-review-card {
+    min-width: 0;
+    max-width: 100%;
+  }
 
   .trading-spotlight-card,
   .trading-alert-center-card,
@@ -3271,7 +3285,9 @@ input:focus, textarea:focus, select:focus {
   .active-dot { top: 5px; right: 8px; width: 6px; height: 6px; }
 
   .main-content {
-    padding: max(env(safe-area-inset-top, 0px), 0.75rem) 0.9rem calc(env(safe-area-inset-bottom, 0px) + 7.4rem) 0.9rem;
+    width: 100%;
+    overflow-x: clip;
+    padding: calc(max(env(safe-area-inset-top, 0px), 0.55rem) + 0.05rem) 0.9rem calc(env(safe-area-inset-bottom, 0px) + 7.8rem) 0.9rem;
   }
 
   .bottom-reminder-bar {
@@ -3283,17 +3299,17 @@ input:focus, textarea:focus, select:focus {
     align-items: center;
     justify-content: space-between;
     gap: 0.75rem;
-    margin-bottom: 0.75rem;
-    padding: 0.55rem 0.7rem;
-    background: rgba(21, 27, 43, 0.68);
-    border: 1px solid var(--border-subtle);
-    border-radius: 12px;
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
+    margin: -0.1rem 0 0.85rem;
+    padding: 0.68rem 0.78rem;
+    background: linear-gradient(180deg, rgba(17, 24, 39, 0.88), rgba(12, 18, 31, 0.78));
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 16px;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
     position: sticky;
-    top: env(safe-area-inset-top, 0px);
+    top: calc(env(safe-area-inset-top, 0px) + 0.2rem);
     z-index: 30;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.16);
+    box-shadow: 0 14px 28px rgba(0, 0, 0, 0.22);
   }
 
   .mobile-shell-kicker {
@@ -3329,6 +3345,96 @@ input:focus, textarea:focus, select:focus {
     min-height: 38px;
     padding: 0.5rem 0.8rem;
     font-size: 0.76rem;
+  }
+
+  .module-page-header,
+  .symbol-review-header {
+    padding: 0.95rem 1rem;
+    border-radius: 18px;
+    margin-bottom: 1rem !important;
+  }
+
+  .module-page-header > div,
+  .symbol-review-header > div,
+  .home-section-head,
+  .home-readiness-footer,
+  .home-account-cta,
+  .home-readiness-actions,
+  .charts-hero-top,
+  .charts-hero-actions,
+  .charts-overview-strip,
+  .charts-toolbar,
+  .charts-hero-layout,
+  .charts-symbol-tabs,
+  .charts-timeframe-tabs,
+  .charts-insight-symbol-row,
+  .symbol-review-nav-stack {
+    min-width: 0;
+  }
+
+  .home-section-head,
+  .home-readiness-footer,
+  .home-account-cta,
+  .charts-hero-top,
+  .charts-hero-actions,
+  .charts-toolbar,
+  .charts-hero-layout,
+  .charts-insight-symbol-row,
+  .symbol-review-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .home-section-head,
+  .home-readiness-footer,
+  .home-account-cta,
+  .charts-hero-top,
+  .charts-toolbar,
+  .charts-hero-layout,
+  .symbol-review-header {
+    gap: 0.85rem;
+  }
+
+  .home-account-metrics,
+  .charts-insight-grid,
+  .charts-quick-metrics {
+    grid-template-columns: 1fr;
+  }
+
+  .home-readiness-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .home-inline-action,
+  .home-readiness-actions .btn,
+  .home-account-cta .btn {
+    width: 100%;
+  }
+
+  .home-hero-card,
+  .home-account-card,
+  .home-executive-card,
+  .home-overview-card,
+  .home-priority-card,
+  .home-readiness-card,
+  .charts-hero-card,
+  .charts-card,
+  .symbol-review-card {
+    border-radius: 20px;
+  }
+
+  .charts-hero-card,
+  .charts-card,
+  .symbol-review-card,
+  .trading-spotlight-card,
+  .trading-opportunities-card,
+  .trading-focus-card,
+  .trading-alert-center-card,
+  .trading-drilldown-card,
+  .trading-performance-card,
+  .trading-history-card {
+    overflow: hidden;
   }
 
   .header { flex-direction: column; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
@@ -3396,14 +3502,32 @@ input:focus, textarea:focus, select:focus {
   }
 
   .trading-symbol-tabs,
-  .trading-timeframe-tabs {
+  .trading-timeframe-tabs,
+  .charts-symbol-tabs,
+  .charts-timeframe-tabs,
+  .charts-toolbar {
     overflow-x: auto;
     padding-bottom: 0.15rem;
     -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .trading-symbol-tabs::-webkit-scrollbar,
+  .trading-timeframe-tabs::-webkit-scrollbar,
+  .charts-symbol-tabs::-webkit-scrollbar,
+  .charts-timeframe-tabs::-webkit-scrollbar,
+  .charts-toolbar::-webkit-scrollbar {
+    display: none;
   }
 
   .trading-symbol-tabs .tab-btn,
-  .trading-timeframe-tabs .tab-btn {
+  .trading-timeframe-tabs .tab-btn,
+  .charts-symbol-tabs .tab-btn,
+  .charts-timeframe-tabs .tab-btn,
+  .symbol-review-nav-btn,
+  .charts-hero-actions .btn {
     white-space: nowrap;
     width: auto;
     min-width: max-content;
@@ -3487,11 +3611,29 @@ input:focus, textarea:focus, select:focus {
     flex-basis: auto;
   }
 
+  .charts-canvas-frame {
+    height: 280px !important;
+    padding: 0.75rem !important;
+    border-radius: 16px !important;
+  }
+
   .symbol-review-metrics,
   .symbol-review-diagnosis-list,
   .symbol-review-activity-grid,
   .symbol-review-checklist {
     grid-template-columns: 1fr;
+  }
+
+  .symbol-review-hero {
+    padding: 1rem;
+  }
+
+  .symbol-review-checklist > div,
+  .symbol-review-activity-grid > div,
+  .symbol-review-metric,
+  .symbol-review-diagnosis-item,
+  .symbol-review-activity-row {
+    padding: 0.85rem;
   }
 
   .hero-summary-label {
@@ -3543,6 +3685,14 @@ input:focus, textarea:focus, select:focus {
   .data-table th,
   .data-table td { padding: 0.8rem 0.9rem; }
   input[type="text"], input[type="password"], input[type="email"], textarea, select { font-size: 16px; }
+
+  .sidebar-menu {
+    scroll-snap-type: x proximity;
+  }
+
+  .menu-item {
+    scroll-snap-align: center;
+  }
 }
 
 @media (max-width: 560px), (max-height: 430px) and (orientation: landscape) {
@@ -3651,7 +3801,48 @@ input:focus, textarea:focus, select:focus {
   .main-content {
     padding-left: 0.75rem;
     padding-right: 0.75rem;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 7.8rem);
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8.1rem);
+  }
+
+  .module-page-header,
+  .symbol-review-header {
+    padding: 0.82rem 0.88rem;
+    border-radius: 16px;
+  }
+
+  .home-hero-badges,
+  .home-hero-strip,
+  .home-readiness-actions,
+  .charts-overview-strip {
+    gap: 0.55rem;
+  }
+
+  .home-hero-spotlight,
+  .home-account-metric,
+  .home-account-story-block,
+  .home-readiness-item,
+  .charts-overview-pill,
+  .charts-insight-card,
+  .charts-card,
+  .symbol-review-card {
+    border-radius: 16px;
+  }
+
+  .charts-hero-card,
+  .charts-card,
+  .symbol-review-card {
+    padding: 0.92rem;
+  }
+
+  .charts-canvas-frame {
+    height: 240px !important;
+    padding: 0.65rem !important;
+  }
+
+  .charts-empty-state,
+  .symbol-review-empty {
+    font-size: 0.84rem;
+    line-height: 1.55;
   }
 
   .header {
@@ -3718,11 +3909,13 @@ input:focus, textarea:focus, select:focus {
   }
 
   .mobile-shell-header {
-    padding: 0.5rem 0.65rem;
+    padding: 0.52rem 0.62rem;
+    border-radius: 14px;
   }
 
   .mobile-shell-title {
     font-size: 0.88rem;
+    line-height: 1.15;
   }
 
   .mobile-shell-kicker {
