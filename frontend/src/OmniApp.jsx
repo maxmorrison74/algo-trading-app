@@ -9,7 +9,7 @@ const COOKIE_NOTICE_ACK_KEY = 'aureo_cookie_notice_ack_v1';
 const BILLING_ENABLED = true;
 const SYMBOL_REVIEW_HASH_PREFIX = '#review=';
 const SITE_URL = 'https://aureoos.it/';
-const PRIVACY_CONTACT_EMAIL = 'info@maxmorrison.it';
+const PRIVACY_CONTACT_EMAIL = 'maxmorrison@gmail.com';
 const LEGAL_UPDATED_AT = '20 luglio 2026';
 const TAB_TITLES = {
   home: 'Dashboard',
