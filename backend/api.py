@@ -3337,6 +3337,86 @@ async def rotate_signal_hub_token(_: str = Depends(require_admin)):
     }
 
 
+@app.post("/api/signal-hub/test")
+async def test_signal_hub(_: str = Depends(require_admin)):
+    config = ensure_signal_hub_config(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
+    source = next((item for item in (config.get("allowed_sources") or []) if str(item).strip()), "webhook")
+    top_pick_symbol = (((getattr(bot_state, "status_data", {}) or {}).get("symbol_allocation") or {}).get("top_pick") or {}).get("symbol")
+    watchlist_symbols = getattr(bot_state, "symbols", []) or []
+    symbol = str(top_pick_symbol or (watchlist_symbols[0] if watchlist_symbols else "AAPL")).strip().upper()
+    preferred_signal = "BUY" if config.get("accept_buy") else ("SELL" if config.get("accept_sell") else "HOLD")
+    confidence = min(99, max(int(config.get("min_confidence", 70)) + 8, 75))
+    timeframe = "15m"
+
+    signal_context = build_signal_context_snapshot(symbol=symbol, confidence=confidence, source=source, target_state=bot_state)
+    fits_watchlist = signal_context["watchlist_match"]
+    meets_alignment = signal_context["alignment_score"] >= config["min_alignment_score"]
+    meets_playbook = signal_context["playbook_fit_score"] >= config["min_playbook_fit"]
+    side_allowed = (
+        (preferred_signal == "BUY" and config["accept_buy"]) or
+        (preferred_signal == "SELL" and config["accept_sell"]) or
+        preferred_signal not in {"BUY", "SELL"}
+    )
+    accepted = config["enabled"] and side_allowed and confidence >= config["min_confidence"] and meets_alignment and meets_playbook and (
+        fits_watchlist or not config["require_watchlist_match"]
+    )
+
+    decision_reasons = []
+    if not config["enabled"]:
+        decision_reasons.append("hub spento")
+    if not side_allowed:
+        decision_reasons.append(f"lato {preferred_signal} non abilitato")
+    if confidence < config["min_confidence"]:
+        decision_reasons.append(f"confidenza sotto soglia ({confidence}% < {config['min_confidence']}%)")
+    if config["require_watchlist_match"] and not fits_watchlist:
+        decision_reasons.append("simbolo fuori watchlist")
+    if not meets_playbook:
+        decision_reasons.append(f"fit playbook basso ({signal_context['playbook_fit_score']}/100)")
+    if not meets_alignment:
+        decision_reasons.append(f"alignment basso ({signal_context['alignment_score']}/100)")
+
+    event = {
+        "received_at": datetime.now().isoformat(),
+        "source": source,
+        "symbol": symbol,
+        "signal": preferred_signal,
+        "confidence": confidence,
+        "timeframe": timeframe,
+        "price": None,
+        "note": "Test interno lanciato dal pannello admin",
+        "accepted": accepted,
+        "alignment_score": signal_context["alignment_score"],
+        "playbook_fit_score": signal_context["playbook_fit_score"],
+        "ranking_score": signal_context["ranking_score"],
+        "watchlist_match": signal_context["watchlist_match"],
+        "source_weight": signal_context["source_weight"],
+        "decision_reason": "Test promosso dal desk filter" if accepted else " · ".join(decision_reasons[:3]) or "Test filtrato dal desk filter",
+        "regime_label": (signal_context["regime"] or {}).get("label"),
+    }
+    config["recent_signals"].insert(0, event)
+    config["recent_signals"] = config["recent_signals"][:25]
+    config["last_signal_at"] = event["received_at"]
+    config["last_signal_summary"] = f"TEST {preferred_signal} {symbol} · conf {confidence}% · align {signal_context['alignment_score']}/100"
+    bot_state.signal_hub = config
+    bot_state.save_state()
+    bot_state.add_log(
+        f"{'🟢' if accepted else '🟡'} SIGNAL HUB TEST {preferred_signal} {symbol} conf {confidence}% · "
+        f"align {signal_context['alignment_score']}/100 · fit {signal_context['playbook_fit_score']}/100"
+    )
+    public_snapshot = build_public_signal_hub_snapshot(config)
+    return {
+        "status": "ok",
+        "accepted": accepted,
+        "event": event,
+        "config": {
+            **config,
+            "metrics": public_snapshot["metrics"],
+            "source_matrix": public_snapshot["source_matrix"],
+            "webhook_url": f"{APP_BASE_URL}/api/signal-hub/webhook/{config['token']}",
+        },
+    }
+
+
 @app.post("/api/signal-hub/webhook/{token}")
 async def signal_hub_webhook(token: str, payload: dict):
     config = ensure_signal_hub_config(getattr(bot_state, "signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))

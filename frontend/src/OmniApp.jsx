@@ -4065,6 +4065,31 @@ function OmniAppInner() {
       setSignalHubBusy(false);
     }
   }, [userRole, pushNotice]);
+  const runSignalHubTest = React.useCallback(async () => {
+    if (userRole !== 'admin') return;
+    setSignalHubBusy(true);
+    try {
+      const res = await authFetch('/api/signal-hub/test', { method: 'POST' });
+      const data = await parseJsonSafely(res, {});
+      if (!res.ok) {
+        throw new Error(data?.detail || 'Test Signal Hub non riuscito');
+      }
+      if (data?.config) {
+        setSignalHubConfig(data.config);
+        setStatus((prev) => ({ ...prev, signal_hub: data.config }));
+      }
+      pushNotice(
+        data?.accepted ? 'success' : 'warning',
+        data?.accepted ? 'Test promosso' : 'Test filtrato',
+        data?.event?.decision_reason || 'Test completato.',
+        3200
+      );
+    } catch (error) {
+      pushNotice('error', 'Test non riuscito', error.message || 'Impossibile eseguire il test interno.');
+    } finally {
+      setSignalHubBusy(false);
+    }
+  }, [userRole, pushNotice]);
   useEffect(() => {
     const config = status?.options_lab?.config;
     if (!config || typeof config !== 'object') return;
@@ -7757,6 +7782,15 @@ function OmniAppInner() {
                     },
                   },
                 ];
+                const signalHubTestPayload = {
+                  source: 'webhook',
+                  symbol: 'CHWY',
+                  signal: 'BUY',
+                  confidence: 82,
+                  timeframe: '15m',
+                  price: 0,
+                  note: 'Test manuale Signal Hub',
+                };
 
                 return (
                   <div style={{ marginBottom: '1rem', padding: '0.95rem 1rem', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(56,189,248,0.08), rgba(15,23,42,0.55))', border: '1px solid rgba(56,189,248,0.18)' }}>
@@ -7813,6 +7847,34 @@ function OmniAppInner() {
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={signalHubBusy}
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(JSON.stringify(signalHubTestPayload, null, 2));
+                            pushNotice('success', 'Payload test copiato', 'Pronto da usare per webhook manuali o automazioni esterne.', 2400);
+                          } catch {
+                            pushNotice('warning', 'Copia non riuscita', 'Riprova o copia il payload manualmente.');
+                          }
+                        }}
+                        style={{ padding: '0.55rem 0.9rem', background: 'rgba(244,114,182,0.10)', border: '1px solid rgba(244,114,182,0.30)', color: '#f9a8d4' }}
+                      >
+                        Copia test webhook
+                      </button>
+                      <button
+                        type="button"
+                        className="btn"
+                        disabled={signalHubBusy}
+                        onClick={runSignalHubTest}
+                        style={{ padding: '0.55rem 0.9rem', background: 'rgba(16,185,129,0.12)', border: '1px solid rgba(16,185,129,0.35)', color: '#6ee7b7' }}
+                      >
+                        Prova connessione
+                      </button>
                     </div>
 
                     <div style={{ color: '#94a3b8', fontSize: '0.78rem', lineHeight: 1.45 }}>
