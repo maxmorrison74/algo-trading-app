@@ -7712,6 +7712,116 @@ function OmniAppInner() {
 
           {userRole === 'admin' ? (
             <>
+              {(() => {
+                const signalHubPresets = [
+                  {
+                    id: 'stock-buy',
+                    label: 'Copia preset Azioni BUY',
+                    tone: '#38bdf8',
+                    payload: {
+                      source: 'tradingview',
+                      symbol: '{{ticker}}',
+                      signal: 'BUY',
+                      confidence: 76,
+                      timeframe: '{{interval}}',
+                      price: '{{close}}',
+                      note: 'Stock momentum / breakout',
+                    },
+                  },
+                  {
+                    id: 'crypto-buy',
+                    label: 'Copia preset Crypto BUY',
+                    tone: '#a78bfa',
+                    payload: {
+                      source: 'tradingview',
+                      symbol: '{{ticker}}',
+                      signal: 'BUY',
+                      confidence: 74,
+                      timeframe: '{{interval}}',
+                      price: '{{close}}',
+                      note: 'Crypto momentum',
+                    },
+                  },
+                  {
+                    id: 'sell-exit',
+                    label: 'Copia preset Exit SELL',
+                    tone: '#f59e0b',
+                    payload: {
+                      source: 'tradingview',
+                      symbol: '{{ticker}}',
+                      signal: 'SELL',
+                      confidence: 80,
+                      timeframe: '{{interval}}',
+                      price: '{{close}}',
+                      note: 'Exit signal / loss of strength',
+                    },
+                  },
+                ];
+
+                return (
+                  <div style={{ marginBottom: '1rem', padding: '0.95rem 1rem', borderRadius: '14px', background: 'linear-gradient(135deg, rgba(56,189,248,0.08), rgba(15,23,42,0.55))', border: '1px solid rgba(56,189,248,0.18)' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.9rem', alignItems: 'flex-start', flexWrap: 'wrap', marginBottom: '0.85rem' }}>
+                      <div>
+                        <div style={{ color: '#e0f2fe', fontWeight: 800, marginBottom: '0.22rem' }}>Collega un feed esterno in modo semplice</div>
+                        <div style={{ color: '#94a3b8', fontSize: '0.84rem', lineHeight: 1.5, maxWidth: '760px' }}>
+                          Se usi TradingView, crea un alert, attiva <strong style={{ color: '#f8fafc' }}>Webhook URL</strong>, incolla l’URL qui sotto e poi nel campo <strong style={{ color: '#f8fafc' }}>Message</strong> usa uno dei preset pronti.
+                        </div>
+                      </div>
+                      <div className="badge" style={{ color: '#7dd3fc', borderColor: 'rgba(56,189,248,0.28)', background: 'rgba(56,189,248,0.12)' }}>
+                        TradingView non è obbligatorio
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.65rem', marginBottom: '0.85rem' }}>
+                      {[
+                        ['1', 'Apri l’alert', 'Grafico → Alert → Create Alert'],
+                        ['2', 'Incolla la URL', 'Nel campo Webhook URL di TradingView'],
+                        ['3', 'Incolla il JSON', 'Nel campo Message con uno dei preset qui sotto'],
+                      ].map(([step, title, detail]) => (
+                        <div key={step} style={{ padding: '0.8rem 0.85rem', borderRadius: '12px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
+                          <div style={{ color: '#38bdf8', fontSize: '0.72rem', fontWeight: 900, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '0.25rem' }}>Step {step}</div>
+                          <div style={{ color: '#f8fafc', fontWeight: 700, marginBottom: '0.16rem' }}>{title}</div>
+                          <div style={{ color: '#94a3b8', fontSize: '0.8rem', lineHeight: 1.4 }}>{detail}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '0.55rem', marginBottom: '0.85rem' }}>
+                      <div style={{ color: '#cbd5e1', fontWeight: 700 }}>Preset copiabili</div>
+                      <div style={{ display: 'flex', gap: '0.55rem', flexWrap: 'wrap' }}>
+                        {signalHubPresets.map((preset) => (
+                          <button
+                            key={preset.id}
+                            type="button"
+                            className="btn"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(JSON.stringify(preset.payload, null, 2));
+                                pushNotice('success', 'Preset copiato', `${preset.label} pronto da incollare nel messaggio dell’alert.`, 2400);
+                              } catch {
+                                pushNotice('warning', 'Copia non riuscita', 'Riprova o copia il preset manualmente.');
+                              }
+                            }}
+                            style={{
+                              padding: '0.55rem 0.9rem',
+                              background: `${preset.tone}14`,
+                              border: `1px solid ${preset.tone}44`,
+                              color: preset.tone,
+                            }}
+                          >
+                            {preset.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ color: '#94a3b8', fontSize: '0.78rem', lineHeight: 1.45 }}>
+                      Se non vuoi pagare TradingView, il Signal Hub può ricevere webhook anche da un tuo script, da `n8n`, da `Make` o da un feed custom.
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.7rem', marginBottom: '1rem' }}>
                 {[
                   ['Promossi', signalHubConfig?.metrics?.accepted_count ?? 0, '#10b981'],
