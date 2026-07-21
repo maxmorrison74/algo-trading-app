@@ -10150,6 +10150,34 @@ function OmniAppInner() {
         badge: 'Access',
       },
     ];
+    const landingSearchUseCases = [
+      {
+        title: 'Trading bot crypto con più controllo',
+        text: 'Se cerchi un crypto trading bot che non sia solo automazione cieca, Aureo ti dà contesto, lettura del rischio e stato operativo sempre visibile.',
+      },
+      {
+        title: 'Software trading azioni più leggibile',
+        text: 'Se vuoi seguire titoli, watchlist, momentum e setup senza perderti tra tab e piattaforme diverse, qui trovi un flusso molto più ordinato.',
+      },
+      {
+        title: 'Segnali trading AI dentro una dashboard unica',
+        text: 'Aureo raccoglie segnali, priorità operative e protezioni in una sola dashboard investimenti pensata per essere chiara anche nell’uso quotidiano.',
+      },
+    ];
+    const landingComparisonPoints = [
+      {
+        title: 'Meno caos, più continuità',
+        text: 'Non devi comporre dieci servizi esterni: Aureo mette insieme segnali, monitoraggio, protezioni e accesso in un ambiente unico.',
+      },
+      {
+        title: 'Più leggibile per utenti reali',
+        text: 'Non serve essere tecnici per orientarti: la struttura ti aiuta a capire subito cosa guardare e cosa conta adesso.',
+      },
+      {
+        title: 'Più adatto a essere usato davvero',
+        text: 'Un conto è una demo rumorosa, un conto è una control room che puoi tenere aperta ogni giorno con chiarezza e disciplina.',
+      },
+    ];
     const landingMarketProof = [
       { value: 'Control room', label: 'AI, monitoring, risk e security convivono nello stesso spazio con eleganza' },
       { value: 'Approval', label: 'l’abilitazione finale resta sempre nelle tue mani, senza perdere fluidità' },
@@ -10259,6 +10287,7 @@ function OmniAppInner() {
             </a>
             <div className="sales-nav-links">
               <a href="#landing-features">Funzionalità</a>
+              <a href="#landing-markets">Mercati</a>
               <a href="#landing-assurance">Garanzie</a>
               <a href="#landing-flow">Percorso</a>
               <a href="#landing-pricing">Step</a>
@@ -10407,6 +10436,22 @@ function OmniAppInner() {
               </div>
             </section>
 
+            <section className="sales-section sales-section--soft" id="landing-markets">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Dove Aureo ti aiuta davvero</div>
+                <h2>Crypto, azioni, segnali AI e dashboard investimenti: qui capisci subito in cosa può esserti utile</h2>
+                <p>Queste sono le ricerche reali con cui gli utenti arrivano a una piattaforma come Aureo. Noi le trasformiamo in un’esperienza più ordinata, più premium e più concreta.</p>
+              </div>
+              <div className="sales-support-grid">
+                {landingSearchUseCases.map((item) => (
+                  <article key={item.title} className="sales-support-card">
+                    <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
             <section className="sales-section sales-section--assurance" id="landing-assurance">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Perché ti dà fiducia</div>
@@ -10450,6 +10495,22 @@ function OmniAppInner() {
                   <article key={item.title} className="sales-module-card">
                     <div className="sales-module-badge">{item.badge}</div>
                     <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="sales-section sales-section--enterprise">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Perché Aureo resta sopra</div>
+                <h2>La differenza non è solo nelle funzioni: è nel modo in cui le usi ogni giorno</h2>
+                <p>Molte piattaforme promettono trading automatico. Poche ti aiutano davvero a leggere meglio il mercato, a gestire il rischio e a restare lucido mentre operi.</p>
+              </div>
+              <div className="sales-enterprise-grid">
+                {landingComparisonPoints.map((item) => (
+                  <article key={item.title} className="sales-enterprise-card">
+                    <div className="sales-enterprise-card-kicker">{item.title}</div>
                     <p>{item.text}</p>
                   </article>
                 ))}
@@ -10722,6 +10783,7 @@ function OmniAppInner() {
                 <div className="sales-footer-links">
                   <h4>Prodotto</h4>
                   <a href="#landing-features">Funzionalità</a>
+                  <a href="#landing-markets">Mercati</a>
                   <a href="#landing-assurance">Garanzie</a>
                   <a href="#landing-pricing">Step</a>
                 </div>
