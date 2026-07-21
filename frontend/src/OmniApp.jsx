@@ -4278,8 +4278,10 @@ function OmniAppInner() {
     clearAuthSession();
     return false;
   };
-  const [isAuthenticated, setIsAuthenticated] = useState(checkAuthMemory());
-  const [showLanding, setShowLanding] = useState(true);
+  const initialAuthenticated = checkAuthMemory();
+  const initialDemoMode = isDemoSession();
+  const [isAuthenticated, setIsAuthenticated] = useState(initialAuthenticated);
+  const [showLanding, setShowLanding] = useState(!(initialAuthenticated || initialDemoMode));
   const [seoLandingPage, setSeoLandingPage] = useState(() => resolveLandingSeoPageFromSearch());
   const [showLandingPlans, setShowLandingPlans] = useState(false);
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
@@ -4359,7 +4361,7 @@ function OmniAppInner() {
     setIsAuthenticated(false);
     setShowLanding(true);
   };
-  const [isDemoMode, setIsDemoMode] = useState(isDemoSession());
+  const [isDemoMode, setIsDemoMode] = useState(initialDemoMode);
 
   const [password, setPassword] = useState('');
   const [email, setEmail] = useState('');
@@ -4703,6 +4705,12 @@ function OmniAppInner() {
   }, [showLanding, appShellReady]);
 
   useEffect(() => {
+    if (isAuthenticated || isDemoMode) {
+      setShowLanding(false);
+    }
+  }, [isAuthenticated, isDemoMode]);
+
+  useEffect(() => {
     if (typeof document === 'undefined') return;
     if (showLanding) {
       const meta = activeLandingSeoGuide
@@ -4775,6 +4783,7 @@ function OmniAppInner() {
     safeStorageSet(DEMO_MODE_KEY, '1');
     setIsDemoMode(true);
     setIsAuthenticated(true);
+    setShowLanding(false);
     setLoginError('');
     setPassword('');
     setActiveTab('home');
@@ -4936,6 +4945,7 @@ function OmniAppInner() {
     setIsAuthenticated(true);
     const demo = (status === 'pending');
     setIsDemoMode(demo);
+    setShowLanding(false);
     setUserRole(role);
     setUserStatus(status);
     setEmail(role === 'admin' ? '' : loginEmail);

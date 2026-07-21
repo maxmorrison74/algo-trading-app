@@ -3,6 +3,22 @@ import { createRoot } from 'react-dom/client'
 import './landing.css'
 import OmniApp from './OmniApp.jsx'
 
+try {
+  const authToken = window?.localStorage?.getItem('omni_auth_token')
+  const authTime = window?.localStorage?.getItem('omni_auth_time')
+  const demoMode = window?.localStorage?.getItem('omni_demo_mode') === '1'
+  const authValid = Boolean(
+    authToken &&
+    authTime &&
+    Number.isFinite(Number(authTime)) &&
+    Date.now() - Number(authTime) < 24 * 60 * 60 * 1000,
+  )
+
+  if (authValid || demoMode) {
+    import('./app-shell.css')
+  }
+} catch {}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <OmniApp />
