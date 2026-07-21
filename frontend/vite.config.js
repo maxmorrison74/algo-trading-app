@@ -6,6 +6,14 @@ export default defineConfig({
   plugins: [react()],
   build: {
     chunkSizeWarningLimit: 550,
+    modulePreload: {
+      resolveDependencies: (filename, deps) => {
+        if (filename.includes('index-')) {
+          return deps.filter((dep) => !dep.includes('charts-vendor'))
+        }
+        return deps
+      },
+    },
     rollupOptions: {
       output: {
         manualChunks(id) {
