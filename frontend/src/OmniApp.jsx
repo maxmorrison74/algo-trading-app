@@ -4785,6 +4785,7 @@ function OmniAppInner() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (showLanding) return;
     const syncFromHash = () => {
       const hashSymbol = getSymbolFromHash(window.location.hash);
       if (hashSymbol) {
@@ -4795,7 +4796,7 @@ function OmniAppInner() {
     syncFromHash();
     window.addEventListener('hashchange', syncFromHash);
     return () => window.removeEventListener('hashchange', syncFromHash);
-  }, []);
+  }, [showLanding]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -4820,12 +4821,13 @@ function OmniAppInner() {
   }, []);
 
   useEffect(() => {
+    if (showLanding) return;
     if (!isAuthenticated || isDemoMode) {
       if (!isAuthenticated) setUserProfile(null);
       return;
     }
     loadUserProfile();
-  }, [isAuthenticated, isDemoMode, loadUserProfile]);
+  }, [isAuthenticated, isDemoMode, loadUserProfile, showLanding]);
 
   const enterDemoMode = () => {
     safeStorageSet(DEMO_MODE_KEY, '1');
@@ -4849,6 +4851,7 @@ function OmniAppInner() {
   }, []);
 
   useEffect(() => {
+    if (showLanding) return;
     const scope = getStatusScope(activeTab);
     const pollingMs = getStatusPollingMs(activeTab);
 
@@ -4889,9 +4892,10 @@ function OmniAppInner() {
       clearInterval(interval);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [activeTab]);
+  }, [activeTab, showLanding]);
 
   useEffect(() => {
+    if (showLanding) return;
     if (!selectedSymbol || !['trading', 'charts', 'symbol_review'].includes(activeTab)) return;
     const controller = new AbortController();
     const fetchChart = async () => {
@@ -4919,15 +4923,17 @@ function OmniAppInner() {
     };
     fetchChart();
     return () => controller.abort();
-  }, [selectedSymbol, timeframe, activeTab]);
+  }, [selectedSymbol, timeframe, activeTab, showLanding]);
 
   useEffect(() => {
+    if (showLanding) return;
     if (activeTab !== 'trading' || userRole !== 'admin') return;
     if (signalHubConfig) return;
     loadSignalHubConfig();
-  }, [activeTab, userRole, signalHubConfig, loadSignalHubConfig]);
+  }, [activeTab, userRole, signalHubConfig, loadSignalHubConfig, showLanding]);
 
   useEffect(() => {
+    if (showLanding) return;
     if (!symbolsList.length) return;
 
     const nextSnapshot = {};
@@ -4982,7 +4988,7 @@ function OmniAppInner() {
     if (newAlerts.length) {
       setTradingAlerts((prev) => [...newAlerts, ...prev].slice(0, 12));
     }
-  }, [symbolsList, symbolDiagnostics]);
+  }, [symbolsList, symbolDiagnostics, showLanding]);
 
   const completeAuthenticatedSession = (token, role = 'user', status = 'active', loginEmail = '') => {
     setIsAuthenticated(true);
