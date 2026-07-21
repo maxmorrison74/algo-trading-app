@@ -3653,6 +3653,7 @@ function OmniAppInner() {
     notes: 'Paper-only lab. Nessun invio automatico ordini.',
   });
   const [optionsLabSaving, setOptionsLabSaving] = useState(false);
+  const [optionsLabExecuting, setOptionsLabExecuting] = useState(false);
   const [symbolReviewReturnTab, setSymbolReviewReturnTab] = useState('trading');
   const [tradingViewFilter, setTradingViewFilter] = useState('all');
   const [tradingAlerts, setTradingAlerts] = useState([]);
@@ -5365,6 +5366,8 @@ function OmniAppInner() {
     const snapshot = status?.options_lab || {};
     const plan = snapshot?.plan || {};
     const warnings = Array.isArray(plan?.warnings) ? plan.warnings : [];
+    const optionOrders = Array.isArray(snapshot?.orders) ? snapshot.orders : [];
+    const optionPositions = Array.isArray(snapshot?.positions) ? snapshot.positions : [];
 
     const saveOptionsLabConfig = async () => {
       if (userRole !== 'admin' || optionsLabSaving) return;
@@ -5393,13 +5396,29 @@ function OmniAppInner() {
       }
     };
 
+    const executeOptionsLabTrade = async () => {
+      if (userRole !== 'admin' || optionsLabExecuting) return;
+      setOptionsLabExecuting(true);
+      try {
+        const res = await authFetch('/api/options-lab/execute', { method: 'POST' });
+        const data = await parseJsonSafely(res, {});
+        if (!res.ok) throw new Error(data?.detail || 'Invio ordine non riuscito');
+        setStatus((prev) => ({ ...prev, options_lab: data.options_lab }));
+        pushNotice('success', 'SPY 0DTE paper inviato', data?.message || 'Ordine multi-leg inviato ad Alpaca Paper.', 3000);
+      } catch (error) {
+        pushNotice('error', 'Ordine non inviato', error.message || 'Errore durante l’invio ordine opzioni.');
+      } finally {
+        setOptionsLabExecuting(false);
+      }
+    };
+
     return (
       <div className="module-content module-content--develop">
         <div className="card develop-hero-card" style={{ marginBottom: '1.5rem' }}>
           <div className="develop-hero-top">
             <div>
               <h2 style={{ margin: 0 }}>🧪 Options Lab</h2>
-              <div className="develop-hero-subtitle">Sandbox admin per SPY 0DTE. Solo paper, nessun ordine automatico, solo struttura e guardrail.</div>
+              <div className="develop-hero-subtitle">Desk admin per SPY 0DTE in paper: chain reale, spread multi-leg, guardrail e invio manuale controllato.</div>
             </div>
             <div className="develop-hero-badges">
               <div className={`badge ${plan?.paper_guard_ok ? 'badge-active' : 'badge-danger'}`}>{plan?.account_mode || 'ACCOUNT N/D'}</div>
@@ -5429,7 +5448,7 @@ function OmniAppInner() {
           <div className="card col-span-7">
             <div className="card-title">Playbook paper 0DTE</div>
             <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem', lineHeight: 1.55 }}>
-              {plan?.thesis || 'Il lab costruisce una bozza paper su SPY e ti mostra i livelli stimati, senza mandare ordini al broker.'}
+              {plan?.thesis || 'Il lab costruisce un vertical spread 0DTE su SPY usando chain reale e lo prepara per un invio paper manuale.'}
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
               {[
@@ -5437,6 +5456,7 @@ function OmniAppInner() {
                 { label: 'Long strike', value: plan?.long_strike ?? '—' },
                 { label: 'Contratti', value: plan?.contracts ?? optionsLabDraft.contracts ?? 1 },
                 { label: plan?.strategy === 'bull_put_spread' ? 'Credito stimato' : 'Debito stimato', value: plan?.estimated_credit_per_spread ? `$${Number(plan.estimated_credit_per_spread).toFixed(2)}` : plan?.estimated_debit_per_spread ? `$${Number(plan.estimated_debit_per_spread).toFixed(2)}` : '—' },
+                { label: 'Prezzo limite', value: plan?.estimated_limit_price ? `$${Number(plan.estimated_limit_price).toFixed(2)}` : '—' },
                 { label: 'Max loss stimata', value: plan?.estimated_max_loss_usd ? `$${Number(plan.estimated_max_loss_usd).toFixed(2)}` : '—', tone: Number(plan?.estimated_max_loss_usd || 0) > Number(plan?.max_risk_usd || 0) ? '#ef4444' : '#10b981' },
               ].map((item) => (
                 <div
@@ -5461,6 +5481,19 @@ function OmniAppInner() {
                 </div>
               ))}
             </div>
+            {!!plan?.legs?.length && (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
+                {plan.legs.map((leg) => (
+                  <div key={leg.symbol} style={{ padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                    <div style={{ color: '#e2e8f0', fontWeight: 800 }}>{leg.side?.toUpperCase()} · {leg.position_intent?.replaceAll('_', ' ')}</div>
+                    <div style={{ color: '#93c5fd', marginTop: '0.3rem', wordBreak: 'break-word' }}>{leg.symbol}</div>
+                    <div style={{ color: 'var(--text-secondary)', marginTop: '0.4rem', fontSize: '0.9rem' }}>
+                      Strike {Number(leg.strike_price || 0).toFixed(0)} · Mark ${Number(leg.mark_price || 0).toFixed(2)} · Exp {leg.expiration_date || '—'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
             {warnings.length ? (
               <div style={{ display: 'grid', gap: '0.55rem', marginTop: '1rem' }}>
                 {warnings.map((warning, index) => (
@@ -5469,9 +5502,22 @@ function OmniAppInner() {
               </div>
             ) : (
               <div style={{ marginTop: '1rem', padding: '0.75rem 0.85rem', borderRadius: '12px', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)', color: '#10b981' }}>
-                Guardrail ok: il lab è confinato in paper e il piano stimato resta leggibile e controllato.
+                Guardrail ok: spread paper pronto, chain reale presente e nessun ordine/posizione SPY options già aperti.
               </div>
             )}
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', marginTop: '1rem' }}>
+              <button
+                type="button"
+                className={`btn ${plan?.is_ready ? 'btn-start' : 'btn-outline'}`}
+                onClick={executeOptionsLabTrade}
+                disabled={userRole !== 'admin' || optionsLabExecuting || !plan?.is_ready}
+              >
+                {optionsLabExecuting ? 'Invio in corso…' : 'Invia spread paper'}
+              </button>
+              <div className={`badge ${plan?.is_ready ? 'badge-active' : 'badge-danger'}`}>
+                {plan?.is_ready ? 'READY TO SEND' : 'NOT READY'}
+              </div>
+            </div>
           </div>
 
           <div className="card col-span-5">
@@ -5506,6 +5552,47 @@ function OmniAppInner() {
               <button type="button" className="btn" onClick={saveOptionsLabConfig} disabled={userRole !== 'admin' || optionsLabSaving}>
                 {optionsLabSaving ? 'Salvo…' : 'Salva Options Lab'}
               </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="dashboard-grid" style={{ marginTop: '1rem' }}>
+          <div className="card col-span-6">
+            <div className="card-title">Ordini options recenti</div>
+            <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
+              {optionOrders.length ? optionOrders.map((order) => (
+                <div key={order.id} style={{ padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#e2e8f0' }}>{String(order.status || 'N/D').toUpperCase()}</strong>
+                    <span style={{ color: 'var(--text-secondary)' }}>{order.created_at ? new Date(order.created_at).toLocaleString() : '—'}</span>
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
+                    Qty {Number(order.qty || 0)} · Limit {order.limit_price ? `$${Number(order.limit_price).toFixed(2)}` : '—'} · Fill {order.filled_avg_price ? `$${Number(order.filled_avg_price).toFixed(2)}` : '—'}
+                  </div>
+                  {!!order.legs?.length && (
+                    <div style={{ color: '#93c5fd', marginTop: '0.45rem', fontSize: '0.9rem', wordBreak: 'break-word' }}>
+                      {order.legs.map((leg) => `${leg.side?.toUpperCase()} ${leg.symbol}`).join(' • ')}
+                    </div>
+                  )}
+                </div>
+              )) : <div style={{ color: 'var(--text-secondary)' }}>Nessun ordine options recente su SPY.</div>}
+            </div>
+          </div>
+
+          <div className="card col-span-6">
+            <div className="card-title">Posizioni options aperte</div>
+            <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
+              {optionPositions.length ? optionPositions.map((position) => (
+                <div key={position.symbol} style={{ padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <strong style={{ color: '#93c5fd', wordBreak: 'break-word' }}>{position.symbol}</strong>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
+                    Qty {Number(position.qty || 0)} · Entry {position.avg_entry_price ? `$${Number(position.avg_entry_price).toFixed(2)}` : '—'} · MV {position.market_value ? `$${Number(position.market_value).toFixed(2)}` : '—'}
+                  </div>
+                  <div style={{ color: Number(position.unrealized_pl || 0) >= 0 ? '#10b981' : '#ef4444', marginTop: '0.35rem' }}>
+                    Unrealized P&L {Number(position.unrealized_pl || 0) >= 0 ? '+' : ''}${Number(position.unrealized_pl || 0).toFixed(2)}
+                  </div>
+                </div>
+              )) : <div style={{ color: 'var(--text-secondary)' }}>Nessuna posizione options aperta su SPY.</div>}
             </div>
           </div>
         </div>

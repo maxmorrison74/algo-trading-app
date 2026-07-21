@@ -327,7 +327,7 @@ DEFAULT_OPTIONS_LAB_CONFIG = {
     "entry_start_et": "09:45",
     "entry_end_et": "11:30",
     "max_risk_usd": 275,
-    "notes": "Paper-only lab. Nessun invio automatico ordini.",
+    "notes": "Paper-only lab con esecuzione manuale controllata.",
 }
 
 def ensure_options_lab_config(config):
@@ -1533,6 +1533,57 @@ def save_options_lab_config(payload: dict, user: dict = Depends(require_user)):
     target_state.save_state()
     return {"status": "ok", "options_lab": build_options_lab_snapshot(target_state, user_id)}
 
+
+@app.post("/api/options-lab/execute")
+def execute_options_lab_trade(user: dict = Depends(require_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Solo admin")
+
+    from options_trading import submit_multileg_order
+
+    user_id = user.get("sub", "admin")
+    target_state = get_user_bot_state(user_id)
+    snapshot = build_options_lab_snapshot(target_state, user_id)
+    config = snapshot.get("config") or {}
+    plan = snapshot.get("plan") or {}
+
+    if not bool(config.get("enabled")):
+        raise HTTPException(status_code=400, detail="Options Lab non abilitato")
+    if not bool(config.get("paper_only", True)):
+        raise HTTPException(status_code=400, detail="Per sicurezza l'esecuzione è concessa solo in modalità paper")
+    if not bool(plan.get("paper_guard_ok")):
+        raise HTTPException(status_code=400, detail="Account Alpaca non paper: esecuzione bloccata")
+    if not bool(plan.get("is_ready")):
+        reason = (plan.get("warnings") or ["Piano non pronto per l'esecuzione"])[0]
+        raise HTTPException(status_code=400, detail=reason)
+    if plan.get("has_open_orders") or plan.get("has_open_positions"):
+        raise HTTPException(status_code=400, detail="Esiste già un ordine o una posizione SPY options aperta")
+
+    engine = get_user_alpaca_engine(user_id)
+    api_key = str(getattr(engine, "alpaca_key", "") or "").strip()
+    api_secret = str(getattr(engine, "alpaca_secret", "") or "").strip()
+    base_url = str(getattr(engine, "alpaca_base", "") or "").strip()
+    if not api_key or not api_secret or not base_url:
+        raise HTTPException(status_code=400, detail="Chiavi Alpaca non disponibili")
+
+    try:
+        execution = submit_multileg_order(
+            api_key=api_key,
+            api_secret=api_secret,
+            base_url=base_url,
+            plan=plan,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    refreshed = build_options_lab_snapshot(target_state, user_id)
+    return {
+        "status": "ok",
+        "message": "Ordine SPY 0DTE paper inviato",
+        "execution": execution,
+        "options_lab": refreshed,
+    }
+
 @app.get("/api/capital/status")
 def capital_status():
     """Stato gestione capitale"""
@@ -1928,6 +1979,7 @@ def get_yf_symbol(symbol):
     return symbol.replace("/", "-")
 
 def build_options_lab_snapshot(bot_state, user_id="admin"):
+    from options_trading import build_zero_dte_trade_plan, list_option_orders, list_option_positions
     config = ensure_options_lab_config(getattr(bot_state, "options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
     warnings = []
     underlying = config.get("underlying", "SPY")
@@ -1953,6 +2005,10 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
     contracts = int(config.get("contracts", 1) or 1)
     offset_pct = float(config.get("short_put_offset_pct", 0.15) or 0.15)
     strategy = str(config.get("strategy") or "bull_put_spread")
+    alpaca_key = str(getattr(engine, "alpaca_key", "") or "").strip()
+    alpaca_secret = str(getattr(engine, "alpaca_secret", "") or "").strip()
+    options_orders = []
+    options_positions = []
 
     plan = {
         "underlying": underlying,
@@ -1971,39 +2027,78 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
         "notes": config.get("notes") or "",
     }
 
-    if quote_price and quote_price > 0:
-        rounded_price = round(quote_price, 2)
-        if strategy == "bull_put_spread":
-            short_strike = math.floor(rounded_price * (1 - (offset_pct / 100.0)))
-            long_strike = short_strike - spread_width
-            est_credit = round(max(0.25, min(spread_width * 0.42, spread_width * 0.28)), 2)
-            max_loss = round(((spread_width - est_credit) * 100.0) * contracts, 2)
-            plan.update({
-                "short_strike": short_strike,
-                "long_strike": long_strike,
-                "estimated_credit_per_spread": est_credit,
-                "estimated_max_loss_usd": max_loss,
-                "thesis": "Scenario rialzista moderato: il sottostante deve restare sopra la short put.",
-            })
-        else:
-            long_strike = math.ceil(rounded_price)
-            short_strike = long_strike + spread_width
-            est_debit = round(max(0.35, min(spread_width * 0.55, spread_width * 0.34)), 2)
-            max_loss = round((est_debit * 100.0) * contracts, 2)
-            plan.update({
-                "long_strike": long_strike,
-                "short_strike": short_strike,
-                "estimated_debit_per_spread": est_debit,
-                "estimated_max_loss_usd": max_loss,
-                "thesis": "Scenario rialzista moderato: il sottostante deve salire sopra la long call e idealmente verso la short call.",
-            })
+    if quote_price and quote_price > 0 and alpaca_key and alpaca_secret and base_url:
+        try:
+            live_plan = build_zero_dte_trade_plan(
+                api_key=alpaca_key,
+                api_secret=alpaca_secret,
+                base_url=base_url,
+                underlying_symbol=underlying,
+                strategy=strategy,
+                quote_price=quote_price,
+                spread_width_points=spread_width,
+                contracts=contracts,
+                short_put_offset_pct=offset_pct,
+                max_risk_usd=plan["max_risk_usd"],
+                feed="indicative",
+            )
+            warnings.extend(list(live_plan.get("warnings") or []))
+            if live_plan.get("ready"):
+                if strategy == "bull_put_spread":
+                    plan["thesis"] = "Scenario rialzista moderato: il sottostante deve restare sopra la short put."
+                    plan["estimated_credit_per_spread"] = round(float(live_plan.get("estimated_net_price") or 0), 2)
+                else:
+                    plan["thesis"] = "Scenario rialzista moderato: il sottostante deve salire sopra la long call e idealmente verso la short call."
+                    plan["estimated_debit_per_spread"] = round(float(live_plan.get("estimated_net_price") or 0), 2)
+                if live_plan.get("legs"):
+                    plan["short_strike"] = next((leg.get("strike_price") for leg in live_plan["legs"] if leg.get("side") == "sell"), None)
+                    plan["long_strike"] = next((leg.get("strike_price") for leg in live_plan["legs"] if leg.get("side") == "buy"), None)
+                plan["estimated_max_loss_usd"] = round(float(live_plan.get("estimated_max_loss_usd") or 0), 2)
+                plan["estimated_limit_price"] = round(float(live_plan.get("estimated_limit_price") or 0), 2)
+                plan["expiration_date"] = live_plan.get("expiration_date")
+                plan["legs"] = live_plan.get("legs") or []
+                plan["feed"] = live_plan.get("feed") or "indicative"
+                plan["is_ready"] = True
+                plan["execution_mode"] = "manual_paper"
+            else:
+                plan["is_ready"] = False
+                plan["legs"] = []
+        except Exception as exc:
+            warnings.append(f"Chain live non disponibile: {exc}")
+            plan["is_ready"] = False
+            plan["legs"] = []
+    else:
+        plan["is_ready"] = False
+        plan["legs"] = []
 
-        if plan.get("estimated_max_loss_usd", 0) > plan["max_risk_usd"]:
-            warnings.append("Il piano stimato supera il tetto di rischio configurato: riduci contratti o larghezza spread.")
+    try:
+        if alpaca_key and alpaca_secret and base_url:
+            options_orders = list_option_orders(alpaca_key, alpaca_secret, base_url, underlying_symbol=underlying, limit=12)
+            options_positions = list_option_positions(alpaca_key, alpaca_secret, base_url, underlying_symbol=underlying)
+    except Exception as exc:
+        warnings.append(f"Monitor ordini/posizioni opzioni non disponibile: {exc}")
+
+    open_order_statuses = {"new", "accepted", "pending_new", "partially_filled", "accepted_for_bidding", "held"}
+    has_open_orders = any(str(order.get("status") or "").lower() in open_order_statuses for order in options_orders)
+    has_open_positions = any(abs(float(position.get("qty") or 0)) > 0 for position in options_positions)
+    if has_open_orders:
+        warnings.append(f"C'è già un ordine opzioni {underlying} in lavorazione.")
+    if has_open_positions:
+        warnings.append(f"C'è già una posizione opzioni {underlying} aperta.")
+    plan["has_open_orders"] = has_open_orders
+    plan["has_open_positions"] = has_open_positions
+    if has_open_orders or has_open_positions:
+        plan["is_ready"] = False
+    if plan.get("estimated_max_loss_usd", 0) > plan["max_risk_usd"]:
+        warnings.append("Il piano stimato supera il tetto di rischio configurato: riduci contratti o larghezza spread.")
+        plan["is_ready"] = False
+    plan["warnings"] = list(dict.fromkeys(warnings))
 
     return {
         "config": config,
         "plan": plan,
+        "orders": options_orders,
+        "positions": options_positions,
         "generated_at": datetime.now().isoformat(),
     }
 
