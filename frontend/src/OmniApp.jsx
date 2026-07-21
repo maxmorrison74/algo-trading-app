@@ -4053,6 +4053,7 @@ function OmniAppInner() {
   const [showLanding, setShowLanding] = useState(true);
   const [seoLandingPage, setSeoLandingPage] = useState(() => resolveLandingSeoPageFromSearch());
   const [showLandingPlans, setShowLandingPlans] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [legalModalMode, setLegalModalMode] = useState('privacy');
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
@@ -4360,6 +4361,14 @@ function OmniAppInner() {
       if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   }, []);
+  const jumpToLandingSection = React.useCallback((sectionId) => {
+    if (typeof document === 'undefined') return;
+    const section = document.getElementById(sectionId);
+    if (section) {
+      section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      setIsMobileNavOpen(false);
+    }
+  }, []);
   const runConfirmedAction = React.useCallback(async () => {
     if (!confirmDialog?.onConfirmAction) {
       setConfirmDialog(null);
@@ -4415,11 +4424,15 @@ function OmniAppInner() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    if (!showLanding) {
+      setIsMobileNavOpen(false);
+      return;
+    }
     const syncSeoGuide = () => setSeoLandingPage(resolveLandingSeoPageFromSearch());
     syncSeoGuide();
     window.addEventListener('popstate', syncSeoGuide);
     return () => window.removeEventListener('popstate', syncSeoGuide);
-  }, []);
+  }, [showLanding]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -10464,6 +10477,7 @@ function OmniAppInner() {
     if (showLanding) {
       return (
         <div className="sales-landing">
+          <a href="#landing-top" className="sales-skip-link">Salta al contenuto principale</a>
           <div className="sales-bg-animation" />
           <div className="sales-bg-animation sales-bg-animation--second" />
           <img
@@ -10478,7 +10492,7 @@ function OmniAppInner() {
           </div>
 
           <nav className="sales-nav">
-            <a href="#landing-top" className="sales-logo">
+            <a href="#landing-top" className="sales-logo" aria-label="Torna all’inizio della homepage Aureo">
               <img src="/aureoos-logo.png" alt="Logo Aureo OS, piattaforma di trading AI per crypto e azioni" />
             </a>
             <div className="sales-nav-links">
@@ -10494,7 +10508,50 @@ function OmniAppInner() {
               <button className="btn btn-outline" onClick={() => setShowLanding(false)}>Area riservata</button>
               <button className="btn btn-start" onClick={openPricingSection}>Scopri gli accessi</button>
             </div>
+            <button
+              type="button"
+              className="sales-mobile-nav-toggle"
+              aria-label={isMobileNavOpen ? 'Chiudi menu navigazione' : 'Apri menu navigazione'}
+              aria-expanded={isMobileNavOpen}
+              onClick={() => setIsMobileNavOpen((prev) => !prev)}
+            >
+              <span />
+              <span />
+              <span />
+            </button>
           </nav>
+
+          {isMobileNavOpen && (
+            <>
+              <button
+                type="button"
+                className="sales-mobile-nav-backdrop"
+                aria-label="Chiudi menu"
+                onClick={() => setIsMobileNavOpen(false)}
+              />
+              <div className="sales-mobile-nav-panel">
+                <div className="sales-mobile-nav-head">
+                  <div className="sales-section-eyebrow">Aureo navigation</div>
+                  <button type="button" className="sales-mobile-nav-close" onClick={() => setIsMobileNavOpen(false)}>Chiudi</button>
+                </div>
+                <div className="sales-mobile-nav-links">
+                  <button type="button" onClick={() => jumpToLandingSection('landing-features')}>Funzionalità</button>
+                  <button type="button" onClick={() => jumpToLandingSection('landing-guides')}>Guide</button>
+                  <button type="button" onClick={() => jumpToLandingSection('landing-markets')}>Mercati</button>
+                  <button type="button" onClick={() => jumpToLandingSection('landing-assurance')}>Garanzie</button>
+                  <button type="button" onClick={() => jumpToLandingSection('landing-flow')}>Percorso</button>
+                  <button type="button" onClick={() => jumpToLandingSection('landing-pricing')}>Step</button>
+                  <button type="button" onClick={() => jumpToLandingSection('landing-proof')}>Impatto</button>
+                  <button type="button" onClick={() => jumpToLandingSection('landing-privacy')}>Privacy</button>
+                  <button type="button" onClick={() => jumpToLandingSection('landing-cookies')}>Cookie</button>
+                </div>
+                <div className="sales-mobile-nav-actions">
+                  <button className="btn btn-start" onClick={() => { setIsMobileNavOpen(false); openPricingSection(); }}>Attiva la prova</button>
+                  <button className="btn btn-outline" onClick={() => { setIsMobileNavOpen(false); setShowLanding(false); }}>Area riservata</button>
+                </div>
+              </div>
+            </>
+          )}
 
           <div className="sales-ticker">
             <div className="sales-ticker-track">
@@ -11007,6 +11064,50 @@ function OmniAppInner() {
               </div>
             </section>
 
+            <section className="sales-section sales-section--soft" id="landing-privacy">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Privacy dedicata</div>
+                <h2>Ti diciamo in modo chiaro quali dati servono ad Aureo e perché</h2>
+                <p>Aureo tratta solo i dati necessari per creare l’account, proteggere l’accesso, inviare conferme email, abilitare il servizio e assisterti durante onboarding e supporto.</p>
+              </div>
+              <div className="sales-enterprise-grid">
+                <article className="sales-enterprise-card">
+                  <div className="sales-enterprise-card-kicker">Dati trattati</div>
+                  <p>Email, password hash, stato account, date di attivazione, scadenze e chiavi API inserite volontariamente da te.</p>
+                </article>
+                <article className="sales-enterprise-card">
+                  <div className="sales-enterprise-card-kicker">Perché servono</div>
+                  <p>Servono per autenticazione, sicurezza, erogazione funzioni, conferma email, prevenzione spam e continuità operativa dell’area riservata.</p>
+                </article>
+                <article className="sales-enterprise-card">
+                  <div className="sales-enterprise-card-kicker">I tuoi diritti</div>
+                  <p>Puoi chiedere accesso, rettifica, cancellazione o limitazione scrivendo a <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`}>{PRIVACY_CONTACT_EMAIL}</a>.</p>
+                </article>
+              </div>
+            </section>
+
+            <section className="sales-section sales-section--soft" id="landing-cookies">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Cookie & Storage</div>
+                <h2>Oggi Aureo usa solo strumenti tecnici essenziali, non tracking marketing attivo di default</h2>
+                <p>Login, sicurezza, preferenze di interfaccia e memoria dell’avviso privacy sono le sole funzioni tecniche attive. Se in futuro verranno introdotti strumenti facoltativi, il consenso sarà separato e chiaro.</p>
+              </div>
+              <div className="sales-assurance-grid">
+                <article className="sales-assurance-card">
+                  <div className="sales-assurance-title">Cosa è attivo</div>
+                  <p>Sessione di accesso, stato demo, preferenze locali e memoria dell’avviso tecnico.</p>
+                </article>
+                <article className="sales-assurance-card">
+                  <div className="sales-assurance-title">Cosa non è attivo</div>
+                  <p>Nessun advertising, remarketing o profilazione marketing attivi senza consenso dedicato.</p>
+                </article>
+                <article className="sales-assurance-card">
+                  <div className="sales-assurance-title">Come controlli tutto</div>
+                  <p>Puoi sempre riaprire le informative dal footer o cancellare i dati del sito dalle impostazioni del browser.</p>
+                </article>
+              </div>
+            </section>
+
             <section className="sales-section sales-section--soft">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Le domande che contano</div>
@@ -11085,6 +11186,8 @@ function OmniAppInner() {
                   <h4>Privacy</h4>
                   <button type="button" className="sales-footer-button" onClick={() => openLegalModal('privacy')}>Informativa privacy</button>
                   <button type="button" className="sales-footer-button" onClick={() => openLegalModal('cookies')}>Cookie & storage</button>
+                  <a href="#landing-privacy">Pagina privacy</a>
+                  <a href="#landing-cookies">Pagina cookie</a>
                   <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`}>Contatto privacy</a>
                 </div>
                 <div className="sales-footer-links">

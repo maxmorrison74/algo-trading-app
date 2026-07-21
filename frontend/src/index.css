@@ -4051,6 +4051,25 @@ input:focus, textarea:focus, select:focus {
   filter: saturate(0.92) brightness(1.02);
 }
 
+.sales-skip-link {
+  position: fixed;
+  top: 1rem;
+  left: 1rem;
+  transform: translateY(-180%);
+  padding: 0.8rem 1rem;
+  border-radius: 999px;
+  background: #f3d98a;
+  color: #111827;
+  z-index: 1400;
+  text-decoration: none;
+  font-weight: 800;
+  transition: transform 0.2s ease;
+}
+
+.sales-skip-link:focus {
+  transform: translateY(0);
+}
+
 .sales-topbar {
   position: relative;
   z-index: 1001;
@@ -4098,6 +4117,27 @@ input:focus, textarea:focus, select:focus {
   background: rgba(15, 15, 26, 0.8);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.sales-mobile-nav-toggle {
+  display: none;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(255,255,255,0.04);
+  align-items: center;
+  justify-content: center;
+  gap: 0.28rem;
+  flex-direction: column;
+  cursor: pointer;
+}
+
+.sales-mobile-nav-toggle span {
+  width: 18px;
+  height: 2px;
+  border-radius: 999px;
+  background: #f8fafc;
 }
 
 .sales-logo {
@@ -4150,6 +4190,17 @@ input:focus, textarea:focus, select:focus {
   width: 100%;
 }
 
+.sales-nav-links a:focus-visible,
+.sales-footer-links a:focus-visible,
+.sales-footer-button:focus-visible,
+.sales-mobile-nav-links button:focus-visible,
+.sales-mobile-nav-close:focus-visible,
+.sales-logo:focus-visible {
+  outline: 2px solid rgba(99, 102, 241, 0.95);
+  outline-offset: 4px;
+  border-radius: 12px;
+}
+
 .sales-nav-actions,
 .sales-hero-buttons,
 .sales-stats-row,
@@ -4180,6 +4231,70 @@ input:focus, textarea:focus, select:focus {
 .sales-page {
   position: relative;
   z-index: 1;
+}
+
+.sales-mobile-nav-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  background: rgba(3, 6, 16, 0.68);
+  border: 0;
+}
+
+.sales-mobile-nav-panel {
+  position: fixed;
+  top: 76px;
+  right: 1rem;
+  left: 1rem;
+  z-index: 1101;
+  padding: 1.2rem;
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(10, 14, 25, 0.96);
+  backdrop-filter: blur(22px);
+  box-shadow: 0 24px 80px rgba(0,0,0,0.45);
+}
+
+.sales-mobile-nav-head,
+.sales-mobile-nav-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.sales-mobile-nav-close {
+  border: 0;
+  background: transparent;
+  color: #dbe7f3;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sales-mobile-nav-links {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1rem 0 1.2rem;
+}
+
+.sales-mobile-nav-links button {
+  text-align: left;
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.03);
+  color: #f8fafc;
+  border-radius: 16px;
+  padding: 0.95rem 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sales-mobile-nav-actions {
+  flex-direction: column;
+}
+
+.sales-mobile-nav-actions .btn {
+  width: 100%;
 }
 
 .sales-ticker {
@@ -5637,6 +5752,7 @@ input:focus, textarea:focus, select:focus {
   }
   .sales-nav-links,
   .sales-nav-actions { display: none; }
+  .sales-mobile-nav-toggle { display: inline-flex; }
   .sales-nav { top: 66px; }
   .sales-ticker { margin-top: 138px; }
   .sales-hero h1 { font-size: 2.5rem; }
@@ -5705,6 +5821,17 @@ input:focus, textarea:focus, select:focus {
   }
   .private-access-legal-links {
     gap: 0.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sales-bg-animation::before,
+  .sales-bg-animation::after {
+    animation: none;
+  }
+  .sales-skip-link,
+  .sales-nav-links a::after {
+    transition: none;
   }
 }
 
