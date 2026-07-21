@@ -1193,6 +1193,7 @@ const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}
         readiness,
         headline,
         conviction,
+        edge: deriveOpportunityEdge({ symbol, readiness, row: tableRow, rankedRow: rankedMap[symbol], allocation: allocationMap[symbol] || null, status }),
         allocation: allocationMap[symbol] || null,
         rankingScore: Number(rankedMap[symbol]?.score ?? -1),
         selectionReason: rankedMap[symbol]?.selection_reason || '',
@@ -1200,6 +1201,7 @@ const deriveTopOpportunities = ({ status = {}, risk = {}, tableDataBySymbol = {}
       };
     })
     .sort((a, b) => {
+      if ((b.edge?.score || 0) !== (a.edge?.score || 0)) return (b.edge?.score || 0) - (a.edge?.score || 0);
       if (b.conviction.score !== a.conviction.score) return b.conviction.score - a.conviction.score;
       if (b.readiness.score !== a.readiness.score) return b.readiness.score - a.readiness.score;
       return b.rankingScore - a.rankingScore;
@@ -1235,6 +1237,72 @@ const deriveConvictionScore = ({ symbol = '', readiness = null, row = null, rank
     tone,
     label,
     detail: `${symbol} combina readiness ${Math.round(readinessScore)}/100, fit ${Math.round(playbookFit)}/100 e ranking ${Math.round(rankingScore)}/100.`,
+  };
+};
+
+const deriveOpportunityEdge = ({ symbol = '', readiness = null, row = null, rankedRow = null, allocation = null, status = {} }) => {
+  const metrics = parsePredictionMetrics(row?.prediction || '');
+  const readinessScore = Number(readiness?.score || 0);
+  const playbookFit = Number(rankedRow?.playbook_fit?.score || 0);
+  const rankingScore = rankedRow?.score == null ? 52 : Number(rankedRow.score) * 100;
+  const allocationScore = Math.min(100, Number(allocation?.target_pct || 0) * 6.2);
+  const sentimentScore = String(row?.sentiment || 'NEUTRAL').toUpperCase() === 'BULLISH'
+    ? 84
+    : String(row?.sentiment || 'NEUTRAL').toUpperCase() === 'BEARISH'
+      ? 34
+      : 58;
+  const sessionBias = status?.session_bias || {};
+  const sessionPlaybooks = Array.isArray(sessionBias?.preferred_playbooks) ? sessionBias.preferred_playbooks : [];
+  const activePlaybookId = String(status?.strategy_playbook?.active?.id || '');
+  const regimeId = String(rankedRow?.regime?.id || '');
+  const isCrypto = String(symbol || '').includes('/');
+
+  let microstructureScore = 56;
+  if (metrics.rsi != null) {
+    if (metrics.rsi >= 42 && metrics.rsi <= 66) microstructureScore += 10;
+    else if (metrics.rsi < 30 || metrics.rsi > 74) microstructureScore -= 8;
+  }
+  if (metrics.macd != null) {
+    if (metrics.macd > 0) microstructureScore += 8;
+    else microstructureScore -= 4;
+  }
+  if (metrics.lstm != null) {
+    if (metrics.lstm >= 60) microstructureScore += 8;
+    else if (metrics.lstm < 50) microstructureScore -= 6;
+  }
+
+  let sessionScore = 58;
+  if (sessionPlaybooks.includes(activePlaybookId)) sessionScore += 12;
+  if (!isCrypto && status?.market_open === false) sessionScore -= 16;
+  if (regimeId === 'breakout' && sessionBias?.id === 'opening_drive') sessionScore += 8;
+  if (regimeId === 'trend' && ['opening_drive', 'trend_day'].includes(sessionBias?.id)) sessionScore += 7;
+  if (regimeId === 'pullback' && ['midday_reset', 'balanced'].includes(sessionBias?.id)) sessionScore += 6;
+  if (regimeId === 'crypto_core') sessionScore += 6;
+
+  const edgeRaw =
+    (readinessScore * 0.28) +
+    (playbookFit * 0.19) +
+    (rankingScore * 0.15) +
+    (allocationScore * 0.12) +
+    (sentimentScore * 0.10) +
+    (microstructureScore * 0.09) +
+    (sessionScore * 0.07);
+
+  const score = Math.max(0, Math.min(100, Math.round(edgeRaw)));
+  const tone = score >= 84 ? '#10b981' : score >= 72 ? '#38bdf8' : score >= 60 ? '#f59e0b' : '#94a3b8';
+  const label = score >= 84 ? 'Prime Edge' : score >= 72 ? 'Live Edge' : score >= 60 ? 'Developing' : 'Thin Edge';
+  const reason = score >= 84
+    ? 'Contesto, timing e struttura stanno lavorando nella stessa direzione.'
+    : score >= 72
+      ? 'C’è vantaggio reale, ma serve ancora esecuzione disciplinata.'
+      : score >= 60
+        ? 'Il quadro è interessante, ma non ancora premium.'
+        : 'Meglio conservare attenzione e capitale.';
+  return {
+    score,
+    tone,
+    label,
+    reason,
   };
 };
 
@@ -7567,6 +7635,12 @@ function OmniAppInner() {
               <div style={{ color: opportunitySpotlight.spotlight.conviction.tone, marginTop: '0.35rem', fontSize: '0.82rem', fontWeight: 800 }}>
                 {opportunitySpotlight.spotlight.conviction.label} · {opportunitySpotlight.spotlight.conviction.score}/100
               </div>
+              <div style={{ color: opportunitySpotlight.spotlight.edge?.tone || '#94a3b8', marginTop: '0.3rem', fontSize: '0.82rem', fontWeight: 800 }}>
+                {opportunitySpotlight.spotlight.edge?.label || 'Edge'} · {opportunitySpotlight.spotlight.edge?.score || 0}/100
+              </div>
+              <div style={{ color: '#94a3b8', marginTop: '0.28rem', fontSize: '0.8rem', lineHeight: 1.45 }}>
+                {opportunitySpotlight.spotlight.edge?.reason || 'Valutazione edge non disponibile.'}
+              </div>
             </div>
             <button
               className="btn"
@@ -7798,6 +7872,9 @@ function OmniAppInner() {
               </div>
               <div style={{ color: item.conviction.tone, fontSize: '0.78rem', fontWeight: 800, marginBottom: '0.45rem' }}>
                 {item.conviction.label} · {item.conviction.score}/100
+              </div>
+              <div style={{ color: item.edge?.tone || '#94a3b8', fontSize: '0.76rem', fontWeight: 800, marginBottom: '0.45rem' }}>
+                {item.edge?.label || 'Edge'} · {item.edge?.score || 0}/100
               </div>
               <div style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: 1.45, marginBottom: '0.55rem' }}>
                 {item.headline.detail}
