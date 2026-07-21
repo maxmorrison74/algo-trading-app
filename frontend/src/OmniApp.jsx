@@ -11234,7 +11234,7 @@ function OmniAppInner() {
 
           <nav className="sales-nav">
             <a href="#landing-top" className="sales-logo" aria-label="Torna all’inizio della homepage Aureo">
-              <img src="/aureoos-logo.webp" width="1084" height="1113" alt="Logo Aureo OS, piattaforma di trading AI per crypto e azioni" />
+              <img src="/aureoos-logo.webp" width="1084" height="1113" decoding="async" alt="Logo Aureo OS, piattaforma di trading AI per crypto e azioni" />
             </a>
             <div className="sales-nav-links">
               <a href="#landing-features">Funzionalità</a>
@@ -11411,7 +11411,7 @@ function OmniAppInner() {
                   <div className="sales-float-card-header">Approval model</div>
                   <div className="sales-float-card-value sales-float-card-value--alt">Ready</div>
                 </div>
-                <img src={heroAsset} width="220" height="232" alt="" aria-hidden="true" className="sales-hero-orb" />
+                <img src={heroAsset} width="220" height="232" decoding="async" alt="" aria-hidden="true" className="sales-hero-orb" />
               </div>
             </section>
 
@@ -11901,7 +11901,7 @@ function OmniAppInner() {
             <section className="sales-cta">
               <div className="sales-cta-box">
                 <div className="sales-cta-content">
-                  <img src="/aureoos-logo.webp" width="1084" height="1113" alt="Logo Aureo OS, accesso riservato alla control room trading" className="sales-cta-logo" />
+                  <img src="/aureoos-logo.webp" width="1084" height="1113" loading="lazy" decoding="async" alt="Logo Aureo OS, accesso riservato alla control room trading" className="sales-cta-logo" />
                   <div className="sales-section-eyebrow">Ingresso Aureo</div>
                   <h2>Se vuoi capire davvero Aureo, il modo giusto è entrarci dentro</h2>
                   <p>Inizi con una settimana full power, tocchi con mano il livello dell’ambiente e poi scegli se renderlo parte stabile della tua operatività.</p>
@@ -11923,7 +11923,7 @@ function OmniAppInner() {
               <div className="sales-footer-grid">
                 <div className="sales-footer-brand">
                   <a href="#landing-top" className="sales-logo">
-                    <img src="/aureoos-logo.webp" width="1084" height="1113" alt="Logo Aureo OS, piattaforma trading AI privata" />
+                    <img src="/aureoos-logo.webp" width="1084" height="1113" loading="lazy" decoding="async" alt="Logo Aureo OS, piattaforma trading AI privata" />
                   </a>
                   <p>Una piattaforma privata di trading AI pensata per controllo, chiarezza, protezione e accessi guidati.</p>
                 </div>
@@ -11969,7 +11969,7 @@ function OmniAppInner() {
     return (
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <div className="card private-access-card" style={{ textAlign: 'center', width: '440px', padding: '3rem 2rem' }}>
-          <img src="/aureoos-logo.webp" width="1084" height="1113" alt="Logo Aureo OS, accesso riservato alla piattaforma trading AI" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
+          <img src="/aureoos-logo.webp" width="1084" height="1113" decoding="async" alt="Logo Aureo OS, accesso riservato alla piattaforma trading AI" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
           <div className="private-access-badge">Private Access</div>
           <h2 className="private-access-title">Ingresso riservato alla control room Aureo</h2>
           <p className="private-access-text">Accedi con le tue credenziali per entrare nell’ambiente operativo, oppure apri il tour privato per mostrare l’esperienza senza attivare funzioni live.</p>
@@ -12056,7 +12056,7 @@ function OmniAppInner() {
       <div className="sidebar">
         <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div className="sidebar-brand-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-            <img src="/aureoos-logo.png" alt="Logo Aureo OS, control room privata per crypto e azioni" style={{ width: '200px', maxWidth: '100%', height: 'auto', objectFit: 'contain' }} />
+            <img src="/aureoos-logo.webp" width="1084" height="1113" decoding="async" alt="Logo Aureo OS, control room privata per crypto e azioni" style={{ width: '200px', maxWidth: '100%', height: 'auto', objectFit: 'contain' }} />
           </div>
           <div className="sidebar-brand-tagline" style={{ width: '200px', maxWidth: '100%', fontSize: '0.7rem', color: '#888', marginTop: '0.5rem', letterSpacing: '1px', textAlign: 'center' }}>CRYPTO & INVESTMENT TRADING</div>
         </div>

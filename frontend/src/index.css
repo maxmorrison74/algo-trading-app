@@ -4242,6 +4242,11 @@ input:focus, textarea:focus, select:focus {
   z-index: 1;
 }
 
+.sales-section {
+  content-visibility: auto;
+  contain-intrinsic-size: 1px 960px;
+}
+
 #landing-top,
 .sales-section[id] {
   scroll-margin-top: 176px;
