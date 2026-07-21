@@ -34,6 +34,7 @@ import concurrent.futures
 import gc
 import time
 from datetime import datetime, timedelta
+from zoneinfo import ZoneInfo
 from uuid import uuid4
 import yfinance as yf
 import pandas as pd
@@ -326,7 +327,10 @@ DEFAULT_OPTIONS_LAB_CONFIG = {
     "short_put_offset_pct": 0.15,
     "entry_start_et": "09:45",
     "entry_end_et": "11:30",
+    "time_stop_et": "14:45",
     "max_risk_usd": 275,
+    "take_profit_capture_pct": 55.0,
+    "stop_loss_pct": 85.0,
     "notes": "Paper-only lab con esecuzione manuale controllata.",
 }
 
@@ -339,10 +343,15 @@ def ensure_options_lab_config(config):
     current["contracts"] = max(1, int(current.get("contracts") or 1))
     current["short_put_offset_pct"] = max(0.0, float(current.get("short_put_offset_pct") or 0.15))
     current["max_risk_usd"] = max(50, float(current.get("max_risk_usd") or 275))
+    current["take_profit_capture_pct"] = max(5.0, min(95.0, float(current.get("take_profit_capture_pct") or 55.0)))
+    current["stop_loss_pct"] = max(10.0, min(250.0, float(current.get("stop_loss_pct") or 85.0)))
     current["enabled"] = bool(current.get("enabled", False))
     current["paper_only"] = bool(current.get("paper_only", True))
     current["strategy"] = str(current.get("strategy") or "bull_put_spread")
     current["bias"] = str(current.get("bias") or "bullish")
+    current["entry_start_et"] = str(current.get("entry_start_et") or "09:45")
+    current["entry_end_et"] = str(current.get("entry_end_et") or "11:30")
+    current["time_stop_et"] = str(current.get("time_stop_et") or "14:45")
     return current
 
 DEFAULT_SIGNAL_HUB_CONFIG = {
@@ -1584,6 +1593,53 @@ def execute_options_lab_trade(user: dict = Depends(require_user)):
         "options_lab": refreshed,
     }
 
+
+@app.post("/api/options-lab/close")
+def close_options_lab_trade(user: dict = Depends(require_user)):
+    if user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="Solo admin")
+
+    from options_trading import submit_multileg_order
+
+    user_id = user.get("sub", "admin")
+    target_state = get_user_bot_state(user_id)
+    snapshot = build_options_lab_snapshot(target_state, user_id)
+    config = snapshot.get("config") or {}
+    close_plan = snapshot.get("close_plan") or {}
+    plan = snapshot.get("plan") or {}
+
+    if not bool(config.get("paper_only", True)):
+        raise HTTPException(status_code=400, detail="La chiusura rapida è permessa solo in modalità paper")
+    if not bool(close_plan.get("ready")):
+        raise HTTPException(status_code=400, detail=close_plan.get("reason") or "Nessuno spread chiudibile trovato")
+    if not bool(plan.get("has_open_positions")):
+        raise HTTPException(status_code=400, detail="Nessuna posizione options SPY aperta")
+
+    engine = get_user_alpaca_engine(user_id)
+    api_key = str(getattr(engine, "alpaca_key", "") or "").strip()
+    api_secret = str(getattr(engine, "alpaca_secret", "") or "").strip()
+    base_url = str(getattr(engine, "alpaca_base", "") or "").strip()
+    if not api_key or not api_secret or not base_url:
+        raise HTTPException(status_code=400, detail="Chiavi Alpaca non disponibili")
+
+    try:
+        execution = submit_multileg_order(
+            api_key=api_key,
+            api_secret=api_secret,
+            base_url=base_url,
+            plan=close_plan,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+    refreshed = build_options_lab_snapshot(target_state, user_id)
+    return {
+        "status": "ok",
+        "message": "Ordine di chiusura SPY 0DTE paper inviato",
+        "execution": execution,
+        "options_lab": refreshed,
+    }
+
 @app.get("/api/capital/status")
 def capital_status():
     """Stato gestione capitale"""
@@ -1979,7 +2035,7 @@ def get_yf_symbol(symbol):
     return symbol.replace("/", "-")
 
 def build_options_lab_snapshot(bot_state, user_id="admin"):
-    from options_trading import build_zero_dte_trade_plan, list_option_orders, list_option_positions
+    from options_trading import build_zero_dte_trade_plan, list_option_orders, list_option_positions, build_close_multileg_plan
     config = ensure_options_lab_config(getattr(bot_state, "options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
     warnings = []
     underlying = config.get("underlying", "SPY")
@@ -2009,6 +2065,22 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
     alpaca_secret = str(getattr(engine, "alpaca_secret", "") or "").strip()
     options_orders = []
     options_positions = []
+    close_plan = {"ready": False}
+    now_et = datetime.now(ZoneInfo("America/New_York"))
+
+    def _minutes_et(value, fallback_minutes):
+        try:
+            hour_str, minute_str = str(value or "").split(":", 1)
+            return int(hour_str) * 60 + int(minute_str)
+        except Exception:
+            return fallback_minutes
+
+    now_minutes = now_et.hour * 60 + now_et.minute
+    entry_start_minutes = _minutes_et(config.get("entry_start_et"), 9 * 60 + 45)
+    entry_end_minutes = _minutes_et(config.get("entry_end_et"), 11 * 60 + 30)
+    time_stop_minutes = _minutes_et(config.get("time_stop_et"), 14 * 60 + 45)
+    in_entry_window = entry_start_minutes <= now_minutes <= entry_end_minutes
+    time_stop_reached = now_minutes >= time_stop_minutes
 
     plan = {
         "underlying": underlying,
@@ -2016,6 +2088,7 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
         "strategy_label": "Bull Put Spread 0DTE" if strategy == "bull_put_spread" else "Bull Call Spread 0DTE",
         "bias": config.get("bias", "bullish"),
         "entry_window": f"{config.get('entry_start_et', '09:45')}–{config.get('entry_end_et', '11:30')} ET",
+        "time_stop_et": config.get("time_stop_et", "14:45"),
         "contracts": contracts,
         "paper_only": bool(config.get("paper_only", True)),
         "enabled": bool(config.get("enabled", False)),
@@ -2024,7 +2097,12 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
         "warnings": warnings,
         "quote_price": quote_price,
         "max_risk_usd": float(config.get("max_risk_usd", 275) or 275),
+        "take_profit_capture_pct": float(config.get("take_profit_capture_pct", 55.0) or 55.0),
+        "stop_loss_pct": float(config.get("stop_loss_pct", 85.0) or 85.0),
         "notes": config.get("notes") or "",
+        "entry_window_open": in_entry_window,
+        "time_stop_reached": time_stop_reached,
+        "et_now": now_et.strftime("%H:%M"),
     }
 
     if quote_price and quote_price > 0 and alpaca_key and alpaca_secret and base_url:
@@ -2055,11 +2133,37 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
                     plan["long_strike"] = next((leg.get("strike_price") for leg in live_plan["legs"] if leg.get("side") == "buy"), None)
                 plan["estimated_max_loss_usd"] = round(float(live_plan.get("estimated_max_loss_usd") or 0), 2)
                 plan["estimated_limit_price"] = round(float(live_plan.get("estimated_limit_price") or 0), 2)
+                plan["estimated_net_price"] = round(float(live_plan.get("estimated_net_price") or 0), 2)
                 plan["expiration_date"] = live_plan.get("expiration_date")
                 plan["legs"] = live_plan.get("legs") or []
                 plan["feed"] = live_plan.get("feed") or "indicative"
                 plan["is_ready"] = True
                 plan["execution_mode"] = "manual_paper"
+                max_loss = max(float(plan.get("estimated_max_loss_usd") or 0), 1.0)
+                net_price = float(plan.get("estimated_net_price") or 0)
+                reward_risk_pct = round((net_price * 100.0 / max_loss) * 100.0, 1) if strategy == "bull_put_spread" else round((max_loss / max(net_price * 100.0, 1.0)) * 100.0, 1)
+                otm_distance_pct = round(abs(float(plan.get("short_strike") or 0) - float(quote_price or 0)) / max(float(quote_price or 1), 1) * 100.0, 2)
+                quality_score = min(
+                    100.0,
+                    max(
+                        10.0,
+                        42.0
+                        + min(28.0, otm_distance_pct * 38.0)
+                        + min(20.0, reward_risk_pct / 5.0)
+                        + (8.0 if in_entry_window else -10.0),
+                    ),
+                )
+                plan["reward_risk_pct"] = reward_risk_pct
+                plan["otm_distance_pct"] = otm_distance_pct
+                plan["quality_score"] = round(quality_score, 1)
+                if strategy == "bull_put_spread":
+                    credit = float(plan.get("estimated_credit_per_spread") or 0)
+                    plan["take_profit_credit"] = round(max(0.01, credit * (1 - (plan["take_profit_capture_pct"] / 100.0))), 2)
+                    plan["stop_loss_credit"] = round(max(0.01, credit * (1 + (plan["stop_loss_pct"] / 100.0))), 2)
+                else:
+                    debit = float(plan.get("estimated_debit_per_spread") or 0)
+                    plan["take_profit_debit"] = round(max(0.01, debit * (1 + (plan["take_profit_capture_pct"] / 100.0))), 2)
+                    plan["stop_loss_debit"] = round(max(0.01, debit * max(0.2, 1 - (plan["stop_loss_pct"] / 100.0))), 2)
             else:
                 plan["is_ready"] = False
                 plan["legs"] = []
@@ -2085,9 +2189,16 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
         warnings.append(f"C'è già un ordine opzioni {underlying} in lavorazione.")
     if has_open_positions:
         warnings.append(f"C'è già una posizione opzioni {underlying} aperta.")
+        close_plan = build_close_multileg_plan(options_positions, strategy=strategy)
     plan["has_open_orders"] = has_open_orders
     plan["has_open_positions"] = has_open_positions
     if has_open_orders or has_open_positions:
+        plan["is_ready"] = False
+    if not in_entry_window:
+        warnings.append(f"Fuori finestra ingresso ET ({plan['entry_window']}).")
+        plan["is_ready"] = False
+    if not engine.is_market_open_for_symbol("SPY"):
+        warnings.append("Mercato equity USA chiuso: ingresso SPY 0DTE disattivato.")
         plan["is_ready"] = False
     if plan.get("estimated_max_loss_usd", 0) > plan["max_risk_usd"]:
         warnings.append("Il piano stimato supera il tetto di rischio configurato: riduci contratti o larghezza spread.")
@@ -2099,6 +2210,7 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
         "plan": plan,
         "orders": options_orders,
         "positions": options_positions,
+        "close_plan": close_plan,
         "generated_at": datetime.now().isoformat(),
     }
 

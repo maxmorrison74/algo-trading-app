@@ -47,6 +47,14 @@ def _extract_quote_mark(snapshot):
     return round(last_price, 4) if last_price > 0 else 0.0, bid, ask
 
 
+def _occ_option_type(symbol: str):
+    symbol = str(symbol or "").upper().strip()
+    if len(symbol) >= 9:
+        tail = symbol[-9:]
+        return "put" if "P" in tail[:1] else "call" if "C" in tail[:1] else ""
+    return ""
+
+
 def _normalize_snapshot(symbol, payload):
     details = payload.get("option_details") or payload.get("details") or payload.get("contract") or {}
     strike = _safe_float(
@@ -58,7 +66,7 @@ def _normalize_snapshot(symbol, payload):
         details.get("type")
         or payload.get("type")
         or details.get("option_type")
-        or ""
+        or _occ_option_type(symbol)
     ).lower()
     expiration_date = str(
         details.get("expiration_date")
@@ -114,6 +122,30 @@ def _fetch_option_snapshots(
             if symbol:
                 items.append(_normalize_snapshot(symbol, snapshot or {}))
     return items
+
+
+def fetch_option_snapshots_for_symbols(api_key, api_secret, symbols, feed="indicative"):
+    normalized = [str(symbol or "").upper().strip() for symbol in (symbols or []) if str(symbol or "").strip()]
+    if not normalized:
+        return {}
+    response = requests.get(
+        f"{_data_base()}/v1beta1/options/snapshots",
+        headers=_auth_headers(api_key, api_secret),
+        params={
+            "symbols": ",".join(normalized[:50]),
+            "feed": feed,
+        },
+        timeout=15,
+    )
+    payload = response.json() if response.content else {}
+    if response.status_code >= 400:
+        raise RuntimeError(payload.get("message") or payload.get("detail") or f"Errore snapshot symbols ({response.status_code})")
+    snapshots = payload.get("snapshots") or {}
+    result = {}
+    if isinstance(snapshots, dict):
+        for symbol, item in snapshots.items():
+            result[symbol] = _normalize_snapshot(symbol, item or {})
+    return result
 
 
 def _pick_nearest_contract(contracts, target_strike):
@@ -283,6 +315,56 @@ def submit_multileg_order(
     }
 
 
+def build_close_multileg_plan(positions, strategy="bull_put_spread"):
+    rows = list(positions or [])
+    if len(rows) != 2:
+        return {"ready": False, "reason": "Servono esattamente due gambe aperte per chiudere lo spread in un colpo."}
+
+    contracts = sorted({_safe_float(row.get("qty"), 0) for row in rows if _safe_float(row.get("qty"), 0) != 0})
+    if not contracts:
+        return {"ready": False, "reason": "Quantità opzioni non leggibili."}
+
+    first_contracts = abs(contracts[0])
+    if any(abs(abs(_safe_float(row.get("qty"), 0)) - first_contracts) > 0.001 for row in rows):
+        return {"ready": False, "reason": "Le due gambe non hanno la stessa quantità."}
+
+    legs = []
+    close_value = 0.0
+    for row in rows:
+        qty = abs(int(round(_safe_float(row.get("qty"), 0))))
+        side = str(row.get("side") or "").upper()
+        current_mark = _safe_float(row.get("current_mark") or row.get("mark_price") or row.get("current_price"), 0.0)
+        if qty <= 0 or current_mark <= 0:
+            return {"ready": False, "reason": "Prezzi o quantità non disponibili per chiudere lo spread."}
+        if side == "LONG":
+            close_side = "sell"
+            position_intent = "sell_to_close"
+            close_value -= current_mark
+        else:
+            close_side = "buy"
+            position_intent = "buy_to_close"
+            close_value += current_mark
+        legs.append({
+            "symbol": row.get("symbol"),
+            "side": close_side,
+            "position_intent": position_intent,
+            "mark_price": current_mark,
+            "qty": qty,
+        })
+
+    debit_to_close = round(max(0.01, close_value), 2)
+    limit_price = round(max(0.01, debit_to_close * 1.04), 2)
+    return {
+        "ready": True,
+        "strategy": strategy,
+        "contracts": int(first_contracts),
+        "estimated_limit_price": limit_price,
+        "estimated_net_price": debit_to_close,
+        "net_price_type": "debit",
+        "legs": legs,
+    }
+
+
 def list_option_orders(api_key, api_secret, base_url, underlying_symbol="SPY", limit=20):
     response = requests.get(
         f"{_rest_base(base_url)}/v2/orders",
@@ -328,6 +410,7 @@ def list_option_positions(api_key, api_secret, base_url, underlying_symbol="SPY"
     positions = payload if isinstance(payload, list) else []
     rows = []
     prefix = str(underlying_symbol or "").upper().strip()
+    symbols = []
     for item in positions:
         symbol = str(item.get("symbol") or "")
         if prefix and not symbol.startswith(prefix):
@@ -335,6 +418,7 @@ def list_option_positions(api_key, api_secret, base_url, underlying_symbol="SPY"
         asset_class = str(item.get("asset_class") or item.get("assetClass") or "").lower()
         if asset_class and asset_class != "us_option":
             continue
+        symbols.append(symbol)
         rows.append({
             "symbol": symbol,
             "qty": _safe_float(item.get("qty"), 0),
@@ -343,5 +427,19 @@ def list_option_positions(api_key, api_secret, base_url, underlying_symbol="SPY"
             "unrealized_pl": _safe_float(item.get("unrealized_pl"), 0),
             "side": str(item.get("side") or "").upper(),
         })
+    if rows:
+        try:
+            snapshots = fetch_option_snapshots_for_symbols(api_key, api_secret, symbols)
+        except Exception:
+            snapshots = {}
+        for row in rows:
+            snap = snapshots.get(row["symbol"]) or {}
+            market_value = abs(_safe_float(row.get("market_value"), 0))
+            qty = abs(_safe_float(row.get("qty"), 0))
+            inferred_mark = round(market_value / max(qty * 100.0, 1.0), 4) if market_value > 0 and qty > 0 else 0.0
+            row["mark_price"] = _safe_float(snap.get("mark_price"), inferred_mark)
+            row["current_mark"] = row["mark_price"]
+            row["bid_price"] = _safe_float(snap.get("bid_price"), 0)
+            row["ask_price"] = _safe_float(snap.get("ask_price"), 0)
+            row["expiration_date"] = snap.get("expiration_date")
     return rows
-

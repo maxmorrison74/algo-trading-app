@@ -3649,11 +3649,15 @@ function OmniAppInner() {
     short_put_offset_pct: 0.15,
     entry_start_et: '09:45',
     entry_end_et: '11:30',
+    time_stop_et: '14:45',
     max_risk_usd: 275,
+    take_profit_capture_pct: 55,
+    stop_loss_pct: 85,
     notes: 'Paper-only lab. Nessun invio automatico ordini.',
   });
   const [optionsLabSaving, setOptionsLabSaving] = useState(false);
   const [optionsLabExecuting, setOptionsLabExecuting] = useState(false);
+  const [optionsLabClosing, setOptionsLabClosing] = useState(false);
   const [symbolReviewReturnTab, setSymbolReviewReturnTab] = useState('trading');
   const [tradingViewFilter, setTradingViewFilter] = useState('all');
   const [tradingAlerts, setTradingAlerts] = useState([]);
@@ -5368,6 +5372,7 @@ function OmniAppInner() {
     const warnings = Array.isArray(plan?.warnings) ? plan.warnings : [];
     const optionOrders = Array.isArray(snapshot?.orders) ? snapshot.orders : [];
     const optionPositions = Array.isArray(snapshot?.positions) ? snapshot.positions : [];
+    const closePlan = snapshot?.close_plan || {};
 
     const saveOptionsLabConfig = async () => {
       if (userRole !== 'admin' || optionsLabSaving) return;
@@ -5383,6 +5388,9 @@ function OmniAppInner() {
             contracts: Math.max(1, Math.round(Number(optionsLabDraft.contracts || 1))),
             short_put_offset_pct: Number(optionsLabDraft.short_put_offset_pct || 0.15),
             max_risk_usd: Number(optionsLabDraft.max_risk_usd || 275),
+            take_profit_capture_pct: Number(optionsLabDraft.take_profit_capture_pct || 55),
+            stop_loss_pct: Number(optionsLabDraft.stop_loss_pct || 85),
+            time_stop_et: String(optionsLabDraft.time_stop_et || '14:45'),
           }),
         });
         const data = await parseJsonSafely(res, {});
@@ -5393,6 +5401,22 @@ function OmniAppInner() {
         pushNotice('error', 'Options Lab non salvato', error.message || 'Errore durante il salvataggio.');
       } finally {
         setOptionsLabSaving(false);
+      }
+    };
+
+    const closeOptionsLabTrade = async () => {
+      if (userRole !== 'admin' || optionsLabClosing) return;
+      setOptionsLabClosing(true);
+      try {
+        const res = await authFetch('/api/options-lab/close', { method: 'POST' });
+        const data = await parseJsonSafely(res, {});
+        if (!res.ok) throw new Error(data?.detail || 'Chiusura spread non riuscita');
+        setStatus((prev) => ({ ...prev, options_lab: data.options_lab }));
+        pushNotice('success', 'Chiusura SPY 0DTE inviata', data?.message || 'Ordine di chiusura multi-leg inviato.', 3000);
+      } catch (error) {
+        pushNotice('error', 'Chiusura non inviata', error.message || 'Errore durante la chiusura dello spread.');
+      } finally {
+        setOptionsLabClosing(false);
       }
     };
 
@@ -5425,24 +5449,29 @@ function OmniAppInner() {
               <div className={`badge ${optionsLabDraft.enabled ? 'badge-active' : 'badge-idle'}`}>{optionsLabDraft.enabled ? 'Lab attivo' : 'Lab in pausa'}</div>
             </div>
           </div>
-          <div className="develop-summary-grid">
-            <div className="develop-summary-card" style={{ borderColor: 'rgba(56,189,248,0.25)' }}>
-              <span>Sottostante</span>
-              <strong style={{ color: '#38bdf8' }}>{plan?.underlying || optionsLabDraft.underlying || 'SPY'}</strong>
-              <small>{plan?.quote_price ? `Prezzo live $${Number(plan.quote_price).toFixed(2)}` : 'Prezzo live non disponibile'}</small>
+            <div className="develop-summary-grid">
+              <div className="develop-summary-card" style={{ borderColor: 'rgba(56,189,248,0.25)' }}>
+                <span>Sottostante</span>
+                <strong style={{ color: '#38bdf8' }}>{plan?.underlying || optionsLabDraft.underlying || 'SPY'}</strong>
+                <small>{plan?.quote_price ? `Prezzo live $${Number(plan.quote_price).toFixed(2)}` : 'Prezzo live non disponibile'}</small>
             </div>
             <div className="develop-summary-card" style={{ borderColor: 'rgba(16,185,129,0.25)' }}>
               <span>Strategia</span>
               <strong style={{ color: '#10b981' }}>{plan?.strategy_label || '0DTE Paper Plan'}</strong>
               <small>{plan?.entry_window || 'Finestra non definita'}</small>
             </div>
-            <div className="develop-summary-card" style={{ borderColor: 'rgba(245,158,11,0.25)' }}>
-              <span>Rischio massimo</span>
-              <strong style={{ color: '#f59e0b' }}>${Number(plan?.max_risk_usd || optionsLabDraft.max_risk_usd || 0).toFixed(0)}</strong>
-              <small>{plan?.paper_only ? 'Paper-only enforcement' : 'Modalità libera'}</small>
+              <div className="develop-summary-card" style={{ borderColor: 'rgba(245,158,11,0.25)' }}>
+                <span>Rischio massimo</span>
+                <strong style={{ color: '#f59e0b' }}>${Number(plan?.max_risk_usd || optionsLabDraft.max_risk_usd || 0).toFixed(0)}</strong>
+                <small>{plan?.paper_only ? 'Paper-only enforcement' : 'Modalità libera'}</small>
+              </div>
+              <div className="develop-summary-card" style={{ borderColor: 'rgba(167,139,250,0.25)' }}>
+                <span>Quality score</span>
+                <strong style={{ color: '#a78bfa' }}>{plan?.quality_score ? `${Number(plan.quality_score).toFixed(0)}/100` : '—'}</strong>
+                <small>{plan?.entry_window_open ? `Dentro finestra ET · ${plan?.et_now || '—'}` : `Fuori finestra ET · ${plan?.et_now || '—'}`}</small>
+              </div>
             </div>
           </div>
-        </div>
 
         <div className="dashboard-grid">
           <div className="card col-span-7">
@@ -5457,6 +5486,8 @@ function OmniAppInner() {
                 { label: 'Contratti', value: plan?.contracts ?? optionsLabDraft.contracts ?? 1 },
                 { label: plan?.strategy === 'bull_put_spread' ? 'Credito stimato' : 'Debito stimato', value: plan?.estimated_credit_per_spread ? `$${Number(plan.estimated_credit_per_spread).toFixed(2)}` : plan?.estimated_debit_per_spread ? `$${Number(plan.estimated_debit_per_spread).toFixed(2)}` : '—' },
                 { label: 'Prezzo limite', value: plan?.estimated_limit_price ? `$${Number(plan.estimated_limit_price).toFixed(2)}` : '—' },
+                { label: 'Distance OTM', value: plan?.otm_distance_pct != null ? `${Number(plan.otm_distance_pct).toFixed(2)}%` : '—' },
+                { label: 'Reward / risk', value: plan?.reward_risk_pct != null ? `${Number(plan.reward_risk_pct).toFixed(0)}%` : '—' },
                 { label: 'Max loss stimata', value: plan?.estimated_max_loss_usd ? `$${Number(plan.estimated_max_loss_usd).toFixed(2)}` : '—', tone: Number(plan?.estimated_max_loss_usd || 0) > Number(plan?.max_risk_usd || 0) ? '#ef4444' : '#10b981' },
               ].map((item) => (
                 <div
@@ -5480,6 +5511,33 @@ function OmniAppInner() {
                   </strong>
                 </div>
               ))}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
+              <div style={{ padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Take profit guide</div>
+                <strong style={{ color: '#10b981', display: 'block', marginTop: '0.3rem' }}>
+                  {plan?.strategy === 'bull_put_spread'
+                    ? (plan?.take_profit_credit ? `Close debit ~$${Number(plan.take_profit_credit).toFixed(2)}` : '—')
+                    : (plan?.take_profit_debit ? `Take profit ~$${Number(plan.take_profit_debit).toFixed(2)}` : '—')}
+                </strong>
+                <small style={{ color: 'var(--text-secondary)' }}>Target cattura {Number(plan?.take_profit_capture_pct || 0).toFixed(0)}%</small>
+              </div>
+              <div style={{ padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Stop guide</div>
+                <strong style={{ color: '#ef4444', display: 'block', marginTop: '0.3rem' }}>
+                  {plan?.strategy === 'bull_put_spread'
+                    ? (plan?.stop_loss_credit ? `Close debit ~$${Number(plan.stop_loss_credit).toFixed(2)}` : '—')
+                    : (plan?.stop_loss_debit ? `Stop ~$${Number(plan.stop_loss_debit).toFixed(2)}` : '—')}
+                </strong>
+                <small style={{ color: 'var(--text-secondary)' }}>Soglia difesa {Number(plan?.stop_loss_pct || 0).toFixed(0)}%</small>
+              </div>
+              <div style={{ padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                <div style={{ color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Time stop</div>
+                <strong style={{ color: plan?.time_stop_reached ? '#ef4444' : '#f59e0b', display: 'block', marginTop: '0.3rem' }}>
+                  {plan?.time_stop_et || '14:45'} ET
+                </strong>
+                <small style={{ color: 'var(--text-secondary)' }}>{plan?.time_stop_reached ? 'Orario limite raggiunto' : 'Ancora dentro la giornata utile'}</small>
+              </div>
             </div>
             {!!plan?.legs?.length && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
@@ -5517,6 +5575,16 @@ function OmniAppInner() {
               <div className={`badge ${plan?.is_ready ? 'badge-active' : 'badge-danger'}`}>
                 {plan?.is_ready ? 'READY TO SEND' : 'NOT READY'}
               </div>
+              {closePlan?.ready && (
+                <button
+                  type="button"
+                  className="btn btn-stop"
+                  onClick={closeOptionsLabTrade}
+                  disabled={userRole !== 'admin' || optionsLabClosing}
+                >
+                  {optionsLabClosing ? 'Chiusura in corso…' : 'Chiudi spread paper'}
+                </button>
+              )}
             </div>
           </div>
 
@@ -5532,6 +5600,11 @@ function OmniAppInner() {
                 { key: 'contracts', label: 'Contratti', type: 'number', min: 1, step: 1 },
                 { key: 'short_put_offset_pct', label: 'Offset %', type: 'number', min: 0, step: 0.05 },
                 { key: 'max_risk_usd', label: 'Rischio max $', type: 'number', min: 50, step: 25 },
+                { key: 'take_profit_capture_pct', label: 'Take profit %', type: 'number', min: 5, step: 5 },
+                { key: 'stop_loss_pct', label: 'Stop loss %', type: 'number', min: 10, step: 5 },
+                { key: 'entry_start_et', label: 'Start ET', type: 'text' },
+                { key: 'entry_end_et', label: 'End ET', type: 'text' },
+                { key: 'time_stop_et', label: 'Time stop ET', type: 'text' },
               ].map((field) => (
                 <label key={field.key} style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                   <span style={{ color: '#e2e8f0', fontWeight: 700, fontSize: '0.88rem' }}>{field.label}</span>
@@ -5586,7 +5659,7 @@ function OmniAppInner() {
                 <div key={position.symbol} style={{ padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
                   <strong style={{ color: '#93c5fd', wordBreak: 'break-word' }}>{position.symbol}</strong>
                   <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
-                    Qty {Number(position.qty || 0)} · Entry {position.avg_entry_price ? `$${Number(position.avg_entry_price).toFixed(2)}` : '—'} · MV {position.market_value ? `$${Number(position.market_value).toFixed(2)}` : '—'}
+                    Qty {Number(position.qty || 0)} · Entry {position.avg_entry_price ? `$${Number(position.avg_entry_price).toFixed(2)}` : '—'} · Mark {position.current_mark ? `$${Number(position.current_mark).toFixed(2)}` : '—'} · MV {position.market_value ? `$${Number(position.market_value).toFixed(2)}` : '—'}
                   </div>
                   <div style={{ color: Number(position.unrealized_pl || 0) >= 0 ? '#10b981' : '#ef4444', marginTop: '0.35rem' }}>
                     Unrealized P&L {Number(position.unrealized_pl || 0) >= 0 ? '+' : ''}${Number(position.unrealized_pl || 0).toFixed(2)}
