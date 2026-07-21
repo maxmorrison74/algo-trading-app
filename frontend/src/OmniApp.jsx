@@ -10095,18 +10095,18 @@ function OmniAppInner() {
     const landingFeatures = [
       {
         icon: '🎯',
-        title: 'Capisci subito a cosa stai accedendo',
-        text: 'Aureo si presenta come un ambiente operativo privato, ordinato e ad alto valore percepito, non come un software generico.',
+        title: 'Vedi subito come lavora Aureo',
+        text: 'Segnali trading, watchlist, risk management e dashboard investimenti convivono nello stesso ambiente, senza dover saltare tra strumenti diversi.',
       },
       {
         icon: '🪙',
-        title: 'Percepisci subito perché questo accesso ha valore',
-        text: 'Quando l’esperienza appare curata, protetta e presidiata, anche il canone appare più coerente, più credibile e più facile da accogliere.',
+        title: 'Leggi mercati crypto e azionari nello stesso posto',
+        text: 'Aureo nasce per seguire azioni e crypto con una vista unica: opportunità, contesto operativo e disciplina restano sempre leggibili.',
       },
       {
         icon: '🛡️',
-        title: 'Tu resti in controllo fino alla fine',
-        text: 'Il funnel non ti porta fuori dal presidio: richiesta, verifica e attivazione restano sempre allineate al tuo modello di controllo.',
+        title: 'Operi con protezioni già integrate',
+        text: 'Il motore non pensa solo a cercare setup: controlla rischio, stato operativo e sicurezza, così l’operatività resta più ordinata nel tempo.',
       },
     ];
     const landingAudience = [
@@ -10131,22 +10131,22 @@ function OmniAppInner() {
     const landingModuleShowcase = [
       {
         title: 'AI Guided Allocation',
-        text: 'Per leggere le opportunità con supporto intelligente, senza dover mettere insieme strumenti esterni e flussi separati.',
+        text: 'Un motore di supporto che aiuta a leggere opportunità e priorità operative su watchlist azionarie e crypto.',
         badge: 'AI',
       },
       {
         title: 'Signal & Market Monitoring',
-        text: 'Per avere watchlist, momentum, operatività e contesto dentro un unico ambiente chiaro e leggibile.',
+        text: 'Watchlist dinamiche, momentum, contesto di mercato e segnali raccolti in una control room chiara e immediata.',
         badge: 'Signals',
       },
       {
         title: 'Risk & Security Control',
-        text: 'Per far percepire che Aureo non è solo execution: è anche protezione, disciplina e controllo degli accessi.',
+        text: 'Risk management, notifiche critiche e controllo accessi per mantenere l’operatività più protetta e più continua.',
         badge: 'Control',
       },
       {
         title: 'Private Access Workflow',
-        text: 'Per trasformare il passaggio da visitatore ad abbonato in un processo più ordinato, fluido e ad alto valore percepito.',
+        text: 'Onboarding guidato, attivazione account e configurazione chiavi in un percorso più semplice anche per utenti non tecnici.',
         badge: 'Access',
       },
     ];
@@ -10219,8 +10219,16 @@ function OmniAppInner() {
     ];
     const landingFaq = [
       {
+        question: 'Cos’è Aureo OS?',
+        answer: 'Aureo OS è una piattaforma di trading con AI per azioni e crypto: ti aiuta a monitorare mercati, leggere segnali, gestire il rischio e usare una dashboard investimenti in un unico ambiente.',
+      },
+      {
         question: 'Cosa succede dopo che scegli il tuo accesso?',
         answer: 'Completi la richiesta, confermi la tua mail e ricevi i prossimi passaggi per entrare in Aureo in modo pulito, senza confusione e senza perdere tempo.',
+      },
+      {
+        question: 'Per chi è adatto Aureo?',
+        answer: 'È pensato per chi vuole seguire trading crypto e trading azionario con più ordine: investitori attivi, trader discrezionali e profili che cercano segnali, controllo e continuità.',
       },
       {
         question: 'Stai comprando un software o un accesso continuativo?',
@@ -10279,10 +10287,10 @@ function OmniAppInner() {
               <div className="sales-hero-content">
                 <div className="sales-badge">⚡ Private Access Operating System</div>
                 <h1>
-                  Entri in una <span>control room privata</span> che ti fa percepire subito ordine, protezione e qualità
+                  Entri in una <span>piattaforma di trading AI</span> che unisce crypto, azioni, segnali e protezione operativa
                 </h1>
                 <p>
-                  Aureo non ti accoglie come una dashboard qualsiasi: ti accompagna dentro un ambiente riservato, chiaro e continuo, costruito per farti restare.
+                  Aureo ti accompagna dentro una control room privata dove puoi seguire mercati, leggere opportunità, controllare il rischio e usare una dashboard investimenti nello stesso flusso.
                 </p>
                 <div className="sales-hero-buttons">
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
@@ -10385,8 +10393,8 @@ function OmniAppInner() {
             <section className="sales-section" id="landing-features">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Cosa ottieni davvero</div>
-                <h2>Non stai aprendo un pannello qualsiasi: stai entrando in un ambiente che deve sembrarti solido dal primo minuto</h2>
-                <p>Qui tutto è pensato per farti capire subito perché vale la pena restare: lettura chiara, presenza alta e accesso costruito con criterio.</p>
+                <h2>Non apri solo una dashboard: entri in un sistema che rende trading, segnali e controllo molto più leggibili</h2>
+                <p>Qui tutto è pensato per aiutarti a capire cosa succede sul mercato e come muoverti con più continuità, meno rumore e più disciplina.</p>
               </div>
               <div className="sales-features-grid">
                 {landingFeatures.map((item) => (
