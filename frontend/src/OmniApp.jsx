@@ -1,6 +1,8 @@
 import React, { Suspense, lazy, useState, useEffect, useMemo } from 'react';
 import heroAsset from './assets/hero.webp';
 const ChartsStudio = lazy(() => import('./ChartsStudio'));
+const LegalModal = lazy(() => import('./LegalModal.jsx'));
+const CookieNotice = lazy(() => import('./CookieNotice.jsx'));
 const NullChart = () => null;
 const CHARTS_FALLBACK_LIBRARY = {
   LineChart: NullChart,
@@ -338,136 +340,6 @@ const deriveMissingSetupItems = (savedKeys = {}) => {
 
 const getAuthToken = () => safeStorageGet(AUTH_TOKEN_KEY, '');
 const isDemoSession = () => safeStorageGet(DEMO_MODE_KEY, '') === '1';
-
-const LegalModal = ({ open, mode = 'privacy', onClose, onSwitchMode }) => {
-  if (!open) return null;
-  const isPrivacy = mode === 'privacy';
-  return (
-    <div className="legal-modal-backdrop" onClick={onClose}>
-      <div className="legal-modal-card" onClick={(event) => event.stopPropagation()}>
-        <button type="button" className="legal-modal-close" onClick={onClose} aria-label="Chiudi informativa">
-          ×
-        </button>
-        <div className="legal-modal-tabs">
-          <button
-            type="button"
-            className={`legal-modal-tab ${isPrivacy ? 'active' : ''}`}
-            onClick={() => onSwitchMode('privacy')}
-          >
-            Privacy
-          </button>
-          <button
-            type="button"
-            className={`legal-modal-tab ${!isPrivacy ? 'active' : ''}`}
-            onClick={() => onSwitchMode('cookies')}
-          >
-            Cookie & Storage
-          </button>
-        </div>
-        <div className="legal-modal-content">
-          {isPrivacy ? (
-            <>
-              <div className="legal-modal-kicker">Informativa privacy</div>
-              <h2>Come Aureo tratta dati, accessi e sicurezza</h2>
-              <p>
-                Aureo tratta i dati strettamente necessari per creare e gestire l’account, proteggere l’accesso,
-                erogare il servizio, inviare conferme email e assisterti durante onboarding, rinnovi e supporto operativo.
-              </p>
-              <div className="legal-modal-grid">
-                <div className="legal-modal-panel">
-                  <h3>Titolare e contatto</h3>
-                  <p>AUREO OS</p>
-                  <p>
-                    Contatto privacy: <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`}>{PRIVACY_CONTACT_EMAIL}</a>
-                  </p>
-                </div>
-                <div className="legal-modal-panel">
-                  <h3>Dati che possono essere trattati</h3>
-                  <ul>
-                    <li>Email, password hash e dati di profilo</li>
-                    <li>Stato dell’account, attivazioni e scadenze</li>
-                    <li>Chiavi API inserite volontariamente dall’utente</li>
-                    <li>Log tecnici e di sicurezza strettamente necessari</li>
-                  </ul>
-                </div>
-                <div className="legal-modal-panel">
-                  <h3>Finalità del trattamento</h3>
-                  <ul>
-                    <li>Autenticazione e sicurezza dell’accesso</li>
-                    <li>Erogazione delle funzioni richieste</li>
-                    <li>Conferma email, onboarding e supporto</li>
-                    <li>Prevenzione abusi, spam e uso fraudolento</li>
-                  </ul>
-                </div>
-                <div className="legal-modal-panel">
-                  <h3>Basi e diritti</h3>
-                  <ul>
-                    <li>Base principale: esecuzione del servizio richiesto e sicurezza dell’account</li>
-                    <li>I dati restano per il tempo necessario al servizio e agli obblighi di sicurezza</li>
-                    <li>Puoi chiedere accesso, rettifica, cancellazione o limitazione</li>
-                    <li>Puoi scrivere a {PRIVACY_CONTACT_EMAIL} per richieste privacy</li>
-                  </ul>
-                </div>
-              </div>
-              <div className="legal-modal-note">
-                Ultimo aggiornamento: {LEGAL_UPDATED_AT}. Se in futuro verranno attivati analytics avanzati, advertising,
-                remarketing o fornitori terzi aggiuntivi, questa informativa dovrà essere aggiornata di conseguenza.
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="legal-modal-kicker">Cookie & storage</div>
-              <h2>Cookie, storage locale e consenso</h2>
-              <p>
-                Aureo usa al momento solo strumenti tecnici e di memorizzazione locale strettamente necessari al
-                funzionamento del sito e dell’area riservata. Non risultano attivi cookie di profilazione, advertising o marketing di default.
-              </p>
-              <div className="legal-modal-grid">
-                <div className="legal-modal-panel">
-                  <h3>Strumenti tecnici attivi oggi</h3>
-                  <ul>
-                    <li>Sessione di accesso</li>
-                    <li>Stato demo e preferenze dell’interfaccia</li>
-                    <li>Memoria dell’avviso informativo privacy/cookie</li>
-                    <li>Impostazioni locali necessarie a migliorare usabilità e continuità</li>
-                  </ul>
-                </div>
-                <div className="legal-modal-panel">
-                  <h3>Quando serve il consenso</h3>
-                  <p>
-                    Per strumenti tecnici e strettamente necessari è richiesta l’informativa, non il consenso preventivo.
-                    Se in futuro verranno attivati analytics non anonimizzati, advertising o profilazione, Aureo mostrerà
-                    un banner di consenso prima di attivarli.
-                  </p>
-                </div>
-                <div className="legal-modal-panel">
-                  <h3>Revoca, rimozione e controllo</h3>
-                  <ul>
-                    <li>Puoi cancellare cookie e dati del sito dalle impostazioni del browser</li>
-                    <li>La rimozione può comportare logout e reset di alcune preferenze</li>
-                    <li>Puoi sempre riaprire questa informativa dal footer</li>
-                    <li>Un eventuale rifiuto futuro di cookie facoltativi sarà semplice quanto l’accettazione</li>
-                  </ul>
-                </div>
-                <div className="legal-modal-panel">
-                  <h3>Trasparenza su strumenti futuri</h3>
-                  <p>
-                    Se verranno introdotti strumenti di misurazione o marketing, aggiorneremo questa sezione, la
-                    privacy policy e il meccanismo di scelta granulare dell’utente.
-                  </p>
-                </div>
-              </div>
-              <div className="legal-modal-note">
-                Riferimento operativo: cookie e altri strumenti tecnici oggi usati solo per autenticazione, sicurezza,
-                preferenze e continuità dell’esperienza. Nessun tracciamento marketing attivo senza consenso separato.
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-};
 
 const clearAuthSession = () => {
   safeStorageRemove(AUTH_TOKEN_KEY);
@@ -4736,32 +4608,25 @@ function OmniAppInner() {
     setConfirmDialog(null);
     await action();
   }, [confirmDialog]);
-  const legalModal = (
-    <LegalModal
-      open={isLegalModalOpen}
-      mode={legalModalMode}
-      onClose={closeLegalModal}
-      onSwitchMode={setLegalModalMode}
-    />
-  );
+  const legalModal = isLegalModalOpen ? (
+    <Suspense fallback={null}>
+      <LegalModal
+        open={isLegalModalOpen}
+        mode={legalModalMode}
+        onClose={closeLegalModal}
+        onSwitchMode={setLegalModalMode}
+        privacyContactEmail={PRIVACY_CONTACT_EMAIL}
+        legalUpdatedAt={LEGAL_UPDATED_AT}
+      />
+    </Suspense>
+  ) : null;
   const cookieNotice = isCookieNoticeVisible ? (
-    <div className="cookie-notice-banner">
-      <div className="cookie-notice-copy">
-        <strong>Privacy & Cookie essenziali</strong>
-        <span>
-          Questo sito usa solo cookie tecnici e storage locale necessari a login, sicurezza e preferenze.
-          Nessun tracking marketing o profilazione attivi di default.
-        </span>
-      </div>
-      <div className="cookie-notice-actions">
-        <button type="button" className="btn btn-outline cookie-notice-button" onClick={() => openLegalModal('cookies')}>
-          Leggi i dettagli
-        </button>
-        <button type="button" className="btn btn-start cookie-notice-button" onClick={acknowledgeCookieNotice}>
-          Continua
-        </button>
-      </div>
-    </div>
+    <Suspense fallback={null}>
+      <CookieNotice
+        onReadDetails={() => openLegalModal('cookies')}
+        onContinue={acknowledgeCookieNotice}
+      />
+    </Suspense>
   ) : null;
 
   useEffect(() => {

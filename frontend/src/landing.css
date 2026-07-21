@@ -1643,15 +1643,19 @@ body {
 }
 
 .legal-modal-close {
-  position: absolute;
+  position: sticky;
   top: 1rem;
-  right: 1rem;
-  z-index: 2;
+  margin: 1rem 1rem 0 auto;
+  display: grid;
+  place-items: center;
+  z-index: 5;
   width: 2.35rem;
   height: 2.35rem;
   border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.1);
-  background: rgba(255,255,255,0.04);
+  background: rgba(12, 18, 31, 0.92);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   color: #e2e8f0;
   font-size: 1.25rem;
   cursor: pointer;
@@ -1660,8 +1664,12 @@ body {
 .legal-modal-tabs {
   display: flex;
   gap: 0.7rem;
-  padding: 1.2rem 1.3rem 0;
+  padding: 0.25rem 4.6rem 0 1.3rem;
   flex-wrap: wrap;
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  background: linear-gradient(180deg, rgba(10, 16, 28, 0.98), rgba(10, 16, 28, 0.88));
 }
 
 .legal-modal-tab {
@@ -2022,4 +2030,3 @@ body {
     transition: none;
   }
 }
-
