@@ -10466,6 +10466,12 @@ function OmniAppInner() {
         <div className="sales-landing">
           <div className="sales-bg-animation" />
           <div className="sales-bg-animation sales-bg-animation--second" />
+          <img
+            src="/aureoos-logo.png"
+            alt=""
+            aria-hidden="true"
+            className="sales-background-watermark"
+          />
           <div className="sales-topbar">
             <span className="sales-topbar-label">Private Preview</span>
             <span className="sales-topbar-text">Un abbonamento riservato per entrare in Aureo con ordine, continuità e una presenza davvero premium.</span>

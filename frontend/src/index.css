@@ -4037,6 +4037,20 @@ input:focus, textarea:focus, select:focus {
   display: none;
 }
 
+.sales-background-watermark {
+  position: fixed;
+  left: 50%;
+  bottom: -4vh;
+  transform: translateX(-50%);
+  width: min(92vw, 1100px);
+  height: auto;
+  opacity: 0.06;
+  pointer-events: none;
+  user-select: none;
+  z-index: 0;
+  filter: saturate(0.92) brightness(1.02);
+}
+
 .sales-topbar {
   position: relative;
   z-index: 1001;
@@ -5658,6 +5672,11 @@ input:focus, textarea:focus, select:focus {
   .sales-footer-bottom { flex-direction: column; gap: 1rem; text-align: center; }
   .sales-float-card,
   .sales-hero-orb { display: none; }
+  .sales-background-watermark {
+    width: min(120vw, 780px);
+    bottom: 2vh;
+    opacity: 0.05;
+  }
   .tour-guide-shell { top: 0.75rem; }
   .tour-guide-card { padding: 1rem; }
   .cookie-notice-banner {
