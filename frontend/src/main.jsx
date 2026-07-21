@@ -20,6 +20,17 @@ try {
   }
 } catch {}
 
+try {
+  const scheduleDeferredLanding = () => import('./landing-deferred.css')
+  if (typeof window !== 'undefined' && 'requestAnimationFrame' in window) {
+    window.requestAnimationFrame(() => {
+      window.setTimeout(scheduleDeferredLanding, 0)
+    })
+  } else {
+    setTimeout(scheduleDeferredLanding, 0)
+  }
+} catch {}
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <OmniApp />
