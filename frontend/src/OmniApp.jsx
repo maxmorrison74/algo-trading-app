@@ -11,6 +11,88 @@ const SYMBOL_REVIEW_HASH_PREFIX = '#review=';
 const SITE_URL = 'https://aureoos.it/';
 const PRIVACY_CONTACT_EMAIL = 'maxmorrison@gmail.com';
 const LEGAL_UPDATED_AT = '20 luglio 2026';
+const LANDING_META_DEFAULT = {
+  title: 'Aureo OS | Trading AI, Segnali Crypto e Dashboard Investimenti',
+  description: 'Aureo OS è una piattaforma di trading con AI per azioni e crypto: segnali operativi, risk management, dashboard investimenti e accesso guidato in un’unica control room.',
+  path: '',
+};
+const LANDING_SEO_PAGES = {
+  'crypto-trading-bot': {
+    slug: 'crypto-trading-bot',
+    navLabel: 'Crypto Bot',
+    eyebrow: 'Guida Aureo · Crypto trading bot',
+    title: 'Crypto trading bot con più controllo, meno caos operativo',
+    intro: 'Se stai cercando un crypto trading bot, Aureo ti offre qualcosa di più utile della semplice automazione: contesto, protezioni, segnali leggibili e una control room chiara da usare ogni giorno.',
+    bullets: [
+      'Monitoraggio continuo su BTC, ETH e SOL dentro la stessa interfaccia',
+      'Risk management e stato operativo sempre visibili',
+      'Segnali AI e watchlist crypto nello stesso flusso',
+    ],
+    titleTag: 'Crypto Trading Bot | Aureo OS',
+    description: 'Scopri il crypto trading bot di Aureo OS: segnali AI, watchlist, risk management e dashboard unica per seguire mercati crypto con più controllo.',
+  },
+  'software-trading-azioni': {
+    slug: 'software-trading-azioni',
+    navLabel: 'Trading Azioni',
+    eyebrow: 'Guida Aureo · Software trading azioni',
+    title: 'Software trading azioni per leggere meglio setup, momentum e priorità',
+    intro: 'Aureo aiuta chi segue il mercato azionario a tenere ordine tra watchlist, momentum, segnali e protezioni, senza disperdersi tra pannelli separati.',
+    bullets: [
+      'Watchlist dinamica con ranking titoli e priorità operative',
+      'Grafici, review simbolo e segnali nello stesso ambiente',
+      'Vista chiara per chi vuole operare con più disciplina',
+    ],
+    titleTag: 'Software Trading Azioni | Aureo OS',
+    description: 'Aureo OS è un software trading azioni con dashboard, watchlist, segnali AI, review simboli e risk management per investitori e trader attivi.',
+  },
+  'segnali-trading-ai': {
+    slug: 'segnali-trading-ai',
+    navLabel: 'Segnali AI',
+    eyebrow: 'Guida Aureo · Segnali trading AI',
+    title: 'Segnali trading AI dentro una dashboard unica e più facile da usare',
+    intro: 'Aureo raccoglie segnali trading AI, contesto di mercato e protezioni operative in un solo posto, così capisci più in fretta cosa guardare e come muoverti.',
+    bullets: [
+      'Segnali leggibili senza rumore tecnico inutile',
+      'Integrazione con watchlist, review e stato runtime',
+      'Alert e operatività nello stesso ambiente premium',
+    ],
+    titleTag: 'Segnali Trading AI | Aureo OS',
+    description: 'Segnali trading AI per crypto e azioni in una dashboard Aureo OS pensata per leggibilità, continuità operativa e controllo del rischio.',
+  },
+  'dashboard-investimenti': {
+    slug: 'dashboard-investimenti',
+    navLabel: 'Dashboard',
+    eyebrow: 'Guida Aureo · Dashboard investimenti',
+    title: 'Dashboard investimenti per vedere mercati, rischio e opportunità in un colpo d’occhio',
+    intro: 'Aureo è anche una dashboard investimenti pensata per chi vuole una vista unificata su posizioni, segnali, rischio, grafici e stato del motore.',
+    bullets: [
+      'Una sola control room per overview, trading, charts e sicurezza',
+      'Indicatori chiari per capire cosa conta davvero adesso',
+      'Esperienza pulita su desktop, tablet e mobile',
+    ],
+    titleTag: 'Dashboard Investimenti | Aureo OS',
+    description: 'Dashboard investimenti Aureo OS: una control room unica per seguire crypto, azioni, segnali, grafici, posizioni e risk management.',
+  },
+};
+const resolveLandingSeoPageFromSearch = () => {
+  try {
+    if (typeof window === 'undefined') return '';
+    const slug = new URLSearchParams(window.location.search).get('page') || '';
+    return LANDING_SEO_PAGES[slug] ? slug : '';
+  } catch {
+    return '';
+  }
+};
+const updateMetaTag = (selector, content) => {
+  if (typeof document === 'undefined') return;
+  const node = document.querySelector(selector);
+  if (node && typeof content === 'string') node.setAttribute('content', content);
+};
+const updateCanonicalHref = (href) => {
+  if (typeof document === 'undefined') return;
+  const node = document.querySelector('link[rel="canonical"]');
+  if (node && href) node.setAttribute('href', href);
+};
 const TAB_TITLES = {
   home: 'Dashboard',
   trading: 'Stock Market',
@@ -3967,6 +4049,7 @@ function OmniAppInner() {
   };
   const [isAuthenticated, setIsAuthenticated] = useState(checkAuthMemory());
   const [showLanding, setShowLanding] = useState(true);
+  const [seoLandingPage, setSeoLandingPage] = useState(() => resolveLandingSeoPageFromSearch());
   const [showLandingPlans, setShowLandingPlans] = useState(false);
   const [selectedPlanId, setSelectedPlanId] = useState('');
   const [legalModalMode, setLegalModalMode] = useState('privacy');
@@ -4258,6 +4341,23 @@ function OmniAppInner() {
   }, []);
   const closeConfirmDialog = React.useCallback(() => setConfirmDialog(null), []);
   const openConfirmDialog = React.useCallback((config) => setConfirmDialog({ open: true, ...config }), []);
+  const activeLandingSeoGuide = seoLandingPage ? LANDING_SEO_PAGES[seoLandingPage] || null : null;
+  const openLandingSeoGuide = React.useCallback((slug = '') => {
+    if (typeof window === 'undefined') return;
+    const nextUrl = new URL(window.location.href);
+    if (slug && LANDING_SEO_PAGES[slug]) {
+      nextUrl.searchParams.set('page', slug);
+      setSeoLandingPage(slug);
+    } else {
+      nextUrl.searchParams.delete('page');
+      setSeoLandingPage('');
+    }
+    window.history.pushState({}, '', `${nextUrl.pathname}${nextUrl.search}${nextUrl.hash}`);
+    window.requestAnimationFrame(() => {
+      const section = document.getElementById('landing-guide-detail');
+      if (section) section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  }, []);
   const runConfirmedAction = React.useCallback(async () => {
     if (!confirmDialog?.onConfirmAction) {
       setConfirmDialog(null);
@@ -4310,6 +4410,37 @@ function OmniAppInner() {
       setActiveTab('home');
     }
   }, [activeTab, userRole, developSection]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const syncSeoGuide = () => setSeoLandingPage(resolveLandingSeoPageFromSearch());
+    syncSeoGuide();
+    window.addEventListener('popstate', syncSeoGuide);
+    return () => window.removeEventListener('popstate', syncSeoGuide);
+  }, []);
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (showLanding) {
+      const meta = activeLandingSeoGuide
+        ? {
+            title: activeLandingSeoGuide.titleTag,
+            description: activeLandingSeoGuide.description,
+            path: `?page=${activeLandingSeoGuide.slug}`,
+          }
+        : LANDING_META_DEFAULT;
+      document.title = meta.title;
+      updateMetaTag('meta[name="description"]', meta.description);
+      updateMetaTag('meta[property="og:title"]', meta.title);
+      updateMetaTag('meta[property="og:description"]', meta.description);
+      updateMetaTag('meta[name="twitter:title"]', meta.title);
+      updateMetaTag('meta[name="twitter:description"]', meta.description);
+      updateCanonicalHref(`${SITE_URL}${meta.path}`);
+      return;
+    }
+    document.title = `Aureo OS | ${activeTabLabel}`;
+    updateCanonicalHref(SITE_URL);
+  }, [showLanding, activeLandingSeoGuide, activeTabLabel]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -10287,6 +10418,7 @@ function OmniAppInner() {
             </a>
             <div className="sales-nav-links">
               <a href="#landing-features">Funzionalità</a>
+              <a href="#landing-guides">Guide</a>
               <a href="#landing-markets">Mercati</a>
               <a href="#landing-assurance">Garanzie</a>
               <a href="#landing-flow">Percorso</a>
@@ -10435,6 +10567,48 @@ function OmniAppInner() {
                 ))}
               </div>
             </section>
+
+            <section className="sales-section sales-section--soft" id="landing-guides">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Guide tematiche Aureo</div>
+                <h2>Quattro porte d’ingresso chiare per chi cerca un crypto bot, una dashboard investimenti o segnali AI</h2>
+                <p>Ogni guida rafforza una ricerca reale e porta dentro Aureo con una promessa più precisa, più credibile e più facile da capire.</p>
+              </div>
+              <div className="sales-module-grid">
+                {Object.values(LANDING_SEO_PAGES).map((item) => (
+                  <article key={item.slug} className="sales-module-card">
+                    <div className="sales-module-badge">{item.navLabel}</div>
+                    <h3>{item.title}</h3>
+                    <p>{item.intro}</p>
+                    <button type="button" className="btn btn-outline sales-pricing-button" onClick={() => openLandingSeoGuide(item.slug)}>
+                      Apri guida
+                    </button>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            {activeLandingSeoGuide && (
+              <section className="sales-section sales-section--enterprise" id="landing-guide-detail">
+                <div className="sales-section-header">
+                  <div className="sales-section-eyebrow">{activeLandingSeoGuide.eyebrow}</div>
+                  <h2>{activeLandingSeoGuide.title}</h2>
+                  <p>{activeLandingSeoGuide.intro}</p>
+                </div>
+                <div className="sales-enterprise-grid">
+                  {activeLandingSeoGuide.bullets.map((item) => (
+                    <article key={item} className="sales-enterprise-card">
+                      <div className="sales-enterprise-card-kicker">Aureo advantage</div>
+                      <p>{item}</p>
+                    </article>
+                  ))}
+                </div>
+                <div className="sales-hero-buttons sales-hero-buttons--center">
+                  <button className="btn btn-start btn-large" onClick={openPricingSection}>Scegli il tuo accesso</button>
+                  <button type="button" className="btn btn-outline btn-large" onClick={() => openLandingSeoGuide('')}>Torna alla pagina principale</button>
+                </div>
+              </section>
+            )}
 
             <section className="sales-section sales-section--soft" id="landing-markets">
               <div className="sales-section-header">
@@ -10783,6 +10957,7 @@ function OmniAppInner() {
                 <div className="sales-footer-links">
                   <h4>Prodotto</h4>
                   <a href="#landing-features">Funzionalità</a>
+                  <a href="#landing-guides">Guide</a>
                   <a href="#landing-markets">Mercati</a>
                   <a href="#landing-assurance">Garanzie</a>
                   <a href="#landing-pricing">Step</a>
