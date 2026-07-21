@@ -131,9 +131,11 @@ echo "4) Riavvio backend via PM2..."
 mkdir -p logs
 
 if pm2 describe algotrading-api >/dev/null 2>&1; then
-    pm2 restart algotrading-api
+    echo "   • Processo PM2 esistente trovato: riavvio con ricarica variabili ambiente"
+    pm2 restart algotrading-api --update-env
 else
-    pm2 start ecosystem.config.js
+    echo "   • Processo PM2 non presente: avvio da ecosystem con ambiente aggiornato"
+    pm2 start ecosystem.config.js --update-env
 fi
 
 echo "5) Verifica avvio backend su 127.0.0.1:8000..."
