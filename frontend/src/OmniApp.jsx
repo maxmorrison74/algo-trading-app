@@ -5373,6 +5373,7 @@ function OmniAppInner() {
     const optionOrders = Array.isArray(snapshot?.orders) ? snapshot.orders : [];
     const optionPositions = Array.isArray(snapshot?.positions) ? snapshot.positions : [];
     const closePlan = snapshot?.close_plan || {};
+    const runtime = snapshot?.runtime || {};
 
     const saveOptionsLabConfig = async () => {
       if (userRole !== 'admin' || optionsLabSaving) return;
@@ -5470,6 +5471,11 @@ function OmniAppInner() {
                 <strong style={{ color: '#a78bfa' }}>{plan?.quality_score ? `${Number(plan.quality_score).toFixed(0)}/100` : '—'}</strong>
                 <small>{plan?.entry_window_open ? `Dentro finestra ET · ${plan?.et_now || '—'}` : `Fuori finestra ET · ${plan?.et_now || '—'}`}</small>
               </div>
+              <div className="develop-summary-card" style={{ borderColor: 'rgba(34,197,94,0.25)' }}>
+                <span>Auto-manage</span>
+                <strong style={{ color: plan?.auto_manage_enabled ? '#22c55e' : '#94a3b8' }}>{plan?.auto_manage_enabled ? 'ARMED' : 'OFF'}</strong>
+                <small>{runtime?.last_auto_action_reason ? `Ultimo: ${runtime.last_auto_action_reason}` : 'Nessuna azione automatica ancora'}</small>
+              </div>
             </div>
           </div>
 
@@ -5538,6 +5544,17 @@ function OmniAppInner() {
                 </strong>
                 <small style={{ color: 'var(--text-secondary)' }}>{plan?.time_stop_reached ? 'Orario limite raggiunto' : 'Ancora dentro la giornata utile'}</small>
               </div>
+              {plan?.has_open_positions && (
+                <div style={{ padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Spread live</div>
+                  <strong style={{ color: '#38bdf8', display: 'block', marginTop: '0.3rem' }}>
+                    {plan?.open_spread_current_net ? `$${Number(plan.open_spread_current_net).toFixed(2)}` : '—'}
+                  </strong>
+                  <small style={{ color: Number(plan?.open_spread_pnl_capture_pct || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                    {plan?.open_spread_pnl_capture_pct != null ? `${Number(plan.open_spread_pnl_capture_pct).toFixed(1)}% progress` : 'P&L non disponibile'}
+                  </small>
+                </div>
+              )}
             </div>
             {!!plan?.legs?.length && (
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
@@ -5593,6 +5610,7 @@ function OmniAppInner() {
             <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
               {[
                 { key: 'enabled', label: 'Lab abilitato', type: 'checkbox' },
+                { key: 'auto_manage_enabled', label: 'Auto-manage uscite', type: 'checkbox' },
                 { key: 'paper_only', label: 'Solo paper', type: 'checkbox' },
                 { key: 'underlying', label: 'Sottostante', type: 'text' },
                 { key: 'strategy', label: 'Strategia', type: 'select', options: [{ value: 'bull_put_spread', label: 'Bull Put Spread' }, { value: 'bull_call_spread', label: 'Bull Call Spread' }] },

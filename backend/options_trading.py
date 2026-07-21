@@ -329,7 +329,8 @@ def build_close_multileg_plan(positions, strategy="bull_put_spread"):
         return {"ready": False, "reason": "Le due gambe non hanno la stessa quantità."}
 
     legs = []
-    close_value = 0.0
+    net_credit = 0.0
+    net_debit = 0.0
     for row in rows:
         qty = abs(int(round(_safe_float(row.get("qty"), 0))))
         side = str(row.get("side") or "").upper()
@@ -339,11 +340,11 @@ def build_close_multileg_plan(positions, strategy="bull_put_spread"):
         if side == "LONG":
             close_side = "sell"
             position_intent = "sell_to_close"
-            close_value -= current_mark
+            net_credit += current_mark
         else:
             close_side = "buy"
             position_intent = "buy_to_close"
-            close_value += current_mark
+            net_debit += current_mark
         legs.append({
             "symbol": row.get("symbol"),
             "side": close_side,
@@ -352,15 +353,16 @@ def build_close_multileg_plan(positions, strategy="bull_put_spread"):
             "qty": qty,
         })
 
-    debit_to_close = round(max(0.01, close_value), 2)
-    limit_price = round(max(0.01, debit_to_close * 1.04), 2)
+    net_price = round(abs(net_credit - net_debit), 2)
+    net_price_type = "credit" if net_credit >= net_debit else "debit"
+    limit_price = round(max(0.01, net_price * (0.96 if net_price_type == "credit" else 1.04)), 2)
     return {
         "ready": True,
         "strategy": strategy,
         "contracts": int(first_contracts),
         "estimated_limit_price": limit_price,
-        "estimated_net_price": debit_to_close,
-        "net_price_type": "debit",
+        "estimated_net_price": net_price,
+        "net_price_type": net_price_type,
         "legs": legs,
     }
 

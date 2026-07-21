@@ -318,6 +318,7 @@ DEFAULT_EXIT_LADDER = {
 
 DEFAULT_OPTIONS_LAB_CONFIG = {
     "enabled": False,
+    "auto_manage_enabled": True,
     "paper_only": True,
     "underlying": "SPY",
     "strategy": "bull_put_spread",
@@ -346,6 +347,7 @@ def ensure_options_lab_config(config):
     current["take_profit_capture_pct"] = max(5.0, min(95.0, float(current.get("take_profit_capture_pct") or 55.0)))
     current["stop_loss_pct"] = max(10.0, min(250.0, float(current.get("stop_loss_pct") or 85.0)))
     current["enabled"] = bool(current.get("enabled", False))
+    current["auto_manage_enabled"] = bool(current.get("auto_manage_enabled", True))
     current["paper_only"] = bool(current.get("paper_only", True))
     current["strategy"] = str(current.get("strategy") or "bull_put_spread")
     current["bias"] = str(current.get("bias") or "bullish")
@@ -1585,6 +1587,13 @@ def execute_options_lab_trade(user: dict = Depends(require_user)):
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    target_state.options_lab_runtime = {
+        **dict(getattr(target_state, "options_lab_runtime", {}) or {}),
+        "last_auto_action_at": datetime.now().isoformat(),
+        "last_auto_action_reason": "manual-entry",
+        "last_auto_action_status": "submitted",
+    }
+    target_state.save_state()
     refreshed = build_options_lab_snapshot(target_state, user_id)
     return {
         "status": "ok",
@@ -1632,6 +1641,13 @@ def close_options_lab_trade(user: dict = Depends(require_user)):
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    target_state.options_lab_runtime = {
+        **dict(getattr(target_state, "options_lab_runtime", {}) or {}),
+        "last_auto_action_at": datetime.now().isoformat(),
+        "last_auto_action_reason": "manual-close",
+        "last_auto_action_status": "submitted",
+    }
+    target_state.save_state()
     refreshed = build_options_lab_snapshot(target_state, user_id)
     return {
         "status": "ok",
@@ -2087,6 +2103,7 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
         "strategy": strategy,
         "strategy_label": "Bull Put Spread 0DTE" if strategy == "bull_put_spread" else "Bull Call Spread 0DTE",
         "bias": config.get("bias", "bullish"),
+        "auto_manage_enabled": bool(config.get("auto_manage_enabled", True)),
         "entry_window": f"{config.get('entry_start_et', '09:45')}–{config.get('entry_end_et', '11:30')} ET",
         "time_stop_et": config.get("time_stop_et", "14:45"),
         "contracts": contracts,
@@ -2190,6 +2207,31 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
     if has_open_positions:
         warnings.append(f"C'è già una posizione opzioni {underlying} aperta.")
         close_plan = build_close_multileg_plan(options_positions, strategy=strategy)
+        try:
+            short_entry = sum(float(pos.get("avg_entry_price") or 0) for pos in options_positions if str(pos.get("side") or "").upper() == "SHORT")
+            long_entry = sum(float(pos.get("avg_entry_price") or 0) for pos in options_positions if str(pos.get("side") or "").upper() == "LONG")
+            current_short = sum(float(pos.get("current_mark") or 0) for pos in options_positions if str(pos.get("side") or "").upper() == "SHORT")
+            current_long = sum(float(pos.get("current_mark") or 0) for pos in options_positions if str(pos.get("side") or "").upper() == "LONG")
+            if strategy == "bull_put_spread":
+                entry_net = round(max(0.01, short_entry - long_entry), 2)
+                current_close = round(float(close_plan.get("estimated_net_price") or 0), 2)
+                captured_pct = round(((entry_net - current_close) / max(entry_net, 0.01)) * 100.0, 1)
+                stop_trigger_price = round(entry_net * (1 + (plan["stop_loss_pct"] / 100.0)), 2)
+                target_trigger_price = round(entry_net * (1 - (plan["take_profit_capture_pct"] / 100.0)), 2)
+            else:
+                entry_net = round(max(0.01, long_entry - short_entry), 2)
+                current_value = round(max(0.01, current_long - current_short), 2)
+                current_close = current_value
+                captured_pct = round(((current_value - entry_net) / max(entry_net, 0.01)) * 100.0, 1)
+                stop_trigger_price = round(entry_net * max(0.2, 1 - (plan["stop_loss_pct"] / 100.0)), 2)
+                target_trigger_price = round(entry_net * (1 + (plan["take_profit_capture_pct"] / 100.0)), 2)
+            plan["open_spread_entry_net"] = entry_net
+            plan["open_spread_current_net"] = current_close
+            plan["open_spread_pnl_capture_pct"] = captured_pct
+            plan["take_profit_trigger_price"] = target_trigger_price
+            plan["stop_loss_trigger_price"] = stop_trigger_price
+        except Exception:
+            pass
     plan["has_open_orders"] = has_open_orders
     plan["has_open_positions"] = has_open_positions
     if has_open_orders or has_open_positions:
@@ -2211,6 +2253,7 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
         "orders": options_orders,
         "positions": options_positions,
         "close_plan": close_plan,
+        "runtime": dict(getattr(bot_state, "options_lab_runtime", {}) or {}),
         "generated_at": datetime.now().isoformat(),
     }
 
@@ -2247,6 +2290,11 @@ class BotState:
         self.exit_ladder = ensure_exit_ladder_config(db_data.get("exit_ladder", DEFAULT_EXIT_LADDER))
         self.signal_hub = ensure_signal_hub_config(db_data.get("signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
         self.options_lab = ensure_options_lab_config(db_data.get("options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
+        self.options_lab_runtime = db_data.get("options_lab_runtime", {
+            "last_auto_action_at": None,
+            "last_auto_action_reason": None,
+            "last_auto_action_status": None,
+        })
         self.dynamic_atr_stop = db_data.get("dynamic_atr_stop", True)
         self.trailing_stop_base_pct = db_data.get("trailing_stop_base_pct", 2.5)
         self.telegram_alerts_enabled = db_data.get("telegram_alerts_enabled", True)
@@ -2343,6 +2391,7 @@ class BotState:
             "exit_ladder": self.exit_ladder,
             "signal_hub": self.signal_hub,
             "options_lab": self.options_lab,
+            "options_lab_runtime": self.options_lab_runtime,
             "dynamic_atr_stop": self.dynamic_atr_stop,
             "trailing_stop_base_pct": self.trailing_stop_base_pct,
             "telegram_alerts_enabled": self.telegram_alerts_enabled,
@@ -2857,11 +2906,128 @@ def _reentry_loop():
         time.sleep(CHECK_INTERVAL)
 
 
+def _submit_options_lab_close_for_user(user_id: str, reason: str):
+    from options_trading import submit_multileg_order
+
+    target_state = get_user_bot_state(user_id)
+    snapshot = build_options_lab_snapshot(target_state, user_id)
+    config = snapshot.get("config") or {}
+    close_plan = snapshot.get("close_plan") or {}
+    plan = snapshot.get("plan") or {}
+
+    if not bool(config.get("auto_manage_enabled", True)):
+        return {"status": "skipped", "reason": "auto-manage-off"}
+    if not bool(config.get("paper_only", True)):
+        return {"status": "skipped", "reason": "not-paper"}
+    if not bool(plan.get("has_open_positions")):
+        return {"status": "skipped", "reason": "no-open-position"}
+    if plan.get("has_open_orders"):
+        return {"status": "skipped", "reason": "open-order-present"}
+    if not bool(close_plan.get("ready")):
+        return {"status": "skipped", "reason": close_plan.get("reason") or "close-plan-not-ready"}
+
+    engine = get_user_alpaca_engine(user_id)
+    api_key = str(getattr(engine, "alpaca_key", "") or "").strip()
+    api_secret = str(getattr(engine, "alpaca_secret", "") or "").strip()
+    base_url = str(getattr(engine, "alpaca_base", "") or "").strip()
+    if not api_key or not api_secret or not base_url:
+        return {"status": "skipped", "reason": "missing-keys"}
+
+    execution = submit_multileg_order(
+        api_key=api_key,
+        api_secret=api_secret,
+        base_url=base_url,
+        plan=close_plan,
+    )
+    target_state.options_lab_runtime = {
+        **dict(getattr(target_state, "options_lab_runtime", {}) or {}),
+        "last_auto_action_at": datetime.now().isoformat(),
+        "last_auto_action_reason": reason,
+        "last_auto_action_status": "submitted",
+    }
+    target_state.save_state()
+    try:
+        send_telegram_message(f"🧪 SPY Options Lab\nChiusura automatica paper inviata\nMotivo: {reason}")
+    except Exception:
+        pass
+    return {"status": "ok", "execution": execution}
+
+
+def _options_lab_auto_manage_loop():
+    CHECK_INTERVAL = 20
+    print("[OPTIONS-LAB] Loop auto-manage SPY avviato.")
+    while True:
+        try:
+            user_id = "admin"
+            state = get_user_bot_state(user_id)
+            config = ensure_options_lab_config(getattr(state, "options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
+            if not config.get("enabled") or not config.get("auto_manage_enabled", True):
+                time.sleep(CHECK_INTERVAL)
+                continue
+
+            snapshot = build_options_lab_snapshot(state, user_id)
+            plan = snapshot.get("plan") or {}
+            runtime = dict(snapshot.get("runtime") or {})
+            if not plan.get("has_open_positions") or plan.get("has_open_orders"):
+                time.sleep(CHECK_INTERVAL)
+                continue
+
+            now_iso = datetime.now().isoformat()
+            last_action_at = runtime.get("last_auto_action_at")
+            recently_sent = False
+            if last_action_at:
+                try:
+                    recently_sent = (datetime.now() - datetime.fromisoformat(last_action_at)).total_seconds() < 90
+                except Exception:
+                    recently_sent = False
+            if recently_sent:
+                time.sleep(CHECK_INTERVAL)
+                continue
+
+            reason = None
+            strategy = str(plan.get("strategy") or "bull_put_spread")
+            current_net = float(plan.get("open_spread_current_net") or 0)
+            if strategy == "bull_put_spread":
+                tp_trigger = float(plan.get("take_profit_trigger_price") or 0)
+                sl_trigger = float(plan.get("stop_loss_trigger_price") or 0)
+                if tp_trigger > 0 and current_net <= tp_trigger:
+                    reason = f"take-profit hit @ {current_net:.2f}"
+                elif sl_trigger > 0 and current_net >= sl_trigger:
+                    reason = f"stop-loss hit @ {current_net:.2f}"
+            else:
+                tp_trigger = float(plan.get("take_profit_trigger_price") or 0)
+                sl_trigger = float(plan.get("stop_loss_trigger_price") or 0)
+                if tp_trigger > 0 and current_net >= tp_trigger:
+                    reason = f"take-profit hit @ {current_net:.2f}"
+                elif sl_trigger > 0 and current_net <= sl_trigger:
+                    reason = f"stop-loss hit @ {current_net:.2f}"
+
+            if not reason and bool(plan.get("time_stop_reached")):
+                reason = f"time-stop {plan.get('time_stop_et')}"
+
+            if reason:
+                result = _submit_options_lab_close_for_user(user_id, reason)
+                if result.get("status") == "ok":
+                    state.add_log(f"🧪 SPY Options Lab auto-close inviato ({reason})")
+                else:
+                    state.options_lab_runtime = {
+                        **dict(getattr(state, "options_lab_runtime", {}) or {}),
+                        "last_auto_action_at": now_iso,
+                        "last_auto_action_reason": reason,
+                        "last_auto_action_status": f"skip:{result.get('reason')}",
+                    }
+                    state.save_state()
+        except Exception as e:
+            print(f"[OPTIONS-LAB] Errore loop auto-manage: {e}")
+        time.sleep(CHECK_INTERVAL)
+
+
 # Avvia i loop in background
 # thread sostituito da executor
 global_executor.submit(_auto_exit_loop)
 # thread sostituito da executor
 global_executor.submit(_reentry_loop)
+global_executor.submit(_options_lab_auto_manage_loop)
 def get_status(user_id="admin", scope: str = "core"):
     bot_state = get_user_bot_state(user_id)
     alpaca = get_user_alpaca_engine(user_id).alpaca_rest
