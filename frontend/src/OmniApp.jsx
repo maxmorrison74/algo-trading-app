@@ -1283,6 +1283,77 @@ const deriveExecutionPlan = ({ opportunity = null, risk = {}, status = {} }) => 
   };
 };
 
+const deriveAlphaRadar = ({ status = {}, opportunities = [], cryptoEngine = null }) => {
+  const stockLead = opportunities.find((item) => !String(item.symbol || '').includes('/')) || null;
+  const cryptoLead = opportunities.find((item) => String(item.symbol || '').includes('/')) || null;
+  const rotation = status?.playbook_rotation || {};
+  const optionsPlan = status?.options_lab?.plan || {};
+  const optionsJournal = status?.options_lab?.journal || {};
+  const activeTrade = optionsJournal?.active_trade || null;
+
+  const lanes = [];
+
+  if (stockLead) {
+    lanes.push({
+      id: 'equity-momentum',
+      tone: stockLead.headline?.tone || '#38bdf8',
+      border: stockLead.headline?.border || 'rgba(56,189,248,0.3)',
+      bg: stockLead.headline?.bg || 'rgba(56,189,248,0.08)',
+      kicker: 'Momentum Equity',
+      title: stockLead.symbol,
+      status: stockLead.conviction?.label || 'Focus',
+      summary: stockLead.headline?.detail || 'Titolo azionario con contesto favorevole.',
+      detail: stockLead.allocation?.target_pct ? `Quota ideale ${Number(stockLead.allocation.target_pct).toFixed(1)}%` : 'Quota dinamica in base al conviction score',
+      score: `${Number(stockLead.conviction?.score || 0).toFixed(0)}/100`,
+    });
+  }
+
+  lanes.push({
+    id: 'crypto-core',
+    tone: cryptoEngine?.tone || (cryptoLead?.headline?.tone || '#a78bfa'),
+    border: cryptoEngine?.border || 'rgba(167,139,250,0.3)',
+    bg: cryptoEngine?.bg || 'rgba(167,139,250,0.08)',
+    kicker: 'Crypto Core',
+    title: cryptoLead?.symbol || 'BTC / ETH / SOL',
+    status: cryptoEngine?.label || 'Watch',
+    summary: cryptoEngine?.reason || 'Motore crypto in osservazione continua per opportunità di trend e riattivazione.',
+    detail: cryptoLead?.conviction?.score ? `Conviction ${cryptoLead.conviction.score}/100` : 'Mantieni il core pronto per quando il regime migliora',
+    score: cryptoLead?.readiness?.score ? `${cryptoLead.readiness.score}/100` : 'Core',
+  });
+
+  lanes.push({
+    id: 'playbook-rotation',
+    tone: rotation?.recommended ? '#10b981' : '#38bdf8',
+    border: rotation?.recommended ? 'rgba(16,185,129,0.3)' : 'rgba(56,189,248,0.28)',
+    bg: rotation?.recommended ? 'rgba(16,185,129,0.08)' : 'rgba(56,189,248,0.08)',
+    kicker: 'Capital Rotation',
+    title: rotation?.recommended ? (rotation?.recommended_label || 'Rotazione utile') : (rotation?.active_label || 'Playbook attivo'),
+    status: rotation?.recommended ? 'Shift suggerito' : 'Coerente',
+    summary: rotation?.summary || 'Il motore non vede ancora una rotazione prioritaria del playbook.',
+    detail: rotation?.score_gap ? `Gap ${Number(rotation.score_gap).toFixed(1)} punti` : 'Nessun gap materiale',
+    score: rotation?.contenders?.[0]?.score != null ? `${Number(rotation.contenders[0].score).toFixed(0)}/100` : 'n/d',
+  });
+
+  lanes.push({
+    id: 'options-income',
+    tone: activeTrade ? '#10b981' : (optionsPlan?.is_ready ? '#38bdf8' : '#f59e0b'),
+    border: activeTrade ? 'rgba(16,185,129,0.3)' : (optionsPlan?.is_ready ? 'rgba(56,189,248,0.28)' : 'rgba(245,158,11,0.28)'),
+    bg: activeTrade ? 'rgba(16,185,129,0.08)' : (optionsPlan?.is_ready ? 'rgba(56,189,248,0.08)' : 'rgba(245,158,11,0.08)'),
+    kicker: 'Options Income',
+    title: activeTrade ? (activeTrade.strategy_label || 'SPY 0DTE live') : (optionsPlan?.strategy_label || 'SPY 0DTE'),
+    status: activeTrade ? 'Gestione attiva' : (optionsPlan?.is_ready ? 'Ready to send' : 'In preparazione'),
+    summary: activeTrade
+      ? `Spread attivo con capture ${Number(activeTrade.last_capture_pct || 0).toFixed(1)}% e mark ${activeTrade.last_mark_net != null ? `$${Number(activeTrade.last_mark_net).toFixed(2)}` : 'n/d'}.`
+      : (optionsPlan?.thesis || 'Desk opzioni pronto a lavorare quando il piano entra in condizioni valide.'),
+    detail: optionsJournal?.total_sessions
+      ? `${Number(optionsJournal.total_sessions).toFixed(0)} sessioni archiviate · win rate ${Number(optionsJournal.win_rate || 0).toFixed(0)}%`
+      : (optionsPlan?.estimated_max_loss_usd ? `Rischio stimato $${Number(optionsPlan.estimated_max_loss_usd).toFixed(0)}` : 'Storico ancora da popolare'),
+    score: activeTrade ? 'LIVE' : (optionsPlan?.quality_score ? `${Number(optionsPlan.quality_score).toFixed(0)}/100` : 'Desk'),
+  });
+
+  return lanes.slice(0, 4);
+};
+
 const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, tradePerformance = null, readinessMap = {}, headlineMap = {}, rankedMap = {}, allocationMap = {}, setupGuard = null }) => {
   const symbols = Array.isArray(status?.symbols) ? status.symbols : [];
 
@@ -3766,6 +3837,10 @@ function OmniAppInner() {
     [status, tableDataBySymbol, symbolDiagnostics, rankedMap, allocationMap]
   );
   const opportunitySpotlight = useMemo(() => deriveOpportunitySpotlight(topOpportunities), [topOpportunities]);
+  const alphaRadar = useMemo(
+    () => deriveAlphaRadar({ status, opportunities: topOpportunities, cryptoEngine }),
+    [status, topOpportunities, cryptoEngine]
+  );
   const executionPlan = useMemo(
     () => deriveExecutionPlan({ opportunity: opportunitySpotlight.spotlight, risk: status.risk, status }),
     [opportunitySpotlight, status]
@@ -7315,6 +7390,45 @@ function OmniAppInner() {
             >
               Apri {opportunitySpotlight.spotlight.symbol}
             </button>
+          </div>
+        </div>
+      )}
+
+      {userRole === 'admin' && alphaRadar.length > 0 && (
+        <div className="card trading-opportunities-card" style={{ marginTop: '1rem', background: 'rgba(255,255,255,0.025)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+            <div>
+              <div className="card-title">🧭 Alpha Radar</div>
+              <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                Quattro corsie di guadagno da tenere vive: equity, crypto core, rotazione capitale e premium income su SPY.
+              </div>
+            </div>
+            <div className="badge badge-active">{alphaRadar.length} lane attive</div>
+          </div>
+          <div style={{ marginTop: '0.9rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
+            {alphaRadar.map((lane) => (
+              <div
+                key={lane.id}
+                style={{
+                  padding: '1rem',
+                  borderRadius: '16px',
+                  border: `1px solid ${lane.border}`,
+                  background: lane.bg,
+                  minWidth: 0,
+                }}
+              >
+                <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.38rem' }}>
+                  {lane.kicker}
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'flex-start' }}>
+                  <div style={{ color: '#f8fafc', fontWeight: 900, fontSize: '1.02rem', lineHeight: 1.2 }}>{lane.title}</div>
+                  <div style={{ color: lane.tone, fontWeight: 800, fontSize: '0.82rem', whiteSpace: 'nowrap' }}>{lane.score}</div>
+                </div>
+                <div style={{ color: lane.tone, fontWeight: 800, fontSize: '0.82rem', marginTop: '0.35rem' }}>{lane.status}</div>
+                <div style={{ color: '#cbd5e1', fontSize: '0.86rem', lineHeight: 1.5, marginTop: '0.55rem' }}>{lane.summary}</div>
+                <div style={{ color: '#94a3b8', fontSize: '0.78rem', lineHeight: 1.45, marginTop: '0.6rem' }}>{lane.detail}</div>
+              </div>
+            ))}
           </div>
         </div>
       )}
