@@ -1354,6 +1354,112 @@ const deriveAlphaRadar = ({ status = {}, opportunities = [], cryptoEngine = null
   return lanes.slice(0, 4);
 };
 
+const deriveMoneyMap = ({ status = {}, opportunities = [], risk = {} }) => {
+  const ready = opportunities.filter((item) => Number(item?.readiness?.score || 0) >= 78);
+  const warming = opportunities.filter((item) => {
+    const score = Number(item?.readiness?.score || 0);
+    return score >= 58 && score < 78;
+  });
+  const blocked = opportunities.filter((item) => Number(item?.readiness?.score || 0) < 58);
+  const topReady = ready[0] || null;
+  const topWarming = warming[0] || null;
+  const coldest = blocked[0] || null;
+  const slots = Number(risk?.positions_remaining ?? 0);
+  const canTrade = risk?.can_trade !== false;
+  const marketOpen = !!status?.market_open;
+  const rotation = status?.playbook_rotation || {};
+  const allocation = status?.symbol_allocation || {};
+
+  const flows = [
+    {
+      id: 'deploy-now',
+      label: 'Spingi ora',
+      tone: topReady && canTrade && marketOpen ? '#10b981' : '#94a3b8',
+      border: topReady && canTrade && marketOpen ? 'rgba(16,185,129,0.3)' : 'rgba(148,163,184,0.22)',
+      bg: topReady && canTrade && marketOpen ? 'rgba(16,185,129,0.08)' : 'rgba(148,163,184,0.06)',
+      symbol: topReady?.symbol || 'Nessun setup pieno',
+      headline: topReady
+        ? `${topReady.conviction?.label || 'Strong'} · ${topReady.readiness?.score || 0}/100`
+        : 'Nessuna finestra piena al momento',
+      detail: topReady
+        ? `${topReady.headline?.detail || ''}${topReady.allocation?.target_pct ? ` · quota ${Number(topReady.allocation.target_pct).toFixed(1)}%` : ''}`
+        : canTrade ? 'Meglio aspettare una conferma reale prima di impegnare capitale.' : (risk?.reason || 'Il risk engine sta bloccando nuovi ingressi.'),
+    },
+    {
+      id: 'watch-build',
+      label: 'Accumula attenzione',
+      tone: topWarming ? '#38bdf8' : '#94a3b8',
+      border: topWarming ? 'rgba(56,189,248,0.28)' : 'rgba(148,163,184,0.22)',
+      bg: topWarming ? 'rgba(56,189,248,0.08)' : 'rgba(148,163,184,0.06)',
+      symbol: topWarming?.symbol || 'Watchlist fredda',
+      headline: topWarming ? `${topWarming.conviction?.label || 'Watch'} · ${topWarming.readiness?.score || 0}/100` : 'Nessun setup in maturazione',
+      detail: topWarming
+        ? topWarming.headline?.detail || 'Qui conviene seguire senza forzare.'
+        : 'Quando i setup iniziano a salire di punteggio, questa corsia si riattiva da sola.',
+    },
+    {
+      id: 'protect-cash',
+      label: 'Proteggi cash',
+      tone: '#f59e0b',
+      border: 'rgba(245,158,11,0.28)',
+      bg: 'rgba(245,158,11,0.08)',
+      symbol: slots <= 1 ? 'Slot quasi pieni' : 'Cassa disciplinata',
+      headline: slots <= 1 ? `${slots} slot residui` : `Cash ${Number(status?.cash || 0).toFixed(2)}$`,
+      detail: slots <= 1
+        ? 'Prima di aprire altro, evita sovraccarico e lascia spazio solo a setup davvero superiori.'
+        : allocation?.summary || 'La cassa resta una posizione: usarla bene aumenta selettività e rendimento atteso.',
+    },
+    {
+      id: 'freeze-now',
+      label: 'Congela',
+      tone: coldest ? '#ef4444' : '#a78bfa',
+      border: coldest ? 'rgba(239,68,68,0.28)' : 'rgba(167,139,250,0.28)',
+      bg: coldest ? 'rgba(239,68,68,0.08)' : 'rgba(167,139,250,0.08)',
+      symbol: coldest?.symbol || (rotation?.recommended ? rotation.recommended_label : 'Nessun freeze critico'),
+      headline: coldest
+        ? `${coldest.headline?.label || 'Blocked'} · ${coldest.readiness?.score || 0}/100`
+        : rotation?.recommended
+          ? 'Meglio ruotare che insistere'
+          : 'Nessun simbolo palesemente tossico',
+      detail: coldest
+        ? coldest.headline?.detail || 'Non allocare capitale finché il quadro non migliora.'
+        : rotation?.summary || 'Nessun blocco forte: il capitale può restare flessibile.',
+    },
+  ];
+
+  return {
+    flows,
+    summary: topReady && canTrade
+      ? `Oggi Aureo vede margine vero soprattutto su ${topReady.symbol}.`
+      : 'Oggi conviene far lavorare più la selezione che la fretta.',
+  };
+};
+
+const deriveRegimeCommand = ({ status = {}, opportunities = [] }) => {
+  const bias = status?.session_bias || {};
+  const rotation = status?.playbook_rotation || {};
+  const ready = opportunities.filter((item) => Number(item?.readiness?.score || 0) >= 78).length;
+  const warming = opportunities.filter((item) => {
+    const score = Number(item?.readiness?.score || 0);
+    return score >= 58 && score < 78;
+  }).length;
+  const blocked = opportunities.filter((item) => Number(item?.readiness?.score || 0) < 58).length;
+  const tone = ready > 0 ? '#10b981' : warming > 0 ? '#38bdf8' : '#f59e0b';
+  const mode = ready > 0 ? 'Attack selectively' : warming > 0 ? 'Stalk patiently' : 'Protect and filter';
+  const summary = bias?.headline || 'Aureo adatta il ritmo al contesto reale del mercato.';
+  return {
+    tone,
+    mode,
+    summary,
+    stats: [
+      { label: 'Ready', value: ready },
+      { label: 'Watch', value: warming },
+      { label: 'Blocked', value: blocked },
+      { label: 'Playbook', value: rotation?.recommended ? rotation.recommended_label : (rotation?.active_label || 'n/d') },
+    ],
+  };
+};
+
 const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, tradePerformance = null, readinessMap = {}, headlineMap = {}, rankedMap = {}, allocationMap = {}, setupGuard = null }) => {
   const symbols = Array.isArray(status?.symbols) ? status.symbols : [];
 
@@ -3840,6 +3946,14 @@ function OmniAppInner() {
   const alphaRadar = useMemo(
     () => deriveAlphaRadar({ status, opportunities: topOpportunities, cryptoEngine }),
     [status, topOpportunities, cryptoEngine]
+  );
+  const moneyMap = useMemo(
+    () => deriveMoneyMap({ status, opportunities: topOpportunities, risk: status.risk }),
+    [status, topOpportunities]
+  );
+  const regimeCommand = useMemo(
+    () => deriveRegimeCommand({ status, opportunities: topOpportunities }),
+    [status, topOpportunities]
   );
   const executionPlan = useMemo(
     () => deriveExecutionPlan({ opportunity: opportunitySpotlight.spotlight, risk: status.risk, status }),
@@ -7429,6 +7543,67 @@ function OmniAppInner() {
                 <div style={{ color: '#94a3b8', fontSize: '0.78rem', lineHeight: 1.45, marginTop: '0.6rem' }}>{lane.detail}</div>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {userRole === 'admin' && (
+        <div className="dashboard-grid" style={{ marginTop: '1rem' }}>
+          <div className="card col-span-4" style={{ border: `1px solid ${regimeCommand.tone}33`, background: `${regimeCommand.tone}10`, minWidth: 0 }}>
+            <div className="card-title">🌦️ Regime Command</div>
+            <div style={{ marginTop: '0.8rem', color: regimeCommand.tone, fontWeight: 900, fontSize: '1.14rem' }}>
+              {regimeCommand.mode}
+            </div>
+            <div style={{ marginTop: '0.45rem', color: '#cbd5e1', lineHeight: 1.55 }}>
+              {regimeCommand.summary}
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.65rem', marginTop: '0.95rem' }}>
+              {regimeCommand.stats.map((item) => (
+                <div key={item.label} style={{ padding: '0.75rem 0.8rem', borderRadius: '12px', background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{item.label}</div>
+                  <div style={{ color: '#f8fafc', fontWeight: 800, marginTop: '0.28rem', wordBreak: 'break-word' }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="card col-span-8" style={{ background: 'rgba(255,255,255,0.025)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div>
+                <div className="card-title">🗺️ Money Map</div>
+                <div style={{ color: 'var(--text-secondary)', marginTop: '0.25rem' }}>
+                  {moneyMap.summary}
+                </div>
+              </div>
+              <div className="badge badge-active">{moneyMap.flows.length} flussi capitale</div>
+            </div>
+            <div style={{ marginTop: '0.95rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
+              {moneyMap.flows.map((flow) => (
+                <div
+                  key={flow.id}
+                  style={{
+                    padding: '0.95rem',
+                    borderRadius: '16px',
+                    border: `1px solid ${flow.border}`,
+                    background: flow.bg,
+                    minWidth: 0,
+                  }}
+                >
+                  <div style={{ color: '#94a3b8', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>
+                    {flow.label}
+                  </div>
+                  <div style={{ color: '#f8fafc', fontWeight: 900, fontSize: '1rem', marginTop: '0.36rem', wordBreak: 'break-word' }}>
+                    {flow.symbol}
+                  </div>
+                  <div style={{ color: flow.tone, fontWeight: 800, fontSize: '0.82rem', marginTop: '0.32rem' }}>
+                    {flow.headline}
+                  </div>
+                  <div style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: 1.5, marginTop: '0.55rem' }}>
+                    {flow.detail}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       )}
