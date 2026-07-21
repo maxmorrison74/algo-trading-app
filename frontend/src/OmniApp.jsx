@@ -10309,6 +10309,37 @@ function OmniAppInner() {
         text: 'Un conto è una demo rumorosa, un conto è una control room che puoi tenere aperta ogni giorno con chiarezza e disciplina.',
       },
     ];
+    const landingEditorialSections = [
+      {
+        kicker: 'Per chi vuole operare meglio',
+        title: 'Aureo ti aiuta a vedere prima quello che conta davvero',
+        text: 'Quando i mercati accelerano, il problema non è avere più schermate: è avere una lettura più pulita. Aureo mette in fila segnali, watchlist, protezioni e contesto, così tu puoi decidere con più lucidità e meno dispersione.',
+      },
+      {
+        kicker: 'Per chi non ama il rumore',
+        title: 'Meno dashboard sparse, più continuità operativa',
+        text: 'Molti strumenti aggiungono complessità ogni volta che provano a sembrare completi. Aureo fa il contrario: concentra, pulisce e organizza, così l’esperienza resta solida anche quando la usi davvero tutti i giorni.',
+      },
+      {
+        kicker: 'Per chi cerca un accesso serio',
+        title: 'Non entri in un giocattolo: entri in un ambiente da tenere acceso',
+        text: 'Dal primo scroll al primo login, tutto comunica ordine, protezione e presenza. Questo non serve solo a “fare scena”: serve a farti percepire subito che Aureo è un abbonamento da usare, non una demo da dimenticare.',
+      },
+    ];
+    const landingObjectionBlocks = [
+      {
+        title: '“Non sono tecnico”',
+        text: 'Va bene così: Aureo è pensato per semplificare lettura e operatività, non per costringerti a imparare una macchina complicata.',
+      },
+      {
+        title: '“Seguo sia crypto che azioni”',
+        text: 'Perfetto: qui trovi un flusso unico che tiene insieme watchlist, segnali e contesto su entrambi i mondi.',
+      },
+      {
+        title: '“Mi serve controllo, non solo automazione”',
+        text: 'È esattamente il punto di Aureo: aiutarti a operare con più ordine, più disciplina e più protezione.',
+      },
+    ];
     const landingMarketProof = [
       { value: 'Control room', label: 'AI, monitoring, risk e security convivono nello stesso spazio con eleganza' },
       { value: 'Approval', label: 'l’abilitazione finale resta sempre nelle tue mani, senza perdere fluidità' },
@@ -10400,6 +10431,18 @@ function OmniAppInner() {
       {
         question: 'Cosa cambia tra mese e anno?',
         answer: 'Cambia il modo in cui vuoi vivere Aureo: più flessibile se preferisci muoverti leggero, più stabile e conveniente se vuoi continuità piena.',
+      },
+      {
+        question: 'Devi essere un trader esperto per usare Aureo?',
+        answer: 'No: Aureo nasce per rendere più leggibili segnali, priorità e protezioni. Se vuoi un ambiente chiaro da seguire ogni giorno, l’esperienza è costruita proprio per accompagnarti.',
+      },
+      {
+        question: 'Aureo segue solo crypto oppure anche azioni?',
+        answer: 'Aureo è pensato per entrambi: trading crypto e trading azionario convivono nello stesso ambiente, così non devi cambiare strumento ogni volta che cambia il mercato che stai seguendo.',
+      },
+      {
+        question: 'Perché Aureo è diverso da una normale dashboard trading?',
+        answer: 'Perché non si limita a mostrare dati: organizza segnali, contesto, rischio, accesso e protezioni in una control room più pulita, più continua e molto più semplice da usare davvero.',
       },
     ];
     if (showLanding) {
@@ -10619,6 +10662,23 @@ function OmniAppInner() {
               <div className="sales-support-grid">
                 {landingSearchUseCases.map((item) => (
                   <article key={item.title} className="sales-support-card">
+                    <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="sales-section">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Perché funziona meglio</div>
+                <h2>Aureo non prova a impressionarti con più rumore: prova a farti lavorare meglio</h2>
+                <p>La differenza si sente quando torni ogni giorno dentro la piattaforma: capisci più in fretta, navighi con meno attrito e tieni il focus su ciò che conta.</p>
+              </div>
+              <div className="sales-support-grid">
+                {landingEditorialSections.map((item) => (
+                  <article key={item.title} className="sales-support-card">
+                    <div className="sales-section-eyebrow" style={{ marginBottom: '0.75rem' }}>{item.kicker}</div>
                     <h3>{item.title}</h3>
                     <p>{item.text}</p>
                   </article>
@@ -10920,6 +10980,22 @@ function OmniAppInner() {
                   <article key={item.question} className="sales-faq-card">
                     <h3>{item.question}</h3>
                     <p>{item.answer}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="sales-section sales-section--soft">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Obiezioni reali</div>
+                <h2>Le domande che ti fai prima di entrare sono normali. Aureo è costruito anche per questo.</h2>
+                <p>Quando un utente capisce subito se la piattaforma è adatta a lui, la fiducia sale e la scelta diventa più naturale.</p>
+              </div>
+              <div className="sales-enterprise-grid">
+                {landingObjectionBlocks.map((item) => (
+                  <article key={item.title} className="sales-enterprise-card">
+                    <div className="sales-enterprise-card-kicker">{item.title}</div>
+                    <p>{item.text}</p>
                   </article>
                 ))}
               </div>
