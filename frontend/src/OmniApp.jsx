@@ -3101,6 +3101,11 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
   const runtimeStatus = runtimeHealth?.status || (isBackendOnline ? 'green' : 'red');
   const statusColor = statusColorMap[runtimeStatus] || '#64748b';
   const warnings = Array.isArray(runtimeHealth?.warnings) ? runtimeHealth.warnings : [];
+  const formatSlippage = (bps) => {
+    if (bps == null || Number.isNaN(Number(bps))) return '—';
+    const value = Number(bps);
+    return `${value > 0 ? '+' : ''}${value.toFixed(1)} bps`;
+  };
 
   const formatAge = (seconds) => {
     if (seconds == null) return '—';
@@ -3133,12 +3138,26 @@ const RuntimeHealthCard = ({ runtimeHealth = {}, isBackendOnline = true }) => {
       <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.75rem' }}>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Trading runtime <strong style={{ color: 'var(--text-primary)' }}>{runtimeHealth?.is_trading_enabled ? 'ARMED' : 'PAUSED'}</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>WebSocket <strong style={{ color: 'var(--text-primary)' }}>{runtimeHealth?.websocket_connected ? 'ON' : 'OFF'}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Order stream <strong style={{ color: 'var(--text-primary)' }}>{runtimeHealth?.order_stream_connected ? 'LIVE' : 'OFF'}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Feed <strong style={{ color: 'var(--text-primary)' }}>{runtimeHealth?.data_feed || 'IEX'}</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Heartbeat <strong style={{ color: 'var(--text-primary)' }}>{formatAge(runtimeHealth?.heartbeat_age_sec)}</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Ultimo feed <strong style={{ color: 'var(--text-primary)' }}>{formatAge(runtimeHealth?.last_bar_age_sec)}</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Ultimo sync <strong style={{ color: 'var(--text-primary)' }}>{formatAge(runtimeHealth?.last_sync_age_sec)}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Trade update <strong style={{ color: 'var(--text-primary)' }}>{formatAge(runtimeHealth?.last_trade_update_age_sec)}</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Reconnect <strong style={{ color: 'var(--text-primary)' }}>{Number(runtimeHealth?.reconnect_attempts || 0)}</strong></div>
         <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Sync fail <strong style={{ color: 'var(--text-primary)' }}>{Number(runtimeHealth?.sync_failures || 0)}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Fill eseguiti <strong style={{ color: 'var(--text-primary)' }}>{Number(runtimeHealth?.fill_count || 0)}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Reject <strong style={{ color: 'var(--text-primary)' }}>{Number(runtimeHealth?.rejected_count || 0)}</strong></div>
+        <div className="badge badge-idle" style={{ justifyContent: 'space-between' }}>Slip medio <strong style={{ color: 'var(--text-primary)' }}>{formatSlippage(runtimeHealth?.avg_slippage_bps)}</strong></div>
       </div>
+      {(runtimeHealth?.last_order_event || runtimeHealth?.last_order_symbol) && (
+        <div style={{ marginTop: '0.85rem', color: 'var(--text-secondary)' }}>
+          Ultimo evento ordine: <strong style={{ color: 'var(--text-primary)' }}>{runtimeHealth?.last_order_event || '—'}</strong>
+          {runtimeHealth?.last_order_symbol ? ` · ${runtimeHealth.last_order_symbol}` : ''}
+          {runtimeHealth?.last_fill_price ? ` · fill $${Number(runtimeHealth.last_fill_price).toFixed(4)}` : ''}
+          {runtimeHealth?.last_slippage_bps != null ? ` · slip ${formatSlippage(runtimeHealth.last_slippage_bps)}` : ''}
+        </div>
+      )}
       {!!runtimeHealth?.auto_paused && (
         <div style={{ marginTop: '0.85rem', color: '#ef4444', fontWeight: 'bold' }}>
           Auto-pause attiva: {runtimeHealth?.auto_pause_reason || 'motivo non disponibile'}
@@ -6924,6 +6943,8 @@ function OmniAppInner() {
                   {status.alpaca_info.type}
                 </span>
                 <span>{status.alpaca_info.account_number} ({status.alpaca_info.status})</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Feed {status.alpaca_info.data_feed || 'IEX'}</span>
+                <span style={{ color: 'var(--text-secondary)' }}>Buying power ${Number(status.alpaca_info.buying_power || 0).toLocaleString()}</span>
               </span>
             )}
           </div>

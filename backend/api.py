@@ -1597,6 +1597,7 @@ def build_runtime_health_snapshot(bot_state):
     health["heartbeat_age_sec"] = age_seconds(health.get("last_heartbeat_at"))
     health["last_bar_age_sec"] = age_seconds(health.get("last_bar_at"))
     health["last_sync_age_sec"] = age_seconds(health.get("last_sync_at"))
+    health["last_trade_update_age_sec"] = age_seconds(health.get("last_trade_update_at"))
     health["is_trading_enabled"] = bool(bot_state.modules.get("trading"))
 
     if not health.get("is_trading_enabled"):
@@ -2047,12 +2048,25 @@ class BotState:
             "status": "green",
             "summary": "In attesa avvio modulo trading",
             "websocket_connected": False,
+            "order_stream_connected": False,
             "last_heartbeat_at": None,
             "last_bar_at": None,
             "last_sync_at": None,
+            "last_trade_update_at": None,
+            "last_fill_at": None,
+            "last_fill_price": None,
+            "last_order_event": None,
+            "last_order_symbol": None,
             "last_error": None,
             "sync_failures": 0,
             "reconnect_attempts": 0,
+            "fill_count": 0,
+            "rejected_count": 0,
+            "slippage_samples": 0,
+            "slippage_total_bps": 0.0,
+            "avg_slippage_bps": None,
+            "last_slippage_bps": None,
+            "data_feed": "IEX",
             "auto_paused": False,
             "auto_pause_reason": None,
             "warnings": [],
@@ -2220,7 +2234,17 @@ def _get_cached_alpaca_snapshot(user_id: str, alpaca, target_symbols, current_ca
             "positions": {},
             "portfolio_value": current_capital,
             "market_open": False,
-            "alpaca_info": {"status": "Scollegato", "account_number": "N/A", "type": "N/A"},
+            "alpaca_info": {
+                "status": "Scollegato",
+                "account_number": "N/A",
+                "type": "N/A",
+                "data_feed": str(((getattr(bot_state, "runtime_health", {}) or {}).get("data_feed")) or "IEX").upper(),
+                "buying_power": 0.0,
+                "cash": 0.0,
+                "equity": current_capital,
+                "daytrade_count": 0,
+                "multiplier": "N/A",
+            },
         }
 
     now_ts = time.time()
@@ -2235,7 +2259,17 @@ def _get_cached_alpaca_snapshot(user_id: str, alpaca, target_symbols, current_ca
     positions_dict = {}
     pos_unrealized_pl = 0.0
     market_open = False
-    alpaca_info = {"status": "Scollegato", "account_number": "N/A", "type": "N/A"}
+    alpaca_info = {
+        "status": "Scollegato",
+        "account_number": "N/A",
+        "type": "N/A",
+        "data_feed": str(((getattr(bot_state, "runtime_health", {}) or {}).get("data_feed")) or "IEX").upper(),
+        "buying_power": 0.0,
+        "cash": 0.0,
+        "equity": current_capital,
+        "daytrade_count": 0,
+        "multiplier": "N/A",
+    }
 
     try:
         account = alpaca.get_account()
@@ -2262,6 +2296,11 @@ def _get_cached_alpaca_snapshot(user_id: str, alpaca, target_symbols, current_ca
         alpaca_info["status"] = account.status
         is_paper = "paper" in os.getenv("ALPACA_BASE_URL", "").lower()
         alpaca_info["type"] = "PAPER" if is_paper else "LIVE"
+        alpaca_info["buying_power"] = float(getattr(account, "buying_power", 0) or 0)
+        alpaca_info["cash"] = float(getattr(account, "cash", 0) or 0)
+        alpaca_info["equity"] = float(getattr(account, "equity", current_capital) or current_capital)
+        alpaca_info["daytrade_count"] = int(getattr(account, "daytrade_count", 0) or 0)
+        alpaca_info["multiplier"] = str(getattr(account, "multiplier", "N/A") or "N/A")
     except Exception:
         pass
 

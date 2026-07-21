@@ -20,12 +20,15 @@ class AlpacaEngine:
         self.running = False
         self.alpaca_rest = None
         self.alpaca_stream = None
+        self.alpaca_data_feed = "iex"
         self.symbols = ["SPY", "QQQ", "AAPL", "MSFT", "TSLA", "NVDA"]
         self.llm_enabled = False
         self.llm_enabled = False
         self.history_buffers = {sym: pd.DataFrame() for sym in self.symbols}
         self.ml_models = {}
         self.active_trails = {}
+        self._pending_orders = {}
+        self._shortable_cache = {}
         self._skip_log_cache = {}
         self.last_bar_received_at = None
         self.last_sync_at = None
@@ -34,6 +37,110 @@ class AlpacaEngine:
         
         # Start async loop thread for streaming
         self._stream_thread = None
+
+    def _resolve_data_feed(self):
+        requested_feed = str(os.getenv("ALPACA_DATA_FEED", "iex") or "iex").strip().lower()
+        return requested_feed if requested_feed in {"iex", "sip", "otc"} else "iex"
+
+    def _get_runtime_metric(self, key, default=0):
+        try:
+            return (getattr(self.bot_state, "runtime_health", {}) or {}).get(key, default)
+        except Exception:
+            return default
+
+    def _remember_pending_order(self, order, symbol, side, qty, expected_price, asset_class):
+        order_id = str(getattr(order, "id", "") or "").strip()
+        if not order_id:
+            return
+        self._pending_orders[order_id] = {
+            "symbol": symbol,
+            "side": side,
+            "qty": float(qty or 0),
+            "expected_price": float(expected_price or 0),
+            "asset_class": asset_class,
+            "submitted_at": datetime.datetime.now().isoformat(),
+        }
+
+    async def on_trade_update(self, trade_update):
+        try:
+            event = str(getattr(trade_update, "event", "") or "").strip().lower()
+            order = getattr(trade_update, "order", None)
+            order_id = str(getattr(order, "id", "") or getattr(trade_update, "order_id", "") or "").strip()
+            order_symbol = str(getattr(order, "symbol", "") or getattr(trade_update, "symbol", "") or "").strip()
+            canonical_symbol = next(
+                (symbol for symbol in self.symbols if symbol.replace("/", "") == order_symbol.replace("/", "")),
+                order_symbol,
+            )
+            pending = self._pending_orders.get(order_id, {})
+            strategy_side = str(pending.get("side") or getattr(order, "side", "") or "").strip().upper()
+
+            filled_price_raw = getattr(order, "filled_avg_price", None)
+            if filled_price_raw in (None, "", "0"):
+                filled_price_raw = getattr(trade_update, "price", None)
+            try:
+                filled_price = float(filled_price_raw or 0)
+            except Exception:
+                filled_price = 0.0
+
+            try:
+                filled_qty = float(getattr(order, "filled_qty", None) or getattr(trade_update, "qty", None) or pending.get("qty") or 0)
+            except Exception:
+                filled_qty = 0.0
+
+            fill_count = int(self._get_runtime_metric("fill_count", 0) or 0)
+            rejected_count = int(self._get_runtime_metric("rejected_count", 0) or 0)
+            slippage_samples = int(self._get_runtime_metric("slippage_samples", 0) or 0)
+            slippage_total_bps = float(self._get_runtime_metric("slippage_total_bps", 0.0) or 0.0)
+
+            payload = {
+                "data_feed": str(self.alpaca_data_feed or "iex").upper(),
+                "order_stream_connected": True,
+                "last_trade_update_at": datetime.datetime.now().isoformat(),
+                "last_order_event": event.upper() if event else "UNKNOWN",
+                "last_order_symbol": canonical_symbol or None,
+            }
+
+            if event in {"fill", "partial_fill"}:
+                expected_price = float(pending.get("expected_price") or 0)
+                last_slippage_bps = None
+                if expected_price > 0 and filled_price > 0:
+                    raw_slippage_bps = ((filled_price - expected_price) / expected_price) * 10000.0
+                    adverse_slippage_bps = raw_slippage_bps if strategy_side != "SHORT" else -raw_slippage_bps
+                    slippage_total_bps += adverse_slippage_bps
+                    slippage_samples += 1
+                    last_slippage_bps = round(adverse_slippage_bps, 1)
+                    payload["last_slippage_bps"] = last_slippage_bps
+                    payload["slippage_total_bps"] = round(slippage_total_bps, 2)
+                    payload["slippage_samples"] = slippage_samples
+                    payload["avg_slippage_bps"] = round(slippage_total_bps / max(slippage_samples, 1), 1)
+
+                if event == "fill":
+                    fill_count += 1
+                    payload["fill_count"] = fill_count
+                    payload["last_fill_at"] = datetime.datetime.now().isoformat()
+                    payload["last_fill_price"] = round(filled_price, 4) if filled_price > 0 else None
+                    payload["summary"] = f"Ordine eseguito su {canonical_symbol}"
+                    self._log(
+                        f"✅ FILL {canonical_symbol}: {filled_qty:g} @ ${filled_price:.4f}"
+                        + (f" · slippage {last_slippage_bps:+.1f} bps" if last_slippage_bps is not None else "")
+                    )
+                    self._pending_orders.pop(order_id, None)
+                else:
+                    payload["summary"] = f"Riempimento parziale su {canonical_symbol}"
+            elif event in {"canceled", "cancelled", "rejected"}:
+                if event == "rejected":
+                    rejected_count += 1
+                payload["rejected_count"] = rejected_count
+                payload["summary"] = f"Ordine {event.upper()} su {canonical_symbol}"
+                payload["last_error"] = payload["summary"]
+                self._pending_orders.pop(order_id, None)
+                self._log(f"⚠️ TRADE UPDATE {event.upper()} su {canonical_symbol}.")
+            elif event:
+                payload["summary"] = f"Aggiornamento ordine {event.upper()} su {canonical_symbol}"
+
+            self._runtime_health(**payload)
+        except Exception as exc:
+            self._log(f"⚠️ Errore gestione trade update Alpaca: {exc}")
 
     def init_clients(self, user_id="admin"):
         from db import get_api_keys
@@ -79,6 +186,8 @@ class AlpacaEngine:
                 self.alpaca_base = "https://paper-api.alpaca.markets"
                 
             groq_key = user_keys.get("groq_key", "").strip(' \t\n\r"\'')
+
+        self.alpaca_data_feed = self._resolve_data_feed()
         
         if self.alpaca_key and self.alpaca_secret:
             try:
@@ -166,6 +275,7 @@ class AlpacaEngine:
                 summary="Portfolio sincronizzato",
                 last_sync_at=datetime.datetime.now().isoformat(),
                 sync_failures=0,
+                data_feed=str(self.alpaca_data_feed or "iex").upper(),
             )
             
             # Sincronizza Trailing Stops interni per eventuali posizioni orfane o chiuse
@@ -303,6 +413,7 @@ class AlpacaEngine:
         now_iso = datetime.datetime.now().isoformat()
         payload = {
             "last_heartbeat_at": now_iso,
+            "data_feed": str(self.alpaca_data_feed or "iex").upper(),
             **kwargs,
         }
         self.bot_state.set_runtime_health(persist=persist, **payload)
@@ -1047,7 +1158,7 @@ class AlpacaEngine:
             
             if is_fractional:
                 # Alpaca NON supporta order_class='trailing_stop' per ordini frazionati.
-                self.alpaca_rest.submit_order(
+                order = self.alpaca_rest.submit_order(
                     symbol=clean_symbol,
                     qty=qty,
                     side=alpaca_side,
@@ -1058,7 +1169,7 @@ class AlpacaEngine:
             else:
                 qty = int(qty)
                 # Ordine a Mercato Semplice (Alpaca non supporta trailing stop come OTO class in questo formato)
-                self.alpaca_rest.submit_order(
+                order = self.alpaca_rest.submit_order(
                     symbol=clean_symbol,
                     qty=qty,
                     side=alpaca_side,
@@ -1066,6 +1177,20 @@ class AlpacaEngine:
                     time_in_force=time_in_force
                 )
                 self._log(f"🚀 ORDINE {side} {qty} {symbol} INVIATO (Ordine Semplice a Mercato, TIF {time_in_force.upper()})")
+
+            self._remember_pending_order(
+                order=order,
+                symbol=symbol,
+                side=side,
+                qty=qty,
+                expected_price=current_price,
+                asset_class=asset_class,
+            )
+            self._runtime_health(
+                summary=f"Ordine inviato su {symbol}",
+                last_order_event="SUBMITTED",
+                last_order_symbol=symbol,
+            )
             
             # Registra il trailing stop in memoria!
             self.active_trails[symbol] = {
@@ -1078,7 +1203,7 @@ class AlpacaEngine:
                     'asset_class': asset_class,
                     'setup_profile': setup_profile,
                     'playbook_id': str(getattr(self.bot_state, "strategy_playbook", "adaptive") or "adaptive").strip().lower(),
-                    'entry_at': datetime.now().isoformat(),
+                    'entry_at': datetime.datetime.now().isoformat(),
                     'source_channel': 'native_scanner',
                     'conviction_score': conviction_bundle['conviction_score'],
                     'position_size_multiplier': conviction_bundle['size_multiplier'],
@@ -1131,6 +1256,7 @@ class AlpacaEngine:
                     status="yellow",
                     summary="Mercato azionario chiuso: motore in standby",
                     websocket_connected=False,
+                    order_stream_connected=False,
                     reconnect_attempts=0,
                     warnings=["Fuori orario: il motore resta acceso e riprende alla riapertura."],
                 )
@@ -1143,19 +1269,29 @@ class AlpacaEngine:
                 time.sleep(60)
                 continue
             try:
-                self.alpaca_stream = Stream(self.alpaca_key, self.alpaca_secret, base_url=self.alpaca_base, data_feed='iex')
+                self.alpaca_stream = Stream(
+                    self.alpaca_key,
+                    self.alpaca_secret,
+                    base_url=self.alpaca_base,
+                    data_feed=self.alpaca_data_feed,
+                )
                 if stock_symbols:
                     self.alpaca_stream.subscribe_bars(self.on_bar, *stock_symbols)
                 if crypto_symbols:
                     self.alpaca_stream.subscribe_crypto_bars(self.on_bar, *crypto_symbols)
+                self.alpaca_stream.subscribe_trade_updates(self.on_trade_update)
                 
-                self._log(f"📡 WebSocket Connesso: in attesa di stream tick-by-tick ({len(stock_symbols)} stocks, {len(crypto_symbols)} crypto)...")
+                self._log(
+                    f"📡 WebSocket Connesso: feed {str(self.alpaca_data_feed or 'iex').upper()} attivo "
+                    f"({len(stock_symbols)} stocks, {len(crypto_symbols)} crypto) + trade updates."
+                )
                 reconnect_attempts = 0
                 self.reconnect_attempts = 0
                 self._runtime_health(
                     status="green",
                     summary="WebSocket connesso",
                     websocket_connected=True,
+                    order_stream_connected=True,
                     reconnect_attempts=0,
                 )
                 self.alpaca_stream.run()
@@ -1169,6 +1305,7 @@ class AlpacaEngine:
                         status="yellow",
                         summary="WebSocket in errore",
                         websocket_connected=False,
+                        order_stream_connected=False,
                         last_error=str(ve),
                     )
             except Exception as e:
@@ -1178,6 +1315,7 @@ class AlpacaEngine:
                         status="yellow",
                         summary="WebSocket disconnesso",
                         websocket_connected=False,
+                        order_stream_connected=False,
                         last_error=str(e),
                     )
             
@@ -1189,6 +1327,7 @@ class AlpacaEngine:
                     status="yellow" if reconnect_attempts < 6 else "red",
                     summary=f"Riconnessione WebSocket ({reconnect_attempts})",
                     websocket_connected=False,
+                    order_stream_connected=False,
                     reconnect_attempts=reconnect_attempts,
                 )
                 if reconnect_attempts >= 6:
