@@ -4415,6 +4415,7 @@ function OmniAppInner() {
   const [legalModalMode, setLegalModalMode] = useState('privacy');
   const [isLegalModalOpen, setIsLegalModalOpen] = useState(false);
   const [cookieNoticeAck, setCookieNoticeAck] = useState(() => safeStorageGet(COOKIE_NOTICE_ACK_KEY, ''));
+  const [appShellReady, setAppShellReady] = useState(false);
   const [isTourActive, setIsTourActive] = useState(false);
   const [tourStep, setTourStep] = useState(0);
 
@@ -4820,6 +4821,21 @@ function OmniAppInner() {
       cancelled = true;
     };
   }, [showLanding, chartLibrary]);
+
+  useEffect(() => {
+    if (showLanding || appShellReady) return;
+    let cancelled = false;
+    import('./app-shell.css')
+      .then(() => {
+        if (!cancelled) setAppShellReady(true);
+      })
+      .catch(() => {
+        if (!cancelled) setAppShellReady(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showLanding, appShellReady]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
@@ -12031,6 +12047,10 @@ function OmniAppInner() {
           </main>
         </div>
       );
+    }
+
+    if (!appShellReady) {
+      return <div className="app-shell-loader">Sto preparando la control room…</div>;
     }
 
     return (
