@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { Suspense, lazy, useState, useEffect, useMemo } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
-import heroAsset from './assets/hero.png';
-import ChartsStudio from './ChartsStudio';
+import heroAsset from './assets/hero.webp';
+const ChartsStudio = lazy(() => import('./ChartsStudio'));
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
 const DEMO_MODE_KEY = 'omni_demo_mode';
@@ -11223,15 +11223,10 @@ function OmniAppInner() {
     if (showLanding) {
       return (
         <div className="sales-landing">
-          <a href="#landing-top" className="sales-skip-link">Salta al contenuto principale</a>
+          <a href="#main-content" className="sales-skip-link">Salta al contenuto principale</a>
           <div className="sales-bg-animation" />
           <div className="sales-bg-animation sales-bg-animation--second" />
-          <img
-            src="/aureoos-logo.png"
-            alt=""
-            aria-hidden="true"
-            className="sales-background-watermark"
-          />
+          <div aria-hidden="true" className="sales-background-watermark" />
           <div className="sales-topbar">
             <span className="sales-topbar-label">Private Preview</span>
             <span className="sales-topbar-text">Un abbonamento riservato per entrare in Aureo con ordine, continuità e una presenza davvero premium.</span>
@@ -11239,7 +11234,7 @@ function OmniAppInner() {
 
           <nav className="sales-nav">
             <a href="#landing-top" className="sales-logo" aria-label="Torna all’inizio della homepage Aureo">
-              <img src="/aureoos-logo.png" alt="Logo Aureo OS, piattaforma di trading AI per crypto e azioni" />
+              <img src="/aureoos-logo.webp" width="1084" height="1113" alt="Logo Aureo OS, piattaforma di trading AI per crypto e azioni" />
             </a>
             <div className="sales-nav-links">
               <a href="#landing-features">Funzionalità</a>
@@ -11311,7 +11306,8 @@ function OmniAppInner() {
             </div>
           </div>
 
-          <div className="sales-page" id="landing-top">
+          <main className="sales-page" id="main-content">
+            <div id="landing-top" />
             <section className="sales-hero">
               <div className="sales-hero-content">
                 <div className="sales-badge">⚡ Private Access Operating System</div>
@@ -11391,8 +11387,8 @@ function OmniAppInner() {
                         { label: 'Security Vault', meta: 'Chiavi protette • accesso verificato', value: 'SAFE' },
                       ].map((item) => (
                         <div key={item.label} className="sales-trade-card">
-                          <div className="sales-trade-info">
-                            <h4>{item.label}</h4>
+                        <div className="sales-trade-info">
+                            <div className="sales-trade-title">{item.label}</div>
                             <span>{item.meta}</span>
                           </div>
                           <div className={`sales-trade-profit ${item.value === 'SAFE' ? 'sales-trade-profit--neutral' : ''}`}>{item.value}</div>
@@ -11415,7 +11411,7 @@ function OmniAppInner() {
                   <div className="sales-float-card-header">Approval model</div>
                   <div className="sales-float-card-value sales-float-card-value--alt">Ready</div>
                 </div>
-                <img src={heroAsset} alt="" className="sales-hero-orb" />
+                <img src={heroAsset} width="220" height="232" alt="" aria-hidden="true" className="sales-hero-orb" />
               </div>
             </section>
 
@@ -11767,7 +11763,7 @@ function OmniAppInner() {
                     <div className="sales-testimonial-header">
                       <div className="sales-testimonial-avatar">{item.initials}</div>
                       <div>
-                        <h4>{item.name}</h4>
+                        <div className="sales-testimonial-name">{item.name}</div>
                         <span>{item.role}</span>
                       </div>
                     </div>
@@ -11905,7 +11901,7 @@ function OmniAppInner() {
             <section className="sales-cta">
               <div className="sales-cta-box">
                 <div className="sales-cta-content">
-                  <img src="/aureoos-logo.png" alt="Logo Aureo OS, accesso riservato alla control room trading" className="sales-cta-logo" />
+                  <img src="/aureoos-logo.webp" width="1084" height="1113" alt="Logo Aureo OS, accesso riservato alla control room trading" className="sales-cta-logo" />
                   <div className="sales-section-eyebrow">Ingresso Aureo</div>
                   <h2>Se vuoi capire davvero Aureo, il modo giusto è entrarci dentro</h2>
                   <p>Inizi con una settimana full power, tocchi con mano il livello dell’ambiente e poi scegli se renderlo parte stabile della tua operatività.</p>
@@ -11927,12 +11923,12 @@ function OmniAppInner() {
               <div className="sales-footer-grid">
                 <div className="sales-footer-brand">
                   <a href="#landing-top" className="sales-logo">
-                    <img src="/aureoos-logo.png" alt="Logo Aureo OS, piattaforma trading AI privata" />
+                    <img src="/aureoos-logo.webp" width="1084" height="1113" alt="Logo Aureo OS, piattaforma trading AI privata" />
                   </a>
                   <p>Una piattaforma privata di trading AI pensata per controllo, chiarezza, protezione e accessi guidati.</p>
                 </div>
                 <div className="sales-footer-links">
-                  <h4>Prodotto</h4>
+                  <div className="sales-footer-title">Prodotto</div>
                   <a href="#landing-features">Funzionalità</a>
                   <a href="#landing-guides">Guide</a>
                   <a href="#landing-markets">Mercati</a>
@@ -11940,12 +11936,12 @@ function OmniAppInner() {
                   <a href="#landing-pricing">Step</a>
                 </div>
                 <div className="sales-footer-links">
-                  <h4>Esperienza</h4>
+                  <div className="sales-footer-title">Esperienza</div>
                   <a href="#landing-flow">Percorso</a>
                   <a href="#landing-proof">Impatto</a>
                 </div>
                 <div className="sales-footer-links">
-                  <h4>Privacy</h4>
+                  <div className="sales-footer-title">Privacy</div>
                   <button type="button" className="sales-footer-button" onClick={() => openLegalModal('privacy')}>Informativa privacy</button>
                   <button type="button" className="sales-footer-button" onClick={() => openLegalModal('cookies')}>Cookie & storage</button>
                   <a href="#landing-privacy">Pagina privacy</a>
@@ -11953,7 +11949,7 @@ function OmniAppInner() {
                   <a href={`mailto:${PRIVACY_CONTACT_EMAIL}`}>Contatto privacy</a>
                 </div>
                 <div className="sales-footer-links">
-                  <h4>Accesso</h4>
+                  <div className="sales-footer-title">Accesso</div>
                   <button type="button" className="sales-footer-button" onClick={() => setShowLanding(false)}>Area riservata</button>
                   <button type="button" className="sales-footer-button" onClick={openPricingSection}>Scopri gli step</button>
                 </div>
@@ -11965,7 +11961,7 @@ function OmniAppInner() {
             </footer>
             {cookieNotice}
             {legalModal}
-          </div>
+          </main>
         </div>
       );
     }
@@ -11973,7 +11969,7 @@ function OmniAppInner() {
     return (
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <div className="card private-access-card" style={{ textAlign: 'center', width: '440px', padding: '3rem 2rem' }}>
-          <img src="/aureoos-logo.png" alt="Logo Aureo OS, accesso riservato alla piattaforma trading AI" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
+          <img src="/aureoos-logo.webp" width="1084" height="1113" alt="Logo Aureo OS, accesso riservato alla piattaforma trading AI" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
           <div className="private-access-badge">Private Access</div>
           <h2 className="private-access-title">Ingresso riservato alla control room Aureo</h2>
           <p className="private-access-text">Accedi con le tue credenziali per entrare nell’ambiente operativo, oppure apri il tour privato per mostrare l’esperienza senza attivare funzioni live.</p>
@@ -12176,7 +12172,7 @@ function OmniAppInner() {
 
       </div>
       
-      <div className="main-content">
+      <main className="main-content" id="main-content">
         {/* Onboarding Modal */}
         {showOnboarding && (
           <OnboardingModal 
@@ -12290,17 +12286,19 @@ function OmniAppInner() {
         {activeTab === 'trading' && renderTradingView()}
         {activeTab === 'symbol_review' && renderSymbolReviewView()}
         {activeTab === 'charts' && (
-          <ChartsStudio
-            chartData={chartData}
-            chartLoading={chartLoading}
-            chartError={chartError}
-            selectedSymbol={selectedSymbol}
-            setSelectedSymbol={setSelectedSymbol}
-            status={status}
-            timeframe={timeframe}
-            setTimeframe={setTimeframe}
-            onOpenSymbolReview={(symbol) => openSymbolReview(symbol, 'charts')}
-          />
+          <Suspense fallback={<div className="charts-loading-shell">Caricamento Charts Studio…</div>}>
+            <ChartsStudio
+              chartData={chartData}
+              chartLoading={chartLoading}
+              chartError={chartError}
+              selectedSymbol={selectedSymbol}
+              setSelectedSymbol={setSelectedSymbol}
+              status={status}
+              timeframe={timeframe}
+              setTimeframe={setTimeframe}
+              onOpenSymbolReview={(symbol) => openSymbolReview(symbol, 'charts')}
+            />
+          </Suspense>
         )}
         {activeTab === 'security' && userRole !== 'admin' && renderSettingsView()}
         {activeTab === 'develop' && userRole === 'admin' && (
@@ -12333,7 +12331,7 @@ function OmniAppInner() {
           onOpenSymbolReview={openSymbolReview}
         />
         {cookieNotice}
-      </div>
+      </main>
     </div>
     {legalModal}
 
