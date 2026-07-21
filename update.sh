@@ -1,6 +1,42 @@
 #!/bin/bash
 set -e
 
+QUIET_MODE=1
+for arg in "$@"; do
+    case "$arg" in
+        --verbose|-v)
+            QUIET_MODE=0
+            ;;
+        --quiet|-q)
+            QUIET_MODE=1
+            ;;
+    esac
+done
+
+run_npm_install() {
+    if [ "$QUIET_MODE" -eq 1 ]; then
+        npm install --silent
+    else
+        npm install
+    fi
+}
+
+run_pip_upgrade() {
+    if [ "$QUIET_MODE" -eq 1 ]; then
+        ./venv/bin/python -m pip install --disable-pip-version-check --quiet --upgrade pip
+    else
+        ./venv/bin/python -m pip install --disable-pip-version-check --upgrade pip
+    fi
+}
+
+run_pip_requirements() {
+    if [ "$QUIET_MODE" -eq 1 ]; then
+        ./venv/bin/python -m pip install --disable-pip-version-check --quiet -r requirements.txt
+    else
+        ./venv/bin/python -m pip install --disable-pip-version-check -r requirements.txt
+    fi
+}
+
 print_disk_snapshot() {
     local label="$1"
     echo "💽 Spazio disco ${label}:"
@@ -103,6 +139,11 @@ cleanup_safe_artifacts() {
 }
 
 echo "🔄 Avviando aggiornamento del bot..."
+if [ "$QUIET_MODE" -eq 1 ]; then
+    echo "🔇 Modalità output: quiet"
+else
+    echo "📣 Modalità output: verbose"
+fi
 
 print_disk_snapshot "prima della pulizia"
 
@@ -116,14 +157,14 @@ git pull origin main
 
 echo "2) Compilazione Frontend (React)..."
 cd frontend
-npm install
+run_npm_install
 npm run build
 cd ..
 
 echo "3) Aggiornamento dipendenze Python (potrebbe volerci qualche minuto)..."
 cd backend
-./venv/bin/python -m pip install --upgrade pip
-./venv/bin/python -m pip install -r requirements.txt
+run_pip_upgrade
+run_pip_requirements
 cd ..
 
 # Riavvio del server
