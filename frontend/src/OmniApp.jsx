@@ -4267,6 +4267,33 @@ function OmniAppInner() {
     setConfirmDialog(null);
     await action();
   }, [confirmDialog]);
+  const legalModal = (
+    <LegalModal
+      open={isLegalModalOpen}
+      mode={legalModalMode}
+      onClose={closeLegalModal}
+      onSwitchMode={setLegalModalMode}
+    />
+  );
+  const cookieNotice = isCookieNoticeVisible ? (
+    <div className="cookie-notice-banner">
+      <div className="cookie-notice-copy">
+        <strong>Privacy & Cookie</strong>
+        <span>
+          Questo sito usa solo cookie tecnici e storage locale necessari a login, sicurezza e preferenze.
+          Nessuna profilazione marketing attiva di default.
+        </span>
+      </div>
+      <div className="cookie-notice-actions">
+        <button type="button" className="btn btn-outline cookie-notice-button" onClick={() => openLegalModal('cookies')}>
+          Dettagli
+        </button>
+        <button type="button" className="btn btn-start cookie-notice-button" onClick={acknowledgeCookieNotice}>
+          Ho capito
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   useEffect(() => {
     if (!BILLING_ENABLED && activeTab === 'saas') {
@@ -10208,33 +10235,6 @@ function OmniAppInner() {
         answer: 'Cambia il modo in cui vuoi vivere Aureo: più flessibile se preferisci muoverti leggero, più stabile e conveniente se vuoi continuità piena.',
       },
     ];
-    const legalModal = (
-      <LegalModal
-        open={isLegalModalOpen}
-        mode={legalModalMode}
-        onClose={closeLegalModal}
-        onSwitchMode={setLegalModalMode}
-      />
-    );
-    const cookieNotice = isCookieNoticeVisible ? (
-      <div className="cookie-notice-banner">
-        <div className="cookie-notice-copy">
-          <strong>Privacy & Cookie</strong>
-          <span>
-            Questo sito usa solo cookie tecnici e storage locale necessari a login, sicurezza e preferenze.
-            Nessuna profilazione marketing attiva di default.
-          </span>
-        </div>
-        <div className="cookie-notice-actions">
-          <button type="button" className="btn btn-outline cookie-notice-button" onClick={() => openLegalModal('cookies')}>
-            Dettagli
-          </button>
-          <button type="button" className="btn btn-start cookie-notice-button" onClick={acknowledgeCookieNotice}>
-            Ho capito
-          </button>
-        </div>
-      </div>
-    ) : null;
     if (showLanding) {
       return (
         <div className="sales-landing">
