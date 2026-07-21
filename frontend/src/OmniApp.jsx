@@ -1,7 +1,22 @@
 import React, { Suspense, lazy, useState, useEffect, useMemo } from 'react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend, AreaChart, Area } from 'recharts';
 import heroAsset from './assets/hero.webp';
 const ChartsStudio = lazy(() => import('./ChartsStudio'));
+const NullChart = () => null;
+const CHARTS_FALLBACK_LIBRARY = {
+  LineChart: NullChart,
+  Line: NullChart,
+  XAxis: NullChart,
+  YAxis: NullChart,
+  CartesianGrid: NullChart,
+  Tooltip: NullChart,
+  ResponsiveContainer: NullChart,
+  PieChart: NullChart,
+  Pie: NullChart,
+  Cell: NullChart,
+  Legend: NullChart,
+  AreaChart: NullChart,
+  Area: NullChart,
+};
 const AUTH_TOKEN_KEY = 'omni_auth_token';
 const AUTH_TIME_KEY = 'omni_auth_time';
 const DEMO_MODE_KEY = 'omni_demo_mode';
@@ -3905,6 +3920,7 @@ const SystemStatusBanner = ({ status = {}, isBackendOnline = true, onOpenHealth,
 };
 
 function OmniAppInner() {
+  const [chartLibrary, setChartLibrary] = useState(null);
   const [status, setStatus] = useState({});
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -3968,6 +3984,21 @@ function OmniAppInner() {
   const [lastStatusSync, setLastStatusSync] = useState(null);
   const [notices, setNotices] = useState([]);
   const [confirmDialog, setConfirmDialog] = useState(null);
+  const {
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    CartesianGrid,
+    Tooltip,
+    ResponsiveContainer,
+    PieChart,
+    Pie,
+    Cell,
+    Legend,
+    AreaChart,
+    Area,
+  } = chartLibrary || CHARTS_FALLBACK_LIBRARY;
   
   // AI Investment Hub state
   const [aiBudget, setAiBudget] = useState(500);
@@ -4759,6 +4790,36 @@ function OmniAppInner() {
     window.addEventListener('popstate', syncSeoGuide);
     return () => window.removeEventListener('popstate', syncSeoGuide);
   }, [showLanding]);
+
+  useEffect(() => {
+    if (showLanding || chartLibrary) return;
+    let cancelled = false;
+    import('recharts')
+      .then((mod) => {
+        if (cancelled) return;
+        setChartLibrary({
+          LineChart: mod.LineChart,
+          Line: mod.Line,
+          XAxis: mod.XAxis,
+          YAxis: mod.YAxis,
+          CartesianGrid: mod.CartesianGrid,
+          Tooltip: mod.Tooltip,
+          ResponsiveContainer: mod.ResponsiveContainer,
+          PieChart: mod.PieChart,
+          Pie: mod.Pie,
+          Cell: mod.Cell,
+          Legend: mod.Legend,
+          AreaChart: mod.AreaChart,
+          Area: mod.Area,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setChartLibrary(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [showLanding, chartLibrary]);
 
   useEffect(() => {
     if (typeof document === 'undefined') return;
