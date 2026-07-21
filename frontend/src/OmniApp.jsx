@@ -1523,6 +1523,17 @@ const deriveTradeDeskRows = ({ status = {}, risk = {}, tableDataBySymbol = {}, t
         sentiment: row?.sentiment || 'NEUTRAL',
         pnl: performanceRow?.totalPnl ?? null,
         regime: rankedMap[symbol]?.regime || null,
+        suggestedPlaybook: (Array.isArray(status?.strategy_playbook?.catalog) ? status.strategy_playbook.catalog : [])
+          .map((playbook) => {
+            const regimeBias = Array.isArray(playbook?.regime_bias) ? playbook.regime_bias : [];
+            const score = Math.max(1, Math.min(100,
+              (regimeBias.includes(String(rankedMap[symbol]?.regime?.id || '')) ? 78 : 56) +
+              (readiness.score >= 78 ? 8 : readiness.score >= 58 ? 3 : -4) +
+              ((status?.session_bias?.preferred_playbooks || []).includes(playbook.id) ? 6 : 0)
+            ));
+            return { id: playbook.id, label: playbook.label, score };
+          })
+          .sort((a, b) => b.score - a.score)[0] || null,
       };
     })
     .sort((a, b) => {
@@ -1566,6 +1577,39 @@ const deriveSymbolDrilldown = ({
   const rankedRow = rankedMap[symbol] || null;
   const regime = rankedRow?.regime || null;
   const playbookFit = rankedRow?.playbook_fit || null;
+  const playbookCatalog = Array.isArray(status?.strategy_playbook?.catalog) ? status.strategy_playbook.catalog : [];
+  const sessionPreferred = Array.isArray(status?.session_bias?.preferred_playbooks) ? status.session_bias.preferred_playbooks : [];
+  const assetClass = String(symbol || '').includes('/') ? 'crypto' : 'stock';
+
+  const playbookSuggestions = playbookCatalog
+    .map((playbook) => {
+      const regimeBias = Array.isArray(playbook?.regime_bias) ? playbook.regime_bias : [];
+      const fitBase = regime?.id && regimeBias.includes(regime.id) ? 82 : 58;
+      const readinessBoost = Number(readiness?.score || 0) >= 78 ? 8 : Number(readiness?.score || 0) >= 58 ? 3 : -4;
+      const sessionBoost = sessionPreferred.includes(playbook.id) ? 6 : 0;
+      const assetBoost = assetClass === 'crypto' && ['adaptive', 'rebalance', 'trend'].includes(playbook.id)
+        ? 4
+        : assetClass === 'stock' && ['breakout', 'trend', 'dip', 'adaptive'].includes(playbook.id)
+          ? 3
+          : 0;
+      const fitScore = Math.max(1, Math.min(100, Math.round(fitBase + readinessBoost + sessionBoost + assetBoost)));
+      return {
+        id: playbook.id,
+        label: playbook.label,
+        headline: playbook.headline,
+        description: playbook.description,
+        bestFor: Array.isArray(playbook.best_for) ? playbook.best_for : [],
+        fitScore,
+        preferredNow: sessionPreferred.includes(playbook.id),
+        active: !!playbook.active,
+      };
+    })
+    .sort((a, b) => {
+      if (b.fitScore !== a.fitScore) return b.fitScore - a.fitScore;
+      if (a.active !== b.active) return a.active ? -1 : 1;
+      return a.label.localeCompare(b.label);
+    })
+    .slice(0, 3);
 
   return {
     symbol,
@@ -1579,6 +1623,7 @@ const deriveSymbolDrilldown = ({
     cryptoState,
     regime,
     playbookFit,
+    playbookSuggestions,
   };
 };
 
@@ -7170,6 +7215,37 @@ function OmniAppInner() {
               ))}
             </div>
           </div>
+
+          <div className="card col-span-4 symbol-review-card">
+            <div className="card-title">Playbook consigliati</div>
+            <div style={{ color: 'var(--text-secondary)', marginTop: '0.45rem', lineHeight: 1.55 }}>
+              Aureo confronta regime, sessione e maturità del setup per suggerirti il profilo operativo più coerente su {selectedSymbol}.
+            </div>
+            <div style={{ display: 'grid', gap: '0.7rem', marginTop: '1rem' }}>
+              {(symbolDrilldown.playbookSuggestions || []).map((playbook) => (
+                <div key={playbook.id} style={{ padding: '0.85rem 0.95rem', borderRadius: '14px', border: `1px solid ${playbook.fitScore >= 78 ? 'rgba(16,185,129,0.28)' : playbook.fitScore >= 64 ? 'rgba(56,189,248,0.28)' : 'rgba(255,255,255,0.08)'}`, background: playbook.fitScore >= 78 ? 'rgba(16,185,129,0.08)' : playbook.fitScore >= 64 ? 'rgba(56,189,248,0.08)' : 'rgba(255,255,255,0.03)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#f8fafc' }}>{playbook.label}</strong>
+                    <span style={{ color: playbook.fitScore >= 78 ? '#10b981' : playbook.fitScore >= 64 ? '#38bdf8' : '#94a3b8', fontWeight: 800 }}>
+                      {playbook.fitScore}/100
+                    </span>
+                  </div>
+                  <div style={{ color: '#cbd5e1', fontSize: '0.84rem', lineHeight: 1.5, marginTop: '0.4rem' }}>
+                    {playbook.headline}
+                  </div>
+                  <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap', marginTop: '0.55rem' }}>
+                    {playbook.active && <span className="badge badge-active">Attivo</span>}
+                    {playbook.preferredNow && <span className="badge" style={{ color: '#38bdf8', borderColor: 'rgba(56,189,248,0.35)', background: 'rgba(56,189,248,0.12)' }}>Favorito adesso</span>}
+                  </div>
+                  {!!playbook.bestFor?.length && (
+                    <div style={{ color: '#94a3b8', fontSize: '0.76rem', lineHeight: 1.4, marginTop: '0.55rem' }}>
+                      Ideale per: {playbook.bestFor.join(' • ')}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className="dashboard-grid" style={{ marginBottom: '1.2rem' }}>
@@ -7861,7 +7937,7 @@ function OmniAppInner() {
                   cursor: 'pointer',
                 }}
               >
-                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.7fr 0.7fr 0.8fr 0.8fr 0.8fr 1fr', gap: '0.8rem', alignItems: 'center' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 0.7fr 0.7fr 0.8fr 0.8fr 0.8fr 0.9fr 0.9fr', gap: '0.8rem', alignItems: 'center' }}>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', flexWrap: 'wrap' }}>
                       <SymbolLinkButton symbol={item.symbol} onOpen={() => openSymbolReview(item.symbol, 'trading')} variant="inline" style={{ color: '#f8fafc', fontWeight: 900, padding: 0 }}>
@@ -7901,6 +7977,15 @@ function OmniAppInner() {
                     <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Guard</div>
                     <div style={{ color: item.isGuardBlocked ? '#f59e0b' : '#10b981', fontWeight: 800 }}>
                       {item.isGuardBlocked ? 'Cooldown' : 'Free'}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ color: '#94a3b8', fontSize: '0.7rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>Playbook</div>
+                    <div style={{ color: item.suggestedPlaybook?.score >= 78 ? '#10b981' : item.suggestedPlaybook?.score >= 64 ? '#38bdf8' : '#94a3b8', fontWeight: 800 }}>
+                      {item.suggestedPlaybook?.label || 'n/d'}
+                    </div>
+                    <div style={{ color: '#64748b', fontSize: '0.72rem', marginTop: '0.16rem' }}>
+                      {item.suggestedPlaybook?.score ? `${Number(item.suggestedPlaybook.score).toFixed(0)}/100` : '—'}
                     </div>
                   </div>
                   <div style={{ textAlign: 'right' }}>
