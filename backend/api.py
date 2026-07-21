@@ -1545,6 +1545,156 @@ def save_options_lab_config(payload: dict, user: dict = Depends(require_user)):
     return {"status": "ok", "options_lab": build_options_lab_snapshot(target_state, user_id)}
 
 
+def _default_options_lab_runtime():
+    return {
+        "last_auto_action_at": None,
+        "last_auto_action_reason": None,
+        "last_auto_action_status": None,
+        "active_trade": None,
+        "journal": [],
+        "last_session_summary": None,
+    }
+
+
+def _to_float_or_none(value):
+    try:
+        if value is None or value == "":
+            return None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _ensure_options_lab_runtime(value):
+    runtime = _default_options_lab_runtime()
+    if isinstance(value, dict):
+        runtime.update(value)
+    journal = runtime.get("journal")
+    runtime["journal"] = journal if isinstance(journal, list) else []
+    if runtime.get("active_trade") is not None and not isinstance(runtime.get("active_trade"), dict):
+        runtime["active_trade"] = None
+    return runtime
+
+
+def _start_options_lab_trade_session(bot_state, plan: dict, trigger: str, execution: dict | None = None):
+    runtime = _ensure_options_lab_runtime(getattr(bot_state, "options_lab_runtime", {}))
+    trade_id = f"spy-{datetime.now().strftime('%Y%m%d%H%M%S')}"
+    runtime["active_trade"] = {
+        "id": trade_id,
+        "underlying": plan.get("underlying") or "SPY",
+        "strategy": plan.get("strategy") or "bull_put_spread",
+        "strategy_label": plan.get("strategy_label") or "SPY 0DTE",
+        "opened_at": datetime.now().isoformat(),
+        "entry_trigger": trigger,
+        "status": "opening",
+        "contracts": int(plan.get("contracts") or 1),
+        "short_strike": _to_float_or_none(plan.get("short_strike")),
+        "long_strike": _to_float_or_none(plan.get("long_strike")),
+        "entry_net_est": _to_float_or_none(plan.get("estimated_net_price")),
+        "max_loss_est_usd": _to_float_or_none(plan.get("estimated_max_loss_usd")),
+        "quality_score": _to_float_or_none(plan.get("quality_score")),
+        "take_profit_capture_pct": _to_float_or_none(plan.get("take_profit_capture_pct")),
+        "stop_loss_pct": _to_float_or_none(plan.get("stop_loss_pct")),
+        "reward_risk_pct": _to_float_or_none(plan.get("reward_risk_pct")),
+        "otm_distance_pct": _to_float_or_none(plan.get("otm_distance_pct")),
+        "last_mark_net": _to_float_or_none(plan.get("estimated_net_price")),
+        "last_capture_pct": 0.0,
+        "last_seen_at": datetime.now().isoformat(),
+        "close_trigger": None,
+        "close_request_at": None,
+        "execution_id": (execution or {}).get("id"),
+        "execution_status": (execution or {}).get("status"),
+    }
+    bot_state.options_lab_runtime = runtime
+
+
+def _sync_options_lab_trade_session(bot_state, plan: dict, has_open_orders: bool, has_open_positions: bool):
+    runtime = _ensure_options_lab_runtime(getattr(bot_state, "options_lab_runtime", {}))
+    active_trade = runtime.get("active_trade")
+    if not isinstance(active_trade, dict):
+        bot_state.options_lab_runtime = runtime
+        return False
+
+    changed = False
+    active_trade["last_seen_at"] = datetime.now().isoformat()
+    current_net = _to_float_or_none(plan.get("open_spread_current_net"))
+    capture_pct = _to_float_or_none(plan.get("open_spread_pnl_capture_pct"))
+    if current_net is not None:
+        active_trade["last_mark_net"] = current_net
+        changed = True
+    if capture_pct is not None:
+        active_trade["last_capture_pct"] = capture_pct
+        changed = True
+    next_status = "open" if has_open_positions else ("working" if has_open_orders else active_trade.get("status"))
+    if next_status != active_trade.get("status"):
+        active_trade["status"] = next_status
+        changed = True
+
+    should_finalize = not has_open_orders and not has_open_positions and active_trade.get("close_request_at")
+    if should_finalize:
+        entry_net = _to_float_or_none(active_trade.get("entry_net_est")) or 0.0
+        close_net = _to_float_or_none(active_trade.get("last_mark_net"))
+        contracts = int(active_trade.get("contracts") or 1)
+        strategy = str(active_trade.get("strategy") or "bull_put_spread")
+        estimated_pnl_usd = 0.0
+        if close_net is not None and entry_net > 0:
+            if strategy == "bull_put_spread":
+                estimated_pnl_usd = (entry_net - close_net) * contracts * 100.0
+            else:
+                estimated_pnl_usd = (close_net - entry_net) * contracts * 100.0
+        session = {
+            **active_trade,
+            "status": "closed",
+            "closed_at": datetime.now().isoformat(),
+            "estimated_close_net": close_net,
+            "estimated_pnl_usd": round(estimated_pnl_usd, 2),
+            "result_label": "Win" if estimated_pnl_usd > 0 else ("Flat" if abs(estimated_pnl_usd) < 0.01 else "Loss"),
+        }
+        journal = list(runtime.get("journal") or [])
+        journal.insert(0, session)
+        runtime["journal"] = journal[:20]
+        runtime["last_session_summary"] = {
+            "closed_at": session["closed_at"],
+            "result_label": session["result_label"],
+            "estimated_pnl_usd": session["estimated_pnl_usd"],
+            "close_trigger": session.get("close_trigger"),
+        }
+        runtime["active_trade"] = None
+        changed = True
+
+    bot_state.options_lab_runtime = runtime
+    return changed
+
+
+def build_options_lab_journal_snapshot(runtime: dict | None = None):
+    normalized = _ensure_options_lab_runtime(runtime or {})
+    rows = [row for row in list(normalized.get("journal") or []) if isinstance(row, dict)]
+    wins = [row for row in rows if float(row.get("estimated_pnl_usd") or 0) > 0]
+    losses = [row for row in rows if float(row.get("estimated_pnl_usd") or 0) < 0]
+    avg_pnl = round(sum(float(row.get("estimated_pnl_usd") or 0) for row in rows) / len(rows), 2) if rows else 0.0
+    avg_capture = round(sum(float(row.get("last_capture_pct") or 0) for row in rows) / len(rows), 1) if rows else 0.0
+    best = max(rows, key=lambda row: float(row.get("estimated_pnl_usd") or -10**9), default=None)
+    worst = min(rows, key=lambda row: float(row.get("estimated_pnl_usd") or 10**9), default=None)
+    active_trade = normalized.get("active_trade")
+    summary = "Nessuna sessione SPY 0DTE chiusa ancora: il journal si popola appena Aureo completa il ciclo di ingresso e uscita."
+    if rows:
+        summary = f"{len(rows)} sessioni archiviate · win rate {round((len(wins) / len(rows)) * 100.0, 1)}% · pnl medio ${avg_pnl:.2f}"
+    elif isinstance(active_trade, dict):
+        summary = "Sessione SPY attiva: il desk sta seguendo lo spread e aggiornerà il journal appena la posizione si chiude."
+    return {
+        "summary": summary,
+        "total_sessions": len(rows),
+        "win_rate": round((len(wins) / len(rows)) * 100.0, 1) if rows else 0.0,
+        "average_pnl_usd": avg_pnl,
+        "average_capture_pct": avg_capture,
+        "best_session": best,
+        "worst_session": worst,
+        "active_trade": active_trade,
+        "last_session_summary": normalized.get("last_session_summary"),
+        "recent_sessions": rows[:6],
+    }
+
+
 @app.post("/api/options-lab/execute")
 def execute_options_lab_trade(user: dict = Depends(require_user)):
     if user.get("role") != "admin":
@@ -1587,8 +1737,9 @@ def execute_options_lab_trade(user: dict = Depends(require_user)):
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    _start_options_lab_trade_session(target_state, plan, "manual-entry", execution)
     target_state.options_lab_runtime = {
-        **dict(getattr(target_state, "options_lab_runtime", {}) or {}),
+        **_ensure_options_lab_runtime(getattr(target_state, "options_lab_runtime", {})),
         "last_auto_action_at": datetime.now().isoformat(),
         "last_auto_action_reason": "manual-entry",
         "last_auto_action_status": "submitted",
@@ -1641,8 +1792,12 @@ def close_options_lab_trade(user: dict = Depends(require_user)):
     except Exception as exc:
         raise HTTPException(status_code=400, detail=str(exc))
 
+    runtime = _ensure_options_lab_runtime(getattr(target_state, "options_lab_runtime", {}))
+    if isinstance(runtime.get("active_trade"), dict):
+        runtime["active_trade"]["close_trigger"] = "manual-close"
+        runtime["active_trade"]["close_request_at"] = datetime.now().isoformat()
     target_state.options_lab_runtime = {
-        **dict(getattr(target_state, "options_lab_runtime", {}) or {}),
+        **runtime,
         "last_auto_action_at": datetime.now().isoformat(),
         "last_auto_action_reason": "manual-close",
         "last_auto_action_status": "submitted",
@@ -2053,6 +2208,7 @@ def get_yf_symbol(symbol):
 def build_options_lab_snapshot(bot_state, user_id="admin"):
     from options_trading import build_zero_dte_trade_plan, list_option_orders, list_option_positions, build_close_multileg_plan
     config = ensure_options_lab_config(getattr(bot_state, "options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
+    bot_state.options_lab_runtime = _ensure_options_lab_runtime(getattr(bot_state, "options_lab_runtime", {}))
     warnings = []
     underlying = config.get("underlying", "SPY")
     quote_payload = get_stock_quote(underlying, user_id)
@@ -2234,6 +2390,8 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
             pass
     plan["has_open_orders"] = has_open_orders
     plan["has_open_positions"] = has_open_positions
+    if _sync_options_lab_trade_session(bot_state, plan, has_open_orders, has_open_positions):
+        bot_state.save_state()
     if has_open_orders or has_open_positions:
         plan["is_ready"] = False
     if not in_entry_window:
@@ -2254,6 +2412,7 @@ def build_options_lab_snapshot(bot_state, user_id="admin"):
         "positions": options_positions,
         "close_plan": close_plan,
         "runtime": dict(getattr(bot_state, "options_lab_runtime", {}) or {}),
+        "journal": build_options_lab_journal_snapshot(getattr(bot_state, "options_lab_runtime", {})),
         "generated_at": datetime.now().isoformat(),
     }
 
@@ -2290,11 +2449,7 @@ class BotState:
         self.exit_ladder = ensure_exit_ladder_config(db_data.get("exit_ladder", DEFAULT_EXIT_LADDER))
         self.signal_hub = ensure_signal_hub_config(db_data.get("signal_hub", DEFAULT_SIGNAL_HUB_CONFIG))
         self.options_lab = ensure_options_lab_config(db_data.get("options_lab", DEFAULT_OPTIONS_LAB_CONFIG))
-        self.options_lab_runtime = db_data.get("options_lab_runtime", {
-            "last_auto_action_at": None,
-            "last_auto_action_reason": None,
-            "last_auto_action_status": None,
-        })
+        self.options_lab_runtime = _ensure_options_lab_runtime(db_data.get("options_lab_runtime", _default_options_lab_runtime()))
         self.dynamic_atr_stop = db_data.get("dynamic_atr_stop", True)
         self.trailing_stop_base_pct = db_data.get("trailing_stop_base_pct", 2.5)
         self.telegram_alerts_enabled = db_data.get("telegram_alerts_enabled", True)
@@ -2939,8 +3094,12 @@ def _submit_options_lab_close_for_user(user_id: str, reason: str):
         base_url=base_url,
         plan=close_plan,
     )
+    runtime = _ensure_options_lab_runtime(getattr(target_state, "options_lab_runtime", {}))
+    if isinstance(runtime.get("active_trade"), dict):
+        runtime["active_trade"]["close_trigger"] = reason
+        runtime["active_trade"]["close_request_at"] = datetime.now().isoformat()
     target_state.options_lab_runtime = {
-        **dict(getattr(target_state, "options_lab_runtime", {}) or {}),
+        **runtime,
         "last_auto_action_at": datetime.now().isoformat(),
         "last_auto_action_reason": reason,
         "last_auto_action_status": "submitted",

@@ -5369,11 +5369,32 @@ function OmniAppInner() {
   const renderOptionsLabView = () => {
     const snapshot = status?.options_lab || {};
     const plan = snapshot?.plan || {};
+    const journal = snapshot?.journal || {};
     const warnings = Array.isArray(plan?.warnings) ? plan.warnings : [];
     const optionOrders = Array.isArray(snapshot?.orders) ? snapshot.orders : [];
     const optionPositions = Array.isArray(snapshot?.positions) ? snapshot.positions : [];
     const closePlan = snapshot?.close_plan || {};
     const runtime = snapshot?.runtime || {};
+    const quickPresets = [
+      {
+        id: 'conservative',
+        label: 'Conservativo',
+        note: 'Meno size, più difesa',
+        values: { contracts: 1, spread_width_points: 2, max_risk_usd: 180, take_profit_capture_pct: 45, stop_loss_pct: 70, short_put_offset_pct: 0.2, time_stop_et: '14:15' },
+      },
+      {
+        id: 'balanced',
+        label: 'Bilanciato',
+        note: 'Setup equilibrato',
+        values: { contracts: 1, spread_width_points: 3, max_risk_usd: 275, take_profit_capture_pct: 55, stop_loss_pct: 85, short_put_offset_pct: 0.15, time_stop_et: '14:45' },
+      },
+      {
+        id: 'aggressive',
+        label: 'Aggressivo',
+        note: 'Più premio, meno buffer',
+        values: { contracts: 2, spread_width_points: 4, max_risk_usd: 450, take_profit_capture_pct: 65, stop_loss_pct: 95, short_put_offset_pct: 0.08, time_stop_et: '15:05' },
+      },
+    ];
 
     const saveOptionsLabConfig = async () => {
       if (userRole !== 'admin' || optionsLabSaving) return;
@@ -5437,6 +5458,12 @@ function OmniAppInner() {
       }
     };
 
+    const applyOptionsPreset = (preset) => {
+      if (!preset?.values) return;
+      setOptionsLabDraft((prev) => ({ ...prev, ...preset.values }));
+      pushNotice('success', 'Preset caricato', `${preset.label} pronto da rifinire e salvare.`, 1800);
+    };
+
     return (
       <div className="module-content module-content--develop">
         <div className="card develop-hero-card" style={{ marginBottom: '1.5rem' }}>
@@ -5475,6 +5502,11 @@ function OmniAppInner() {
                 <span>Auto-manage</span>
                 <strong style={{ color: plan?.auto_manage_enabled ? '#22c55e' : '#94a3b8' }}>{plan?.auto_manage_enabled ? 'ARMED' : 'OFF'}</strong>
                 <small>{runtime?.last_auto_action_reason ? `Ultimo: ${runtime.last_auto_action_reason}` : 'Nessuna azione automatica ancora'}</small>
+              </div>
+              <div className="develop-summary-card" style={{ borderColor: 'rgba(244,114,182,0.25)' }}>
+                <span>Journal</span>
+                <strong style={{ color: '#f472b6' }}>{Number(journal?.total_sessions || 0)} sessioni</strong>
+                <small>{journal?.summary || 'Storico SPY non ancora popolato'}</small>
               </div>
             </div>
           </div>
@@ -5603,10 +5635,32 @@ function OmniAppInner() {
                 </button>
               )}
             </div>
+            {!!journal?.active_trade && (
+              <div style={{ marginTop: '1rem', padding: '0.9rem 1rem', borderRadius: '14px', background: 'rgba(56,189,248,0.08)', border: '1px solid rgba(56,189,248,0.18)' }}>
+                <div style={{ color: '#e2e8f0', fontWeight: 800 }}>Sessione attiva · {journal.active_trade.strategy_label || 'SPY 0DTE'}</div>
+                <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem', lineHeight: 1.55 }}>
+                  Stato {String(journal.active_trade.status || 'working').toUpperCase()} · entry {journal.active_trade.entry_net_est != null ? `$${Number(journal.active_trade.entry_net_est).toFixed(2)}` : 'n/d'} · mark {journal.active_trade.last_mark_net != null ? `$${Number(journal.active_trade.last_mark_net).toFixed(2)}` : 'n/d'} · capture {journal.active_trade.last_capture_pct != null ? `${Number(journal.active_trade.last_capture_pct).toFixed(1)}%` : 'n/d'}
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="card col-span-5">
             <div className="card-title">Configura il lab</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))', gap: '0.65rem', marginTop: '1rem' }}>
+              {quickPresets.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className="btn btn-outline"
+                  onClick={() => applyOptionsPreset(preset)}
+                  style={{ minHeight: '74px', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'center' }}
+                >
+                  <strong style={{ color: '#e2e8f0' }}>{preset.label}</strong>
+                  <span style={{ color: 'var(--text-secondary)', fontSize: '0.82rem' }}>{preset.note}</span>
+                </button>
+              ))}
+            </div>
             <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
               {[
                 { key: 'enabled', label: 'Lab abilitato', type: 'checkbox' },
@@ -5648,6 +5702,48 @@ function OmniAppInner() {
         </div>
 
         <div className="dashboard-grid" style={{ marginTop: '1rem' }}>
+          <div className="card col-span-12">
+            <div className="card-title">Review automatica sessioni SPY</div>
+            <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem', lineHeight: 1.55 }}>
+              Aureo conserva memoria del desk: quali sessioni reggono meglio, quanto catturi, dove stringere rischio e quando il profilo diventa davvero efficiente.
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '1rem' }}>
+              {[
+                ['Win rate', journal?.total_sessions ? `${Number(journal.win_rate || 0).toFixed(0)}%` : 'n/d', '#10b981'],
+                ['P&L medio', journal?.total_sessions ? `$${Number(journal.average_pnl_usd || 0).toFixed(2)}` : 'n/d', '#38bdf8'],
+                ['Capture medio', journal?.total_sessions ? `${Number(journal.average_capture_pct || 0).toFixed(1)}%` : 'n/d', '#a78bfa'],
+                ['Best run', journal?.best_session ? `${journal.best_session.result_label} · $${Number(journal.best_session.estimated_pnl_usd || 0).toFixed(2)}` : 'n/d', '#22c55e'],
+              ].map(([label, value, tone]) => (
+                <div key={label} style={{ padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: `1px solid ${tone}33` }}>
+                  <div style={{ color: 'var(--text-muted)', fontSize: '0.76rem', textTransform: 'uppercase', letterSpacing: '0.08em' }}>{label}</div>
+                  <strong style={{ color: tone, display: 'block', marginTop: '0.35rem', fontSize: '1.05rem' }}>{value}</strong>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
+              {(journal?.recent_sessions || []).length ? journal.recent_sessions.map((session) => (
+                <div key={session.id || session.closed_at} style={{ padding: '0.85rem 1rem', borderRadius: '14px', background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap' }}>
+                    <strong style={{ color: '#e2e8f0' }}>{session.strategy_label || 'SPY 0DTE'} · {session.result_label || 'Closed'}</strong>
+                    <span style={{ color: Number(session.estimated_pnl_usd || 0) >= 0 ? '#10b981' : '#ef4444' }}>
+                      {Number(session.estimated_pnl_usd || 0) >= 0 ? '+' : ''}${Number(session.estimated_pnl_usd || 0).toFixed(2)}
+                    </span>
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', marginTop: '0.35rem', lineHeight: 1.55 }}>
+                    {session.short_strike != null && session.long_strike != null ? `Strike ${session.short_strike}/${session.long_strike}` : 'Strike n/d'} · entry {session.entry_net_est != null ? `$${Number(session.entry_net_est).toFixed(2)}` : 'n/d'} · close {session.estimated_close_net != null ? `$${Number(session.estimated_close_net).toFixed(2)}` : 'n/d'} · capture {session.last_capture_pct != null ? `${Number(session.last_capture_pct).toFixed(1)}%` : 'n/d'}
+                  </div>
+                  <div style={{ color: '#93c5fd', marginTop: '0.4rem', fontSize: '0.9rem' }}>
+                    Uscita: {session.close_trigger || 'manuale'} · chiusa {session.closed_at ? new Date(session.closed_at).toLocaleString() : 'n/d'}
+                  </div>
+                </div>
+              )) : (
+                <div style={{ color: 'var(--text-secondary)' }}>
+                  Nessuna sessione chiusa ancora: appena SPY completa un ciclo ingresso/uscita, qui troverai la review automatica pronta da leggere.
+                </div>
+              )}
+            </div>
+          </div>
+
           <div className="card col-span-6">
             <div className="card-title">Ordini options recenti</div>
             <div style={{ display: 'grid', gap: '0.75rem', marginTop: '1rem' }}>
