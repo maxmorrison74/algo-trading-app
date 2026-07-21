@@ -38,6 +38,41 @@ from zoneinfo import ZoneInfo
 from uuid import uuid4
 import yfinance as yf
 import pandas as pd
+
+
+STATIC_IMMUTABLE_EXTENSIONS = (
+    ".js", ".mjs", ".css", ".woff2", ".woff", ".ttf",
+    ".png", ".jpg", ".jpeg", ".webp", ".avif", ".svg", ".gif", ".ico"
+)
+
+
+def _static_cache_headers(file_path: str) -> dict:
+    normalized = file_path.lower()
+    if normalized.endswith(".html"):
+        return {
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+        }
+    if normalized.endswith(STATIC_IMMUTABLE_EXTENSIONS):
+        return {
+            "Cache-Control": "public, max-age=31536000, immutable",
+        }
+    if normalized.endswith((".xml", ".txt", ".json", ".webmanifest")):
+        return {
+            "Cache-Control": "public, max-age=3600",
+        }
+    return {
+        "Cache-Control": "public, max-age=86400",
+    }
+
+
+class CacheAwareStaticFiles(StaticFiles):
+    def file_response(self, full_path, stat_result, scope, status_code=200):
+        response = super().file_response(full_path, stat_result, scope, status_code)
+        for header, value in _static_cache_headers(full_path).items():
+            response.headers[header] = value
+        return response
 import sys
 from email.message import EmailMessage
 from urllib.parse import quote_plus
@@ -5894,7 +5929,7 @@ def get_saas_overview_db(admin_token: str = Depends(require_admin)):
 frontend_dist = os.path.join(os.path.dirname(__file__), "..", "frontend", "dist")
 
 if os.path.exists(frontend_dist):
-    app.mount("/assets", StaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
+    app.mount("/assets", CacheAwareStaticFiles(directory=os.path.join(frontend_dist, "assets")), name="assets")
     
     @app.get("/{catchall:path}")
     def serve_react_app(request: Request, catchall: str):
@@ -5904,20 +5939,13 @@ if os.path.exists(frontend_dist):
             
         file_path = os.path.join(frontend_dist, catchall)
         if os.path.isfile(file_path):
-            headers = {}
-            if file_path.endswith(".html"):
-                headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-                headers["Pragma"] = "no-cache"
-                headers["Expires"] = "0"
-            return FileResponse(file_path, headers=headers)
+            return FileResponse(file_path, headers=_static_cache_headers(file_path))
             
         # Per React Router (SPA fallback)
-        headers = {
-            "Cache-Control": "no-cache, no-store, must-revalidate",
-            "Pragma": "no-cache",
-            "Expires": "0"
-        }
-        return FileResponse(os.path.join(frontend_dist, "index.html"), headers=headers)
+        return FileResponse(
+            os.path.join(frontend_dist, "index.html"),
+            headers=_static_cache_headers(os.path.join(frontend_dist, "index.html"))
+        )
 
 # --- LIFECYCLE EVENT FOR AUTORESTART ON BOOT ---
 @app.on_event("startup")
