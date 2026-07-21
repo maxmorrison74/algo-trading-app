@@ -11088,6 +11088,14 @@ function OmniAppInner() {
             <section className="sales-section sales-section--soft" id="landing-privacy">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Privacy dedicata</div>
+                <div className="sales-legal-actions">
+                  <button type="button" className="btn btn-outline sales-legal-action" onClick={() => setShowLanding(false)}>
+                    Chiudi
+                  </button>
+                  <button type="button" className="btn sales-legal-action" style={{ background: 'rgba(255,255,255,0.06)' }} onClick={() => jumpToLandingSection('landing-top')}>
+                    Torna su
+                  </button>
+                </div>
                 <h2>Ti diciamo in modo chiaro quali dati servono ad Aureo e perché</h2>
                 <p>Aureo tratta solo i dati necessari per creare l’account, proteggere l’accesso, inviare conferme email, abilitare il servizio e assisterti durante onboarding e supporto.</p>
               </div>
@@ -11110,6 +11118,14 @@ function OmniAppInner() {
             <section className="sales-section sales-section--soft" id="landing-cookies">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Cookie & Storage</div>
+                <div className="sales-legal-actions">
+                  <button type="button" className="btn btn-outline sales-legal-action" onClick={() => setShowLanding(false)}>
+                    Chiudi
+                  </button>
+                  <button type="button" className="btn sales-legal-action" style={{ background: 'rgba(255,255,255,0.06)' }} onClick={() => jumpToLandingSection('landing-top')}>
+                    Torna su
+                  </button>
+                </div>
                 <h2>Oggi Aureo usa solo strumenti tecnici essenziali, non tracking marketing attivo di default</h2>
                 <p>Login, sicurezza, preferenze di interfaccia e memoria dell’avviso privacy sono le sole funzioni tecniche attive. Se in futuro verranno introdotti strumenti facoltativi, il consenso sarà separato e chiaro.</p>
               </div>

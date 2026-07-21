@@ -4744,6 +4744,18 @@ input:focus, textarea:focus, select:focus {
   margin: 0 auto 4rem;
 }
 
+.sales-legal-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.8rem;
+  margin: 0 0 1rem;
+  flex-wrap: wrap;
+}
+
+.sales-legal-action {
+  min-width: 132px;
+}
+
 .sales-section-eyebrow {
   display: inline-flex;
   align-items: center;
@@ -5820,6 +5832,13 @@ input:focus, textarea:focus, select:focus {
   .legal-modal-card {
     border-radius: 20px;
     max-height: min(88vh, 920px);
+  }
+  .sales-legal-actions {
+    gap: 0.65rem;
+  }
+  .sales-legal-action {
+    width: 100%;
+    min-width: 0;
   }
   .legal-modal-grid {
     grid-template-columns: 1fr;
