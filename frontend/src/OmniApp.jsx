@@ -353,10 +353,10 @@ const LegalModal = ({ open, mode = 'privacy', onClose, onSwitchMode }) => {
           {isPrivacy ? (
             <>
               <div className="legal-modal-kicker">Informativa privacy</div>
-              <h2>Come vengono trattati i dati in Aureo</h2>
+              <h2>Come Aureo tratta dati, accessi e sicurezza</h2>
               <p>
-                Aureo tratta i dati necessari per creare e gestire l’account, proteggere l’accesso,
-                erogare il servizio e assisterti durante onboarding, rinnovi e supporto operativo.
+                Aureo tratta i dati strettamente necessari per creare e gestire l’account, proteggere l’accesso,
+                erogare il servizio, inviare conferme email e assisterti durante onboarding, rinnovi e supporto operativo.
               </p>
               <div className="legal-modal-grid">
                 <div className="legal-modal-panel">
@@ -367,7 +367,7 @@ const LegalModal = ({ open, mode = 'privacy', onClose, onSwitchMode }) => {
                   </p>
                 </div>
                 <div className="legal-modal-panel">
-                  <h3>Dati che possono essere raccolti</h3>
+                  <h3>Dati che possono essere trattati</h3>
                   <ul>
                     <li>Email, password hash e dati di profilo</li>
                     <li>Stato dell’account, attivazioni e scadenze</li>
@@ -376,7 +376,7 @@ const LegalModal = ({ open, mode = 'privacy', onClose, onSwitchMode }) => {
                   </ul>
                 </div>
                 <div className="legal-modal-panel">
-                  <h3>Perché vengono usati</h3>
+                  <h3>Finalità del trattamento</h3>
                   <ul>
                     <li>Autenticazione e sicurezza dell’accesso</li>
                     <li>Erogazione delle funzioni richieste</li>
@@ -385,8 +385,9 @@ const LegalModal = ({ open, mode = 'privacy', onClose, onSwitchMode }) => {
                   </ul>
                 </div>
                 <div className="legal-modal-panel">
-                  <h3>Conservazione e diritti</h3>
+                  <h3>Basi e diritti</h3>
                   <ul>
+                    <li>Base principale: esecuzione del servizio richiesto e sicurezza dell’account</li>
                     <li>I dati restano per il tempo necessario al servizio e agli obblighi di sicurezza</li>
                     <li>Puoi chiedere accesso, rettifica, cancellazione o limitazione</li>
                     <li>Puoi scrivere a {PRIVACY_CONTACT_EMAIL} per richieste privacy</li>
@@ -394,21 +395,21 @@ const LegalModal = ({ open, mode = 'privacy', onClose, onSwitchMode }) => {
                 </div>
               </div>
               <div className="legal-modal-note">
-                Ultimo aggiornamento: {LEGAL_UPDATED_AT}. Questo testo è una base operativa del sito e va eventualmente
-                rifinito con consulenza legale se attiverai analytics, advertising o terze parti di profilazione.
+                Ultimo aggiornamento: {LEGAL_UPDATED_AT}. Se in futuro verranno attivati analytics avanzati, advertising,
+                remarketing o fornitori terzi aggiuntivi, questa informativa dovrà essere aggiornata di conseguenza.
               </div>
             </>
           ) : (
             <>
               <div className="legal-modal-kicker">Cookie & storage</div>
-              <h2>Cosa usa oggi il sito sul tuo dispositivo</h2>
+              <h2>Cookie, storage locale e consenso</h2>
               <p>
                 Aureo usa al momento solo strumenti tecnici e di memorizzazione locale strettamente necessari al
-                funzionamento del sito e dell’area riservata. Non risultano attivi cookie di profilazione o marketing di default.
+                funzionamento del sito e dell’area riservata. Non risultano attivi cookie di profilazione, advertising o marketing di default.
               </p>
               <div className="legal-modal-grid">
                 <div className="legal-modal-panel">
-                  <h3>Strumenti tecnici attivi</h3>
+                  <h3>Strumenti tecnici attivi oggi</h3>
                   <ul>
                     <li>Sessione di accesso</li>
                     <li>Stato demo e preferenze dell’interfaccia</li>
@@ -417,7 +418,7 @@ const LegalModal = ({ open, mode = 'privacy', onClose, onSwitchMode }) => {
                   </ul>
                 </div>
                 <div className="legal-modal-panel">
-                  <h3>Base giuridica</h3>
+                  <h3>Quando serve il consenso</h3>
                   <p>
                     Per strumenti tecnici e strettamente necessari è richiesta l’informativa, non il consenso preventivo.
                     Se in futuro verranno attivati analytics non anonimizzati, advertising o profilazione, Aureo mostrerà
@@ -425,15 +426,16 @@ const LegalModal = ({ open, mode = 'privacy', onClose, onSwitchMode }) => {
                   </p>
                 </div>
                 <div className="legal-modal-panel">
-                  <h3>Come revocare o pulire</h3>
+                  <h3>Revoca, rimozione e controllo</h3>
                   <ul>
                     <li>Puoi cancellare cookie e dati del sito dalle impostazioni del browser</li>
                     <li>La rimozione può comportare logout e reset di alcune preferenze</li>
                     <li>Puoi sempre riaprire questa informativa dal footer</li>
+                    <li>Un eventuale rifiuto futuro di cookie facoltativi sarà semplice quanto l’accettazione</li>
                   </ul>
                 </div>
                 <div className="legal-modal-panel">
-                  <h3>Trasparenza futura</h3>
+                  <h3>Trasparenza su strumenti futuri</h3>
                   <p>
                     Se verranno introdotti strumenti di misurazione o marketing, aggiorneremo questa sezione, la
                     privacy policy e il meccanismo di scelta granulare dell’utente.
@@ -442,7 +444,7 @@ const LegalModal = ({ open, mode = 'privacy', onClose, onSwitchMode }) => {
               </div>
               <div className="legal-modal-note">
                 Riferimento operativo: cookie e altri strumenti tecnici oggi usati solo per autenticazione, sicurezza,
-                preferenze e continuità dell’esperienza.
+                preferenze e continuità dell’esperienza. Nessun tracciamento marketing attivo senza consenso separato.
               </div>
             </>
           )}
@@ -4378,18 +4380,18 @@ function OmniAppInner() {
   const cookieNotice = isCookieNoticeVisible ? (
     <div className="cookie-notice-banner">
       <div className="cookie-notice-copy">
-        <strong>Privacy & Cookie</strong>
+        <strong>Privacy & Cookie essenziali</strong>
         <span>
           Questo sito usa solo cookie tecnici e storage locale necessari a login, sicurezza e preferenze.
-          Nessuna profilazione marketing attiva di default.
+          Nessun tracking marketing o profilazione attivi di default.
         </span>
       </div>
       <div className="cookie-notice-actions">
         <button type="button" className="btn btn-outline cookie-notice-button" onClick={() => openLegalModal('cookies')}>
-          Dettagli
+          Leggi i dettagli
         </button>
         <button type="button" className="btn btn-start cookie-notice-button" onClick={acknowledgeCookieNotice}>
-          Ho capito
+          Continua
         </button>
       </div>
     </div>
@@ -10407,6 +10409,20 @@ function OmniAppInner() {
         text: 'Non vieni lasciato solo: accesso, chiavi e primi passaggi sono pensati per portarti dentro Aureo con ordine.',
       },
     ];
+    const landingTrustLegalBlocks = [
+      {
+        title: 'Privacy chiara fin dal primo ingresso',
+        text: 'Sai subito quali dati servono, perché vengono trattati e come contattarci per privacy, accesso o cancellazione.',
+      },
+      {
+        title: 'Cookie tecnici separati da tutto il resto',
+        text: 'I cookie strettamente necessari sostengono login, sicurezza e preferenze. Strumenti di analisi o marketing richiedono un consenso separato prima di attivarsi.',
+      },
+      {
+        title: 'Scelte semplici anche dopo il sì',
+        text: 'Puoi sempre riaprire le informative, rivedere le tue scelte e cancellare dati locali dal browser senza passaggi nascosti.',
+      },
+    ];
     const landingFaq = [
       {
         question: 'Cos’è Aureo OS?',
@@ -10457,7 +10473,7 @@ function OmniAppInner() {
 
           <nav className="sales-nav">
             <a href="#landing-top" className="sales-logo">
-              <img src="/aureoos-logo.png" alt="Aureo OS" />
+              <img src="/aureoos-logo.png" alt="Logo Aureo OS, piattaforma di trading AI per crypto e azioni" />
             </a>
             <div className="sales-nav-links">
               <a href="#landing-features">Funzionalità</a>
@@ -10498,10 +10514,10 @@ function OmniAppInner() {
                 </p>
                 <div className="sales-hero-buttons">
                   <button className="btn btn-start btn-large" onClick={openPricingSection}>
-                    Scegli il tuo accesso
+                    Attiva la prova full power
                   </button>
                   <button className="btn btn-outline btn-large" onClick={startTour}>
-                    Guarda il tour privato
+                    Guarda Aureo in anteprima
                   </button>
                 </div>
                 <div className="sales-hero-proof-list">
@@ -10613,7 +10629,7 @@ function OmniAppInner() {
 
             <section className="sales-section sales-section--soft" id="landing-guides">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Guide tematiche Aureo</div>
+                <div className="sales-section-eyebrow">Guide Aureo</div>
                 <h2>Quattro porte d’ingresso chiare per chi cerca un crypto bot, una dashboard investimenti o segnali AI</h2>
                 <p>Ogni guida rafforza una ricerca reale e porta dentro Aureo con una promessa più precisa, più credibile e più facile da capire.</p>
               </div>
@@ -10671,7 +10687,7 @@ function OmniAppInner() {
 
             <section className="sales-section">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Perché funziona meglio</div>
+                <div className="sales-section-eyebrow">Perché Aureo ti aiuta di più</div>
                 <h2>Aureo non prova a impressionarti con più rumore: prova a farti lavorare meglio</h2>
                 <p>La differenza si sente quando torni ogni giorno dentro la piattaforma: capisci più in fretta, navighi con meno attrito e tieni il focus su ciò che conta.</p>
               </div>
@@ -10795,8 +10811,8 @@ function OmniAppInner() {
             <section className="sales-section" id="landing-pricing">
               <div className="sales-section-header">
                 <div className="sales-section-eyebrow">Step di accesso</div>
-                <h2>Scegli come vuoi entrare: prima full power, poi continuità mensile o annuale</h2>
-                <p>La logica è semplice: prima capisci davvero il livello di Aureo, poi scegli il ritmo con cui vuoi continuare a usarlo.</p>
+                <h2>Entra per una settimana full power, poi scegli se continuare ogni mese o fissare l’anno</h2>
+                <p>Prima vedi Aureo nel suo livello completo. Poi decidi se tenerlo attivo con una formula mensile o con una continuità annuale più conveniente.</p>
               </div>
               <div className="sales-pricing-grid">
                 {landingPlans.map((plan) => (
@@ -10815,9 +10831,9 @@ function OmniAppInner() {
                       ))}
                     </div>
                     <button className="btn btn-start sales-pricing-button" onClick={() => continueWithPlan(plan.id)}>
-                      Attiva {plan.name}
+                      {plan.id === 'week_pass' ? 'Inizia ora' : plan.id === 'monthly' ? 'Continua mese per mese' : 'Blocca l’accesso annuale'}
                     </button>
-                    <div className="sales-pricing-footnote">Attivazione finale verificata manualmente</div>
+                    <div className="sales-pricing-footnote">Accesso verificato e attivazione accompagnata</div>
                   </article>
                 ))}
               </div>
@@ -10826,7 +10842,7 @@ function OmniAppInner() {
             {selectedPlan && (
               <section className="sales-section sales-section--onboarding" id="landing-plan-onboarding">
                 <div className="sales-inline-plan">
-                  <div className="sales-inline-plan-badge">Step selezionato</div>
+                  <div className="sales-inline-plan-badge">Accesso selezionato</div>
                   <h3>{selectedPlan.name}</h3>
                   <div className="sales-pricing-kicker">{selectedPlan.tagline || 'Percorso Aureo'}</div>
                   <p>{selectedPlan.description}</p>
@@ -10848,7 +10864,7 @@ function OmniAppInner() {
                         ? 'Inserisci i tuoi dati, conferma la mail e ti accompagniamo nei prossimi passaggi senza rompere l’esperienza.'
                         : 'Se hai già il tuo accesso, rientra qui e riprendi il percorso esattamente da dove lo avevi lasciato.'}
                     </p>
-                    <div className="sales-inline-form-note">Dopo la richiesta ricevi una mail di conferma e i passaggi per completare attivazione, chiavi e accesso in modo ordinato.</div>
+                    <div className="sales-inline-form-note">Dopo la richiesta ricevi una mail di conferma e i passaggi per completare attivazione, chiavi essenziali e ingresso nell’area riservata.</div>
                     <div className="sales-inline-form-legal">
                       Proseguendo confermi di aver letto <button type="button" onClick={() => openLegalModal('privacy')}>Informativa Privacy</button> e <button type="button" onClick={() => openLegalModal('cookies')}>Cookie & Storage</button>.
                     </div>
@@ -10886,7 +10902,7 @@ function OmniAppInner() {
                     </div>
                   )}
                   <button type="submit" className="btn btn-start sales-submit-button">
-                    {isRegistering ? `Richiedi attivazione ${selectedPlan.name}` : `Accedi e prosegui`}
+                    {isRegistering ? `Richiedi ${selectedPlan.name}` : `Entra e continua`}
                   </button>
                   {!!pendingVerificationEmail && (
                     <button
@@ -10971,7 +10987,23 @@ function OmniAppInner() {
 
             <section className="sales-section sales-section--soft">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Domande importanti</div>
+                <div className="sales-section-eyebrow">Privacy & Trust</div>
+                <h2>Trasparenza, cookie tecnici e regole chiare fanno salire la fiducia ancora prima del login</h2>
+                <p>Un ambiente premium deve essere chiaro anche su dati, consenso e strumenti tecnici. Per questo Aureo mostra subito cosa usa, cosa non usa e come puoi gestire le tue scelte.</p>
+              </div>
+              <div className="sales-support-grid">
+                {landingTrustLegalBlocks.map((item) => (
+                  <article key={item.title} className="sales-support-card">
+                    <h3>{item.title}</h3>
+                    <p>{item.text}</p>
+                  </article>
+                ))}
+              </div>
+            </section>
+
+            <section className="sales-section sales-section--soft">
+              <div className="sales-section-header">
+                <div className="sales-section-eyebrow">Le domande che contano</div>
                 <h2>Le risposte che ti servono sono già qui, senza costringerti a inseguire spiegazioni</h2>
                 <p>Se una pagina vende bene, chiarisce subito i dubbi veri. Qui lo fa parlando a te in modo semplice, diretto e più autorevole.</p>
               </div>
@@ -10987,7 +11019,7 @@ function OmniAppInner() {
 
             <section className="sales-section sales-section--soft">
               <div className="sales-section-header">
-                <div className="sales-section-eyebrow">Obiezioni reali</div>
+                <div className="sales-section-eyebrow">Prima di entrare</div>
                 <h2>Le domande che ti fai prima di entrare sono normali. Aureo è costruito anche per questo.</h2>
                 <p>Quando un utente capisce subito se la piattaforma è adatta a lui, la fiducia sale e la scelta diventa più naturale.</p>
               </div>
@@ -11004,8 +11036,8 @@ function OmniAppInner() {
             <section className="sales-cta">
               <div className="sales-cta-box">
                 <div className="sales-cta-content">
-                  <img src="/aureoos-logo.png" alt="Aureo OS" className="sales-cta-logo" />
-                  <div className="sales-section-eyebrow">Call to action finale</div>
+                  <img src="/aureoos-logo.png" alt="Logo Aureo OS, accesso riservato alla control room trading" className="sales-cta-logo" />
+                  <div className="sales-section-eyebrow">Ingresso Aureo</div>
                   <h2>Se vuoi capire davvero Aureo, il modo giusto è entrarci dentro</h2>
                   <p>Inizi con una settimana full power, tocchi con mano il livello dell’ambiente e poi scegli se renderlo parte stabile della tua operatività.</p>
                   <div className="sales-trust-row">
@@ -11014,8 +11046,8 @@ function OmniAppInner() {
                     ))}
                   </div>
                   <div className="sales-hero-buttons sales-hero-buttons--center">
-                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Scegli il tuo accesso</button>
-                    <button className="btn btn-outline btn-large" onClick={startTour}>Guarda il tour privato</button>
+                    <button className="btn btn-start btn-large" onClick={openPricingSection}>Attiva la prova full power</button>
+                    <button className="btn btn-outline btn-large" onClick={startTour}>Guarda Aureo in anteprima</button>
                   </div>
                   <div className="sales-cta-note">Accesso finale sempre verificato e abilitato in modo controllato.</div>
                 </div>
@@ -11026,9 +11058,9 @@ function OmniAppInner() {
               <div className="sales-footer-grid">
                 <div className="sales-footer-brand">
                   <a href="#landing-top" className="sales-logo">
-                    <img src="/aureoos-logo.png" alt="Aureo OS" />
+                    <img src="/aureoos-logo.png" alt="Logo Aureo OS, piattaforma trading AI privata" />
                   </a>
-                  <p>Un’esperienza privata e premium pensata per controllo, chiarezza, protezione e accessi guidati.</p>
+                  <p>Una piattaforma privata di trading AI pensata per controllo, chiarezza, protezione e accessi guidati.</p>
                 </div>
                 <div className="sales-footer-links">
                   <h4>Prodotto</h4>
@@ -11070,7 +11102,7 @@ function OmniAppInner() {
     return (
       <div className="omni-app" style={{ justifyContent: 'center', alignItems: 'center' }}>
         <div className="card private-access-card" style={{ textAlign: 'center', width: '440px', padding: '3rem 2rem' }}>
-          <img src="/aureoos-logo.png" alt="Aureo OS" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
+          <img src="/aureoos-logo.png" alt="Logo Aureo OS, accesso riservato alla piattaforma trading AI" style={{ maxWidth: '100%', maxHeight: '140px', marginBottom: '1.5rem', objectFit: 'contain' }} />
           <div className="private-access-badge">Private Access</div>
           <h2 className="private-access-title">Ingresso riservato alla control room Aureo</h2>
           <p className="private-access-text">Accedi con le tue credenziali per entrare nell’ambiente operativo, oppure apri il tour privato per mostrare l’esperienza senza attivare funzioni live.</p>
@@ -11157,7 +11189,7 @@ function OmniAppInner() {
       <div className="sidebar">
         <div className="sidebar-header" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div className="sidebar-brand-row" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%' }}>
-            <img src="/aureoos-logo.png" alt="Aureo OS" style={{ width: '200px', maxWidth: '100%', height: 'auto', objectFit: 'contain' }} />
+            <img src="/aureoos-logo.png" alt="Logo Aureo OS, control room privata per crypto e azioni" style={{ width: '200px', maxWidth: '100%', height: 'auto', objectFit: 'contain' }} />
           </div>
           <div className="sidebar-brand-tagline" style={{ width: '200px', maxWidth: '100%', fontSize: '0.7rem', color: '#888', marginTop: '0.5rem', letterSpacing: '1px', textAlign: 'center' }}>CRYPTO & INVESTMENT TRADING</div>
         </div>
