@@ -4661,6 +4661,7 @@ input:focus, textarea:focus, select:focus {
 
 .sales-section {
   padding: 6rem 5%;
+  scroll-margin-top: 170px;
 }
 
 .sales-section--soft {
@@ -5446,7 +5447,7 @@ input:focus, textarea:focus, select:focus {
 .legal-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 130;
+  z-index: 2200;
   background: rgba(2, 6, 23, 0.78);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
@@ -5473,6 +5474,7 @@ input:focus, textarea:focus, select:focus {
   position: absolute;
   top: 1rem;
   right: 1rem;
+  z-index: 2;
   width: 2.35rem;
   height: 2.35rem;
   border-radius: 999px;
@@ -5744,6 +5746,9 @@ input:focus, textarea:focus, select:focus {
 }
 
 @media (max-width: 768px) {
+  .sales-section {
+    scroll-margin-top: 190px;
+  }
   .sales-topbar {
     flex-direction: column;
     align-items: flex-start;
